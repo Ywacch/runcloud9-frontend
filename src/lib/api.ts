@@ -1,0 +1,187 @@
+import { getAccessToken } from './auth'
+
+/**
+ * Same-origin prefix for deployment APIs (`/deployments/...`).
+ * Override with `VITE_DEPLOYMENTS_API_PREFIX` when the dashboard is served from a different host than the API.
+ */
+export const DEPLOYMENTS_API_PREFIX =
+  (import.meta.env.VITE_DEPLOYMENTS_API_PREFIX as string | undefined)?.replace(
+    /\/$/,
+    '',
+  ) ?? '/deployments'
+
+const API_BASE = DEPLOYMENTS_API_PREFIX
+
+export interface DeploymentDesign {
+  version: string
+  template: string
+  archetype: string
+  nodes: DeploymentNode[]
+  connections: DeploymentConn[]
+}
+
+export interface DeploymentNode {
+  id: string
+  type: string
+  name: string
+  config: Record<string, unknown>
+}
+
+export interface DeploymentConn {
+  sourceId: string
+  targetId: string
+  protocol: string
+}
+
+export interface DeploymentResult {
+  deploymentId: string
+  namespace: string
+  status: string
+  seeded?: boolean
+  error?: string
+  assessment?: {
+    verdict: string
+    explanation: string
+  }
+}
+
+export interface LoadProfile {
+  rps: number
+  durationSeconds?: number
+  template?: string
+  baseUrl?: string
+  distribution?: Record<string, number>
+}
+
+export interface TemplateInfo {
+  id: string
+  name: string
+  description: string
+  components: number
+  bottleneck: string
+  available: boolean
+  premium: boolean
+  simulatable: boolean
+  deployable: boolean
+  tags: string[]
+}
+
+/**
+ * Fetch the template registry from the backend.
+ * Path: strip "/deployments" suffix from DEPLOYMENTS_API_PREFIX and replace with "/templates".
+ */
+export async function getTemplates(): Promise<TemplateInfo[]> {
+  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await fetch(`${base}/templates`)
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<TemplateInfo[]>
+}
+
+/** JSON `{ "error": "..." }` or plain text — same parsing as other deployment API calls. */
+export async function readApiErrorMessage(res: Response): Promise<string> {
+  const text = await res.text()
+  if (!text) return res.statusText || `HTTP ${res.status}`
+  try {
+    const j = JSON.parse(text) as { error?: string }
+    if (typeof j.error === 'string') return j.error
+  } catch {
+    /* not JSON */
+  }
+  return text.slice(0, 200)
+}
+
+export async function createDeployment(
+  design: DeploymentDesign
+): Promise<DeploymentResult> {
+  const token = getAccessToken()
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(design),
+  })
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<DeploymentResult>
+}
+
+export async function deleteDeployment(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+}
+
+/** GET /deployments/{id} — id is the deployment namespace (e.g. cloud9-url-shortener-…). */
+export interface DeploymentRecord {
+  id: string
+  namespace?: string
+  status: string
+  expiresAt: string
+  template?: string
+}
+
+export async function getDeployment(id: string): Promise<DeploymentRecord> {
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`)
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<DeploymentRecord>
+}
+
+export async function startLoadGen(
+  id: string,
+  profile?: Partial<LoadProfile>
+): Promise<void> {
+  const body: LoadProfile = {
+    rps: profile?.rps ?? 50,
+    durationSeconds: profile?.durationSeconds ?? 0,
+    template: profile?.template,
+    baseUrl: profile?.baseUrl,
+    distribution: profile?.distribution,
+  }
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+}
+
+export async function stopLoadGen(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+}
+
+/**
+ * Build `/deployments/{id}/proxy/{component}` with optional path segments.
+ * `pathSuffix` may be e.g. `shorten`, `abc123`, or `a/b` (each segment URL-encoded).
+ */
+export function deploymentProxyUrl(
+  deploymentId: string,
+  component: string,
+  pathSuffix?: string
+): string {
+  const base = `${API_BASE}/${encodeURIComponent(deploymentId)}/proxy/${encodeURIComponent(component)}`
+  const raw = (pathSuffix ?? '').trim().replace(/^\/+/, '')
+  if (!raw) return base
+  const encoded = raw
+    .split('/')
+    .filter((s) => s.length > 0)
+    .map((s) => encodeURIComponent(s))
+    .join('/')
+  return `${base}/${encoded}`
+}
+
+export function connectMetricsWS(id: string): WebSocket {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const url = `${proto}://${location.host}${API_BASE}/${encodeURIComponent(id)}/metrics`
+  return new WebSocket(url)
+}
+
+export function connectLogsWS(id: string): WebSocket {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const url = `${proto}://${location.host}${API_BASE}/${encodeURIComponent(id)}/logs`
+  return new WebSocket(url)
+}

@@ -1,0 +1,240 @@
+import { useEffect, useRef } from 'react'
+import { connectMetricsWS } from '../lib/api'
+import { idleClientLoadgenBucket } from '../lib/clientMetrics'
+import { exitLiveSessionDueToRemoteEnd } from '../lib/sessionCapture'
+import { CLIENT_LOADGEN_ID } from '../lib/spawnClientNode'
+import { backendComponentToCanvasType } from '../lib/typeMapping'
+import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
+import {
+  useMetricsStore,
+  type MetricsBucket,
+} from '../store/metricsStore'
+
+interface WsComponentMetrics {
+  component?: string
+  cpuUsage?: number
+  memoryUsage?: number
+  memoryBytes?: number
+  requestRate?: number
+  errorRate?: number
+  totalRequests?: number
+  p50Latency?: number
+  p95Latency?: number
+  p99Latency?: number
+  avgLatency?: number
+  cacheHits?: number
+  cacheMisses?: number
+  cacheHitsLast9m?: number
+  cacheMissesLast9m?: number
+  dbQueryRate?: number
+  dbActiveConnections?: number
+  /** Go backend: seconds */
+  dbQueryLatency?: number
+  dbTotalQueries?: number
+  cpuLimit?: number
+  memoryLimit?: number
+  cpuIsEstimated?: boolean
+  memIsEstimated?: boolean
+}
+
+interface WsDeploymentMetrics {
+  timestamp?: string
+  namespace?: string
+  components?: Record<string, WsComponentMetrics>
+  loadgen?: {
+    active?: boolean
+    currentRps?: number
+    totalRequests?: number
+    successRate?: number
+    /** Go LoadStats: elapsed run time (seconds) */
+    durationSeconds?: number
+  }
+}
+
+function nodeIdsForBackendKey(
+  nodes: Record<string, CanvasNode>,
+  backendKey: string
+): string[] {
+  const canvasType = backendComponentToCanvasType[backendKey]
+  if (!canvasType) return []
+  return Object.values(nodes)
+    .filter((n) => n.type === canvasType)
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((n) => n.id)
+}
+
+function pctFromLimit(usage: number, limit: number): number {
+  if (limit <= 0 || !Number.isFinite(limit)) return 0
+  return Math.min(100, Math.round((usage / limit) * 100))
+}
+
+function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
+  const cpu = cm.cpuUsage ?? 0
+  const mem = cm.memoryBytes ?? cm.memoryUsage ?? 0
+  const cpuLimit = cm.cpuLimit ?? 0
+  const memLimit = cm.memoryLimit ?? 0
+  const requestRate = cm.requestRate ?? 0
+  const p99Sec = cm.p99Latency ?? 0
+  const dbLatSec = cm.dbQueryLatency ?? 0
+  const avgFromDbMs = dbLatSec * 1000
+  const avgLatency =
+    (cm.avgLatency ?? 0) > 0 ? (cm.avgLatency as number) : avgFromDbMs
+
+  const cpuPercent =
+    cpuLimit > 0
+      ? pctFromLimit(cpu, cpuLimit)
+      : Math.min(100, Math.round(cpu * 100))
+  const memPercent =
+    memLimit > 0
+      ? pctFromLimit(mem, memLimit)
+      : Math.min(100, Math.round((mem / (512 * 1024 * 1024)) * 100))
+
+  return {
+    cpuUsage: cpu,
+    cpuPercent,
+    memoryBytes: mem,
+    memPercent,
+    cpuIsEstimated: Boolean(cm.cpuIsEstimated),
+    memIsEstimated: Boolean(cm.memIsEstimated),
+    cpuLimit: cm.cpuLimit ?? 0,
+    memoryLimit: cm.memoryLimit ?? 0,
+    requestRate,
+    errorRate: cm.errorRate ?? 0,
+    totalRequests: Math.round(cm.totalRequests ?? 0),
+    p50Latency: cm.p50Latency ?? 0,
+    p95Latency: cm.p95Latency ?? 0,
+    p99Latency: p99Sec * 1000,
+    avgLatency,
+    cacheHits: Math.round(cm.cacheHits ?? 0),
+    cacheMisses: Math.round(cm.cacheMisses ?? 0),
+    cacheHitsLast9m: Math.round(cm.cacheHitsLast9m ?? 0),
+    cacheMissesLast9m: Math.round(cm.cacheMissesLast9m ?? 0),
+    dbQueryRate: cm.dbQueryRate ?? 0,
+    dbActiveConnections: Math.round(cm.dbActiveConnections ?? 0),
+    podCount: 1,
+    lastUpdated: Date.now(),
+    qps: Math.round(requestRate),
+  }
+}
+
+function applyMessage(payload: WsDeploymentMetrics): void {
+  const nodes = useCanvasStore.getState().nodes
+  const updateMetrics = useMetricsStore.getState().updateMetrics
+  const updateNodeStatus = useCanvasStore.getState().updateNodeStatus
+
+  const components = payload.components ?? {}
+  for (const [backendKey, cm] of Object.entries(components)) {
+    if (!cm) continue
+    const ids = nodeIdsForBackendKey(nodes, backendKey)
+    const bucket = componentToBucket(cm)
+    const err = cm.errorRate ?? 0
+    const degraded = err > 0.25
+    const status = degraded ? 'degraded' : 'healthy'
+    for (const id of ids) {
+      updateMetrics(id, bucket)
+      updateNodeStatus(id, status)
+    }
+  }
+
+  const lg = payload.loadgen
+  if (lg) {
+    const rps = Number(lg.currentRps ?? 0)
+    useMetricsStore.getState().setLoadgen({
+      active: Boolean(lg.active),
+      currentRps: rps,
+      targetRps: rps,
+      totalRequests: Number(lg.totalRequests ?? 0),
+      successRate: Number(lg.successRate ?? 0),
+      durationSeconds: 0,
+      elapsedSeconds: Number(lg.durationSeconds ?? 0),
+    })
+  }
+
+  if (lg && nodes[CLIENT_LOADGEN_ID]) {
+    const rps = lg.active ? Number(lg.currentRps ?? 0) : 0
+    const clientBucket: MetricsBucket = {
+      ...idleClientLoadgenBucket(),
+      requestRate: rps,
+      totalRequests: Math.round(lg.totalRequests ?? 0),
+      qps: Math.round(rps),
+    }
+    updateMetrics(CLIENT_LOADGEN_ID, clientBucket)
+  }
+}
+
+export function useMetricsSync(deploymentId: string | null): void {
+  const retryRef = useRef(0)
+  const wsRef = useRef<WebSocket | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    retryRef.current = 0
+
+    const clearTimer = () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+
+    const closeWs = () => {
+      if (wsRef.current) {
+        wsRef.current.onopen = null
+        wsRef.current.onclose = null
+        wsRef.current.onerror = null
+        wsRef.current.onmessage = null
+        wsRef.current.close()
+        wsRef.current = null
+      }
+    }
+
+    if (!deploymentId) {
+      clearTimer()
+      closeWs()
+      return
+    }
+
+    const connect = () => {
+      clearTimer()
+      closeWs()
+
+      const ws = connectMetricsWS(deploymentId)
+      wsRef.current = ws
+
+      ws.onmessage = (ev) => {
+        retryRef.current = 0
+        try {
+          const data = JSON.parse(ev.data as string) as WsDeploymentMetrics
+          applyMessage(data)
+        } catch {
+          /* ignore bad frame */
+        }
+      }
+
+      ws.onerror = () => {
+        /* onclose will handle reconnect */
+      }
+
+      ws.onclose = () => {
+        wsRef.current = null
+        const st = useCanvasStore.getState()
+        if (st.deploymentId !== deploymentId) return
+        const maxRetries = 5
+        if (retryRef.current >= maxRetries) {
+          exitLiveSessionDueToRemoteEnd()
+          return
+        }
+        const delay = Math.min(30_000, 1000 * Math.pow(2, retryRef.current))
+        retryRef.current += 1
+        timerRef.current = setTimeout(connect, delay)
+      }
+    }
+
+    connect()
+
+    return () => {
+      clearTimer()
+      closeWs()
+    }
+  }, [deploymentId])
+}
