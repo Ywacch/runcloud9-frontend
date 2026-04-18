@@ -5,9 +5,14 @@ export type DesignTool = 'select' | 'connect' | 'erase'
 
 export type CanvasMode = 'design' | 'live' | 'simulate'
 
-/** True when the canvas is editable like design (not a live deployment session). */
+/** True when the user can move nodes, connect, erase, and place components (not live or simulation view). */
 export function isCanvasEditMode(mode: CanvasMode): boolean {
   return mode === 'design' || mode === 'simulate'
+}
+
+/** Live deploy or local simulation — show metrics, particles, inspector read-only. */
+export function isMetricsViewportMode(mode: CanvasMode): boolean {
+  return mode === 'live' || mode === 'simulate'
 }
 
 export interface CanvasNode {
@@ -105,6 +110,11 @@ interface CanvasState {
   setAllEdgesAnimated: (animated: boolean) => void
   exportJSON: () => CanvasSnapshot
   loadJSON: (snapshot: CanvasSnapshot) => void
+  /** Replace canvas from a template in one update (avoids flicker or invalid intermediate state). */
+  loadTemplateSnapshot: (
+    snapshot: CanvasSnapshot,
+    targetMode: 'design' | 'simulate',
+  ) => void
   clearCanvas: () => void
 }
 
@@ -205,7 +215,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   selectNode: (selectedId) => set({ selectedId }),
 
-  setMode: (mode) => set({ mode }),
+  setMode: (next) =>
+    set({
+      mode: next,
+      ...(next === 'live' || next === 'simulate'
+        ? {
+            pendingSourceId: null,
+            placingNodeType: null,
+            connectHoverTargetId: null,
+            designTool: 'select' as const,
+          }
+        : {}),
+    }),
 
   setDeploymentId: (deploymentId) => set({ deploymentId }),
 
@@ -258,6 +279,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       liveSessionEndsAt: null,
       sessionSummary: null,
       mode: 'design',
+    }),
+
+  loadTemplateSnapshot: (snapshot, targetMode) =>
+    set({
+      nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
+      edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
+      selectedId: null,
+      pendingSourceId: null,
+      designTool: 'select',
+      placingNodeType: null,
+      connectHoverTargetId: null,
+      snapshotTemplateId: snapshot.templateId ?? null,
+      deploymentId: null,
+      liveSessionEndsAt: null,
+      sessionSummary: null,
+      mode: targetMode,
     }),
 
   clearCanvas: () =>

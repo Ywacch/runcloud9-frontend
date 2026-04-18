@@ -1,8 +1,8 @@
 import { type ThreeEvent, useThree } from '@react-three/fiber'
 import { type RefObject } from 'react'
 import * as THREE from 'three'
-import { createCanvasNode } from '../lib/nodeFactory'
-import { isCanvasEditMode, useCanvasStore } from '../store/canvasStore'
+import { placeFromPicker } from '../lib/pickerPlacement'
+import { useCanvasStore } from '../store/canvasStore'
 
 export interface GridFloorProps {
   planeRef: RefObject<THREE.Mesh | null>
@@ -10,8 +10,9 @@ export interface GridFloorProps {
 
 export function GridFloor({ planeRef }: GridFloorProps) {
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
-  const addNode = useCanvasStore((s) => s.addNode)
   const selectNode = useCanvasStore((s) => s.selectNode)
+  const addNode = useCanvasStore((s) => s.addNode)
+  const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
   const setPlacingNodeType = useCanvasStore((s) => s.setPlacingNodeType)
   const { invalidate } = useThree()
 
@@ -20,19 +21,24 @@ export function GridFloor({ planeRef }: GridFloorProps) {
 
     const store = useCanvasStore.getState()
 
-    if (placingNodeType) {
+    if (placingNodeType && store.mode !== 'live') {
       e.stopPropagation()
       const x = Math.round(e.point.x)
       const z = Math.round(e.point.z)
-      const node = createCanvasNode(placingNodeType, [x, 0.3, z], store.nodes)
-      addNode(node)
-      selectNode(node.id)
+      placeFromPicker({
+        nodeType: placingNodeType,
+        position: [x, 0.3, z],
+        nodes: store.nodes,
+        addNode,
+        updateNodeConfig,
+        selectNode,
+      })
       setPlacingNodeType(null)
       invalidate()
       return
     }
 
-    if (isCanvasEditMode(store.mode)) {
+    if (store.mode === 'design' || store.mode === 'simulate') {
       if (store.pendingSourceId) {
         store.setPendingSource(null)
       }

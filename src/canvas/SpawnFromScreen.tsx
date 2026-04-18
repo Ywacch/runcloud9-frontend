@@ -1,7 +1,7 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { createCanvasNode } from '../lib/nodeFactory'
+import { placeFromPicker } from '../lib/pickerPlacement'
 import { SPAWN_AT_SCREEN, type SpawnAtScreenDetail } from '../lib/spawnEvents'
 import { useCanvasStore } from '../store/canvasStore'
 
@@ -24,9 +24,14 @@ export function SpawnFromScreen() {
       const x = Math.round(pt.x)
       const z = Math.round(pt.z)
       const state = useCanvasStore.getState()
-      const node = createCanvasNode(nodeType, [x, 0.3, z], state.nodes)
-      state.addNode(node)
-      state.selectNode(node.id)
+      placeFromPicker({
+        nodeType,
+        position: [x, 0.3, z],
+        nodes: state.nodes,
+        addNode: state.addNode,
+        updateNodeConfig: state.updateNodeConfig,
+        selectNode: state.selectNode,
+      })
       state.setPlacingNodeType(null)
       invalidate()
     }
