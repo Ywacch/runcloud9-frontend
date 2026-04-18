@@ -1,17 +1,18 @@
-import { Edges, Html } from '@react-three/drei'
+import { Edges, Html, Line } from '@react-three/drei'
 import { type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDrag } from '@use-gesture/react'
-import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { computeHealthState } from '../lib/healthThresholds'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import {
   isCanvasEditMode,
+  isMetricsViewportMode,
   useCanvasStore,
   type CanvasNode,
 } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
-import { StatusBadge } from '../ui/StatusBadge'
+import { NodeTooltip } from '../ui/NodeTooltip'
 
 const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 
@@ -49,6 +50,14 @@ export function BaseNode({ node }: BaseNodeProps) {
   const pendingSourceId = useCanvasStore((s) => s.pendingSourceId)
   const updateNodePosition = useCanvasStore((s) => s.updateNodePosition)
   const setConnectHoverTargetId = useCanvasStore((s) => s.setConnectHoverTargetId)
+  const nodeStatus = useCanvasStore((s) => s.nodes[node.id]?.status ?? node.status)
+  const metrics = useMetricsStore((s) => s.metrics[node.id])
+  const nodesById = useCanvasStore((s) => s.nodes)
+  const edgesById = useCanvasStore((s) => s.edges)
+  const [hovered, setHovered] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const expandProgress = useRef(0)
+  const [displayProgress, setDisplayProgress] = useState(0)
 
   const { camera, gl, invalidate: inv } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -59,15 +68,104 @@ export function BaseNode({ node }: BaseNodeProps) {
     isCanvasEditMode(mode) &&
     designTool === 'connect'
   const isClient = node.type === 'client'
-  const { face, edge } = NODE_VISUAL[node.type]
-  const edgeColor = selected ? '#FFD700' : edge
+  const { face, edge, healthEdge } = NODE_VISUAL[node.type]
+  const health = computeHealthState(metrics, nodeStatus)
+  const healthEdgeColor =
+    health === 'error'
+      ? healthEdge.error
+      : health === 'high-load'
+        ? healthEdge.highLoad
+        : edge
+  const edgeColor = selected ? '#FFD700' : healthEdgeColor
+  const replicasRaw = Number(
+    node.type === 'database'
+      ? (node.config.readReplicas ?? 0)
+      : (node.config.replicas ?? 1)
+  )
+  const replicas = Number.isFinite(replicasRaw)
+    ? (node.type === 'database'
+      ? Math.max(0, Math.floor(replicasRaw))
+      : Math.max(1, Math.floor(replicasRaw)))
+    : (node.type === 'database' ? 0 : 1)
+  const visualReplicas = node.type === 'database'
+    ? Math.min(3, replicas + 1)
+    : Math.min(3, replicas)
+  const hasReplicaStack =
+    (
+      node.type === 'compute' ||
+      node.type === 'worker' ||
+      node.type === 'cache' ||
+      node.type === 'database'
+    ) &&
+    visualReplicas > 1
+
+  useEffect(() => {
+    if (!hasReplicaStack || !selected) {
+      setExpanded(false)
+    }
+  }, [hasReplicaStack, selected])
+
+  const connectedNeighborAvgX = useMemo(() => {
+    const neighbors: number[] = []
+    for (const e of Object.values(edgesById)) {
+      if (e.sourceId === node.id && nodesById[e.targetId]) {
+        neighbors.push(nodesById[e.targetId]!.position[0])
+      } else if (e.targetId === node.id && nodesById[e.sourceId]) {
+        neighbors.push(nodesById[e.sourceId]!.position[0])
+      }
+    }
+    if (neighbors.length === 0) return 0
+    return neighbors.reduce((s, v) => s + v, 0) / neighbors.length
+  }, [edgesById, nodesById, node.id])
+
+  const preferredSign = connectedNeighborAvgX >= node.position[0] ? -1 : 1
+
+  const replicaOffsets = useMemo(() => {
+    const out: [number, number, number][] = [[0, 0, 0]]
+    for (let i = 1; i < visualReplicas; i++) {
+      // Camera is at [10,10,10] — "behind" the node from the viewer's perspective
+      // is the +X/+Z direction (away from camera). Step each replica there so it
+      // peeks out from behind the primary in the iso view, like stacked cards.
+      const s = 0.3 * i
+      const collapsed: [number, number, number] = [s, 0, s]
+      const side = i % 2 === 1 ? preferredSign : -preferredSign
+      const step = Math.ceil(i / 2)
+      const expandedOffset: [number, number, number] = [
+        0.55 * side * step,
+        -0.18 * step,
+        0.48 * step,
+      ]
+      const staggerStart = Math.min(0.35, i * 0.12)
+      const localProgress = THREE.MathUtils.clamp(
+        (displayProgress - staggerStart) / (1 - staggerStart),
+        0,
+        1
+      )
+      out.push([
+        THREE.MathUtils.lerp(collapsed[0], expandedOffset[0], localProgress),
+        THREE.MathUtils.lerp(collapsed[1], expandedOffset[1], localProgress),
+        THREE.MathUtils.lerp(collapsed[2], expandedOffset[2], localProgress),
+      ])
+    }
+    return out
+  }, [visualReplicas, preferredSign, displayProgress])
 
   useFrame(() => {
     const mesh = meshRef.current
     if (!mesh) return
     const mat = mesh.material as THREE.MeshStandardMaterial
+    expandProgress.current = THREE.MathUtils.damp(
+      expandProgress.current,
+      expanded ? 1 : 0,
+      7,
+      1 / 60
+    )
+    if (Math.abs(displayProgress - expandProgress.current) > 0.001) {
+      setDisplayProgress(expandProgress.current)
+      inv()
+    }
     const st = useCanvasStore.getState()
-    if (st.mode !== 'live') {
+    if (!isMetricsViewportMode(st.mode)) {
       mat.emissive.set('#000000')
       mat.emissiveIntensity = 0
       return
@@ -86,26 +184,34 @@ export function BaseNode({ node }: BaseNodeProps) {
       /* Canvas uses frameloop="always"; skip invalidate to avoid Html+z-index churn when inspector opens. */
       return
     }
-    if (n.status === 'healthy') {
-      mat.emissive.set('#27AE60')
-      mat.emissiveIntensity = 0.3
-    } else if (n.status === 'degraded') {
-      mat.emissive.set('#E74C3C')
+    const latestMetrics = useMetricsStore.getState().metrics[node.id]
+    const state = computeHealthState(latestMetrics, n.status)
+    if (state === 'normal') {
+      mat.emissive.set('#1E8A54')
+      mat.emissiveIntensity = 0.2
+    } else if (state === 'error') {
+      mat.emissive.set('#E05E8A')
       mat.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.012) * 0.2
-    } else if (n.status === 'provisioning') {
-      mat.emissive.set('#F0A500')
+      inv()
+    } else if (state === 'high-load' || n.status === 'provisioning') {
+      mat.emissive.set('#F0A040')
       mat.emissiveIntensity = 0.2 + Math.sin(Date.now() * 0.003) * 0.15
+      inv()
     } else {
       mat.emissive.set('#000000')
       mat.emissiveIntensity = 0
     }
-    inv()
+    /* Do not invalidate for idle/healthy — constant inv() × N nodes × 60fps breaks drei Html when the inspector opens. */
   })
 
   const bind = useDrag(
     ({ xy: [cx, cy], dragging, buttons }) => {
       if (isClient) return
-      if (!isCanvasEditMode(mode) || designTool !== 'select' || !dragging) return
+      const st = useCanvasStore.getState()
+      const canDragSimulate = st.mode === 'simulate'
+      const canDragDesign =
+        st.mode === 'design' && st.designTool === 'select'
+      if ((!canDragSimulate && !canDragDesign) || !dragging) return
       if (buttons != null && buttons !== 1) return
 
       const rect = gl.domElement.getBoundingClientRect()
@@ -126,12 +232,16 @@ export function BaseNode({ node }: BaseNodeProps) {
     { filterTaps: true, pointer: { capture: true } }
   )
 
-  const dragBind =
-    isCanvasEditMode(mode) && designTool === 'select' ? bind() : {}
+  const dragBind = mode === 'design' || mode === 'simulate' ? bind() : {}
 
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation()
-    if (mode === 'live') {
+    const toggleAllowed =
+      hasReplicaStack &&
+      (isMetricsViewportMode(mode) ||
+        (isCanvasEditMode(mode) && designTool === 'select'))
+    if (toggleAllowed) setExpanded((v) => !v)
+    if (isMetricsViewportMode(mode)) {
       useCanvasStore.getState().selectNode(node.id)
       return
     }
@@ -173,20 +283,73 @@ export function BaseNode({ node }: BaseNodeProps) {
     s.selectNode(node.id)
   }
 
+  // Node box dimensions — height intentionally slim so stacked replicas peek out cleanly
+  const nodeW = isClient ? 1.0 : 1.4
+  const nodeH = isClient ? 0.28 : 0.35
+  const nodeD = isClient ? 1.0 : 1.4
+
   return (
     <group position={node.position}>
       {isPendingSource ? <PendingSourceRing /> : null}
+      {/* Render replica meshes BEFORE the primary so they sit behind it in depth */}
+      {hasReplicaStack
+        ? replicaOffsets.slice(1).map((offset, idx) => {
+            // Slightly darker per step so they read as "further back" — fully opaque.
+            const darken = 1 - (idx + 1) * 0.10
+            const replicaFace = '#' + new THREE.Color(face)
+              .multiplyScalar(darken)
+              .getHexString()
+            return (
+            <group key={`${node.id}-replica-${idx + 1}`} position={offset}>
+              <mesh>
+                <boxGeometry args={[nodeW, nodeH, nodeD]} />
+                <meshStandardMaterial color={replicaFace} roughness={0.7} metalness={0} />
+                <Edges threshold={15} color={edgeColor} />
+              </mesh>
+              {expanded ? (
+                <Html
+                  position={[0, -0.5, 0]}
+                  center
+                  zIndexRange={[20, 10]}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <div className="pointer-events-none rounded bg-black/60 px-1 py-px font-mono text-[9px] text-zinc-200">
+                    replica {idx + 1}
+                  </div>
+                </Html>
+              ) : null}
+              {expanded ? (
+                <Line
+                  points={[
+                    [0, 0, 0],
+                    [-offset[0], -offset[1], -offset[2]],
+                  ]}
+                  raycast={() => null}
+                  color="#9CA3AF"
+                  lineWidth={1}
+                  dashed
+                  dashScale={4}
+                  dashSize={0.4}
+                  gapSize={0.25}
+                  transparent
+                  opacity={0.45}
+                />
+              ) : null}
+            </group>
+          )
+          })
+        : null}
+      {/* Primary node — rendered after replicas so it occludes them in front */}
       <mesh
         ref={meshRef}
         {...dragBind}
         onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-          // R3F emits pointerdown to every hit along the ray; the floor behind the node would clear
-          // pending connect + selection unless we stopPropagation here.
-          if (isCanvasEditMode(mode) && e.button === 0) e.stopPropagation()
-          // use-gesture is typed for React DOM PointerEvent; R3F's ThreeEvent is compatible for drag math.
+          if (e.button === 0) e.stopPropagation()
           dragBind.onPointerDown?.(e as unknown as ReactPointerEvent<HTMLElement>)
         }}
         onClick={handleClick}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
         onPointerOver={() => {
           if (!isCanvasEditMode(mode) || designTool !== 'connect') return
           const pending = useCanvasStore.getState().pendingSourceId
@@ -200,23 +363,51 @@ export function BaseNode({ node }: BaseNodeProps) {
           }
         }}
       >
-        <boxGeometry args={isClient ? [1.0, 0.4, 1.0] : [1.4, 0.6, 1.4]} />
-        <meshStandardMaterial color={face} />
+        <boxGeometry args={[nodeW, nodeH, nodeD]} />
+        <meshStandardMaterial color={face} roughness={0.7} metalness={0} />
         <Edges threshold={15} color={edgeColor} />
       </mesh>
-      <Html position={[0, 0.6, 0]} center zIndexRange={[20, 10]}>
-        <div
-          className="rounded-full bg-white px-1.5 py-0.5 font-sans text-gray-900 shadow"
-          style={{
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-          }}
-        >
-          {node.label}
+      <Html
+        position={[0, 0.6, 0]}
+        center
+        zIndexRange={[20, 10]}
+        style={{ pointerEvents: 'none' }}
+      >
+        <div style={{ pointerEvents: 'none' }}>
+          <div
+            className="rounded-full bg-white px-1.5 py-0.5 font-sans text-gray-900 shadow"
+            style={{
+              fontSize: 11,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {node.label}
+            {hasReplicaStack && !expanded ? (
+              <span className="ml-1 font-mono text-[8px] text-sky-700">
+                {node.type === 'database' ? `+${replicas} read` : `×${replicas}`}
+              </span>
+            ) : null}
+          </div>
+          {hasReplicaStack ? (
+            <div className="mt-1 text-center font-mono text-[8px] text-zinc-300/65">
+              {expanded ? '˄ collapse' : '˄ expand'}
+            </div>
+          ) : null}
+          {hasReplicaStack && expanded ? (
+            <div className="mt-0.5 text-center font-mono text-[8px] text-zinc-200/80">
+              primary
+            </div>
+          ) : null}
         </div>
       </Html>
-      {mode === 'live' ? <StatusBadge nodeId={node.id} /> : null}
+      {isMetricsViewportMode(mode) && hovered ? (
+        <NodeTooltip
+          node={node}
+          metrics={metrics}
+          health={health}
+          align={node.position[0] > 0 ? 'left' : 'right'}
+        />
+      ) : null}
     </group>
   )
 }

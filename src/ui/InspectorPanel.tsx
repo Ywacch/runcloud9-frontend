@@ -1,5 +1,8 @@
 import { NODE_VISUAL } from '../lib/nodeVisual'
-import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
+import {
+  useCanvasStore,
+  type CanvasNode,
+} from '../store/canvasStore'
 import { LiveMetrics } from './LiveMetrics'
 
 const fieldClass =
@@ -22,6 +25,8 @@ export function InspectorPanel() {
 
   const node = selectedId ? (nodes[selectedId] ?? null) : null
   const open = node !== null
+  const liveMode = mode === 'live'
+  const simulationMode = mode === 'simulate'
 
   const onDelete = () => {
     if (!node) return
@@ -46,7 +51,7 @@ export function InspectorPanel() {
             />
             <div className="min-w-0 flex-1">
               <span className={labelClass}>Label</span>
-              {mode !== 'live' ? (
+              {!liveMode ? (
                 <input
                   id="cloud9-inspector-label"
                   type="text"
@@ -70,7 +75,7 @@ export function InspectorPanel() {
             </button>
           </header>
 
-          {mode === 'live' ? (
+          {liveMode ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                 <ReadOnlyConfig node={node} />
@@ -82,8 +87,10 @@ export function InspectorPanel() {
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
                 <TypeFields
                   node={node}
+                  simulationMode={simulationMode}
                   updateConfig={(patch) => updateNodeConfig(node.id, patch)}
                 />
+                {simulationMode ? <LiveMetrics node={node} /> : null}
               </div>
               <div className="shrink-0 border-t border-gray-800 p-4">
                 <button
@@ -175,9 +182,11 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
 
 function TypeFields({
   node,
+  simulationMode,
   updateConfig,
 }: {
   node: CanvasNode
+  simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
 }) {
   const c = node.config
@@ -185,20 +194,103 @@ function TypeFields({
   switch (node.type) {
     case 'load_balancer':
       return (
-        <div>
-          <label className={labelClass} htmlFor="lb-algo">
-            Algorithm
-          </label>
-          <select
-            id="lb-algo"
-            className={fieldClass}
-            value={String(c.algorithm ?? 'round-robin')}
-            onChange={(e) => updateConfig({ algorithm: e.target.value })}
-          >
-            <option value="round-robin">round-robin</option>
-            <option value="least-connections">least-connections</option>
-            <option value="ip-hash">ip-hash</option>
-          </select>
+        <div className="space-y-4">
+          <div>
+            <label className={labelClass} htmlFor="lb-algo">
+              Algorithm
+            </label>
+            <select
+              id="lb-algo"
+              className={fieldClass}
+              value={String(c.algorithm ?? 'round-robin')}
+              onChange={(e) => updateConfig({ algorithm: e.target.value })}
+            >
+              <option value="round-robin">round-robin</option>
+              <option value="weighted">weighted (use backend weights)</option>
+              <option value="least-connections">least-connections</option>
+              <option value="weighted-least-connections">
+                weighted-least-connections
+              </option>
+              <option value="ip-hash">ip-hash</option>
+              <option value="least-response-time">least-response-time</option>
+              <option value="random">random (seeded)</option>
+              <option value="least-bandwidth">least-bandwidth</option>
+            </select>
+          </div>
+          {simulationMode ? (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="lb-cap">
+                  Capacity override (RPS, optional)
+                </label>
+                <input
+                  id="lb-cap"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Auto"
+                  className={fieldClass}
+                  value={
+                    Number.isFinite(Number(c.nodeCapacityRps)) &&
+                    Number(c.nodeCapacityRps) > 0
+                      ? String(Number(c.nodeCapacityRps))
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.trim()
+                    if (!v) {
+                      updateConfig({ nodeCapacityRps: undefined })
+                      return
+                    }
+                    const n = Number(v)
+                    if (Number.isFinite(n) && n > 0) {
+                      updateConfig({ nodeCapacityRps: n })
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="lb-weights">
+                  Backend weights (JSON: node id → weight)
+                </label>
+                <textarea
+                  id="lb-weights"
+                  rows={3}
+                  className={fieldClass}
+                  placeholder='{"app-a":3,"app-b":1}'
+                  defaultValue={
+                    c.backendWeights &&
+                    typeof c.backendWeights === 'object' &&
+                    !Array.isArray(c.backendWeights)
+                      ? JSON.stringify(c.backendWeights, null, 2)
+                      : ''
+                  }
+                  key={JSON.stringify(c.backendWeights ?? null)}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim()
+                    if (!v) {
+                      updateConfig({ backendWeights: undefined })
+                      return
+                    }
+                    try {
+                      const parsed = JSON.parse(v) as unknown
+                      if (
+                        parsed &&
+                        typeof parsed === 'object' &&
+                        !Array.isArray(parsed)
+                      ) {
+                        updateConfig({
+                          backendWeights: parsed as Record<string, number>,
+                        })
+                      }
+                    } catch {
+                      /* keep previous */
+                    }
+                  }}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       )
 
@@ -240,6 +332,38 @@ function TypeFields({
               <option value="large">large</option>
             </select>
           </div>
+          {simulationMode ? (
+            <div>
+              <label className={labelClass} htmlFor="compute-cap">
+                Capacity override (RPS, optional)
+              </label>
+              <input
+                id="compute-cap"
+                type="number"
+                min={1}
+                step={1}
+                placeholder="Auto"
+                className={fieldClass}
+                value={
+                  Number.isFinite(Number(c.nodeCapacityRps)) &&
+                  Number(c.nodeCapacityRps) > 0
+                    ? String(Number(c.nodeCapacityRps))
+                    : ''
+                }
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  if (!v) {
+                    updateConfig({ nodeCapacityRps: undefined })
+                    return
+                  }
+                  const n = Number(v)
+                  if (Number.isFinite(n) && n > 0) {
+                    updateConfig({ nodeCapacityRps: n })
+                  }
+                }}
+              />
+            </div>
+          ) : null}
         </>
       )
     }
@@ -295,6 +419,58 @@ function TypeFields({
               }
             />
           </div>
+          {simulationMode ? (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="db-cap">
+                  Capacity override (RPS, optional)
+                </label>
+                <input
+                  id="db-cap"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Auto"
+                  className={fieldClass}
+                  value={
+                    Number.isFinite(Number(c.nodeCapacityRps)) &&
+                    Number(c.nodeCapacityRps) > 0
+                      ? String(Number(c.nodeCapacityRps))
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.trim()
+                    if (!v) {
+                      updateConfig({ nodeCapacityRps: undefined })
+                      return
+                    }
+                    const n = Number(v)
+                    if (Number.isFinite(n) && n > 0) {
+                      updateConfig({ nodeCapacityRps: n })
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="db-replicas">
+                  Read replicas
+                </label>
+                <input
+                  id="db-replicas"
+                  type="number"
+                  min={0}
+                  max={10}
+                  className={fieldClass}
+                  value={Number(c.readReplicas ?? 0)}
+                  onChange={(e) =>
+                    updateConfig({
+                      readReplicas: clamp(Number(e.target.value) || 0, 0, 10),
+                    })
+                  }
+                />
+              </div>
+            </>
+          ) : null}
         </>
       )
     }
@@ -344,7 +520,9 @@ function TypeFields({
               onChange={(e) => updateConfig({ evictionPolicy: e.target.value })}
             >
               <option value="allkeys-lru">allkeys-lru</option>
+              <option value="lfu">lfu</option>
               <option value="volatile-lru">volatile-lru</option>
+              <option value="volatile-ttl">volatile-ttl</option>
               <option value="noeviction">noeviction</option>
             </select>
           </div>
@@ -363,6 +541,58 @@ function TypeFields({
               <option value="write-behind">write-behind</option>
             </select>
           </div>
+          {simulationMode ? (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="cache-replicas">
+                  Instances
+                </label>
+                <input
+                  id="cache-replicas"
+                  type="number"
+                  min={1}
+                  max={20}
+                  className={fieldClass}
+                  value={Number(c.replicas ?? 1)}
+                  onChange={(e) =>
+                    updateConfig({
+                      replicas: clamp(Number(e.target.value) || 1, 1, 20),
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="cache-cap">
+                  Capacity override (RPS, optional)
+                </label>
+                <input
+                  id="cache-cap"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Auto"
+                  className={fieldClass}
+                  value={
+                    Number.isFinite(Number(c.nodeCapacityRps)) &&
+                    Number(c.nodeCapacityRps) > 0
+                      ? String(Number(c.nodeCapacityRps))
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.trim()
+                    if (!v) {
+                      updateConfig({ nodeCapacityRps: undefined })
+                      return
+                    }
+                    const n = Number(v)
+                    if (Number.isFinite(n) && n > 0) {
+                      updateConfig({ nodeCapacityRps: n })
+                    }
+                  }}
+                />
+              </div>
+            </>
+          ) : null}
         </>
       )
     }
@@ -392,6 +622,58 @@ function TypeFields({
               <option value="false">No</option>
             </select>
           </div>
+          {simulationMode ? (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="mq-parts">
+                  Partitions
+                </label>
+                <input
+                  id="mq-parts"
+                  type="number"
+                  min={1}
+                  max={32}
+                  className={fieldClass}
+                  value={Number(c.partitions ?? 4)}
+                  onChange={(e) =>
+                    updateConfig({
+                      partitions: clamp(Number(e.target.value) || 1, 1, 32),
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="mq-cap">
+                  Capacity override (RPS, optional)
+                </label>
+                <input
+                  id="mq-cap"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Auto"
+                  className={fieldClass}
+                  value={
+                    Number.isFinite(Number(c.nodeCapacityRps)) &&
+                    Number(c.nodeCapacityRps) > 0
+                      ? String(Number(c.nodeCapacityRps))
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.trim()
+                    if (!v) {
+                      updateConfig({ nodeCapacityRps: undefined })
+                      return
+                    }
+                    const n = Number(v)
+                    if (Number.isFinite(n) && n > 0) {
+                      updateConfig({ nodeCapacityRps: n })
+                    }
+                  }}
+                />
+              </div>
+            </>
+          ) : null}
         </>
       )
 
@@ -433,6 +715,38 @@ function TypeFields({
               <option value="large">large</option>
             </select>
           </div>
+          {simulationMode ? (
+            <div>
+              <label className={labelClass} htmlFor="worker-cap">
+                Capacity override (RPS, optional)
+              </label>
+              <input
+                id="worker-cap"
+                type="number"
+                min={1}
+                step={1}
+                placeholder="Auto"
+                className={fieldClass}
+                value={
+                  Number.isFinite(Number(c.nodeCapacityRps)) &&
+                  Number(c.nodeCapacityRps) > 0
+                    ? String(Number(c.nodeCapacityRps))
+                    : ''
+                }
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  if (!v) {
+                    updateConfig({ nodeCapacityRps: undefined })
+                    return
+                  }
+                  const n = Number(v)
+                  if (Number.isFinite(n) && n > 0) {
+                    updateConfig({ nodeCapacityRps: n })
+                  }
+                }}
+              />
+            </div>
+          ) : null}
         </>
       )
     }

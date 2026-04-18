@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useMetricsStore } from '../store/metricsStore'
+import { useSimulationStore } from '../store/simulationStore'
 
 const MAX_PARTICLES = 200
 const PARTICLE_SIZE = 0.04
@@ -53,6 +54,8 @@ function sampleOnPath(
 interface EdgeParticlesProps {
   waypoints: [number, number, number][]
   sourceNodeId: string
+  /** When set, simulation mode can use per-edge QPS from the worker. */
+  connectionId?: string
   animated: boolean
   color?: string
 }
@@ -60,6 +63,7 @@ interface EdgeParticlesProps {
 export function EdgeParticles({
   waypoints,
   sourceNodeId,
+  connectionId,
   animated,
   color = '#4A90D9',
 }: EdgeParticlesProps) {
@@ -89,8 +93,16 @@ export function EdgeParticles({
     const mesh = meshRef.current
     if (!mesh || !animated) return
 
+    const sim = useSimulationStore.getState()
+    const edgeQ =
+      connectionId && sim.running
+        ? sim.lastEdgeFlows[connectionId]
+        : undefined
     const metrics = useMetricsStore.getState().metrics[sourceNodeId]
-    const rps = metrics?.requestRate ?? 0
+    const rps =
+      typeof edgeQ === 'number' && edgeQ >= 0
+        ? edgeQ
+        : (metrics?.requestRate ?? 0)
 
     const targetCount =
       rps > 0
@@ -142,6 +154,7 @@ export function EdgeParticles({
       ref={meshRef}
       args={[geometry, material, MAX_PARTICLES]}
       frustumCulled={false}
+      raycast={() => null}
     />
   )
 }

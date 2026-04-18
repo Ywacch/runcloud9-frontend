@@ -84,49 +84,51 @@ export function LiveOverlay() {
   if (mode !== 'live' || !deploymentId) return null
 
   return (
-    <div className="pointer-events-auto absolute top-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2">
-      <div className="flex flex-wrap items-center justify-center gap-3 rounded-lg border border-gray-700/80 bg-gray-900/90 px-4 py-2.5 text-sm text-white shadow-lg backdrop-blur-sm">
-        <span className="max-w-[220px] truncate font-mono text-xs text-gray-300" title={deploymentId}>
+    <div className="pointer-events-auto flex w-full min-w-0 flex-col gap-1.5">
+      <div className="flex flex-wrap items-center justify-start gap-x-2 gap-y-1 rounded-lg border border-white/15 bg-gray-950/70 px-2 py-1.5 text-sm shadow-md backdrop-blur-md">
+        <span className="max-w-[220px] truncate font-mono text-xs font-medium text-zinc-200" title={deploymentId}>
           {deploymentId}
         </span>
-        <span className="text-gray-500">|</span>
-        <span className="text-xs text-gray-300">
-          Session{' '}
-          <span className="font-mono text-white">{formatMmSs(remaining)}</span>
+        <span className="text-zinc-500">|</span>
+        <span className="text-xs">
+          <span className="font-semibold text-zinc-200">Session</span>{' '}
+          <span className="font-mono font-semibold text-zinc-50">
+            {formatMmSs(remaining)}
+          </span>
         </span>
         <span
-          className={`rounded px-2 py-0.5 text-xs font-medium text-white ${badgeClass}`}
+          className={`rounded px-2 py-0.5 text-xs font-semibold text-white shadow-sm ${badgeClass}`}
         >
           {deployStatus}
         </span>
-        <span className="text-gray-500">|</span>
-        <label className="flex items-center gap-1 text-xs text-gray-400">
-          RPS
+        <span className="text-zinc-500">|</span>
+        <label className="flex items-center gap-1 text-xs">
+          <span className="font-semibold text-zinc-200">RPS</span>
           <input
             type="number"
             min={1}
             max={500}
             value={rps}
             onChange={(e) => setRps(Math.max(1, Number(e.target.value) || 1))}
-            className="w-16 rounded border border-gray-600 bg-gray-800 px-2 py-1 text-white"
+            className="w-14 rounded border border-zinc-500/60 bg-zinc-900/80 px-1.5 py-0.5 text-sm font-mono font-semibold text-zinc-50 backdrop-blur-sm"
           />
         </label>
         {loadgen?.totalRequests != null ? (
-          <span className="text-xs text-gray-400">
-            Total:{' '}
-            <span className="font-mono text-white">
+          <span className="text-xs">
+            <span className="font-semibold text-zinc-200">Total</span>{' '}
+            <span className="font-mono font-semibold text-zinc-50">
               {fmtInt(loadgen.totalRequests)}
             </span>
           </span>
         ) : null}
         {loadgen?.active ? (
           <span
-            className={`rounded px-1.5 py-0.5 text-xs font-mono ${
+            className={`rounded px-1.5 py-0.5 text-xs font-mono font-semibold ${
               (loadgen.successRate ?? 0) >= 99
-                ? 'bg-emerald-900/50 text-emerald-300'
+                ? 'bg-emerald-900/60 text-emerald-100'
                 : (loadgen.successRate ?? 0) >= 95
-                  ? 'bg-amber-900/50 text-amber-300'
-                  : 'bg-red-900/50 text-red-300'
+                  ? 'bg-amber-900/60 text-amber-100'
+                  : 'bg-red-900/60 text-red-100'
             }`}
           >
             {(loadgen.successRate ?? 0).toFixed(1)}%
@@ -137,7 +139,7 @@ export function LiveOverlay() {
             type="button"
             disabled={busy}
             onClick={onStopLoad}
-            className="rounded bg-orange-700 px-3 py-1 text-xs font-medium hover:bg-orange-600 disabled:opacity-50"
+            className="rounded bg-orange-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
           >
             Stop load
           </button>
@@ -146,14 +148,14 @@ export function LiveOverlay() {
             type="button"
             disabled={busy}
             onClick={onStartLoad}
-            className="rounded bg-blue-600 px-3 py-1 text-xs font-medium hover:bg-blue-500 disabled:opacity-50"
+            className="rounded bg-blue-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
           >
             Start load
           </button>
         )}
       </div>
       {error ? (
-        <p className="max-w-md rounded bg-red-950/90 px-3 py-1 text-center text-xs text-red-200">
+        <p className="max-w-full rounded border border-red-700/50 bg-red-950/65 px-2 py-1 text-left text-xs font-medium text-red-100 backdrop-blur-sm">
           {error}
         </p>
       ) : null}

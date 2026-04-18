@@ -16,11 +16,22 @@ import {
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { useSimulationStore } from '../store/simulationStore'
 import { DeployModal, type DeployStep } from './DeployModal'
 import { RationalePanel } from './RationalePanel'
 import { TemplateModal, templateTitleForId } from './TemplateModal'
 
 const DEPLOYABLE_TEMPLATES: string[] = ['url-shortener']
+
+const SIDEBAR_COLLAPSED_KEY = 'cloud9.sidebarCollapsed'
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 const PALETTE: { type: CanvasNode['type']; title: string; face: string }[] = [
   { type: 'load_balancer', title: 'Load Balancer', face: '#4A90D9' },
@@ -63,6 +74,15 @@ export function Sidebar() {
   const [deploySimulationMessage, setDeploySimulationMessage] = useState<
     string | null
   >(null)
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed])
 
   const proceedWithDeployResult = useCallback((result: DeploymentResult) => {
     const st = useCanvasStore.getState()
@@ -109,6 +129,8 @@ export function Sidebar() {
 
   const nodeCount = Object.keys(nodes).length
   const live = mode === 'live'
+  const simulate = mode === 'simulate'
+  const simRunning = useSimulationStore((s) => s.running)
 
   const togglePlace = (type: CanvasNode['type']) => {
     if (placingNodeType === type) {
@@ -257,20 +279,45 @@ export function Sidebar() {
       ? 'Deploying…'
       : live
         ? 'Running'
-        : null
+        : simulate && simRunning
+          ? 'Simulating'
+          : null
 
   return (
-    <aside className="relative flex h-full w-64 shrink-0 flex-col bg-gray-900 text-white">
-      <div className="border-b border-gray-800 p-4">
-        <h1 className="text-lg font-semibold tracking-tight">Cloud9</h1>
+    <aside
+      className={`relative flex h-full shrink-0 flex-col bg-gray-900 text-white transition-[width] duration-200 ease-out ${
+        collapsed ? 'w-12' : 'w-64'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-1 border-b border-gray-800 p-2">
+        {!collapsed ? (
+          <h1 className="min-w-0 truncate pl-2 text-lg font-semibold tracking-tight">
+            Cloud9
+          </h1>
+        ) : (
+          <span className="sr-only">Cloud9</span>
+        )}
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={() => setCollapsed((c) => !c)}
+          className="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-800 hover:text-white"
+        >
+          {collapsed ? '▶' : '◀'}
+        </button>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div
+        className={`flex-1 space-y-3 overflow-y-auto p-4 ${
+          collapsed ? 'hidden' : ''
+        }`}
+      >
         <h2 className="text-xs font-medium uppercase tracking-wider text-gray-400">
           Templates
         </h2>
         <button
           type="button"
-          disabled={live}
+          disabled={live || simulate}
           onClick={() => setTemplateModalOpen(true)}
           className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-3 text-left text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-40"
         >
@@ -287,21 +334,11 @@ export function Sidebar() {
           onSelect={(preset, id) => {
             const st = useCanvasStore.getState()
             if (Object.keys(st.nodes).length > 0) {
-              if (!window.confirm('Replace current design?')) return
+              if (!window.confirm('Replace current design?')) return false
             }
-            st.clearCanvas()
-            st.loadJSON(preset())
+            useSimulationStore.getState().stop()
+            st.loadTemplateSnapshot(preset(), 'design')
             setBanner(`Loaded ${templateTitleForId(id) ?? id} template`)
-          }}
-          onSimulate={(preset, id) => {
-            const st = useCanvasStore.getState()
-            if (Object.keys(st.nodes).length > 0) {
-              if (!window.confirm('Replace current design?')) return
-            }
-            st.clearCanvas()
-            st.loadJSON(preset())
-            st.setMode('simulate')
-            setBanner(`Loaded ${templateTitleForId(id) ?? id} (simulation)`)
           }}
         />
 
@@ -350,7 +387,11 @@ export function Sidebar() {
         </ul>
         {!live ? <RationalePanel /> : null}
       </div>
-      <div className="space-y-2 border-t border-gray-800 p-4">
+      <div
+        className={`space-y-2 border-t border-gray-800 p-4 ${
+          collapsed ? 'hidden' : ''
+        }`}
+      >
         {statusLine ? (
           <p className="text-center text-xs text-gray-400">{statusLine}</p>
         ) : null}
@@ -363,20 +404,65 @@ export function Sidebar() {
           >
             Teardown
           </button>
+        ) : simulate ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                useSimulationStore.getState().stop()
+                setBanner('Simulation stopped.')
+              }}
+              className="w-full rounded border border-amber-600/70 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 hover:border-amber-500 hover:bg-amber-900/40"
+            >
+              Stop simulation
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                useSimulationStore.getState().stop()
+                const st = useCanvasStore.getState()
+                if (st.nodes[CLIENT_LOADGEN_ID]) {
+                  st.removeNode(CLIENT_LOADGEN_ID)
+                }
+                st.setMode('design')
+                setBanner(null)
+              }}
+              className="w-full rounded bg-violet-800 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              Exit simulation
+            </button>
+          </>
         ) : (
-          <button
-            type="button"
-            disabled={deploying || nodeCount === 0 || !snapshotTemplateId}
-            title={
-              !snapshotTemplateId
-                ? 'Choose a template from the Templates section first'
-                : undefined
-            }
-            onClick={handleDeploy}
-            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-          >
-            Deploy
-          </button>
+          <>
+            {nodeCount > 0 && snapshotTemplateId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  useSimulationStore.getState().stop()
+                  useCanvasStore.getState().setMode('simulate')
+                  setBanner(
+                    'Simulation view — press Start simulation in the top bar when ready.',
+                  )
+                }}
+                className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 hover:bg-violet-900/40"
+              >
+                Simulator
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={deploying || nodeCount === 0 || !snapshotTemplateId}
+              title={
+                !snapshotTemplateId
+                  ? 'Choose a template from the Templates section first'
+                  : undefined
+              }
+              onClick={handleDeploy}
+              className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            >
+              Deploy
+            </button>
+          </>
         )}
       </div>
 

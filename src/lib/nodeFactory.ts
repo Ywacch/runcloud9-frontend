@@ -13,6 +13,7 @@ export function defaultConfigForType(
         engine: 'postgresql',
         storageGB: 10,
         maxConnections: 100,
+        readReplicas: 0,
       }
     case 'cache':
       return {

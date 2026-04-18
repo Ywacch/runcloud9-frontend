@@ -6,6 +6,7 @@ import { manhattanWaypoints, midpointAlongWaypoints } from '../lib/manhattan'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import {
   isCanvasEditMode,
+  isMetricsViewportMode,
   useCanvasStore,
   type CanvasEdge,
 } from '../store/canvasStore'
@@ -40,7 +41,7 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
 
   const labelPos = useMemo(() => midpointAlongWaypoints(waypoints), [waypoints])
 
-  const isLive = mode === 'live'
+  const isLive = isMetricsViewportMode(mode)
 
   const lineWidth =
     isCanvasEditMode(mode) && designTool === 'erase' ? 14 : 2
@@ -74,12 +75,14 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
             transparent
             opacity={0.45}
             dashed={false}
+            raycast={() => null}
             onContextMenu={onContextMenu}
           />
           {edge.animated ? (
             <EdgeParticles
               waypoints={waypoints}
               sourceNodeId={edge.sourceId}
+              connectionId={edge.id}
               animated={edge.animated}
               color={particleColor}
             />
@@ -94,7 +97,12 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
           onPointerDown={onErasePointerDown}
         />
       )}
-      <Html position={labelPos} center zIndexRange={[20, 10]}>
+      <Html
+        position={labelPos}
+        center
+        zIndexRange={[20, 10]}
+        style={{ pointerEvents: 'none' }}
+      >
         <div
           className="pointer-events-none rounded bg-gray-800 px-1.5 py-0.5 font-sans text-[10px] text-white"
           style={{ whiteSpace: 'nowrap' }}

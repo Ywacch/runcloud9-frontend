@@ -13,7 +13,7 @@ export function persistLiveSession(
 ): void {
   try {
     const payload: PersistedLiveSession = { deploymentId, snapshot }
-    sessionStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(payload))
+    localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(payload))
   } catch {
     /* quota / private mode */
   }
@@ -21,7 +21,7 @@ export function persistLiveSession(
 
 export function clearLiveSessionPersist(): void {
   try {
-    sessionStorage.removeItem(LIVE_SESSION_KEY)
+    localStorage.removeItem(LIVE_SESSION_KEY)
   } catch {
     /* */
   }
@@ -29,7 +29,7 @@ export function clearLiveSessionPersist(): void {
 
 export function readLiveSessionPersist(): PersistedLiveSession | null {
   try {
-    const raw = sessionStorage.getItem(LIVE_SESSION_KEY)
+    const raw = localStorage.getItem(LIVE_SESSION_KEY)
     if (!raw) return null
     const o = JSON.parse(raw) as Partial<PersistedLiveSession>
     if (

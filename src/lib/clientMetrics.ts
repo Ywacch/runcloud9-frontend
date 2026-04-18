@@ -1,6 +1,6 @@
 import type { MetricsBucket } from '../store/metricsStore'
 
-/** Placeholder bucket so LiveMetrics / StatusBadge never see a missing client row before WS loadgen data. */
+/** Placeholder bucket so metrics UI never sees a missing client row before WS loadgen data. */
 export function idleClientLoadgenBucket(): MetricsBucket {
   const t = Date.now()
   return {

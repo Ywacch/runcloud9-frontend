@@ -38,7 +38,7 @@ export interface MetricsBucket {
   podCount: number
   lastUpdated: number
 
-  /** Rounded requestRate; mirrors StatusBadge until UI uses requestRate. */
+  /** Rounded requestRate for compact UI readouts. */
   qps: number
 }
 

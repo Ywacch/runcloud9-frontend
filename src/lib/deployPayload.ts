@@ -1,5 +1,5 @@
-import { canvasToBackend } from './typeMapping'
-import type { CanvasSnapshot } from '../store/canvasStore'
+import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
+import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../store/canvasStore'
 import type { DeploymentDesign } from './api'
 
 export function snapshotToDeploymentDesign(
@@ -34,5 +34,43 @@ export function snapshotToDeploymentDesign(
     archetype: 'standard',
     nodes,
     connections,
+  }
+}
+
+export function deploymentDesignToSnapshot(
+  design: DeploymentDesign,
+  templateId: string
+): CanvasSnapshot {
+  const now = new Date().toISOString()
+
+  // Simple grid layout: spread nodes horizontally, single row.
+  const nodes: CanvasNode[] = design.nodes.map((n, idx) => {
+    const type = backendComponentToCanvasType[n.type] ?? 'compute'
+    const x = idx * 2
+    const z = 0
+    return {
+      id: n.id,
+      type,
+      position: [x, 0, z],
+      label: n.name || n.id,
+      config: { ...n.config },
+      status: 'idle',
+    }
+  })
+
+  const edges: CanvasEdge[] = design.connections.map((c, idx) => ({
+    id: `edge-${idx}`,
+    sourceId: c.sourceId,
+    targetId: c.targetId,
+    protocol: 'http',
+    animated: false,
+  }))
+
+  return {
+    version: '1.0',
+    templateId,
+    nodes,
+    edges,
+    exportedAt: now,
   }
 }

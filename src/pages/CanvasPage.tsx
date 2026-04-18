@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CanvasRoot } from '../canvas/CanvasRoot'
 import { useCanvasKeyboard } from '../hooks/useCanvasKeyboard'
 import { useDeploymentRehydrate } from '../hooks/useDeploymentRehydrate'
+import { useActiveDeploymentPrompt } from '../hooks/useActiveDeploymentPrompt'
 import { useLogSync } from '../hooks/useLogSync'
 import { useMetricsSync } from '../hooks/useMetricsSync'
 import { getDeployment } from '../lib/api'
@@ -16,14 +17,18 @@ import {
 } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { useSimulationStore } from '../store/simulationStore'
 import { DesignToolStrip } from '../ui/DesignToolStrip'
 import { InspectorPanel } from '../ui/InspectorPanel'
 import { DeploymentPlayground } from '../ui/DeploymentPlayground'
 import { LiveOverlay } from '../ui/LiveOverlay'
+import { SimulationOverlay } from '../ui/SimulationOverlay'
 import { LogPanel } from '../ui/LogPanel'
 import { CanvasErrorBoundary } from '../ui/CanvasErrorBoundary'
 import { SessionSummary } from '../ui/SessionSummary'
 import { Sidebar } from '../ui/Sidebar'
+import { SystemTopBar } from '../ui/SystemTopBar'
+import { RejoinBanner } from '../ui/RejoinBanner'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
@@ -40,10 +45,22 @@ function isNodeType(raw: string): raw is CanvasNode['type'] {
 
 export default function CanvasPage() {
   useDeploymentRehydrate()
+  const { prompt, rejoin, dismiss } = useActiveDeploymentPrompt()
   useCanvasKeyboard()
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
   const designTool = useCanvasStore((s) => s.designTool)
   const mode = useCanvasStore((s) => s.mode)
+  const nodeTopologyKey = useCanvasStore((s) =>
+    Object.keys(s.nodes)
+      .sort()
+      .join(',')
+  )
+  const edgeTopologyKey = useCanvasStore((s) =>
+    Object.keys(s.edges)
+      .sort()
+      .join(',')
+  )
+  const simRunning = useSimulationStore((s) => s.running)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const [deployStatus, setDeployStatus] = useState<string | null>(null)
   const [provisioningError, setProvisioningError] = useState<string | null>(null)
@@ -143,6 +160,26 @@ export default function CanvasPage() {
     return () => window.clearInterval(tick)
   }, [mode, deploymentId])
 
+  useEffect(() => {
+    if (mode !== 'simulate') {
+      useSimulationStore.getState().stop()
+      return
+    }
+    spawnClientLoadgenNode()
+    return () => {
+      useSimulationStore.getState().stop()
+    }
+  }, [mode])
+
+  useEffect(() => {
+    if (mode !== 'simulate' || !simRunning) return
+    const st = useCanvasStore.getState()
+    useSimulationStore.getState().reinitTopology(
+      Object.values(st.nodes),
+      Object.values(st.edges)
+    )
+  }, [mode, simRunning, nodeTopologyKey, edgeTopologyKey])
+
   const showProvisioningOverlay =
     mode !== 'live' && !!deploymentId && deployStatus === 'provisioning'
   const showProvisioningError = mode !== 'live' && !!deploymentId && !!provisioningError
@@ -161,6 +198,7 @@ export default function CanvasPage() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
+          if (useCanvasStore.getState().mode === 'live') return
           const raw = e.dataTransfer.getData('application/cloud9-node-type')
           if (!isNodeType(raw)) return
           dispatchSpawnAtScreen({
@@ -170,9 +208,31 @@ export default function CanvasPage() {
           })
         }}
       >
-        <CanvasErrorBoundary>
+        <CanvasErrorBoundary resetKey={mode}>
           <CanvasRoot />
         </CanvasErrorBoundary>
+        {/* Rejoin must show in design mode too (default when opening /canvas). */}
+        {prompt ? (
+          <div className="pointer-events-none absolute left-3 top-3 z-40 flex w-fit max-w-[min(100%,28rem)] min-w-0 pr-3">
+            <RejoinBanner
+              deploymentName={prompt.deploymentId}
+              expiresAt={prompt.expiresAt}
+              onRejoin={() => {
+                void rejoin()
+              }}
+              onDismiss={dismiss}
+            />
+          </div>
+        ) : null}
+        {mode !== 'design' ? (
+          <div className="pointer-events-none absolute left-3 top-0 z-30 flex w-fit max-w-[50%] min-w-0 flex-col gap-2 pr-3 pt-3">
+            <SystemTopBar />
+            <div className="pointer-events-auto flex w-full min-w-0 flex-col gap-2">
+              <LiveOverlay />
+              <SimulationOverlay />
+            </div>
+          </div>
+        ) : null}
         {showProvisioningOverlay ? (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-gray-950/70 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900/90 p-5 text-white shadow-xl">
@@ -217,7 +277,6 @@ export default function CanvasPage() {
             </div>
           </div>
         ) : null}
-        <LiveOverlay />
         <DeploymentPlayground />
         <LogPanel />
         <DesignToolStrip />

@@ -171,13 +171,11 @@ function MiniTopologyPreview({
 function TemplatePickerCard({
   row,
   isPremiumUser,
-  onDeploy,
-  onSimulate,
+  onUseTemplate,
 }: {
   row: MergedTemplateRow
   isPremiumUser: boolean
-  onDeploy: (preset: () => CanvasSnapshot, id: string) => void
-  onSimulate: (preset: () => CanvasSnapshot, id: string) => void
+  onUseTemplate: (preset: () => CanvasSnapshot, id: string) => void
 }) {
   const snapshot = useMemo(() => row.preset(), [row])
   const premiumLocked = row.premium && !isPremiumUser
@@ -191,65 +189,61 @@ function TemplatePickerCard({
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-gray-300" style={{ color: row.accent }}>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-0.5 shrink-0 text-gray-300"
+              style={{ color: row.accent }}
+              aria-hidden
+            >
               {row.icon}
             </span>
-            <span className="truncate font-medium text-white">{row.name}</span>
+            <h3
+              className="min-w-0 flex-1 text-sm font-semibold leading-snug text-white [overflow-wrap:anywhere] line-clamp-2"
+              title={row.name}
+            >
+              {row.name}
+            </h3>
           </div>
-          {premiumLocked ? (
-            <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-              Premium
-            </span>
-          ) : row.deployable ? (
-            <span className="shrink-0 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-              {row.available ? 'Ready' : 'Unavailable'}
-            </span>
-          ) : row.simulatable ? (
-            <span className="shrink-0 rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
-              Simulation only
-            </span>
-          ) : (
-            <span className="shrink-0 rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-              Coming soon
-            </span>
-          )}
+          {/* Align with title text (past icon + gap: w-5 + gap-2). */}
+          <div className="flex flex-wrap items-center gap-1.5 pl-7">
+            {premiumLocked ? (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                Premium
+              </span>
+            ) : row.deployable ? (
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                {row.available ? 'Ready' : 'Unavailable'}
+              </span>
+            ) : row.simulatable ? (
+              <span className="rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+                Simulation only
+              </span>
+            ) : (
+              <span className="rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                Coming soon
+              </span>
+            )}
+          </div>
         </div>
         <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{row.description}</p>
         <p className="mt-2 text-[10px] text-gray-500">
           {row.components} components · {row.bottleneck}
         </p>
 
-        <div className="mt-4 flex flex-col gap-2">
-          {row.deployable ? (
-            <button
-              type="button"
-              disabled={premiumLocked}
-              title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
-              onClick={() => {
-                if (premiumLocked) return
-                onDeploy(row.preset, row.id)
-              }}
-              className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Deploy
-            </button>
-          ) : null}
-          {!row.deployable && row.simulatable ? (
-            <button
-              type="button"
-              disabled={premiumLocked}
-              title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
-              onClick={() => {
-                if (premiumLocked) return
-                onSimulate(row.preset, row.id)
-              }}
-              className="w-full rounded-lg border border-purple-500 bg-transparent px-3 py-2 text-sm font-medium text-purple-300 hover:bg-purple-950/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Simulate
-            </button>
-          ) : null}
+        <div className="mt-4">
+          <button
+            type="button"
+            disabled={premiumLocked}
+            title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
+            onClick={() => {
+              if (premiumLocked) return
+              onUseTemplate(row.preset, row.id)
+            }}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Use template
+          </button>
         </div>
       </div>
     </div>
@@ -275,32 +269,39 @@ function RemoteTemplateCard({
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate font-medium text-white">{row.name}</span>
-          {premiumLocked ? (
-            <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-              Premium
-            </span>
-          ) : row.deployable ? (
-            <span className="shrink-0 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-              {row.available ? 'Ready' : 'Unavailable'}
-            </span>
-          ) : row.simulatable ? (
-            <span className="shrink-0 rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
-              Simulation only
-            </span>
-          ) : (
-            <span className="shrink-0 rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-              Coming soon
-            </span>
-          )}
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3
+            className="min-w-0 text-sm font-semibold leading-snug text-white [overflow-wrap:anywhere] line-clamp-2"
+            title={row.name}
+          >
+            {row.name}
+          </h3>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {premiumLocked ? (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                Premium
+              </span>
+            ) : row.deployable ? (
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                {row.available ? 'Ready' : 'Unavailable'}
+              </span>
+            ) : row.simulatable ? (
+              <span className="rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+                Simulation only
+              </span>
+            ) : (
+              <span className="rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                Coming soon
+              </span>
+            )}
+          </div>
         </div>
         <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{row.description}</p>
         <p className="mt-2 text-[10px] text-gray-500">
           {row.components} components · {row.bottleneck}
         </p>
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4">
           {row.deployable ? (
             <button
               type="button"
@@ -308,17 +309,7 @@ function RemoteTemplateCard({
               title={premiumLocked ? UPGRADE_TOOLTIP : remotePresetTitle}
               className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Deploy
-            </button>
-          ) : null}
-          {!row.deployable && row.simulatable ? (
-            <button
-              type="button"
-              disabled
-              title={premiumLocked ? UPGRADE_TOOLTIP : remotePresetTitle}
-              className="w-full rounded-lg border border-purple-500 bg-transparent px-3 py-2 text-sm font-medium text-purple-300 hover:bg-purple-950/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Simulate
+              Use template
             </button>
           ) : null}
         </div>
@@ -331,14 +322,11 @@ export function TemplateModal({
   open,
   onClose,
   onSelect,
-  onSimulate,
 }: {
   open: boolean
   onClose: () => void
-  /** Deployable template: load preset in design mode (parent applies canvas + banner). */
-  onSelect: (preset: () => CanvasSnapshot, id: string) => void
-  /** Non-deployable simulatable: parent applies canvas, then must set simulate mode + banner. */
-  onSimulate: (preset: () => CanvasSnapshot, id: string) => void
+  /** Load preset in design mode. Return `false` to keep the modal open (e.g. user cancelled confirm). */
+  onSelect: (preset: () => CanvasSnapshot, id: string) => boolean | void
 }) {
   const isPremiumUser = useAuthStore((s) => s.isPremium)
   const [items, setItems] = useState<ModalTemplateItem[]>([])
@@ -402,7 +390,7 @@ export function TemplateModal({
         <div className="shrink-0 border-b border-gray-800 px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 id="template-modal-title" className="text-xl font-semibold text-white">
-              Choose a Template
+              Open or use a template
             </h2>
             <button
               type="button"
@@ -428,13 +416,8 @@ export function TemplateModal({
                     key={item.row.id}
                     row={item.row}
                     isPremiumUser={isPremiumUser}
-                    onDeploy={(preset, id) => {
-                      onSelect(preset, id)
-                      onClose()
-                    }}
-                    onSimulate={(preset, id) => {
-                      onSimulate(preset, id)
-                      onClose()
+                    onUseTemplate={(preset, id) => {
+                      if (onSelect(preset, id) !== false) onClose()
                     }}
                   />
                 ) : (

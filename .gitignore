@@ -29,11 +29,16 @@ stats.html
 .cursor/
 .idea
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.swp
+
+# Lint
+.eslintcache
 
 # Testing
 coverage/

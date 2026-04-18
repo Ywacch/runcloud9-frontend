@@ -123,9 +123,31 @@ export interface DeploymentRecord {
 }
 
 export async function getDeployment(id: string): Promise<DeploymentRecord> {
-  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`)
+  const token = getAccessToken()
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
   if (!res.ok) throw new Error(await readApiErrorMessage(res))
   return res.json() as Promise<DeploymentRecord>
+}
+
+/** GET /deployments — list active deployments for the current user (or all, if unauthenticated). */
+export interface ActiveDeploymentSummary {
+  id: string
+  namespace: string
+  template: string
+  status: string
+  expiresAt: string
+  createdAt: string
+}
+
+export async function listActiveDeployments(): Promise<ActiveDeploymentSummary[]> {
+  const token = getAccessToken()
+  const res = await fetch(API_BASE, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<ActiveDeploymentSummary[]>
 }
 
 export async function startLoadGen(
