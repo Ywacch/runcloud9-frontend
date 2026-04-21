@@ -15,9 +15,10 @@ export function fmtRate(v: number | undefined | null): string {
 /** Latency in ms — 0 decimals above 10ms, 1 decimal below */
 export function fmtMs(v: number | undefined | null): string {
   if (v == null || !Number.isFinite(v)) return '—'
-  if (v === 0) return '0ms'
-  if (v >= 10) return `${Math.round(v)}ms`
-  return `${v.toFixed(1)}ms`
+  if (v === 0) return '—'
+  if (v > 0 && v < 0.1) return '<0.1ms'
+  if (v < 1) return `${v.toFixed(1)}ms`
+  return `${Math.round(v)}ms`
 }
 
 /** Percentage — clamped 0–100; whole numbers without “.0” */

@@ -3,6 +3,7 @@ import { evaluateRequirements, type RequirementStatus } from '../lib/requirement
 import { computeSystemAggregates } from '../lib/systemMetrics'
 import { useCanvasStore } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 import { useSimulationStore } from '../store/simulationStore'
 import { templateTitleForId } from './TemplateModal'
 
@@ -38,6 +39,7 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
   const loadgen = useMetricsStore((s) => s.loadgen)
   const lastInspector = useSimulationStore((s) => s.lastInspector)
   const simRunning = useSimulationStore((s) => s.running)
+  const templateMetrics = useMetricsStore((s) => s.templateMetrics)
 
   const evaluation = useMemo(() => {
     if (mode !== 'live' && mode !== 'simulate') return null
@@ -117,6 +119,11 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
             ✕
           </button>
         </div>
+        {mode === 'live' && Object.keys(templateMetrics).length > 0 ? (
+          <div className="shrink-0 border-b border-white/10 px-4 pb-3">
+            <TemplateMetricsSnippet title="Live template telemetry" compact />
+          </div>
+        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 touch-pan-y">
           {!evaluation ? (

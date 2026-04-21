@@ -120,6 +120,8 @@ export interface DeploymentRecord {
   status: string
   expiresAt: string
   template?: string
+  /** Present after teardown; includes `session_history` and peak aggregates. */
+  metricsSummary?: Record<string, unknown>
 }
 
 export async function getDeployment(id: string): Promise<DeploymentRecord> {

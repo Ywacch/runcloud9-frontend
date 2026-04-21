@@ -3,13 +3,14 @@ import {
   type DeploymentResult,
   createDeployment,
   deleteDeployment,
+  getDeployment,
 } from '../lib/api'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   clearLiveSessionPersist,
   persistLiveSession,
 } from '../lib/liveSessionStorage'
-import { captureSessionSummary } from '../lib/sessionCapture'
+import { captureSessionSummaryWithApi } from '../lib/sessionCapture'
 import {
   CLIENT_LOADGEN_ID,
 } from '../lib/spawnClientNode'
@@ -254,7 +255,14 @@ export function Sidebar() {
       if (st.nodes[CLIENT_LOADGEN_ID]) {
         st.removeNode(CLIENT_LOADGEN_ID)
       }
-      captureSessionSummary()
+      let apiMetrics: Record<string, unknown> | undefined
+      try {
+        const dep = await getDeployment(deploymentId)
+        apiMetrics = dep.metricsSummary
+      } catch {
+        apiMetrics = undefined
+      }
+      captureSessionSummaryWithApi(apiMetrics)
       st.setMode('design')
       st.setDeploymentId(null)
       st.setLiveSessionEndsAt(null)

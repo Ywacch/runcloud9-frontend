@@ -59,6 +59,7 @@ export function SystemTopBar() {
   const nodes = useCanvasStore((s) => s.nodes)
   const metrics = useMetricsStore((s) => s.metrics)
   const loadgen = useMetricsStore((s) => s.loadgen)
+  const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const lastInspector = useSimulationStore((s) => s.lastInspector)
   const simRunning = useSimulationStore((s) => s.running)
 
@@ -94,10 +95,11 @@ export function SystemTopBar() {
             metrics,
             lastInspector,
             nodes,
-            loadgen
+            loadgen,
+            templateMetrics
           )
         : [],
-    [mode, snapshotTemplateId, metrics, lastInspector, nodes, loadgen]
+    [mode, snapshotTemplateId, metrics, lastInspector, nodes, loadgen, templateMetrics]
   )
 
   const gradeEvaluation = useMemo(() => {

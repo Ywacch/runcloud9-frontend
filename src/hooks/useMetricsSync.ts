@@ -8,6 +8,7 @@ import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
 import {
   useMetricsStore,
   type MetricsBucket,
+  type WsEvent,
 } from '../store/metricsStore'
 
 interface WsComponentMetrics {
@@ -28,6 +29,7 @@ interface WsComponentMetrics {
   cacheMissesLast9m?: number
   dbQueryRate?: number
   dbActiveConnections?: number
+  maxConnections?: number
   /** Go backend: seconds */
   dbQueryLatency?: number
   dbTotalQueries?: number
@@ -35,12 +37,38 @@ interface WsComponentMetrics {
   memoryLimit?: number
   cpuIsEstimated?: boolean
   memIsEstimated?: boolean
+  activeConnections?: number
+  queueDepth?: number
+  produceRate?: number
+  consumeRate?: number
+  messagesReady?: number
+  messagesUnacked?: number
+  lbAlgorithm?: string
+  lbBackends?: string[]
+  perBackendRps?: Record<string, number>
+  lbConnectionLimit?: number
+  redisMaxClients?: number
+  mqMemoryUsed?: number
+  mqMemoryLimit?: number
+  mqSaturationRatio?: number
+  workerSaturation?: number
+}
+
+interface WsEventPayload {
+  timestamp?: string
+  type?: string
+  source?: string
+  component?: string
+  title?: string
+  description?: string
 }
 
 interface WsDeploymentMetrics {
   timestamp?: string
   namespace?: string
   components?: Record<string, WsComponentMetrics>
+  templateMetrics?: Record<string, number>
+  events?: WsEventPayload[]
   loadgen?: {
     active?: boolean
     currentRps?: number
@@ -111,16 +139,65 @@ function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     cacheMissesLast9m: Math.round(cm.cacheMissesLast9m ?? 0),
     dbQueryRate: cm.dbQueryRate ?? 0,
     dbActiveConnections: Math.round(cm.dbActiveConnections ?? 0),
+    maxConnections: Math.round(cm.maxConnections ?? 0),
+    activeConnections: cm.activeConnections ?? 0,
+    lbConnectionLimit: cm.lbConnectionLimit ?? 0,
+    queueDepth: cm.queueDepth ?? 0,
+    produceRate: cm.produceRate ?? 0,
+    consumeRate: cm.consumeRate ?? 0,
+    messagesReady: cm.messagesReady ?? 0,
+    messagesUnacked: cm.messagesUnacked ?? 0,
+    mqMemoryUsed: cm.mqMemoryUsed ?? 0,
+    mqMemoryLimit: cm.mqMemoryLimit ?? 0,
+    mqSaturationRatio: cm.mqSaturationRatio ?? 0,
+    workerSaturation: cm.workerSaturation ?? 0,
+    redisMaxClients: cm.redisMaxClients ?? 0,
+    perBackendRps:
+      cm.perBackendRps && typeof cm.perBackendRps === 'object'
+        ? { ...cm.perBackendRps }
+        : {},
+    lbAlgorithm: cm.lbAlgorithm ?? '',
+    lbBackends: Array.isArray(cm.lbBackends) ? [...cm.lbBackends] : [],
     podCount: 1,
     lastUpdated: Date.now(),
     qps: Math.round(requestRate),
   }
 }
 
+function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] {
+  if (!raw?.length) return []
+  const out: WsEvent[] = []
+  for (const e of raw) {
+    const title =
+      (e?.title && String(e.title).trim()) ||
+      (e?.description && String(e.description).trim()) ||
+      ''
+    if (!title) continue
+    out.push({
+      timestamp: e.timestamp ?? new Date().toISOString(),
+      type: e.type ?? 'action',
+      source: e.source ?? 'unknown',
+      component: e.component,
+      title,
+      description: e.description ?? '',
+    })
+  }
+  return out
+}
+
 function applyMessage(payload: WsDeploymentMetrics): void {
   const nodes = useCanvasStore.getState().nodes
   const updateMetrics = useMetricsStore.getState().updateMetrics
   const updateNodeStatus = useCanvasStore.getState().updateNodeStatus
+  const pushEvents = useMetricsStore.getState().pushEvents
+  const setTemplateMetrics = useMetricsStore.getState().setTemplateMetrics
+
+  if (payload.templateMetrics && Object.keys(payload.templateMetrics).length > 0) {
+    setTemplateMetrics(payload.templateMetrics)
+  }
+
+  const ev = normalizeWsEvents(payload.events)
+  if (ev.length) pushEvents(ev)
 
   const components = payload.components ?? {}
   for (const [backendKey, cm] of Object.entries(components)) {

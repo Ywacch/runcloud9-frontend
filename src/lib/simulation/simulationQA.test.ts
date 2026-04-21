@@ -834,7 +834,7 @@ describe('simulation QA suite', () => {
       const edges: CanvasEdge[] = [
         { id: 'e1', sourceId: 'c1', targetId: 'app1', protocol: 'http', animated: true },
         { id: 'e2', sourceId: 'app1', targetId: 'mq1', protocol: 'tcp', animated: true },
-        { id: 'e3', sourceId: 'mq1', targetId: 'w1', protocol: 'tcp', animated: true },
+        { id: 'e3', sourceId: 'w1', targetId: 'mq1', protocol: 'tcp', animated: true },
       ]
       return new SimulationEngine(nodes, edges)
     }
@@ -1047,7 +1047,7 @@ describe('simulation QA suite', () => {
         { id: 'e2', sourceId: 'app1', targetId: 'cache1', protocol: 'http', animated: true },
         { id: 'e3', sourceId: 'app1', targetId: 'db1', protocol: 'tcp', animated: true },
         { id: 'e4', sourceId: 'db1', targetId: 'mq1', protocol: 'tcp', animated: true },
-        { id: 'e5', sourceId: 'mq1', targetId: 'w1', protocol: 'tcp', animated: true },
+        { id: 'e5', sourceId: 'w1', targetId: 'mq1', protocol: 'tcp', animated: true },
       ]
       const engine = new SimulationEngine(nodes, edges, WORKLOAD_BY_TEMPLATE_ID[templateId])
       const r1 = stepMany(engine, 60)

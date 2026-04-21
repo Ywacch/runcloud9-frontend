@@ -42,6 +42,22 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     cacheMissesLast9m: 0,
     dbQueryRate: 0,
     dbActiveConnections: 0,
+    maxConnections: 0,
+    activeConnections: 0,
+    lbConnectionLimit: 0,
+    queueDepth: 0,
+    produceRate: 0,
+    consumeRate: 0,
+    messagesReady: 0,
+    messagesUnacked: 0,
+    mqMemoryUsed: 0,
+    mqMemoryLimit: 0,
+    mqSaturationRatio: 0,
+    workerSaturation: 0,
+    redisMaxClients: 0,
+    perBackendRps: {},
+    lbAlgorithm: '',
+    lbBackends: [],
     podCount: 1,
     lastUpdated: 0,
     qps: 0,
@@ -87,7 +103,7 @@ describe('buildFlowPaths', () => {
     }
     const edges: Record<string, CanvasEdge> = {
       e1: { id: 'e1', sourceId: 'app', targetId: 'mq', protocol: 'http', animated: true },
-      e2: { id: 'e2', sourceId: 'mq', targetId: 'worker', protocol: 'tcp', animated: true },
+      e2: { id: 'e2', sourceId: 'worker', targetId: 'mq', protocol: 'tcp', animated: true },
     }
     const metrics: Record<string, MetricsBucket> = {
       app: bucket({ p99Latency: 20, requestRate: 100 }),

@@ -1,5 +1,11 @@
 import { Html } from '@react-three/drei'
-import { fmtMs, fmtPct, fmtRate } from '../lib/format'
+import {
+  fmtCpuMilliCores,
+  fmtMemMB,
+  fmtMs,
+  fmtPct,
+  fmtRate,
+} from '../lib/format'
 import type { HealthState } from '../lib/healthThresholds'
 import type { CanvasNode } from '../store/canvasStore'
 import type { MetricsBucket } from '../store/metricsStore'
@@ -15,14 +21,38 @@ function pct(v: number | undefined): number {
   return Math.max(0, Math.min(100, Math.round((v ?? 0) * 100)))
 }
 
+function cpuLabel(metrics: MetricsBucket | undefined): string {
+  if (!metrics) return '—'
+  if (metrics.cpuIsEstimated) {
+    if (metrics.cpuLimit > 0) {
+      return `${fmtCpuMilliCores(metrics.cpuUsage)} / ${fmtCpuMilliCores(metrics.cpuLimit)} (allocated)`
+    }
+    return `${fmtCpuMilliCores(metrics.cpuUsage)} (est.)`
+  }
+  return fmtPct(metrics.cpuPercent)
+}
+
+function memLabel(metrics: MetricsBucket | undefined): string {
+  if (!metrics) return '—'
+  if (metrics.memIsEstimated) {
+    if (metrics.memoryLimit > 0) {
+      return `${fmtMemMB(metrics.memoryBytes)} / ${fmtMemMB(metrics.memoryLimit)} (allocated)`
+    }
+    return `${fmtMemMB(metrics.memoryBytes)} (est.)`
+  }
+  return fmtPct(metrics.memPercent)
+}
+
 export function NodeTooltip({
   node,
   metrics,
   health,
   align,
 }: NodeTooltipProps) {
-  const cpuPct = pct(metrics?.cpuPercent)
-  const memPct = pct(metrics?.memPercent)
+  const cpuPct = metrics?.cpuIsEstimated ? 0 : pct(metrics?.cpuPercent)
+  const memPct = metrics?.memIsEstimated ? 0 : pct(metrics?.memPercent)
+  const cpuValue = cpuLabel(metrics)
+  const memValue = memLabel(metrics)
   const rpsClass = health === 'high-load' ? 'text-amber-300' : 'text-cyan-300'
   const x = align === 'right' ? 0.92 : -0.92
 
@@ -47,8 +77,8 @@ export function NodeTooltip({
           <div className="grid grid-cols-3 gap-2">
             <div>
               <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
-              <p className="font-mono text-[16px] font-semibold leading-[1] text-zinc-100">
-                {fmtPct(cpuPct)}
+              <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+                {cpuValue}
               </p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div
@@ -59,8 +89,8 @@ export function NodeTooltip({
             </div>
             <div>
               <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
-              <p className="font-mono text-[16px] font-semibold leading-[1] text-zinc-100">
-                {fmtPct(memPct)}
+              <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+                {memValue}
               </p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div

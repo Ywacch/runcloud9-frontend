@@ -266,9 +266,9 @@ export function presetSocialFeed(): CanvasSnapshot {
         animated: false,
       },
       {
-        id: 'e-mq-worker',
-        sourceId: 'mq-1',
-        targetId: 'worker-1',
+        id: 'e-worker-mq',
+        sourceId: 'worker-1',
+        targetId: 'mq-1',
         protocol: 'tcp',
         animated: false,
       },

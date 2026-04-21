@@ -7,6 +7,8 @@ export interface SparkLineProps {
   height?: number
   showDot?: boolean
   showArea?: boolean
+  /** Normalized 0–1 positions along the X axis (e.g. event tick marks). */
+  eventMarkers?: Array<{ xRatio: number; type?: string }>
 }
 
 function catmullRomPath(points: { x: number; y: number }[]): string {
@@ -29,6 +31,12 @@ function catmullRomPath(points: { x: number; y: number }[]): string {
   return d
 }
 
+function markerColor(t?: string): string {
+  if (t === 'cascade') return '#f87171'
+  if (t === 'threshold') return '#fbbf24'
+  return '#7dd3fc'
+}
+
 export function SparkLine({
   data,
   color = '#8A9BB0',
@@ -36,6 +44,7 @@ export function SparkLine({
   height = 32,
   showDot = false,
   showArea = false,
+  eventMarkers,
 }: SparkLineProps) {
   const gradId = useId().replace(/:/g, '')
 
@@ -117,6 +126,23 @@ export function SparkLine({
           />
         </circle>
       ) : null}
+      {eventMarkers?.map((m, i) => {
+        const padX = 4
+        const innerW = width - 2 * padX
+        const x = padX + Math.max(0, Math.min(1, m.xRatio)) * innerW
+        return (
+          <line
+            key={`m-${i}`}
+            x1={x}
+            x2={x}
+            y1={height - 2}
+            y2={height - 6}
+            stroke={markerColor(m.type)}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        )
+      })}
     </svg>
   )
 }

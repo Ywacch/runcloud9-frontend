@@ -85,10 +85,14 @@ export function buildFlowPaths(
   if (nodes.length === 0) return []
 
   const adjacency = new Map<string, CanvasEdge[]>()
+  const reverseAdj = new Map<string, CanvasEdge[]>()
   for (const e of edges) {
     const arr = adjacency.get(e.sourceId) ?? []
     arr.push(e)
     adjacency.set(e.sourceId, arr)
+    const rev = reverseAdj.get(e.targetId) ?? []
+    rev.push(e)
+    reverseAdj.set(e.targetId, rev)
   }
   const semantics = classifyEdges(nodes, edges)
   const sinkPaths: { hops: FlowHop[]; asyncContinuation: boolean; variants: Set<string> }[] = []
@@ -210,6 +214,35 @@ export function buildFlowPaths(
           },
           new Set(visited).add(target.id)
         )
+
+        // Dependency-direction canonical edges may be worker -> mq.
+        // Continue async path from queue to its worker dependents (incoming worker edges).
+        const incoming = reverseAdj.get(target.id) ?? []
+        for (const inEdge of incoming) {
+          const worker = nodesById[inEdge.sourceId]
+          if (!worker || worker.type !== 'worker') continue
+          if (visited.has(worker.id)) continue
+          visit(
+            {
+              nodeId: worker.id,
+              incomingEdgeId: inEdge.id,
+              edgeSemantics: sem,
+              note: 'Async worker processing continuation.',
+              hops: [...hops, buildHop(target, metrics, inspector, {
+                nodeId: target.id,
+                incomingEdgeId: edge.id,
+                edgeSemantics: sem,
+                note: 'Request is enqueued; synchronous path ends.',
+                hops: [],
+                asyncContinuation: state.asyncContinuation,
+                variants: new Set(state.variants),
+              })],
+              asyncContinuation: true,
+              variants: new Set(state.variants).add('async'),
+            },
+            new Set(visited).add(target.id).add(worker.id)
+          )
+        }
         continue
       }
 

@@ -277,8 +277,8 @@ describe('SimulationEngine', () => {
       },
       {
         id: 'e3',
-        sourceId: 'mq1',
-        targetId: 'w1',
+        sourceId: 'w1',
+        targetId: 'mq1',
         protocol: 'tcp',
         animated: true,
       },

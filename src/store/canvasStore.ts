@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
 
 /** Design-mode interaction: select/move + inspector, connect nodes, or delete by clicking. */
 export type DesignTool = 'select' | 'connect' | 'erase'
@@ -56,6 +57,10 @@ export interface SessionSummary {
   cacheHitRate: number
   avgLatency: number
   errorRate: number
+  /** Count of timeline events captured before teardown (WS). */
+  eventsRecorded?: number
+  /** Downsampled series from API `metrics_summary.session_history` after teardown. */
+  sessionSparklines?: SessionSparklines
   componentSummaries: Record<
     string,
     {
