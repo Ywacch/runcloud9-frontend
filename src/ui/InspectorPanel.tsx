@@ -1,9 +1,13 @@
 import { NODE_VISUAL } from '../lib/nodeVisual'
+import { getRelevantTemplateMetrics } from '../lib/templateMetricsFilter'
+import { canvasToBackend } from '../lib/typeMapping'
 import {
   useCanvasStore,
   type CanvasNode,
 } from '../store/canvasStore'
+import { useMetricsStore } from '../store/metricsStore'
 import { LiveMetrics } from './LiveMetrics'
+import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 
 const fieldClass =
   'w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none'
@@ -22,11 +26,17 @@ export function InspectorPanel() {
   const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
   const updateNodeLabel = useCanvasStore((s) => s.updateNodeLabel)
   const removeNode = useCanvasStore((s) => s.removeNode)
+  const templateMetrics = useMetricsStore((s) => s.templateMetrics)
 
   const node = selectedId ? (nodes[selectedId] ?? null) : null
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
+  const componentType = node ? canvasToBackend[node.type] : ''
+  const relevantTemplateMetrics =
+    node && liveMode
+      ? getRelevantTemplateMetrics(templateMetrics, componentType)
+      : {}
 
   const onDelete = () => {
     if (!node) return
@@ -79,6 +89,7 @@ export function InspectorPanel() {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                 <ReadOnlyConfig node={node} />
+                <TemplateMetricsSnippet templateMetrics={relevantTemplateMetrics} />
                 <LiveMetrics node={node} />
               </div>
             </div>

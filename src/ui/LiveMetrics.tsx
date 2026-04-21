@@ -21,6 +21,11 @@ import { SparkLine } from './SparkLine'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
 
+function truncatePodName(name: string, max = 28): string {
+  if (name.length <= max) return name
+  return `${name.slice(0, max - 1)}…`
+}
+
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-gray-700/50 bg-gray-800/50 p-2.5">
@@ -56,6 +61,12 @@ function sessionElapsedSeconds(liveSessionEndsAt: number | null): number {
   if (!liveSessionEndsAt) return 0
   const sessionStart = liveSessionEndsAt - 9 * 60 * 1000
   return Math.max(1, (Date.now() - sessionStart) / 1000)
+}
+
+function loadgenElapsedSeconds(): number {
+  const lg = useMetricsStore.getState().loadgen
+  const sec = lg?.elapsedSeconds ?? 0
+  return sec > 0 ? sec : 0
 }
 
 /** True if the worker emitted any non-empty inspector fields for this node. */
@@ -539,7 +550,7 @@ function TypeSection({
       const hasCacheLink = cacheNode !== null
       const rpsSeries = history.map((h) => h.requestRate)
       const latencySeries = history.map((h) => h.p99Latency)
-      const elapsed = sessionElapsedSeconds(liveSessionEndsAt)
+      const elapsed = loadgenElapsedSeconds() || sessionElapsedSeconds(liveSessionEndsAt)
       const avgRps =
         m.totalRequests > 0 && elapsed > 0 ? m.totalRequests / elapsed : 0
 
@@ -613,10 +624,10 @@ function TypeSection({
               value={String(node.config.cacheStrategy ?? 'cache-aside')}
             />
           </div>
-          <MetricTile label="Hit Rate" value={hitRateLabel} />
+          <MetricTile label="Hit Rate (30s)" value={hitRateLabel} />
           <div>
             <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-              Current rate
+              Current rate (30s)
             </div>
             <div className="grid grid-cols-2 gap-2">
               <MetricTile
@@ -660,7 +671,10 @@ function TypeSection({
     }
 
     case 'database': {
-      const maxConn = Number(node.config.maxConnections ?? 100)
+      const maxConn =
+        m.maxConnections > 0
+          ? m.maxConnections
+          : Number(node.config.maxConnections ?? 100)
       const connPercent =
         maxConn > 0 ? (m.dbActiveConnections / maxConn) * 100 : 0
       const queryRateSeries = history.map((h) => h.dbQueryRate)
@@ -709,32 +723,89 @@ function TypeSection({
         .filter((e) => e.sourceId === nodeId)
         .map((e) => nodes[e.targetId])
         .filter((b): b is CanvasNode => Boolean(b))
+      const algo =
+        m.lbAlgorithm?.trim() ||
+        String(node.config.algorithm ?? 'round-robin')
+      const backendLabels =
+        m.lbBackends?.length ? m.lbBackends : backends.map((b) => b.label)
+      const perBe = Object.entries(m.perBackendRps).sort(([a], [b]) =>
+        a.localeCompare(b)
+      )
+      const connLimit = m.lbConnectionLimit
+      const active = m.activeConnections
+      const connPct =
+        connLimit > 0 ? Math.min(100, (active / connLimit) * 100) : 0
 
       return (
         <div className="space-y-2">
+          <MetricTile label="Algorithm" value={algo} />
           <MetricTile
-            label="Algorithm"
-            value={String(node.config.algorithm ?? 'round-robin')}
-          />
-          <MetricTile
-            label="Requests Routed"
+            label="Requests routed"
             value={`${fmtInt(m.requestRate)} rps`}
           />
+          {connLimit > 0 ? (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500">
+                Connections
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <MetricTile
+                  label="Active / limit"
+                  value={`${fmtInt(Math.round(active))} / ${fmtInt(connLimit)}`}
+                />
+              </div>
+              <div className="h-2 rounded-full bg-gray-800">
+                <div
+                  className={`h-full rounded-full ${
+                    connPct > 90
+                      ? 'bg-red-500'
+                      : connPct > 75
+                        ? 'bg-amber-500'
+                        : 'bg-sky-500'
+                  }`}
+                  style={{ width: `${connPct}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
           <div>
             <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
               Backends
             </div>
             <div className="flex flex-wrap gap-1">
-              {backends.map((b) => (
+              {backendLabels.map((label) => (
                 <span
-                  key={b.id}
+                  key={label}
                   className="rounded-full bg-gray-800 px-2 py-0.5 text-xs text-gray-300"
                 >
-                  {b.label}
+                  {label}
                 </span>
               ))}
             </div>
           </div>
+          {perBe.length > 0 ? (
+            <div>
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                RPS by backend (pods)
+              </div>
+              <ul className="space-y-1 text-xs text-gray-300">
+                {perBe.map(([name, rps]) => (
+                  <li
+                    key={name}
+                    className="flex justify-between gap-2 font-mono"
+                  >
+                    <span
+                      className="min-w-0 truncate text-gray-400"
+                      title={name}
+                    >
+                      {truncatePodName(name)}
+                    </span>
+                    <span>{fmtRate(rps)}/s</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className={sparkWrap}>
             <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
               Throughput (30s)
@@ -758,11 +829,130 @@ function TypeSection({
         </>
       )
 
-    case 'message_queue':
-      return <MetricTile label="Engine" value="RabbitMQ" />
+    case 'message_queue': {
+      const prodSeries = history.map((h) => h.produceRate)
+      const satRatio = Number.isFinite(m.mqSaturationRatio)
+        ? m.mqSaturationRatio
+        : 0
+      const satPct = Math.min(100, satRatio * 100)
+      const memPct =
+        m.mqMemoryLimit > 0
+          ? Math.min(100, (m.mqMemoryUsed / m.mqMemoryLimit) * 100)
+          : 0
 
-    case 'worker':
-      return <MetricTile label="Role" value="Consumer" />
+      return (
+        <div className="space-y-2">
+          <MetricTile label="Engine" value="RabbitMQ" />
+          <div className="grid grid-cols-2 gap-2">
+            <MetricTile
+              label="Produce"
+              value={`${fmtRate(m.produceRate)}/s`}
+            />
+            <MetricTile
+              label="Consume"
+              value={`${fmtRate(m.consumeRate)}/s`}
+            />
+            <MetricTile
+              label="Queue depth"
+              value={fmtInt(Math.round(m.queueDepth))}
+            />
+            <MetricTile
+              label="Ready / unacked"
+              value={`${fmtInt(Math.round(m.messagesReady))} / ${fmtInt(Math.round(m.messagesUnacked))}`}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-gray-500">
+              Saturation (produce ÷ consume)
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-2 min-w-0 flex-1 rounded-full bg-gray-800">
+                <div
+                  className={`h-full rounded-full ${
+                    satRatio > 1
+                      ? 'bg-red-500'
+                      : satRatio > 0.85
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${satPct}%` }}
+                />
+              </div>
+              <span className="shrink-0 font-mono text-[10px] text-gray-300">
+                {satRatio.toFixed(2)}×
+              </span>
+            </div>
+          </div>
+          {m.mqMemoryLimit > 0 ? (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500">
+                Broker memory
+              </div>
+              <div className="text-[11px] text-gray-400">
+                {fmtBytes(m.mqMemoryUsed)} / {fmtBytes(m.mqMemoryLimit)}
+              </div>
+              <div className="h-2 rounded-full bg-gray-800">
+                <div
+                  className={`h-full rounded-full ${
+                    memPct > 90 ? 'bg-red-500' : memPct > 75 ? 'bg-amber-500' : 'bg-violet-500'
+                  }`}
+                  style={{ width: `${memPct}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+          <div className={sparkWrap}>
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+              Produce rate (30s)
+            </div>
+            <SparkLine
+              data={prodSeries}
+              color="#A855F7"
+              showArea
+              showDot
+            />
+          </div>
+        </div>
+      )
+    }
+
+    case 'worker': {
+      const wSat = Number.isFinite(m.workerSaturation)
+        ? m.workerSaturation
+        : 0
+      const ws = Math.min(100, wSat * 100)
+      return (
+        <div className="space-y-2">
+          <MetricTile label="Role" value="Consumer" />
+          <MetricTile
+            label="Queue depth"
+            value={fmtInt(Math.round(m.queueDepth))}
+          />
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-gray-500">
+              Saturation (vs capacity model)
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-2 min-w-0 flex-1 rounded-full bg-gray-800">
+                <div
+                  className={`h-full rounded-full ${
+                    wSat > 0.95
+                      ? 'bg-red-500'
+                      : wSat > 0.75
+                        ? 'bg-amber-500'
+                        : 'bg-teal-500'
+                  }`}
+                  style={{ width: `${ws}%` }}
+                />
+              </div>
+              <span className="shrink-0 font-mono text-[10px] text-gray-300">
+                {fmtPct(ws)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )
+    }
 
     default:
       return null

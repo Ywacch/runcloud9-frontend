@@ -28,6 +28,8 @@ import { CanvasErrorBoundary } from '../ui/CanvasErrorBoundary'
 import { SessionSummary } from '../ui/SessionSummary'
 import { Sidebar } from '../ui/Sidebar'
 import { SystemTopBar } from '../ui/SystemTopBar'
+import { EventTimeline } from '../ui/EventTimeline'
+import { CascadeToast } from '../ui/CascadeToast'
 import { RejoinBanner } from '../ui/RejoinBanner'
 
 const VALID_TYPES: CanvasNode['type'][] = [
@@ -227,6 +229,7 @@ export default function CanvasPage() {
         {mode !== 'design' ? (
           <div className="pointer-events-none absolute left-3 top-0 z-30 flex w-fit max-w-[50%] min-w-0 flex-col gap-2 pr-3 pt-3">
             <SystemTopBar />
+            <EventTimeline />
             <div className="pointer-events-auto flex w-full min-w-0 flex-col gap-2">
               <LiveOverlay />
               <SimulationOverlay />
@@ -281,6 +284,7 @@ export default function CanvasPage() {
         <LogPanel />
         <DesignToolStrip />
         <InspectorPanel />
+        {mode === 'live' ? <CascadeToast /> : null}
       </div>
     </div>
   )

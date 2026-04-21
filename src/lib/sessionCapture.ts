@@ -1,4 +1,11 @@
+import { getDeployment } from './api'
 import { clearLiveSessionPersist } from './liveSessionStorage'
+import {
+  mergePeakScalars,
+  normalizeSparklines,
+  parsePeakFieldsFromMetricsSummary,
+  parseSessionHistory,
+} from './sessionHistoryFromApi'
 import { fmtMemMB, fmtPct } from './format'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 import { useCanvasStore, type SessionSummary } from '../store/canvasStore'
@@ -35,6 +42,7 @@ function buildSessionSummaryFromMetrics(): SessionSummary {
   const metricsState = useMetricsStore.getState()
   const allMetrics = metricsState.metrics
   const allHistory = metricsState.history
+  const eventsRecorded = metricsState.events.length
 
   let peakRps = 0
   let peakP99 = 0
@@ -130,15 +138,57 @@ function buildSessionSummaryFromMetrics(): SessionSummary {
     cacheHitRate,
     avgLatency: avgLat,
     errorRate: maxErrorRate,
+    eventsRecorded,
     componentSummaries,
   }
 }
 
+function mergeApiMetricsSummary(
+  base: SessionSummary,
+  apiMetricsSummary: Record<string, unknown> | undefined
+): SessionSummary {
+  if (!apiMetricsSummary) return base
+  const dur = parsePeakFieldsFromMetricsSummary(apiMetricsSummary).durationSeconds
+  const parsed = parseSessionHistory(apiMetricsSummary.session_history)
+  const sessionSparklines = parsed ? normalizeSparklines(parsed) : undefined
+
+  let duration = base.duration
+  if (dur != null && dur > 0) {
+    duration = `${Math.floor(dur / 60)}m ${dur % 60}s`
+  }
+
+  const scalars = mergePeakScalars(
+    {
+      peakRps: base.peakRps,
+      peakP99: base.peakP99,
+      totalRequests: base.totalRequests,
+      cacheHitRate: base.cacheHitRate,
+      errorRate: base.errorRate,
+    },
+    apiMetricsSummary
+  )
+
+  return {
+    ...base,
+    ...scalars,
+    duration,
+    sessionSparklines,
+  }
+}
+
 /** Idempotent: skips if a summary is already set (timer vs WS vs manual). */
-export function captureSessionSummary(): void {
+export function captureSessionSummaryWithApi(
+  apiMetricsSummary?: Record<string, unknown>
+): void {
   const st = useCanvasStore.getState()
   if (st.sessionSummary != null) return
-  st.setSessionSummary(buildSessionSummaryFromMetrics())
+  const base = buildSessionSummaryFromMetrics()
+  st.setSessionSummary(mergeApiMetricsSummary(base, apiMetricsSummary))
+}
+
+/** Client-only snapshot (no GET /deployments merge). */
+export function captureSessionSummary(): void {
+  captureSessionSummaryWithApi(undefined)
 }
 
 /**
@@ -150,21 +200,34 @@ export function exitLiveSessionDueToRemoteEnd(): void {
   const st = useCanvasStore.getState()
   if (st.mode !== 'live') return
 
+  const deploymentId = st.deploymentId
+
   if (st.nodes[CLIENT_LOADGEN_ID]) {
     st.removeNode(CLIENT_LOADGEN_ID)
   }
-  captureSessionSummary()
 
-  const s = useCanvasStore.getState()
-  s.setMode('design')
-  s.setDeploymentId(null)
-  s.setLiveSessionEndsAt(null)
-  s.setAllEdgesAnimated(false)
-  useMetricsStore.getState().clearMetrics()
-  useLogStore.getState().clearLogs()
-  const nodes = useCanvasStore.getState().nodes
-  Object.keys(nodes).forEach((nid) => {
-    useCanvasStore.getState().updateNodeStatus(nid, 'idle')
-  })
-  clearLiveSessionPersist()
+  const finish = (apiMetricsSummary?: Record<string, unknown>) => {
+    captureSessionSummaryWithApi(apiMetricsSummary)
+    const s = useCanvasStore.getState()
+    s.setMode('design')
+    s.setDeploymentId(null)
+    s.setLiveSessionEndsAt(null)
+    s.setAllEdgesAnimated(false)
+    useMetricsStore.getState().clearMetrics()
+    useLogStore.getState().clearLogs()
+    const nodes = useCanvasStore.getState().nodes
+    Object.keys(nodes).forEach((nid) => {
+      useCanvasStore.getState().updateNodeStatus(nid, 'idle')
+    })
+    clearLiveSessionPersist()
+  }
+
+  if (!deploymentId) {
+    finish(undefined)
+    return
+  }
+
+  void getDeployment(deploymentId)
+    .then((dep) => finish(dep.metricsSummary as Record<string, unknown> | undefined))
+    .catch(() => finish(undefined))
 }

@@ -233,6 +233,21 @@ export class SimulationEngine {
     edgeFlows.set(connId, (edgeFlows.get(connId) ?? 0) + qps)
   }
 
+  /**
+   * Canonical deploy topology uses dependency edges (`worker -> mq`), while
+   * simulation queue-drain logic needs the logical consumer linked to the queue.
+   * Support both directions during transition.
+   */
+  private linkedWorkerForMq(mqNodeId: string): string | undefined {
+    const outgoing = this.adjacency.get(mqNodeId) ?? []
+    const outWorker = outgoing.find((id) => this.nodeTypes.get(id) === 'worker')
+    if (outWorker) return outWorker
+
+    const incoming = this.reverseAdj.get(mqNodeId) ?? []
+    const inWorker = incoming.find((id) => this.nodeTypes.get(id) === 'worker')
+    return inWorker
+  }
+
   private getClientBaseQps(clientId: string): number {
     const node = this.nodes.find((n) => n.id === clientId)
     if (!node) return 1000
@@ -689,8 +704,7 @@ export class SimulationEngine {
       if (t === 'message_queue') {
         const inQ = mqIngress.get(nodeId) ?? 0
         const depth = mqDepth[nodeId] ?? 0
-        const succs = this.adjacency.get(nodeId) ?? []
-        const workerId = succs.find((id) => this.nodeTypes.get(id) === 'worker')
+        const workerId = this.linkedWorkerForMq(nodeId)
         const cap = workerId
           ? (this.models.get(workerId) as WorkerModel).getEffectiveThroughput()
           : 0
@@ -799,8 +813,7 @@ export class SimulationEngine {
       if (nodeType === 'message_queue') {
         base.mqIngressQps = mqIngress.get(nodeId)
         base.mqQueueDepth = mqDepth[nodeId]
-        const succs = this.adjacency.get(nodeId) ?? []
-        const workerId = succs.find((id) => this.nodeTypes.get(id) === 'worker')
+        const workerId = this.linkedWorkerForMq(nodeId)
         if (workerId) {
           const wm = this.models.get(workerId) as WorkerModel
           base.workerCapacityQps = wm.getEffectiveThroughput()
@@ -875,8 +888,7 @@ export class SimulationEngine {
         prevMetrics.set(nodeId, state)
         metrics[nodeId] = state
 
-        const succs = this.adjacency.get(nodeId) ?? []
-        const workerId = succs.find((id) => this.nodeTypes.get(id) === 'worker')
+        const workerId = this.linkedWorkerForMq(nodeId)
         if (workerId) {
           const wm = this.models.get(workerId) as WorkerModel
           const cap = wm.getEffectiveThroughput()

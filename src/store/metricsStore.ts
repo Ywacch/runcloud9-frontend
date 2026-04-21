@@ -1,5 +1,15 @@
 import { create } from 'zustand'
 
+/** Event from backend metrics stream (threshold, cascade, loadgen actions). */
+export interface WsEvent {
+  timestamp: string
+  type: string
+  source: string
+  component?: string
+  title: string
+  description: string
+}
+
 /** Per-node metrics snapshot (full WS component payload mapped for UI). */
 export interface MetricsBucket {
   // Resource (USE)
@@ -33,6 +43,25 @@ export interface MetricsBucket {
   // DB-specific
   dbQueryRate: number
   dbActiveConnections: number
+  /** Postgres max_connections when known (from metrics). */
+  maxConnections: number
+
+  // MQ / worker / LB (live deploy)
+  activeConnections: number
+  lbConnectionLimit: number
+  queueDepth: number
+  produceRate: number
+  consumeRate: number
+  messagesReady: number
+  messagesUnacked: number
+  mqMemoryUsed: number
+  mqMemoryLimit: number
+  mqSaturationRatio: number
+  workerSaturation: number
+  redisMaxClients: number
+  perBackendRps: Record<string, number>
+  lbAlgorithm: string
+  lbBackends: string[]
 
   // Meta
   podCount: number
@@ -53,12 +82,24 @@ export interface LiveLoadgenState {
   elapsedSeconds: number
 }
 
+const MAX_EVENTS = 100
+
 interface MetricsState {
   metrics: Record<string, MetricsBucket>
   history: Record<string, MetricsBucket[]>
   loadgen: LiveLoadgenState | null
+  /** Rolling timeline of WS events (capped). */
+  events: WsEvent[]
+  /** Latest template-scoped counters/gauges from backend (dot keys). */
+  templateMetrics: Record<string, number>
+  /** Latest cascade event for a short toast; cleared on dismiss or clearMetrics. */
+  cascadeToast: WsEvent | null
+
   updateMetrics: (nodeId: string, data: MetricsBucket) => void
   setLoadgen: (data: LiveLoadgenState | null) => void
+  pushEvents: (incoming: WsEvent[]) => void
+  setTemplateMetrics: (m: Record<string, number> | undefined) => void
+  dismissCascadeToast: () => void
   clearMetrics: () => void
 }
 
@@ -66,6 +107,10 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   metrics: {},
   history: {},
   loadgen: null,
+  events: [],
+  templateMetrics: {},
+  cascadeToast: null,
+
   updateMetrics: (nodeId, data) =>
     set((s) => {
       const prev = s.history[nodeId] ?? []
@@ -75,6 +120,32 @@ export const useMetricsStore = create<MetricsState>((set) => ({
         history: { ...s.history, [nodeId]: updated },
       }
     }),
+
   setLoadgen: (loadgen) => set({ loadgen }),
-  clearMetrics: () => set({ metrics: {}, history: {}, loadgen: null }),
+
+  pushEvents: (incoming) =>
+    set((s) => {
+      if (!incoming?.length) return s
+      const merged = [...s.events, ...incoming].slice(-MAX_EVENTS)
+      let cascadeToast = s.cascadeToast
+      for (const e of incoming) {
+        if (e.type === 'cascade') cascadeToast = e
+      }
+      return { events: merged, cascadeToast }
+    }),
+
+  setTemplateMetrics: (m) =>
+    set({ templateMetrics: m && Object.keys(m).length ? { ...m } : {} }),
+
+  dismissCascadeToast: () => set({ cascadeToast: null }),
+
+  clearMetrics: () =>
+    set({
+      metrics: {},
+      history: {},
+      loadgen: null,
+      events: [],
+      templateMetrics: {},
+      cascadeToast: null,
+    }),
 }))
