@@ -16,6 +16,7 @@ import { captureSessionSummaryWithApi } from '../lib/sessionCapture'
 import {
   CLIENT_LOADGEN_ID,
 } from '../lib/spawnClientNode'
+import { autoArrangeByDependencyLayers } from '../lib/autoArrange'
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore } from '../store/metricsStore'
@@ -60,9 +61,11 @@ export function Sidebar() {
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const movementLocked = useCanvasStore((s) => s.movementLocked)
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
   const setPlacingNodeType = useCanvasStore((s) => s.setPlacingNodeType)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
+  const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
 
   const [deploying, setDeploying] = useState(false)
   const [tearing, setTearing] = useState(false)
@@ -176,6 +179,18 @@ export function Sidebar() {
       setDesignTool('select')
       setPlacingNodeType(type)
     }
+  }
+
+  const handleAutoArrange = () => {
+    const st = useCanvasStore.getState()
+    const nodeList = Object.values(st.nodes)
+    if (nodeList.length === 0) return
+    const edgeList = Object.values(st.edges)
+    const nextPositions = autoArrangeByDependencyLayers(nodeList, edgeList)
+    for (const [id, pos] of Object.entries(nextPositions)) {
+      st.updateNodePosition(id, pos)
+    }
+    setBanner('Auto-arranged by dependency depth.')
   }
 
   const onDragStart =
@@ -383,6 +398,23 @@ export function Sidebar() {
         <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-gray-400">
           Components
         </h2>
+        <div className="space-y-2 rounded border border-gray-800 bg-gray-800/40 p-2">
+          <button
+            type="button"
+            onClick={() => setMovementLocked(!movementLocked)}
+            className="w-full rounded border border-gray-700 bg-gray-900/60 px-3 py-2 text-left text-xs font-medium text-gray-100 hover:bg-gray-800"
+          >
+            {movementLocked ? 'Unlock movement' : 'Lock movement'}
+          </button>
+          <button
+            type="button"
+            disabled={nodeCount === 0}
+            onClick={handleAutoArrange}
+            className="w-full rounded border border-gray-700 bg-gray-900/60 px-3 py-2 text-left text-xs font-medium text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Auto arrange
+          </button>
+        </div>
         <p className="text-xs leading-snug text-gray-500">
           Drag onto the canvas, or click a component then click the grid. Esc cancels.
         </p>

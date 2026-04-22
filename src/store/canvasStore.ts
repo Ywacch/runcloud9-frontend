@@ -78,6 +78,8 @@ interface CanvasState {
   mode: CanvasMode
   nodes: Record<string, CanvasNode>
   edges: Record<string, CanvasEdge>
+  /** If true, node dragging is disabled in all modes. */
+  movementLocked: boolean
   selectedId: string | null
   pendingSourceId: string | null
   deploymentId: string | null
@@ -104,6 +106,7 @@ interface CanvasState {
   setPendingSource: (id: string | null) => void
   setConnectHoverTargetId: (id: string | null) => void
   setEdgeAnimated: (id: string, animated: boolean) => void
+  setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
   setMode: (mode: CanvasMode) => void
   setDeploymentId: (id: string | null) => void
@@ -127,6 +130,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   mode: 'design',
   nodes: {},
   edges: {},
+  movementLocked: false,
   selectedId: null,
   pendingSourceId: null,
   deploymentId: null,
@@ -218,6 +222,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { edges: { ...s.edges, [id]: { ...e, animated } } }
     }),
 
+  setMovementLocked: (movementLocked) => set({ movementLocked }),
+
   selectNode: (selectedId) => set({ selectedId }),
 
   setMode: (next) =>
@@ -283,6 +289,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,
+      movementLocked: false,
       mode: 'design',
     }),
 
@@ -299,6 +306,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,
+      movementLocked: false,
       mode: targetMode,
     }),
 
@@ -316,5 +324,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,
+      movementLocked: false,
     }),
 }))
