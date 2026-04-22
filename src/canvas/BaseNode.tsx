@@ -48,6 +48,7 @@ export function BaseNode({ node }: BaseNodeProps) {
   const designTool = useCanvasStore((s) => s.designTool)
   const selectedId = useCanvasStore((s) => s.selectedId)
   const pendingSourceId = useCanvasStore((s) => s.pendingSourceId)
+  const movementLocked = useCanvasStore((s) => s.movementLocked)
   const updateNodePosition = useCanvasStore((s) => s.updateNodePosition)
   const setConnectHoverTargetId = useCanvasStore((s) => s.setConnectHoverTargetId)
   const nodeStatus = useCanvasStore((s) => s.nodes[node.id]?.status ?? node.status)
@@ -208,10 +209,12 @@ export function BaseNode({ node }: BaseNodeProps) {
     ({ xy: [cx, cy], dragging, buttons }) => {
       if (isClient) return
       const st = useCanvasStore.getState()
+      if (st.movementLocked) return
+      const canDragLive = st.mode === 'live'
       const canDragSimulate = st.mode === 'simulate'
       const canDragDesign =
         st.mode === 'design' && st.designTool === 'select'
-      if ((!canDragSimulate && !canDragDesign) || !dragging) return
+      if ((!canDragLive && !canDragSimulate && !canDragDesign) || !dragging) return
       if (buttons != null && buttons !== 1) return
 
       const rect = gl.domElement.getBoundingClientRect()
@@ -232,7 +235,7 @@ export function BaseNode({ node }: BaseNodeProps) {
     { filterTaps: true, pointer: { capture: true } }
   )
 
-  const dragBind = mode === 'design' || mode === 'simulate' ? bind() : {}
+  const dragBind = bind()
 
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation()
@@ -345,7 +348,9 @@ export function BaseNode({ node }: BaseNodeProps) {
         {...dragBind}
         onPointerDown={(e: ThreeEvent<PointerEvent>) => {
           if (e.button === 0) e.stopPropagation()
-          dragBind.onPointerDown?.(e as unknown as ReactPointerEvent<HTMLElement>)
+          if (!movementLocked) {
+            dragBind.onPointerDown?.(e as unknown as ReactPointerEvent<HTMLElement>)
+          }
         }}
         onClick={handleClick}
         onPointerEnter={() => setHovered(true)}
