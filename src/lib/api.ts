@@ -64,6 +64,27 @@ export interface TemplateInfo {
   simulatable: boolean
   deployable: boolean
   tags: string[]
+  preset?: TemplatePreset
+}
+
+export interface TemplatePresetNode {
+  id: string
+  type: string
+  position: [number, number, number]
+  label: string
+  config: Record<string, unknown>
+}
+
+export interface TemplatePresetEdge {
+  id: string
+  sourceId: string
+  targetId: string
+  protocol: string
+}
+
+export interface TemplatePreset {
+  nodes: TemplatePresetNode[]
+  edges: TemplatePresetEdge[]
 }
 
 /**

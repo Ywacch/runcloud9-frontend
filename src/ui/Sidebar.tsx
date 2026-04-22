@@ -4,6 +4,8 @@ import {
   createDeployment,
   deleteDeployment,
   getDeployment,
+  getTemplates,
+  type TemplateInfo,
 } from '../lib/api'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
@@ -21,8 +23,6 @@ import { useSimulationStore } from '../store/simulationStore'
 import { DeployModal, type DeployStep } from './DeployModal'
 import { RationalePanel } from './RationalePanel'
 import { TemplateModal, templateTitleForId } from './TemplateModal'
-
-const DEPLOYABLE_TEMPLATES: string[] = ['url-shortener']
 
 const SIDEBAR_COLLAPSED_KEY = 'cloud9.sidebarCollapsed'
 
@@ -68,7 +68,6 @@ export function Sidebar() {
   const [tearing, setTearing] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
-  const [alertMsg, setAlertMsg] = useState<string | null>(null)
   const [deploySteps, setDeploySteps] = useState<DeployStep[]>([])
   const [deployModalOpen, setDeployModalOpen] = useState(false)
   const [deployError, setDeployError] = useState<string | null>(null)
@@ -76,6 +75,9 @@ export function Sidebar() {
     string | null
   >(null)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
+  const [templateInfoById, setTemplateInfoById] = useState<
+    Record<string, TemplateInfo>
+  >({})
 
   useEffect(() => {
     try {
@@ -84,6 +86,23 @@ export function Sidebar() {
       /* ignore */
     }
   }, [collapsed])
+
+  useEffect(() => {
+    let cancelled = false
+    getTemplates()
+      .then((rows) => {
+        if (cancelled) return
+        const byId: Record<string, TemplateInfo> = {}
+        for (const t of rows) byId[t.id] = t
+        setTemplateInfoById(byId)
+      })
+      .catch(() => {
+        /* deploy flow still backend-validated; ignore metadata fetch failures */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const proceedWithDeployResult = useCallback((result: DeploymentResult) => {
     const st = useCanvasStore.getState()
@@ -132,6 +151,23 @@ export function Sidebar() {
   const live = mode === 'live'
   const simulate = mode === 'simulate'
   const simRunning = useSimulationStore((s) => s.running)
+  const selectedTemplate = snapshotTemplateId
+    ? templateInfoById[snapshotTemplateId]
+    : undefined
+  const simulatorDisabledReason = !snapshotTemplateId
+    ? 'Choose a template from the Templates section first'
+    : !selectedTemplate
+      ? 'Loading template capabilities...'
+      : !selectedTemplate.simulatable
+      ? `The "${selectedTemplate.name}" template is not simulatable right now.`
+      : undefined
+  const deployDisabledReason = !snapshotTemplateId
+    ? 'Choose a template from the Templates section first'
+    : !selectedTemplate
+      ? 'Loading template capabilities...'
+      : !selectedTemplate.deployable
+      ? `The "${selectedTemplate.name}" template is simulation-only right now.`
+      : undefined
 
   const togglePlace = (type: CanvasNode['type']) => {
     if (placingNodeType === type) {
@@ -161,13 +197,7 @@ export function Sidebar() {
       setBanner('Select a template before deploying.')
       return
     }
-    const templateId = stCheck.snapshotTemplateId
-    if (templateId && !DEPLOYABLE_TEMPLATES.includes(templateId)) {
-      setAlertMsg(
-        `The "${templateTitleForId(templateId) ?? templateId}" template is not deployable yet.\n\nOnly URL Shortener is available in this release.`,
-      )
-      return
-    }
+    // Deployability is determined by backend template metadata / validation.
 
     setDeploying(true)
     setBanner(null)
@@ -445,26 +475,31 @@ export function Sidebar() {
             {nodeCount > 0 && snapshotTemplateId ? (
               <button
                 type="button"
+                disabled={!selectedTemplate || !selectedTemplate.simulatable}
+                title={simulatorDisabledReason}
                 onClick={() => {
+                  if (!selectedTemplate || !selectedTemplate.simulatable) return
                   useSimulationStore.getState().stop()
                   useCanvasStore.getState().setMode('simulate')
                   setBanner(
                     'Simulation view — press Start simulation in the top bar when ready.',
                   )
                 }}
-                className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 hover:bg-violet-900/40"
+                className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Simulator
               </button>
             ) : null}
             <button
               type="button"
-              disabled={deploying || nodeCount === 0 || !snapshotTemplateId}
-              title={
-                !snapshotTemplateId
-                  ? 'Choose a template from the Templates section first'
-                  : undefined
+              disabled={
+                deploying ||
+                nodeCount === 0 ||
+                !snapshotTemplateId ||
+                !selectedTemplate ||
+                !selectedTemplate.deployable
               }
+              title={deployDisabledReason}
               onClick={handleDeploy}
               className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
             >
@@ -473,26 +508,6 @@ export function Sidebar() {
           </>
         )}
       </div>
-
-      {alertMsg ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-white">
-              Template Not Available
-            </h3>
-            <p className="mt-2 whitespace-pre-line text-xs text-gray-400">
-              {alertMsg}
-            </p>
-            <button
-              type="button"
-              onClick={() => setAlertMsg(null)}
-              className="mt-4 w-full rounded-lg bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <DeployModal
         open={deployModalOpen}
