@@ -1,10 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { getTemplates, type TemplateInfo as ApiTemplateInfo } from '../lib/api'
-import {
-  presetEcommerce,
-  presetSocialFeed,
-  presetUrlShortener,
-} from '../lib/presets'
+import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../store/authStore'
 import type { CanvasSnapshot } from '../store/canvasStore'
 
@@ -20,8 +16,7 @@ export function templateTitleForId(id: string | null): string | null {
   return TEMPLATE_TITLE_FALLBACK[id] ?? id
 }
 
-type LocalPresetMeta = {
-  preset: () => CanvasSnapshot
+type LocalTemplateMeta = {
   icon: ReactNode
   accent: string
 }
@@ -62,28 +57,28 @@ const UsersIcon = (
   </svg>
 )
 
-const PRESET_BY_ID: Record<string, LocalPresetMeta> = {
+const TEMPLATE_META_BY_ID: Record<string, LocalTemplateMeta> = {
   'url-shortener': {
-    preset: presetUrlShortener,
     accent: '#4A90D9',
     icon: LinkIcon,
   },
   ecommerce: {
-    preset: presetEcommerce,
     accent: '#27AE60',
     icon: CartIcon,
   },
   'social-feed': {
-    preset: presetSocialFeed,
     accent: '#9B59B6',
     icon: UsersIcon,
   },
 }
 
-type MergedTemplateRow = ApiTemplateInfo & LocalPresetMeta
+type PresetTemplateRow = ApiTemplateInfo &
+  LocalTemplateMeta & {
+    snapshot: CanvasSnapshot
+  }
 
 type ModalTemplateItem =
-  | { kind: 'merged'; row: MergedTemplateRow }
+  | { kind: 'preset'; row: PresetTemplateRow }
   | { kind: 'remote'; row: ApiTemplateInfo }
 
 const UPGRADE_TOOLTIP = 'Upgrade to Cloud9 Premium'
@@ -173,12 +168,12 @@ function TemplatePickerCard({
   isPremiumUser,
   onUseTemplate,
 }: {
-  row: MergedTemplateRow
+  row: PresetTemplateRow
   isPremiumUser: boolean
-  onUseTemplate: (preset: () => CanvasSnapshot, id: string) => void
+  onUseTemplate: (snapshot: CanvasSnapshot, id: string) => void
 }) {
-  const snapshot = useMemo(() => row.preset(), [row])
   const premiumLocked = row.premium && !isPremiumUser
+  const snapshot = row.snapshot
 
   return (
     <div
@@ -238,7 +233,7 @@ function TemplatePickerCard({
             title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
             onClick={() => {
               if (premiumLocked) return
-              onUseTemplate(row.preset, row.id)
+              onUseTemplate(row.snapshot, row.id)
             }}
             className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -343,9 +338,20 @@ export function TemplateModal({
         if (cancelled) return
         const next: ModalTemplateItem[] = []
         for (const t of list) {
-          const meta = PRESET_BY_ID[t.id]
-          if (meta) next.push({ kind: 'merged', row: { ...t, ...meta } })
-          else next.push({ kind: 'remote', row: t })
+          const meta = TEMPLATE_META_BY_ID[t.id]
+          if (t.preset) {
+            next.push({
+              kind: 'preset',
+              row: {
+                ...t,
+                icon: meta?.icon ?? LinkIcon,
+                accent: meta?.accent ?? '#8A9BB0',
+                snapshot: templatePresetToCanvasSnapshot(t.preset, t.id),
+              },
+            })
+          } else {
+            next.push({ kind: 'remote', row: t })
+          }
         }
         setItems(next)
       })
@@ -411,13 +417,13 @@ export function TemplateModal({
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
               {items.map((item) =>
-                item.kind === 'merged' ? (
+                item.kind === 'preset' ? (
                   <TemplatePickerCard
                     key={item.row.id}
                     row={item.row}
                     isPremiumUser={isPremiumUser}
-                    onUseTemplate={(preset, id) => {
-                      if (onSelect(preset, id) !== false) onClose()
+                    onUseTemplate={(snapshot, id) => {
+                      if (onSelect(() => snapshot, id) !== false) onClose()
                     }}
                   />
                 ) : (
