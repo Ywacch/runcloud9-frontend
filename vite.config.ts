@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, loadEnv } from 'vite'
@@ -32,6 +33,11 @@ export default defineConfig(({ mode }) => {
   // Printed when the dev server starts — confirms which origin is used (catches wrong .env).
   console.info(`[cloud9] Vite dev API proxy -> ${apiOrigin}`)
 
+  const sentryUpload =
+    process.env.SENTRY_AUTH_TOKEN &&
+    process.env.SENTRY_ORG &&
+    process.env.SENTRY_PROJECT
+
   const common = {
     target: apiOrigin,
     changeOrigin: true,
@@ -39,10 +45,23 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      ...(sentryUpload
+        ? [
+            sentryVitePlugin({
+              org: process.env.SENTRY_ORG!,
+              project: process.env.SENTRY_PROJECT!,
+              authToken: process.env.SENTRY_AUTH_TOKEN!,
+            }),
+          ]
+        : []),
+    ],
     build: {
       // Landing stays small; /canvas async chunk bundles three.js + R3F (~1.2 MB minified).
       chunkSizeWarningLimit: 1300,
+      sourcemap: sentryUpload ? 'hidden' : false,
     },
     server: {
       port: 3000,

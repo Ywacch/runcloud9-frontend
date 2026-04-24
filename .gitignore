@@ -43,3 +43,7 @@ Desktop.ini
 # Testing
 coverage/
 test-results/
+
+throwaway/
+.agents/
+skills-lock.json
