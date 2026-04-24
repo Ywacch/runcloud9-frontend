@@ -87,6 +87,18 @@ export interface TemplatePreset {
   edges: TemplatePresetEdge[]
 }
 
+export class ApiError extends Error {
+  status: number
+  rawMessage: string
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.rawMessage = message
+  }
+}
+
 /**
  * Fetch the template registry from the backend.
  * Path: strip "/deployments" suffix from DEPLOYMENTS_API_PREFIX and replace with "/templates".
@@ -123,7 +135,10 @@ export async function createDeployment(
     },
     body: JSON.stringify(design),
   })
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
   return res.json() as Promise<DeploymentResult>
 }
 
