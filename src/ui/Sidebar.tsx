@@ -1,4 +1,5 @@
 import { type DragEvent, useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   type DeploymentResult,
   createDeployment,
@@ -7,6 +8,10 @@ import {
   getTemplates,
   type TemplateInfo,
 } from '../lib/api'
+import {
+  mapDeployRequestError,
+  type DeployRequestMessage,
+} from '../lib/deployRequestMessage'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   clearLiveSessionPersist,
@@ -18,10 +23,15 @@ import {
 } from '../lib/spawnClientNode'
 import { autoArrangeByDependencyLayers } from '../lib/autoArrange'
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
+import { useAuthStore } from '../store/authStore'
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
-import { DeployModal, type DeployStep } from './DeployModal'
+import {
+  DeployModal,
+  type DeployModalMode,
+  type DeployStep,
+} from './DeployModal'
 import { RationalePanel } from './RationalePanel'
 import { TemplateModal, templateTitleForId } from './TemplateModal'
 
@@ -57,6 +67,7 @@ function getEmptyDragImage(): HTMLCanvasElement {
 }
 
 export function Sidebar() {
+  const navigate = useNavigate()
   const mode = useCanvasStore((s) => s.mode)
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
@@ -66,6 +77,7 @@ export function Sidebar() {
   const setPlacingNodeType = useCanvasStore((s) => s.setPlacingNodeType)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
+  const session = useAuthStore((s) => s.session)
 
   const [deploying, setDeploying] = useState(false)
   const [tearing, setTearing] = useState(false)
@@ -73,7 +85,10 @@ export function Sidebar() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
   const [deploySteps, setDeploySteps] = useState<DeployStep[]>([])
   const [deployModalOpen, setDeployModalOpen] = useState(false)
-  const [deployError, setDeployError] = useState<string | null>(null)
+  const [deployModalMode, setDeployModalMode] =
+    useState<DeployModalMode>('progress')
+  const [deployRequestMessage, setDeployRequestMessage] =
+    useState<DeployRequestMessage | null>(null)
   const [deploySimulationMessage, setDeploySimulationMessage] = useState<
     string | null
   >(null)
@@ -141,6 +156,8 @@ export function Sidebar() {
     setBanner('Deployment submitted. Provisioning started...')
     persistLiveSession(id, useCanvasStore.getState().exportJSON())
     setDeployModalOpen(false)
+    setDeployModalMode('progress')
+    setDeployRequestMessage(null)
     setDeploying(false)
   }, [])
 
@@ -170,7 +187,9 @@ export function Sidebar() {
       ? 'Loading template capabilities...'
       : !selectedTemplate.deployable
       ? `The "${selectedTemplate.name}" template is simulation-only right now.`
-      : undefined
+      : !session
+        ? 'Sign in to deploy infrastructure.'
+        : undefined
 
   const togglePlace = (type: CanvasNode['type']) => {
     if (placingNodeType === type) {
@@ -214,17 +233,32 @@ export function Sidebar() {
     }
     // Deployability is determined by backend template metadata / validation.
 
+    if (!session) {
+      setDeploying(false)
+      setDeployModalOpen(true)
+      setDeployModalMode('request_rejected')
+      setDeploySimulationMessage(null)
+      setDeployRequestMessage({
+        title: 'Deployment request was not accepted',
+        body: 'Please sign in to deploy infrastructure.',
+        technicalDetails: 'No active Supabase session found.',
+        actionLabel: 'Sign in',
+      })
+      return
+    }
+
     setDeploying(true)
     setBanner(null)
     setDeployModalOpen(true)
-    setDeployError(null)
+    setDeployModalMode('progress')
+    setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
     setDeploySteps([
       {
         id: 'validate',
-        label: 'Validating topology',
+        label: 'Submitting deployment request',
         state: 'active',
-        detail: 'Checking connections and configs...',
+        detail: 'Sending your design to Cloud9 API...',
       },
       {
         id: 'provision',
@@ -255,6 +289,7 @@ export function Sidebar() {
       const result = await createDeployment(design)
 
       if (result.status === 'simulation_recommended') {
+        setDeployModalMode('simulation_recommended')
         setDeploySimulationMessage(
           result.assessment?.explanation ??
             'This topology is not fully deployable yet.',
@@ -277,7 +312,9 @@ export function Sidebar() {
 
       proceedWithDeployResult(result)
     } catch (e) {
-      setDeployError(e instanceof Error ? e.message : 'Deploy failed')
+      const friendly = mapDeployRequestError(e)
+      setDeployModalMode('request_rejected')
+      setDeployRequestMessage(friendly)
       setDeploySimulationMessage(null)
       setDeploySteps((s) =>
         s.map((step) =>
@@ -535,7 +572,7 @@ export function Sidebar() {
               onClick={handleDeploy}
               className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
             >
-              Deploy
+              {session ? 'Deploy' : 'Sign in to deploy'}
             </button>
           </>
         )}
@@ -544,11 +581,17 @@ export function Sidebar() {
       <DeployModal
         open={deployModalOpen}
         steps={deploySteps}
-        error={deployError}
+        mode={deployModalMode}
+        requestTitle={deployRequestMessage?.title}
+        requestMessage={deployRequestMessage?.body}
+        technicalDetails={deployRequestMessage?.technicalDetails}
+        requestActionLabel={deployRequestMessage?.actionLabel}
+        onRequestAction={() => navigate('/login')}
         simulationRecommended={deploySimulationMessage}
         onClose={() => {
           setDeployModalOpen(false)
-          setDeployError(null)
+          setDeployModalMode('progress')
+          setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
           setDeploying(false)
         }}
@@ -558,11 +601,15 @@ export function Sidebar() {
             'Simulation mode — explore the design without cluster provisioning.',
           )
           setDeployModalOpen(false)
+          setDeployModalMode('progress')
+          setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
           setDeploying(false)
         }}
         onModifyDesign={() => {
           setDeployModalOpen(false)
+          setDeployModalMode('progress')
+          setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
           setDeploying(false)
         }}
