@@ -42,30 +42,6 @@ export default function LoginPage() {
     }
   }
 
-  const onMagicLink = async () => {
-    if (!normalizedEmail) {
-      setError('Enter your invited email address first.')
-      return
-    }
-    setSubmitting(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      const redirectTo = `${window.location.origin}/auth/callback`
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: { emailRedirectTo: redirectTo },
-      })
-      if (signInError) throw signInError
-      setSuccess('Check your email for a secure sign-in link.')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to send sign-in link.'
-      setError(msg)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   if (session) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-6 pt-20 text-white">
@@ -139,14 +115,6 @@ export default function LoginPage() {
           className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
         >
           {submitting ? 'Signing in…' : 'Sign in with password'}
-        </button>
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => void onMagicLink()}
-          className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-100 hover:bg-gray-800 disabled:opacity-60"
-        >
-          Send magic link instead
         </button>
         <Link
           to="/reset-password"
