@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
+import SetPasswordPage from './pages/SetPasswordPage'
 import NavHeader from './ui/NavHeader'
 
 const CanvasPage = lazy(() => import('./pages/CanvasPage'))
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
           <Route
             path="/canvas"
             element={
