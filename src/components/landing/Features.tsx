@@ -1,4 +1,6 @@
 import { type ReactNode } from 'react'
+import canvasDesign from '../../assets/canvas2.PNG'
+import canvasLive from '../../assets/canvas3.png'
 import { ScreenshotFrame } from './ScreenshotFrame'
 
 type FeatureItem = {
@@ -92,7 +94,7 @@ export function Features() {
                 </p>
 
                 <div className="rounded-2xl border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3 shadow-xl shadow-black/10">
-                  <ScreenshotFrame className="w-full" />
+                  <ScreenshotFrame className="w-full" screenshotSrc={canvasLive} />
                 </div>
 
                 <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -143,7 +145,7 @@ export function Features() {
                 </p>
               </div>
               <div className={visualOrderClass}>
-                <ScreenshotFrame className="w-full" />
+                <ScreenshotFrame className="w-full" screenshotSrc={canvasDesign} />
               </div>
             </div>
           </div>

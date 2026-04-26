@@ -1,5 +1,6 @@
-import { ScreenshotFrame } from './ScreenshotFrame'
 import { Link } from 'react-router-dom'
+import canvasHero from '../../assets/canvas1.PNG'
+import { ScreenshotFrame } from './ScreenshotFrame'
 
 export function Hero() {
   return (
@@ -49,7 +50,7 @@ export function Hero() {
         </div>
 
         <div className="relative -rotate-1 transition-transform duration-500 hover:rotate-0">
-          <ScreenshotFrame />
+          <ScreenshotFrame screenshotSrc={canvasHero} />
           <div className="absolute -bottom-4 -left-4 flex items-center gap-2 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-3 py-2 shadow-lg">
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
             <span className="text-xs text-[var(--c9-muted)]">3 pods healthy</span>
