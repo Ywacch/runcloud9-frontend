@@ -94,12 +94,15 @@ interface MetricsState {
   templateMetrics: Record<string, number>
   /** Latest cascade event for a short toast; cleared on dismiss or clearMetrics. */
   cascadeToast: WsEvent | null
+  /** Non-fatal transport/polling issue while live session remains active. */
+  streamWarning: string | null
 
   updateMetrics: (nodeId: string, data: MetricsBucket) => void
   setLoadgen: (data: LiveLoadgenState | null) => void
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
   dismissCascadeToast: () => void
+  setStreamWarning: (msg: string | null) => void
   clearMetrics: () => void
 }
 
@@ -110,6 +113,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   events: [],
   templateMetrics: {},
   cascadeToast: null,
+  streamWarning: null,
 
   updateMetrics: (nodeId, data) =>
     set((s) => {
@@ -139,6 +143,8 @@ export const useMetricsStore = create<MetricsState>((set) => ({
 
   dismissCascadeToast: () => set({ cascadeToast: null }),
 
+  setStreamWarning: (streamWarning) => set({ streamWarning }),
+
   clearMetrics: () =>
     set({
       metrics: {},
@@ -147,5 +153,6 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       events: [],
       templateMetrics: {},
       cascadeToast: null,
+      streamWarning: null,
     }),
 }))

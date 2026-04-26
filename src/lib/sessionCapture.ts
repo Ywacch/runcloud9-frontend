@@ -12,6 +12,12 @@ import { useCanvasStore, type SessionSummary } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore, type MetricsBucket } from '../store/metricsStore'
 
+export function isTerminalDeploymentStatus(
+  status: string | null | undefined,
+): boolean {
+  return status === 'failed' || status === 'terminated'
+}
+
 function resourceSummaryLines(
   latest: MetricsBucket | undefined,
   cpuPeakPct: number,
