@@ -51,7 +51,8 @@ export function deploymentDesignToSnapshot(
     return {
       id: n.id,
       type,
-      position: [x, 0, z],
+      // Keep baseline elevation consistent with runtime canvas placement.
+      position: [x, 0.3, z],
       label: n.name || n.id,
       config: { ...n.config },
       status: 'idle',
