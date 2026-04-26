@@ -262,11 +262,15 @@ export function deploymentProxyUrl(
 }
 
 export function connectMetricsWS(id: string): WebSocket {
-  const url = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/metrics`
+  const base = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/metrics`
+  const token = getAccessToken()
+  const url = token ? `${base}?token=${encodeURIComponent(token)}` : base
   return new WebSocket(url)
 }
 
 export function connectLogsWS(id: string): WebSocket {
-  const url = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/logs`
+  const base = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/logs`
+  const token = getAccessToken()
+  const url = token ? `${base}?token=${encodeURIComponent(token)}` : base
   return new WebSocket(url)
 }
