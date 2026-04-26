@@ -44,18 +44,18 @@ export function SimulationOverlay() {
 
   return (
     <div className="pointer-events-auto flex w-full min-w-0 flex-col gap-1.5">
-      <div className="flex min-h-0 flex-wrap items-center gap-1.5 rounded-lg border border-violet-400/35 bg-violet-950/70 px-2 py-1.5 text-sm shadow-md backdrop-blur-md">
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+      <div className="flex min-h-0 flex-wrap items-center gap-1.5 rounded-lg border border-violet-500/35 bg-[var(--c9-surface)]/85 px-2 py-1.5 text-sm shadow-md backdrop-blur-md">
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
           Simulation
         </span>
-        <span className="shrink-0 text-zinc-500">|</span>
+        <span className="shrink-0 text-[var(--c9-muted)]">|</span>
         <span className="shrink-0 whitespace-nowrap text-xs">
-          <span className="font-semibold text-zinc-200">Tick</span>{' '}
-          <span className="font-mono font-semibold text-zinc-50">{tick}</span>
+          <span className="font-semibold text-[var(--c9-muted)]">Tick</span>{' '}
+          <span className="font-mono font-semibold text-[var(--c9-text)]">{tick}</span>
         </span>
-        <span className="shrink-0 text-zinc-500">|</span>
+        <span className="shrink-0 text-[var(--c9-muted)]">|</span>
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs">
-          <span className="font-semibold text-zinc-200">Speed</span>
+          <span className="font-semibold text-[var(--c9-muted)]">Speed</span>
           <input
             type="range"
             min={25}
@@ -64,13 +64,13 @@ export function SimulationOverlay() {
             onChange={(e) => setSimulationSpeed(Number(e.target.value) / 100)}
             className="h-1.5 w-20 accent-violet-400"
           />
-          <span className="w-9 font-mono text-[11px] font-semibold text-zinc-50">
+          <span className="w-9 font-mono text-[11px] font-semibold text-[var(--c9-text)]">
             {simulationSpeed.toFixed(2)}×
           </span>
         </label>
-        <span className="shrink-0 text-zinc-500">|</span>
+        <span className="shrink-0 text-[var(--c9-muted)]">|</span>
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs">
-          <span className="font-semibold text-zinc-200">Traffic</span>
+          <span className="font-semibold text-[var(--c9-muted)]">Traffic</span>
           <input
             type="range"
             min={5}
@@ -79,16 +79,16 @@ export function SimulationOverlay() {
             onChange={(e) => setLoadFactor(Number(e.target.value) / 100)}
             className="h-1.5 w-20 accent-violet-400"
           />
-          <span className="w-7 font-mono text-[11px] font-semibold text-zinc-50">
+          <span className="w-7 font-mono text-[11px] font-semibold text-[var(--c9-text)]">
             {loadFactor.toFixed(2)}×
           </span>
         </label>
-        <span className="shrink-0 text-zinc-500">|</span>
+        <span className="shrink-0 text-[var(--c9-muted)]">|</span>
         {!running ? (
           <button
             type="button"
             onClick={start}
-            className="shrink-0 rounded bg-violet-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-violet-500"
+            className="shrink-0 rounded bg-violet-600 px-2 py-0.5 text-[11px] font-semibold text-white transition-colors duration-200 hover:bg-violet-500"
           >
             Start
           </button>
@@ -96,7 +96,7 @@ export function SimulationOverlay() {
           <button
             type="button"
             onClick={resume}
-            className="shrink-0 rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-500"
+            className="shrink-0 rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white transition-colors duration-200 hover:bg-emerald-500"
           >
             Resume
           </button>
@@ -104,18 +104,18 @@ export function SimulationOverlay() {
           <button
             type="button"
             onClick={pause}
-            className="shrink-0 rounded bg-amber-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-500"
+            className="shrink-0 rounded bg-amber-600 px-2 py-0.5 text-[11px] font-semibold text-white transition-colors duration-200 hover:bg-amber-500"
           >
             Pause
           </button>
         )}
         {running ? (
           <>
-            <span className="shrink-0 text-zinc-500">|</span>
+            <span className="shrink-0 text-[var(--c9-muted)]">|</span>
             <button
               type="button"
               onClick={stop}
-              className="shrink-0 rounded border border-amber-500/60 bg-amber-950/70 px-2 py-0.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-900/70"
+              className="shrink-0 rounded border border-amber-500/60 bg-amber-950/70 px-2 py-0.5 text-[11px] font-semibold text-amber-100 transition-colors duration-200 hover:bg-amber-900/70"
             >
               Stop
             </button>
@@ -123,7 +123,7 @@ export function SimulationOverlay() {
         ) : null}
         {showDiagnostics ? (
           <>
-            <span className="shrink-0 text-zinc-500">|</span>
+            <span className="shrink-0 text-[var(--c9-muted)]">|</span>
             <button
               type="button"
               onClick={() => setDiagOpen((o) => !o)}
@@ -145,7 +145,7 @@ export function SimulationOverlay() {
       {tickAgeLabel ? (
         <p className="px-0.5 text-[11px] text-violet-200/85">{tickAgeLabel}</p>
       ) : null}
-      <p className="px-0.5 text-[10px] leading-snug text-violet-300/65">
+      <p className="px-0.5 text-[10px] leading-snug text-[var(--c9-muted)]">
         Local model — not production telemetry.
       </p>
       {diagOpen && showDiagnostics ? (

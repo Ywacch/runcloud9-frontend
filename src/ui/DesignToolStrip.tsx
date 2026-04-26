@@ -19,7 +19,7 @@ export function DesignToolStrip() {
 
   return (
     <div
-      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 gap-0.5 rounded-lg border border-gray-200 bg-white/95 p-1 shadow-lg backdrop-blur-sm"
+      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 gap-0.5 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 p-1 shadow-lg backdrop-blur-sm"
       role="toolbar"
       aria-label="Design tools"
     >
@@ -33,12 +33,12 @@ export function DesignToolStrip() {
             onClick={() => setDesignTool(t.id)}
             className={`relative flex min-w-[4.5rem] flex-col items-center rounded-md px-3 py-2 text-xs font-medium transition-colors ${
               active
-                ? 'bg-sky-100 text-sky-900'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-[var(--c9-accent)] text-white'
+                : 'text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)]'
             }`}
           >
             <span>{t.label}</span>
-            <span className="absolute bottom-0.5 right-1 font-mono text-[9px] text-gray-400">
+            <span className="absolute bottom-0.5 right-1 font-mono text-[9px] text-[var(--c9-muted)]">
               {t.hotkey}
             </span>
           </button>

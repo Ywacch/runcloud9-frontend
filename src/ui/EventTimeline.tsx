@@ -17,7 +17,7 @@ function pillClass(type: string): string {
   if (type === 'cascade') return 'bg-red-950/80 text-red-100 ring-red-800/50'
   if (type === 'threshold')
     return 'bg-amber-950/80 text-amber-100 ring-amber-800/50'
-  return 'bg-sky-950/70 text-sky-100 ring-sky-800/40'
+  return 'bg-[var(--c9-badge-bg)] text-[var(--c9-text)] ring-[var(--c9-border)]'
 }
 
 /**
@@ -56,12 +56,12 @@ export function EventTimeline() {
 
   return (
     <div className="pointer-events-auto w-full max-w-2xl">
-      <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+      <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)]">
         Event timeline
       </div>
       <div
         ref={scrollRef}
-        className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-white/10 bg-black/45 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
+        className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/85 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
       >
         {sorted.map((e, i) => (
           <button
@@ -70,14 +70,14 @@ export function EventTimeline() {
             title={e.description || e.title}
             onClick={() => onPillClick(e.component)}
             disabled={!e.component}
-            className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type)} ${
+            className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type)} ${
               e.component ? 'cursor-pointer' : ''
             }`}
           >
-            <span className="mr-1 font-mono text-zinc-500">
+            <span className="mr-1 font-mono text-[var(--c9-muted)]">
               {formatTime(e.timestamp)}
             </span>
-            <span className="text-zinc-300">{e.title}</span>
+            <span className="text-[var(--c9-text)]">{e.title}</span>
           </button>
         ))}
       </div>

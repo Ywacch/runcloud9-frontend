@@ -10,9 +10,10 @@ import { LiveMetrics } from './LiveMetrics'
 import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 
 const fieldClass =
-  'w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-gray-400'
-const badgeClass = 'rounded bg-gray-800 px-2 py-1 text-xs text-gray-300'
+  'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
+const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
+const badgeClass =
+  'rounded border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1 text-xs text-[var(--c9-muted)]'
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
@@ -46,14 +47,14 @@ export function InspectorPanel() {
 
   return (
     <aside
-      className={`fixed top-0 right-0 z-30 flex h-full w-80 flex-col border-l border-gray-800 bg-gray-900/95 text-white shadow-xl backdrop-blur-sm transition-transform duration-200 ease-out ${
+      className={`fixed top-0 right-0 z-30 flex h-full w-80 flex-col border-l border-[var(--c9-border)] bg-[var(--c9-bg)]/95 text-[var(--c9-text)] shadow-xl backdrop-blur-sm transition-transform duration-200 ease-out ${
         open ? 'translate-x-0' : 'pointer-events-none translate-x-full'
       }`}
       aria-hidden={!open}
     >
       {open && node ? (
         <>
-          <header className="flex shrink-0 items-center gap-3 border-b border-gray-800 p-4">
+          <header className="flex shrink-0 items-center gap-3 border-b border-[var(--c9-border)] p-4">
             <span
               className="h-10 w-10 shrink-0 rounded"
               style={{ backgroundColor: NODE_VISUAL[node.type].face }}
@@ -63,14 +64,14 @@ export function InspectorPanel() {
               <span className={labelClass}>Label</span>
               {!liveMode ? (
                 <input
-                  id="cloud9-inspector-label"
+                  id="runcloud9-inspector-label"
                   type="text"
                   value={node.label}
                   onChange={(e) => updateNodeLabel(node.id, e.target.value)}
                   className={fieldClass}
                 />
               ) : (
-                <p className="truncate text-sm font-medium text-white">
+                <p className="truncate text-sm font-medium text-[var(--c9-text)]">
                   {node.label}
                 </p>
               )}
@@ -78,7 +79,7 @@ export function InspectorPanel() {
             <button
               type="button"
               onClick={() => selectNode(null)}
-              className="shrink-0 rounded p-2 text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="shrink-0 rounded p-2 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
               aria-label="Close inspector"
             >
               ✕
@@ -103,11 +104,11 @@ export function InspectorPanel() {
                 />
                 {simulationMode ? <LiveMetrics node={node} /> : null}
               </div>
-              <div className="shrink-0 border-t border-gray-800 p-4">
+              <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 hover:bg-red-800"
+                  className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 transition-colors duration-200 hover:bg-red-800"
                 >
                   Delete node
                 </button>

@@ -27,7 +27,7 @@ export class DatabaseSQLModel extends ComponentModel {
     return String(this.node.config.engine ?? 'postgresql')
   }
 
-  /** Cloud9 inspector has no DB instance size; derive from storage hint. */
+  /** RunCloud9 inspector has no DB instance size; derive from storage hint. */
   private get instanceType(): string {
     const gb = Number(this.node.config.storageGB ?? 10)
     if (gb <= 10) return 'small'

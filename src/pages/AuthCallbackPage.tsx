@@ -46,8 +46,10 @@ export default function AuthCallbackPage() {
   }, [navigate])
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-950 px-6 pt-20 text-white">
-      <p className="text-sm text-gray-300">Completing sign-in…</p>
+    <main className="dot-grid flex min-h-screen items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
+      <div className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-3 text-sm text-[var(--c9-muted)]">
+        Completing sign-in…
+      </div>
     </main>
   )
 }

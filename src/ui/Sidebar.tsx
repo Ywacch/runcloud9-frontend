@@ -39,7 +39,7 @@ import {
 import { RationalePanel } from './RationalePanel'
 import { TemplateModal, templateTitleForId } from './TemplateModal'
 
-const SIDEBAR_COLLAPSED_KEY = 'cloud9.sidebarCollapsed'
+const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
 function readSidebarCollapsed(): boolean {
   try {
@@ -218,7 +218,7 @@ export function Sidebar() {
 
   const onDragStart =
     (type: CanvasNode['type']) => (e: DragEvent) => {
-      e.dataTransfer.setData('application/cloud9-node-type', type)
+      e.dataTransfer.setData('application/runcloud9-node-type', type)
       e.dataTransfer.effectAllowed = 'copy'
       e.dataTransfer.setDragImage(getEmptyDragImage(), 0, 0)
     }
@@ -262,7 +262,7 @@ export function Sidebar() {
         id: 'validate',
         label: 'Submitting deployment request',
         state: 'active',
-        detail: 'Sending your design to Cloud9 API...',
+        detail: 'Sending your design to RunCloud9 API...',
       },
       {
         id: 'provision',
@@ -382,24 +382,24 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`relative flex h-full shrink-0 flex-col bg-gray-900 text-white transition-[width] duration-200 ease-out ${
+      className={`relative flex h-full shrink-0 flex-col bg-[var(--c9-bg)] text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
         collapsed ? 'w-12' : 'w-64'
       }`}
     >
-      <div className="flex items-center justify-between gap-1 border-b border-gray-800 p-2">
+      <div className="flex items-center justify-between gap-1 border-b border-[var(--c9-border)] bg-[var(--c9-surface)] p-2">
         {!collapsed ? (
-          <h1 className="min-w-0 truncate pl-2 text-lg font-semibold tracking-tight">
-            Cloud9
+          <h1 className="min-w-0 truncate pl-2 text-lg font-semibold tracking-tight text-[var(--c9-text)]">
+            RunCloud9
           </h1>
         ) : (
-          <span className="sr-only">Cloud9</span>
+          <span className="sr-only">RunCloud9</span>
         )}
         <button
           type="button"
           aria-expanded={!collapsed}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           onClick={() => setCollapsed((c) => !c)}
-          className="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-800 hover:text-white"
+          className="shrink-0 rounded p-1.5 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
         >
           {collapsed ? '▶' : '◀'}
         </button>
@@ -409,16 +409,16 @@ export function Sidebar() {
           collapsed ? 'hidden' : ''
         }`}
       >
-        <h2 className="text-xs font-medium uppercase tracking-wider text-gray-400">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
           Templates
         </h2>
         <button
           type="button"
           disabled={live || simulate}
           onClick={() => setTemplateModalOpen(true)}
-          className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-3 text-left text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-40"
+          className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-3 text-left text-sm font-medium text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:opacity-40"
         >
-          <span className="text-xs uppercase tracking-wider text-gray-400">
+          <span className="text-xs uppercase tracking-wider text-[var(--c9-muted)]">
             Template
           </span>
           <div className="mt-1">
@@ -439,14 +439,14 @@ export function Sidebar() {
           }}
         />
 
-        <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+        <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
           Components
         </h2>
-        <div className="space-y-2 rounded border border-gray-800 bg-gray-800/40 p-2">
+        <div className="space-y-2 rounded border border-[var(--c9-border)] bg-[var(--c9-surface)]/60 p-2">
           <button
             type="button"
             onClick={() => setMovementLocked(!movementLocked)}
-            className="w-full rounded border border-gray-700 bg-gray-900/60 px-3 py-2 text-left text-xs font-medium text-gray-100 hover:bg-gray-800"
+            className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-3 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
           >
             {movementLocked ? 'Unlock movement' : 'Lock movement'}
           </button>
@@ -454,12 +454,12 @@ export function Sidebar() {
             type="button"
             disabled={nodeCount === 0}
             onClick={handleAutoArrange}
-            className="w-full rounded border border-gray-700 bg-gray-900/60 px-3 py-2 text-left text-xs font-medium text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-3 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Auto arrange
           </button>
         </div>
-        <p className="text-xs leading-snug text-gray-500">
+        <p className="text-xs leading-snug text-[var(--c9-muted)]">
           Drag onto the canvas, or click a component then click the grid. Esc cancels.
         </p>
         {placingNodeType ? (
@@ -468,7 +468,7 @@ export function Sidebar() {
           </p>
         ) : null}
         {banner ? (
-          <p className="rounded border border-gray-700 bg-gray-800/80 px-2 py-1.5 text-xs text-gray-200">
+          <p className="rounded border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1.5 text-xs text-[var(--c9-text)]">
             {banner}
           </p>
         ) : null}
@@ -483,8 +483,8 @@ export function Sidebar() {
                   disabled={live}
                   onDragStart={live ? undefined : onDragStart(type)}
                   onClick={() => !live && togglePlace(type)}
-                  className={`flex w-full items-center gap-3 rounded-md border border-gray-800 bg-gray-800/50 px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    placing ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900' : ''
+                  className={`flex w-full items-center gap-3 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 px-3 py-2.5 text-left text-sm text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
+                    placing ? 'ring-2 ring-[var(--c9-accent)] ring-offset-2 ring-offset-[var(--c9-bg)]' : ''
                   }`}
                   style={{ borderLeftWidth: 4, borderLeftColor: face }}
                 >
@@ -502,19 +502,19 @@ export function Sidebar() {
         {!live ? <RationalePanel /> : null}
       </div>
       <div
-        className={`space-y-2 border-t border-gray-800 p-4 ${
+        className={`space-y-2 border-t border-[var(--c9-border)] bg-[var(--c9-surface)]/80 p-4 ${
           collapsed ? 'hidden' : ''
         }`}
       >
         {statusLine ? (
-          <p className="text-center text-xs text-gray-400">{statusLine}</p>
+          <p className="text-center text-xs text-[var(--c9-muted)]">{statusLine}</p>
         ) : null}
         {live ? (
           <button
             type="button"
             disabled={tearing}
             onClick={handleTeardown}
-            className="w-full rounded bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+              className="w-full rounded bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-red-600 disabled:opacity-50"
           >
             Teardown
           </button>
@@ -526,7 +526,7 @@ export function Sidebar() {
                 useSimulationStore.getState().stop()
                 setBanner('Simulation stopped.')
               }}
-              className="w-full rounded border border-amber-600/70 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 hover:border-amber-500 hover:bg-amber-900/40"
+              className="w-full rounded border border-amber-600/70 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 transition-colors duration-200 hover:border-amber-500 hover:bg-amber-900/40"
             >
               Stop simulation
             </button>
@@ -541,7 +541,7 @@ export function Sidebar() {
                 st.setMode('design')
                 setBanner(null)
               }}
-              className="w-full rounded bg-violet-800 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="w-full rounded bg-violet-800 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-violet-700"
             >
               Exit simulation
             </button>
@@ -561,7 +561,7 @@ export function Sidebar() {
                     'Simulation view — press Start simulation in the top bar when ready.',
                   )
                 }}
-                className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 transition-colors duration-200 hover:border-violet-500 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Simulator
               </button>
@@ -577,7 +577,7 @@ export function Sidebar() {
               }
               title={deployDisabledReason}
               onClick={handleDeploy}
-              className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              className="w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>

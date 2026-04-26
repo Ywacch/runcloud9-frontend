@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { C9Card, C9PrimaryButton, C9SectionTitle } from '../ui/c9Primitives'
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState('')
@@ -35,54 +36,44 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-6 pt-20 text-white">
+    <main className="dot-grid flex min-h-screen flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
       <form
         onSubmit={onSendReset}
-        className="w-full max-w-md rounded-xl border border-gray-800 bg-gray-900/70 p-6"
+        className="w-full max-w-md"
       >
-        <h1 className="text-xl font-semibold">Reset your password</h1>
-        <p className="mt-2 text-sm text-gray-300">
-          We will send a secure reset link to your invited email.
-        </p>
+        <C9Card className="p-6">
+          <C9SectionTitle
+            title="Reset your password"
+            description="We will send a secure reset link to your invited email."
+          />
 
-        <label className="mt-5 block text-sm text-gray-200" htmlFor="reset-email">
-          Invited email
-        </label>
-        <input
-          id="reset-email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none ring-blue-500 placeholder:text-gray-500 focus:ring-2"
-          placeholder="you@example.com"
-        />
+          <label className="mt-5 block text-sm text-[var(--c9-text)]" htmlFor="reset-email">
+            Invited email
+          </label>
+          <input
+            id="reset-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="c9-input"
+            placeholder="you@example.com"
+          />
 
-        {error ? (
-          <p className="mt-3 rounded-md border border-red-800/60 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-            {error}
-          </p>
-        ) : null}
-        {success ? (
-          <p className="mt-3 rounded-md border border-emerald-800/60 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-300">
-            {success}
-          </p>
-        ) : null}
+          {error ? <p className="c9-banner-error mt-3">{error}</p> : null}
+          {success ? <p className="c9-banner-success mt-3">{success}</p> : null}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-        >
-          {submitting ? 'Sending reset link…' : 'Send reset link'}
-        </button>
+          <C9PrimaryButton type="submit" disabled={submitting} className="mt-5">
+            {submitting ? 'Sending reset link…' : 'Send reset link'}
+          </C9PrimaryButton>
 
-        <Link
-          to="/login"
-          className="mt-3 block text-center text-xs text-blue-300 hover:text-blue-200"
-        >
-          Back to sign in
-        </Link>
+          <Link
+            to="/login"
+            className="mt-3 block text-center text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
+          >
+            Back to sign in
+          </Link>
+        </C9Card>
       </form>
     </main>
   )

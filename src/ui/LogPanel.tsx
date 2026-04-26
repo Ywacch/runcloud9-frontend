@@ -35,18 +35,18 @@ export function LogPanel() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full border-t border-gray-700 bg-gray-900/95 px-4 py-2 text-left text-xs font-medium text-gray-400 backdrop-blur-sm hover:text-white"
+        className="w-full border-t border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-4 py-2 text-left text-xs font-medium text-[var(--c9-muted)] backdrop-blur-sm transition-colors duration-200 hover:text-[var(--c9-text)]"
       >
         {open ? '▼ Hide Logs' : '▲ Show Logs'} ({logs.length})
       </button>
       {open ? (
-        <div className="max-h-48 overflow-y-auto bg-gray-900/95 px-4 py-2 font-mono text-xs backdrop-blur-sm">
+        <div className="max-h-48 overflow-y-auto border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2 font-mono text-xs backdrop-blur-sm">
           {logs.slice(-200).map((l, i) => (
             <div
               key={`${l.timestamp}-${i}-${l.component}`}
-              className="flex gap-2 border-b border-gray-800/50 py-1"
+              className="flex gap-2 border-b border-[var(--c9-border)] py-1"
             >
-              <span className="shrink-0 text-gray-600">
+              <span className="shrink-0 text-[var(--c9-muted)]">
                 {new Date(l.timestamp).toLocaleTimeString('en-US', {
                   hour12: false,
                 })}

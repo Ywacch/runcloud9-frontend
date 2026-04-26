@@ -25,7 +25,7 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
       if (normalized.includes('premium')) {
         return {
           title: 'Deployment request was not accepted',
-          body: 'This template requires Cloud9 Premium.',
+          body: 'This template requires RunCloud9 Premium.',
           technicalDetails: raw,
         }
       }
@@ -54,7 +54,7 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
     if (error.status >= 500) {
       return {
         title: 'Deployment request was not accepted',
-        body: 'Cloud9 had a server error while starting deployment. Please try again.',
+        body: 'RunCloud9 had a server error while starting deployment. Please try again.',
         technicalDetails: raw,
       }
     }
@@ -69,14 +69,14 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
   if (error instanceof TypeError) {
     return {
       title: 'Deployment request was not accepted',
-      body: 'Could not reach Cloud9 API. Check your connection and retry.',
+      body: 'Could not reach RunCloud9 API. Check your connection and retry.',
       technicalDetails: error.message,
     }
   }
 
   return {
     title: 'Deployment request was not accepted',
-    body: 'Could not reach Cloud9 API. Check your connection and retry.',
+    body: 'Could not reach RunCloud9 API. Check your connection and retry.',
     technicalDetails: error instanceof Error ? error.message : undefined,
   }
 }
