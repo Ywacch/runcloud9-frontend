@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { C9Card, C9PrimaryButton, C9SectionTitle } from '../ui/c9Primitives'
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -53,85 +54,79 @@ export default function SetPasswordPage() {
 
   if (hasSession === false) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-6 pt-20 text-white">
-        <div className="w-full max-w-md rounded-xl border border-gray-800 bg-gray-900/70 p-6 text-center">
-          <h1 className="text-xl font-semibold">Session not found</h1>
-          <p className="mt-2 text-sm text-gray-300">
+      <main className="dot-grid flex min-h-screen flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
+        <C9Card className="w-full max-w-md p-6 text-center">
+          <h1 className="text-xl font-semibold text-[var(--c9-text)]">Session not found</h1>
+          <p className="mt-2 text-sm text-[var(--c9-muted)]">
             Open the invite or password recovery link again, then set your password.
           </p>
           <Link
             to="/login"
-            className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+            className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
           >
             Back to sign in
           </Link>
-        </div>
+        </C9Card>
       </main>
     )
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-6 pt-20 text-white">
+    <main className="dot-grid flex min-h-screen flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-md rounded-xl border border-gray-800 bg-gray-900/70 p-6"
+        className="w-full max-w-md"
       >
-        <h1 className="text-xl font-semibold">Set your password</h1>
-        <p className="mt-2 text-sm text-gray-300">
-          Finish your invite/reset flow by choosing a password for future sign-ins.
-        </p>
+        <C9Card className="p-6">
+          <C9SectionTitle
+            title="Set your password"
+            description="Finish your invite/reset flow by choosing a password for future sign-ins."
+          />
 
-        <label className="mt-5 block text-sm text-gray-200" htmlFor="new-password">
-          New password
-        </label>
-        <input
-          id="new-password"
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none ring-blue-500 placeholder:text-gray-500 focus:ring-2"
-          placeholder="At least 8 characters"
-        />
+          <label className="mt-5 block text-sm text-[var(--c9-text)]" htmlFor="new-password">
+            New password
+          </label>
+          <input
+            id="new-password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="c9-input"
+            placeholder="At least 8 characters"
+          />
 
-        <label className="mt-4 block text-sm text-gray-200" htmlFor="confirm-password">
-          Confirm password
-        </label>
-        <input
-          id="confirm-password"
-          type="password"
-          autoComplete="new-password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none ring-blue-500 placeholder:text-gray-500 focus:ring-2"
-          placeholder="Repeat password"
-        />
+          <label className="mt-4 block text-sm text-[var(--c9-text)]" htmlFor="confirm-password">
+            Confirm password
+          </label>
+          <input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            className="c9-input"
+            placeholder="Repeat password"
+          />
 
-        {error ? (
-          <p className="mt-3 rounded-md border border-red-800/60 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-            {error}
-          </p>
-        ) : null}
-        {success ? (
-          <p className="mt-3 rounded-md border border-emerald-800/60 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-300">
-            {success}
-          </p>
-        ) : null}
+          {error ? <p className="c9-banner-error mt-3">{error}</p> : null}
+          {success ? <p className="c9-banner-success mt-3">{success}</p> : null}
 
-        <button
-          type="submit"
-          disabled={submitting || hasSession !== true}
-          className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-        >
-          {submitting ? 'Saving password…' : 'Set password'}
-        </button>
+          <C9PrimaryButton
+            type="submit"
+            disabled={submitting || hasSession !== true}
+            className="mt-5"
+          >
+            {submitting ? 'Saving password…' : 'Set password'}
+          </C9PrimaryButton>
 
-        <Link
-          to="/canvas"
-          className="mt-3 block text-center text-xs text-blue-300 hover:text-blue-200"
-        >
-          Continue to canvas
-        </Link>
+          <Link
+            to="/canvas"
+            className="mt-3 block text-center text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
+          >
+            Continue to canvas
+          </Link>
+        </C9Card>
       </form>
     </main>
   )

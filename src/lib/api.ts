@@ -168,7 +168,7 @@ export async function deleteDeployment(id: string): Promise<void> {
   }
 }
 
-/** GET /deployments/{id} — id is the deployment namespace (e.g. cloud9-url-shortener-…). */
+/** GET /deployments/{id} — id is the deployment namespace (e.g. runcloud9-url-shortener-…). */
 export interface DeploymentRecord {
   id: string
   namespace?: string

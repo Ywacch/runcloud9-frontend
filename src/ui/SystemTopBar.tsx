@@ -129,14 +129,14 @@ export function SystemTopBar() {
 
   return (
     <>
-      <div className="pointer-events-auto min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-white/15 bg-gray-950/70 shadow-md backdrop-blur-md">
+      <div className="pointer-events-auto min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/80 shadow-md backdrop-blur-md">
       <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2 px-2.5 py-1.5">
         <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-3 gap-y-1">
           <span
             className={`mb-px shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
               mode === 'live'
-                ? 'bg-sky-900/70 text-sky-200'
-                : 'bg-violet-900/70 text-violet-200'
+                ? 'bg-cyan-500/20 text-cyan-300'
+                : 'bg-violet-500/20 text-violet-300'
             }`}
           >
             {mode === 'live' ? 'Live' : 'Sim'}
@@ -144,12 +144,12 @@ export function SystemTopBar() {
           <button
             type="button"
             onClick={() => setGradeOpen(true)}
-            className="mb-px shrink-0 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-100 hover:bg-white/10"
+            className="mb-px shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-text)] hover:bg-[var(--c9-badge-bg)]/80"
             title="Open design grade (functional and non-functional checklist)"
           >
             Grade
             {gradeEvaluation ? (
-              <span className="ml-1 normal-case text-zinc-300">
+              <span className="ml-1 normal-case text-[var(--c9-muted)]">
                 · {gradeEvaluation.letter}
               </span>
             ) : null}
@@ -158,14 +158,14 @@ export function SystemTopBar() {
             <button
               type="button"
               onClick={() => setFlowOpen(true)}
-              className="mb-px shrink-0 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-100 hover:bg-white/10"
+              className="mb-px shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-text)] hover:bg-[var(--c9-badge-bg)]/80"
               title="Open request flow view"
             >
               Flow
             </button>
           ) : null}
           {showWaiting ? (
-            <span className="text-xs font-medium text-zinc-300">Waiting…</span>
+            <span className="text-xs font-medium text-[var(--c9-muted)]">Waiting…</span>
           ) : aggregates ? (
             <>
               <Stat label="p99" value={fmtMs(aggregates.systemP99Ms)} />
@@ -188,10 +188,10 @@ export function SystemTopBar() {
         </div>
 
         <div
-          className="flex shrink-0 flex-col items-end gap-0 border-white/10 pl-2 sm:border-l sm:pl-3"
+          className="flex shrink-0 flex-col items-end gap-0 border-[var(--c9-border)] pl-2 sm:border-l sm:pl-3"
           title={ingressHelp}
         >
-          <span className="cursor-help text-[10px] font-semibold uppercase tracking-wide text-zinc-200 underline decoration-dotted decoration-zinc-500 underline-offset-2">
+          <span className="cursor-help text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)] underline decoration-dotted decoration-[var(--c9-muted)] underline-offset-2">
             Traffic in
           </span>
           <div className="flex items-baseline gap-0.5">
@@ -199,22 +199,22 @@ export function SystemTopBar() {
               {showWaiting ? '—' : fmtRate(throughput)}
             </span>
             {!showWaiting ? (
-              <span className="text-xs font-medium text-zinc-300">rps</span>
+              <span className="text-xs font-medium text-[var(--c9-muted)]">rps</span>
             ) : null}
           </div>
         </div>
       </div>
 
       {kpiRows.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 border-t border-white/5 bg-black/25 px-2.5 py-1 backdrop-blur-sm">
+        <div className="flex flex-wrap gap-1.5 border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-2.5 py-1 backdrop-blur-sm">
           {kpiRows.map((row) => (
             <span
               key={row.id}
-              className="inline-flex max-w-full items-center gap-1 rounded bg-gray-900/50 px-1.5 py-0.5 text-[10px] text-gray-300 ring-1 ring-white/5"
+              className="inline-flex max-w-full items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)]"
               title={row.label}
             >
-              <span className="truncate text-zinc-300">{row.label}</span>
-              <span className="shrink-0 font-mono font-medium text-gray-100">
+              <span className="truncate text-[var(--c9-muted)]">{row.label}</span>
+              <span className="shrink-0 font-mono font-medium text-[var(--c9-text)]">
                 {row.value}
               </span>
             </span>

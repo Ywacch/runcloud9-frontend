@@ -27,11 +27,11 @@ function attachProxyDebug(proxy: ProxyLike, apiOrigin: string, label: string) {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  // Dev proxy target for Cloud9 API (ganymede cmd/api defaults to :8080). Use 127.0.0.1 to avoid some Windows localhost/IPv6 quirks.
+  // Dev proxy target for RunCloud9 API (ganymede cmd/api defaults to :8080). Use 127.0.0.1 to avoid some Windows localhost/IPv6 quirks.
   const apiOrigin = env.VITE_DEV_API_ORIGIN || 'http://127.0.0.1:8080'
 
   // Printed when the dev server starts — confirms which origin is used (catches wrong .env).
-  console.info(`[cloud9] Vite dev API proxy -> ${apiOrigin}`)
+  console.info(`[runcloud9] Vite dev API proxy -> ${apiOrigin}`)
 
   const sentryUpload =
     process.env.SENTRY_AUTH_TOKEN &&

@@ -3,6 +3,13 @@ import { deploymentProxyUrl } from '../lib/api'
 import { cacheHasBrowserHttpProxy } from '../lib/proxyTargets'
 import { useCanvasStore } from '../store/canvasStore'
 
+/** Whether the response was proxied through the API (supports legacy header name). */
+function getProxiedHeaderValue(res: Response): string | null {
+  return res.headers.get('X-RunCloud9-Proxied') ?? res.headers.get('X-Cloud9-Proxied')
+}
+
+const PROXIED_HEADER_LABEL = 'X-RunCloud9-Proxied'
+
 type ProxyTarget = 'app-server' | 'lb' | 'mq' | 'cache'
 
 export function DeploymentPlayground() {
@@ -55,10 +62,10 @@ export function DeploymentPlayground() {
       }
       const res = await fetch(url, { method, headers, body })
       setLastStatus(res.status)
-      setLastProxied(res.headers.get('X-Cloud9-Proxied'))
+      setLastProxied(getProxiedHeaderValue(res))
       const text = await res.text()
       const isLikelyProxyLayerError =
-        res.headers.get('X-Cloud9-Proxied') !== 'true' &&
+        getProxiedHeaderValue(res) !== 'true' &&
         (res.status === 400 ||
           res.status === 404 ||
           res.status === 405 ||
@@ -88,26 +95,26 @@ export function DeploymentPlayground() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="rounded-lg border border-gray-700/80 bg-gray-900/95 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur-sm hover:bg-gray-800"
+        className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-[var(--c9-text)] shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
       >
         {open ? 'Hide' : 'Try deployment API'}
       </button>
       {open ? (
-        <div className="mt-2 max-h-[min(70vh,520px)] overflow-y-auto rounded-lg border border-gray-700/80 bg-gray-900/95 p-3 text-xs text-gray-200 shadow-xl backdrop-blur-sm">
-          <p className="mb-2 text-[11px] leading-snug text-gray-400">
+        <div className="mt-2 max-h-[min(70vh,520px)] overflow-y-auto rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 p-3 text-xs text-[var(--c9-text)] shadow-xl backdrop-blur-sm">
+          <p className="mb-2 text-[11px] leading-snug text-[var(--c9-muted)]">
             Proxied through the dashboard API (same origin as metrics). Only
             HTTP-friendly targets; PostgreSQL and Redis wire ports are not usable
             from the browser.
           </p>
 
-          <div className="mb-2 space-y-1 rounded border border-gray-800 bg-gray-950/50 p-2 text-[11px] text-gray-500">
+          <div className="mb-2 space-y-1 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 p-2 text-[11px] text-[var(--c9-muted)]">
             <p>
-              <span className="text-gray-400">Not exposed here:</span> Database
+              <span className="text-[var(--c9-text)]">Not exposed here:</span> Database
               (Postgres protocol), worker (no HTTP service).
             </p>
             {!cacheHttp ? (
               <p>
-                <span className="text-gray-400">Cache:</span> current design
+                <span className="text-[var(--c9-text)]">Cache:</span> current design
                 uses Redis-only (port 6379) — not HTTP. Use write-through /
                 write-behind / read-through for an HTTP sidecar on the proxy.
               </p>
@@ -118,17 +125,17 @@ export function DeploymentPlayground() {
             <button
               type="button"
               onClick={applyUrlShortenerPreset}
-              className="mb-2 w-full rounded border border-blue-800/80 bg-blue-950/40 px-2 py-1.5 text-left text-[11px] text-blue-200 hover:bg-blue-900/40"
+              className="mb-2 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-1.5 text-left text-[11px] text-[var(--c9-badge-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]/80"
             >
               Preset: POST /shorten (URL shortener)
             </button>
           ) : null}
 
-          <label className="mb-1 block text-gray-400">Target</label>
+          <label className="mb-1 block text-[var(--c9-muted)]">Target</label>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value as ProxyTarget)}
-            className="mb-2 w-full rounded border border-gray-600 bg-gray-800 px-2 py-1.5 text-white"
+            className="mb-2 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-[var(--c9-text)]"
           >
             <option value="app-server">app-server (app API)</option>
             <option value="lb">lb (load balancer :80)</option>
@@ -138,7 +145,7 @@ export function DeploymentPlayground() {
             ) : null}
           </select>
 
-          <label className="mb-1 block text-gray-400">
+          <label className="mb-1 block text-[var(--c9-muted)]">
             Path after proxy (optional)
           </label>
           <input
@@ -146,14 +153,14 @@ export function DeploymentPlayground() {
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
             placeholder="e.g. shorten or abc123"
-            className="mb-2 w-full rounded border border-gray-600 bg-gray-800 px-2 py-1.5 font-mono text-white"
+            className="mb-2 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 font-mono text-[var(--c9-text)]"
           />
 
-          <label className="mb-1 block text-gray-400">Method</label>
+          <label className="mb-1 block text-[var(--c9-muted)]">Method</label>
           <select
             value={method}
             onChange={(e) => setMethod(e.target.value as 'GET' | 'POST')}
-            className="mb-2 w-full rounded border border-gray-600 bg-gray-800 px-2 py-1.5 text-white"
+            className="mb-2 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-[var(--c9-text)]"
           >
             <option value="GET">GET</option>
             <option value="POST">POST</option>
@@ -161,17 +168,17 @@ export function DeploymentPlayground() {
 
           {method === 'POST' ? (
             <>
-              <label className="mb-1 block text-gray-400">Body (JSON)</label>
+              <label className="mb-1 block text-[var(--c9-muted)]">Body (JSON)</label>
               <textarea
                 value={postBody}
                 onChange={(e) => setPostBody(e.target.value)}
                 rows={5}
-                className="mb-2 w-full resize-y rounded border border-gray-600 bg-gray-800 px-2 py-1.5 font-mono text-white"
+                className="mb-2 w-full resize-y rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 font-mono text-[var(--c9-text)]"
               />
             </>
           ) : null}
 
-          <p className="mb-2 break-all font-mono text-[10px] text-gray-500">
+          <p className="mb-2 break-all font-mono text-[10px] text-[var(--c9-muted)]">
             {urlPreview}
           </p>
 
@@ -179,7 +186,7 @@ export function DeploymentPlayground() {
             type="button"
             disabled={busy}
             onClick={send}
-            className="w-full rounded bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+            className="w-full rounded bg-[var(--c9-accent)] px-3 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
           >
             {busy ? 'Sending…' : 'Send'}
           </button>
@@ -191,22 +198,22 @@ export function DeploymentPlayground() {
           ) : null}
 
           {lastStatus != null ? (
-            <div className="mt-2 space-y-1 border-t border-gray-800 pt-2">
-              <p className="text-gray-400">
+            <div className="mt-2 space-y-1 border-t border-[var(--c9-border)] pt-2">
+              <p className="text-[var(--c9-muted)]">
                 Status:{' '}
-                <span className="font-mono text-white">{lastStatus}</span>
+                <span className="font-mono text-[var(--c9-text)]">{lastStatus}</span>
                 {lastProxied != null ? (
                   <>
                     {' '}
                     ·{' '}
-                    <span className="font-mono text-gray-300">
-                      X-Cloud9-Proxied: {lastProxied || '—'}
+                    <span className="font-mono text-[var(--c9-text)]">
+                      {PROXIED_HEADER_LABEL}: {lastProxied || '—'}
                     </span>
                   </>
                 ) : null}
               </p>
               {lastBody != null ? (
-                <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-black/40 p-2 font-mono text-[11px] text-gray-300">
+                <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 p-2 font-mono text-[11px] text-[var(--c9-text)]">
                   {tryPrettyJson(lastBody)}
                 </pre>
               ) : null}

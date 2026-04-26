@@ -1,6 +1,6 @@
 import type { CanvasSnapshot } from '../store/canvasStore'
 
-const LIVE_SESSION_KEY = 'cloud9_live_session'
+const LIVE_SESSION_KEY = 'runcloud9_live_session'
 
 interface PersistedLiveSession {
   deploymentId: string

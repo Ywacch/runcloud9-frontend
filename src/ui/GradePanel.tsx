@@ -89,45 +89,45 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
     <>
       <button
         type="button"
-        className="pointer-events-auto fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]"
+        className="pointer-events-auto fixed inset-0 z-[60] bg-[var(--c9-bg)]/45 backdrop-blur-[2px]"
         aria-label="Close grade panel"
         onClick={onClose}
       />
       <aside
-        className="pointer-events-auto fixed right-0 top-0 z-[70] flex h-full max-h-dvh w-full max-w-md flex-col overflow-hidden border-l border-white/10 bg-gray-950/95 shadow-2xl backdrop-blur-md"
+        className="pointer-events-auto fixed right-0 top-0 z-[70] flex h-full max-h-dvh w-full max-w-md flex-col overflow-hidden border-l border-[var(--c9-border)] bg-[var(--c9-bg)]/95 shadow-2xl backdrop-blur-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby="grade-panel-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--c9-border)] px-4 py-3">
           <div>
             <h2
               id="grade-panel-title"
-              className="text-sm font-semibold text-white"
+              className="text-sm font-semibold text-[var(--c9-text)]"
             >
               Design grade
             </h2>
-            <p className="text-xs text-zinc-400">{title}</p>
+            <p className="text-xs text-[var(--c9-muted)]">{title}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white"
+            className="rounded p-1.5 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
         {mode === 'live' && Object.keys(templateMetrics).length > 0 ? (
-          <div className="shrink-0 border-b border-white/10 px-4 pb-3">
+          <div className="shrink-0 border-b border-[var(--c9-border)] px-4 pb-3">
             <TemplateMetricsSnippet title="Live template telemetry" compact />
           </div>
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 touch-pan-y">
           {!evaluation ? (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-[var(--c9-muted)]">
               No grading rubric is defined for this template yet. Try the URL
               Shortener template for a full functional / non-functional
               checklist.
@@ -141,14 +141,14 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
                   {evaluation.letter}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
                     Weighted score
                   </p>
-                  <p className="text-2xl font-bold text-white tabular-nums">
+                  <p className="text-2xl font-bold text-[var(--c9-text)] tabular-nums">
                     {evaluation.scorePercent}
-                    <span className="text-base font-medium text-zinc-400">%</span>
+                    <span className="text-base font-medium text-[var(--c9-muted)]">%</span>
                   </p>
-                  <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                  <p className="mt-1 text-[11px] leading-snug text-[var(--c9-muted)]">
                     Pass = full credit, partial = half, fail = none. For
                     teaching only — not a production SLO review.
                   </p>
@@ -160,7 +160,7 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
                 if (rows.length === 0) return null
                 return (
                   <section key={cat} className="mb-6">
-                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--c9-muted)]">
                       {cat === 'functional'
                         ? 'Functional requirements'
                         : 'Non-functional requirements'}
@@ -169,7 +169,7 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
                       {rows.map((r) => (
                         <li
                           key={r.def.id}
-                          className="rounded-lg border border-white/5 bg-black/20 px-3 py-2"
+                          className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/40 px-3 py-2"
                         >
                           <div className="flex gap-2">
                             <span
@@ -179,13 +179,13 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
                               {statusIcon(r.status)}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-zinc-100">
+                              <p className="text-sm font-medium text-[var(--c9-text)]">
                                 {r.def.label}
                               </p>
-                              <p className="mt-0.5 text-[11px] text-zinc-500">
+                              <p className="mt-0.5 text-[11px] text-[var(--c9-muted)]">
                                 {r.def.description}
                               </p>
-                              <p className="mt-1.5 text-xs leading-snug text-zinc-300">
+                              <p className="mt-1.5 text-xs leading-snug text-[var(--c9-text)]">
                                 {r.detail}
                               </p>
                             </div>

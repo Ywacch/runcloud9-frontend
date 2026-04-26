@@ -81,7 +81,7 @@ type ModalTemplateItem =
   | { kind: 'preset'; row: PresetTemplateRow }
   | { kind: 'remote'; row: ApiTemplateInfo }
 
-const UPGRADE_TOOLTIP = 'Upgrade to Cloud9 Premium'
+const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Premium'
 
 const LockIconLarge = (
   <svg
@@ -382,26 +382,26 @@ export function TemplateModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--c9-bg)]/65 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-2xl"
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="template-modal-title"
       >
-        <div className="shrink-0 border-b border-gray-800 px-5 py-4">
+        <div className="shrink-0 border-b border-[var(--c9-border)] px-5 py-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="template-modal-title" className="text-xl font-semibold text-white">
+            <h2 id="template-modal-title" className="text-xl font-semibold text-[var(--c9-text)]">
               Open or use a template
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="shrink-0 rounded p-1 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
               aria-label="Close"
             >
               ✕
@@ -411,7 +411,7 @@ export function TemplateModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
           {loading ? (
-            <p className="py-12 text-center text-sm text-gray-400">Loading templates…</p>
+            <p className="py-12 text-center text-sm text-[var(--c9-muted)]">Loading templates…</p>
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-400">{error}</p>
           ) : (

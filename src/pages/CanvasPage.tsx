@@ -223,7 +223,7 @@ export default function CanvasPage() {
         onDrop={(e) => {
           e.preventDefault()
           if (useCanvasStore.getState().mode === 'live') return
-          const raw = e.dataTransfer.getData('application/cloud9-node-type')
+          const raw = e.dataTransfer.getData('application/runcloud9-node-type')
           if (!isNodeType(raw)) return
           dispatchSpawnAtScreen({
             clientX: e.clientX,
@@ -259,29 +259,29 @@ export default function CanvasPage() {
           </div>
         ) : null}
         {showProvisioningOverlay ? (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-gray-950/70 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900/90 p-5 text-white shadow-xl">
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 p-5 text-[var(--c9-text)] shadow-xl">
               <h3 className="text-lg font-semibold">Provisioning Infrastructure</h3>
-              <p className="mt-2 text-sm text-gray-300">
+              <p className="mt-2 text-sm text-[var(--c9-muted)]">
                 Deployment is being created. This usually takes 60-120 seconds.
               </p>
-              <div className="mt-4 h-2 w-full overflow-hidden rounded bg-gray-800">
-                <div className="h-full w-1/3 animate-pulse bg-blue-500" />
+              <div className="mt-4 h-2 w-full overflow-hidden rounded bg-[var(--c9-bg)]">
+                <div className="h-full w-1/3 animate-pulse bg-[var(--c9-accent)]" />
               </div>
-              <p className="mt-3 text-xs text-gray-400">
+              <p className="mt-3 text-xs text-[var(--c9-muted)]">
                 Deploying pods... {provisioningElapsed}s elapsed
               </p>
             </div>
           </div>
         ) : null}
         {showProvisioningError ? (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-gray-950/70 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-red-800 bg-gray-900/95 p-5 text-white shadow-xl">
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-red-800 bg-[var(--c9-surface)]/95 p-5 text-[var(--c9-text)] shadow-xl">
               <h3 className="text-lg font-semibold text-red-300">Provisioning Failed</h3>
-              <p className="mt-2 text-sm text-gray-300">{provisioningError}</p>
+              <p className="mt-2 text-sm text-[var(--c9-muted)]">{provisioningError}</p>
               <button
                 type="button"
-                className="mt-4 w-full rounded bg-gray-800 px-4 py-2 text-sm hover:bg-gray-700"
+                className="mt-4 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-4 py-2 text-sm transition-colors duration-200 hover:border-[var(--c9-accent)]"
                 onClick={() => {
                   const st = useCanvasStore.getState()
                   st.setDeploymentId(null)

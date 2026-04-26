@@ -26,12 +26,12 @@ export function SessionSummary() {
   if (!summary) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)] p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-white">Session Complete</h2>
-            <p className="text-xs text-gray-400">
+            <h2 className="text-lg font-semibold text-[var(--c9-text)]">Session Complete</h2>
+            <p className="text-xs text-[var(--c9-muted)]">
               {summary.template} · {summary.duration}
             </p>
           </div>
@@ -41,12 +41,12 @@ export function SessionSummary() {
         </div>
 
         {summary.sessionSparklines ? (
-          <div className="mb-4 space-y-3 border-b border-gray-700/50 pb-4">
-            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+          <div className="mb-4 space-y-3 border-b border-[var(--c9-border)] pb-4">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
               Session replay (server)
             </h3>
-            <p className="text-[10px] text-gray-500">
-              Downsampled from stored <code className="text-gray-400">session_history</code>
+            <p className="text-[10px] text-[var(--c9-muted)]">
+              Downsampled from stored <code className="text-[var(--c9-text)]">session_history</code>
               . Ticks: cascade · threshold · other.
             </p>
             <SparkRow
@@ -104,17 +104,17 @@ export function SessionSummary() {
         </div>
 
         <div className="mt-4">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
             Components
           </h3>
           <div className="max-h-40 space-y-1 overflow-y-auto">
             {Object.entries(summary.componentSummaries).map(([nodeId, c]) => (
               <div
                 key={nodeId}
-                className="flex items-center justify-between rounded bg-gray-800/50 px-3 py-1.5 text-xs"
+                className="flex items-center justify-between rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 px-3 py-1.5 text-xs"
               >
-                <span className="text-gray-300">{c.label}</span>
-                <span className="font-mono text-gray-400">
+                <span className="text-[var(--c9-text)]">{c.label}</span>
+                <span className="font-mono text-[var(--c9-muted)]">
                   CPU {c.cpuSummary} · Mem {c.memSummary}
                 </span>
               </div>
@@ -125,7 +125,7 @@ export function SessionSummary() {
         <button
           type="button"
           onClick={dismiss}
-          className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500"
+          className="mt-5 w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
         >
           Back to Design
         </button>
@@ -148,7 +148,7 @@ function SparkRow({
   const eventMarkers = markerRatios(markers.markers, data.length)
   return (
     <div>
-      <div className="mb-0.5 text-[10px] uppercase tracking-wider text-gray-500">
+      <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
         {label}
       </div>
       <SparkLine
@@ -166,11 +166,11 @@ function SparkRow({
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gray-700/50 bg-gray-800/50 p-3">
-      <div className="text-[10px] uppercase tracking-wider text-gray-500">
+    <div className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 p-3">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
         {label}
       </div>
-      <div className="mt-1 font-mono text-lg font-bold text-white">{value}</div>
+      <div className="mt-1 font-mono text-lg font-bold text-[var(--c9-text)]">{value}</div>
     </div>
   )
 }

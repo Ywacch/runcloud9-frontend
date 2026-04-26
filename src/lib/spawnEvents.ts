@@ -1,7 +1,7 @@
 import type { CanvasNode } from '../store/canvasStore'
 
-export const SPAWN_AT_SCREEN = 'cloud9:spawn-at-screen'
-export const RESET_CAMERA = 'cloud9:reset-camera'
+export const SPAWN_AT_SCREEN = 'runcloud9:spawn-at-screen'
+export const RESET_CAMERA = 'runcloud9:reset-camera'
 
 export type SpawnAtScreenDetail = {
   clientX: number

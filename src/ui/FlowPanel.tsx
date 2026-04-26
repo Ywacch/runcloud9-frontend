@@ -52,26 +52,26 @@ export function FlowPanel({ open, onClose }: FlowPanelProps) {
     <>
       <button
         type="button"
-        className="pointer-events-auto fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]"
+        className="pointer-events-auto fixed inset-0 z-[60] bg-[var(--c9-bg)]/45 backdrop-blur-[2px]"
         aria-label="Close flow panel"
         onClick={onClose}
       />
       <aside
-        className="pointer-events-auto fixed right-0 top-0 z-[70] flex h-full max-h-dvh w-full max-w-lg flex-col overflow-hidden border-l border-white/10 bg-gray-950/95 shadow-2xl backdrop-blur-md"
+        className="pointer-events-auto fixed right-0 top-0 z-[70] flex h-full max-h-dvh w-full max-w-lg flex-col overflow-hidden border-l border-[var(--c9-border)] bg-[var(--c9-bg)]/95 shadow-2xl backdrop-blur-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby="flow-panel-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--c9-border)] px-4 py-3">
           <div>
-            <h2 id="flow-panel-title" className="text-sm font-semibold text-white">
+            <h2 id="flow-panel-title" className="text-sm font-semibold text-[var(--c9-text)]">
               Request flow
             </h2>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-[var(--c9-muted)]">
               {title} {mode === 'simulate' ? `· Tick ${tick}` : ''}
             </p>
-            <p className="mt-1 max-w-md text-[11px] leading-snug text-zinc-500">
+            <p className="mt-1 max-w-md text-[11px] leading-snug text-[var(--c9-muted)]">
               Paths are inferred from your canvas topology and simulation inspector aggregates — not packet
               traces or production APM.
             </p>
@@ -79,7 +79,7 @@ export function FlowPanel({ open, onClose }: FlowPanelProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white"
+            className="rounded p-1.5 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
             aria-label="Close"
           >
             ✕
@@ -88,24 +88,24 @@ export function FlowPanel({ open, onClose }: FlowPanelProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
           {unavailable ? (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-[var(--c9-muted)]">
               Flow paths are available in simulation mode only for now.
             </p>
           ) : !running && tick === 0 ? (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-[var(--c9-muted)]">
               Start simulation to populate flow paths.
             </p>
           ) : paths.length === 0 ? (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-[var(--c9-muted)]">
               No paths found. Add connected nodes (for example client → app → data tier).
             </p>
           ) : (
             <div className="space-y-4">
               {paths.map((path) => (
-                <section key={path.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <section key={path.id} className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/40 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-zinc-100">{path.name}</p>
-                    <p className="font-mono text-xs text-zinc-300">
+                    <p className="text-sm font-semibold text-[var(--c9-text)]">{path.name}</p>
+                    <p className="font-mono text-xs text-[var(--c9-muted)]">
                       total {fmtMs(path.totalLatencyMs)}
                     </p>
                   </div>
@@ -119,21 +119,21 @@ export function FlowPanel({ open, onClose }: FlowPanelProps) {
                       <li key={`${path.id}-${hop.nodeId}-${idx}`} className="rounded border border-white/5 bg-gray-900/40 p-2">
                         <div className="flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-xs font-semibold text-zinc-100">
+                            <p className="text-xs font-semibold text-[var(--c9-text)]">
                               {idx + 1}. {hop.label}
                             </p>
-                            <p className="text-[10px] uppercase tracking-wide text-zinc-400">
+                            <p className="text-[10px] uppercase tracking-wide text-[var(--c9-muted)]">
                               {hop.type.replace('_', ' ')} · {edgeTag(hop.edgeSemantics)}
                             </p>
                           </div>
-                          <div className="text-right text-[11px] font-mono text-zinc-300">
+                          <div className="text-right text-[11px] font-mono text-[var(--c9-muted)]">
                             <div>{fmtRate(hop.qps)} rps</div>
                             <div>{fmtMs(hop.latencyMs)} p99</div>
                             <div>{fmtPct(hop.errorRate * 100)} err</div>
                           </div>
                         </div>
                         {hop.note ? (
-                          <p className="mt-1 text-[11px] text-zinc-400">{hop.note}</p>
+                          <p className="mt-1 text-[11px] text-[var(--c9-muted)]">{hop.note}</p>
                         ) : null}
                       </li>
                     ))}
