@@ -9,6 +9,10 @@ import {
   type TemplateInfo,
 } from '../lib/api'
 import {
+  debugAuthError,
+  mapAuthErrorMessage,
+} from '../lib/authErrorMessage'
+import {
   mapDeployRequestError,
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
@@ -357,7 +361,10 @@ export function Sidebar() {
       clearLiveSessionPersist()
       setBanner('Returned to design mode.')
     } catch (e) {
-      setBanner(e instanceof Error ? e.message : 'Teardown failed')
+      debugAuthError(e, 'teardown')
+      setBanner(
+        mapAuthErrorMessage(e, 'Could not tear down deployment. Please try again.'),
+      )
     } finally {
       setTearing(false)
     }

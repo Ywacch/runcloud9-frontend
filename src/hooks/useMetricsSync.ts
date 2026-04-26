@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { connectMetricsWS } from '../lib/api'
+import { connectMetricsWS, getDeployment } from '../lib/api'
 import { idleClientLoadgenBucket } from '../lib/clientMetrics'
-import { exitLiveSessionDueToRemoteEnd } from '../lib/sessionCapture'
+import {
+  exitLiveSessionDueToRemoteEnd,
+  isTerminalDeploymentStatus,
+} from '../lib/sessionCapture'
 import { CLIENT_LOADGEN_ID } from '../lib/spawnClientNode'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
@@ -268,6 +271,7 @@ export function useMetricsSync(deploymentId: string | null): void {
     if (!deploymentId) {
       clearTimer()
       closeWs()
+      useMetricsStore.getState().setStreamWarning(null)
       return
     }
 
@@ -280,6 +284,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
       ws.onmessage = (ev) => {
         retryRef.current = 0
+        useMetricsStore.getState().setStreamWarning(null)
         try {
           const data = JSON.parse(ev.data as string) as WsDeploymentMetrics
           applyMessage(data)
@@ -298,7 +303,22 @@ export function useMetricsSync(deploymentId: string | null): void {
         if (st.deploymentId !== deploymentId) return
         const maxRetries = 5
         if (retryRef.current >= maxRetries) {
-          exitLiveSessionDueToRemoteEnd()
+          useMetricsStore
+            .getState()
+            .setStreamWarning('Live metrics connection dropped. Reconnecting...')
+          void getDeployment(deploymentId)
+            .then((dep) => {
+              if (isTerminalDeploymentStatus(dep.status)) {
+                exitLiveSessionDueToRemoteEnd()
+                return
+              }
+              retryRef.current = 0
+              timerRef.current = setTimeout(connect, 2000)
+            })
+            .catch(() => {
+              retryRef.current = 0
+              timerRef.current = setTimeout(connect, 2000)
+            })
           return
         }
         const delay = Math.min(30_000, 1000 * Math.pow(2, retryRef.current))

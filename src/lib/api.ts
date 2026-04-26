@@ -12,6 +12,21 @@ export const DEPLOYMENTS_API_PREFIX =
 
 const API_BASE = DEPLOYMENTS_API_PREFIX
 
+function authHeader(): Record<string, string> | undefined {
+  const token = getAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : undefined
+}
+
+export function buildWsBaseForApi(apiBase: string, current: Location): string {
+  if (/^https?:\/\//i.test(apiBase)) {
+    const parsed = new URL(apiBase)
+    const proto = parsed.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${proto}//${parsed.host}${parsed.pathname}`
+  }
+  const proto = current.protocol === 'https:' ? 'wss' : 'ws'
+  return `${proto}://${current.host}${apiBase}`
+}
+
 export interface DeploymentDesign {
   version: string
   template: string
@@ -145,8 +160,12 @@ export async function createDeployment(
 export async function deleteDeployment(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    headers: authHeader(),
   })
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
 }
 
 /** GET /deployments/{id} — id is the deployment namespace (e.g. cloud9-url-shortener-…). */
@@ -192,6 +211,7 @@ export async function startLoadGen(
   id: string,
   profile?: Partial<LoadProfile>
 ): Promise<void> {
+  const auth = authHeader()
   const body: LoadProfile = {
     rps: profile?.rps ?? 50,
     durationSeconds: profile?.durationSeconds ?? 0,
@@ -201,17 +221,24 @@ export async function startLoadGen(
   }
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(auth ?? {}) },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
 }
 
 export async function stopLoadGen(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
     method: 'DELETE',
+    headers: authHeader(),
   })
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
 }
 
 /**
@@ -235,13 +262,11 @@ export function deploymentProxyUrl(
 }
 
 export function connectMetricsWS(id: string): WebSocket {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const url = `${proto}://${location.host}${API_BASE}/${encodeURIComponent(id)}/metrics`
+  const url = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/metrics`
   return new WebSocket(url)
 }
 
 export function connectLogsWS(id: string): WebSocket {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const url = `${proto}://${location.host}${API_BASE}/${encodeURIComponent(id)}/logs`
+  const url = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/logs`
   return new WebSocket(url)
 }

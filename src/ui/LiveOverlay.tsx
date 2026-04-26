@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { startLoadGen, stopLoadGen } from '../lib/api'
+import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import { fmtInt } from '../lib/format'
 import { useCanvasStore } from '../store/canvasStore'
+import { useAuthStore } from '../store/authStore'
 import { useMetricsStore } from '../store/metricsStore'
 
 function formatMmSs(totalSeconds: number): string {
@@ -17,7 +19,9 @@ export function LiveOverlay() {
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
+  const session = useAuthStore((s) => s.session)
   const loadgen = useMetricsStore((s) => s.loadgen)
+  const streamWarning = useMetricsStore((s) => s.streamWarning)
 
   const [remaining, setRemaining] = useState(0)
   const [rps, setRps] = useState(50)
@@ -53,6 +57,10 @@ export function LiveOverlay() {
 
   const onStartLoad = useCallback(async () => {
     if (!deploymentId) return
+    if (!session?.access_token) {
+      setError('Please sign in again to run load testing.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -62,24 +70,34 @@ export function LiveOverlay() {
         template: snapshotTemplateId ?? '',
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Load start failed')
+      debugAuthError(e, 'loadgen-start')
+      setError(
+        mapAuthErrorMessage(e, 'Could not start load testing. Please try again.'),
+      )
     } finally {
       setBusy(false)
     }
-  }, [deploymentId, rps, snapshotTemplateId])
+  }, [deploymentId, rps, session?.access_token, snapshotTemplateId])
 
   const onStopLoad = useCallback(async () => {
     if (!deploymentId) return
+    if (!session?.access_token) {
+      setError('Please sign in again to run load testing.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       await stopLoadGen(deploymentId)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Stop load failed')
+      debugAuthError(e, 'loadgen-stop')
+      setError(
+        mapAuthErrorMessage(e, 'Could not stop load testing. Please try again.'),
+      )
     } finally {
       setBusy(false)
     }
-  }, [deploymentId])
+  }, [deploymentId, session?.access_token])
 
   if (mode !== 'live' || !deploymentId) return null
 
@@ -157,6 +175,11 @@ export function LiveOverlay() {
       {error ? (
         <p className="max-w-full rounded border border-red-700/50 bg-red-950/65 px-2 py-1 text-left text-xs font-medium text-red-100 backdrop-blur-sm">
           {error}
+        </p>
+      ) : null}
+      {streamWarning ? (
+        <p className="max-w-full rounded border border-amber-700/50 bg-amber-950/65 px-2 py-1 text-left text-xs font-medium text-amber-100 backdrop-blur-sm">
+          {streamWarning}
         </p>
       ) : null}
     </div>

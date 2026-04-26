@@ -7,7 +7,10 @@ import { useLogSync } from '../hooks/useLogSync'
 import { useMetricsSync } from '../hooks/useMetricsSync'
 import { getDeployment } from '../lib/api'
 import { clearLiveSessionPersist } from '../lib/liveSessionStorage'
-import { exitLiveSessionDueToRemoteEnd } from '../lib/sessionCapture'
+import {
+  exitLiveSessionDueToRemoteEnd,
+  isTerminalDeploymentStatus,
+} from '../lib/sessionCapture'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import {
@@ -148,6 +151,7 @@ export default function CanvasPage() {
 
   useEffect(() => {
     if (mode !== 'live') return
+    if (!deploymentId) return
     if (!useCanvasStore.getState().liveSessionEndsAt) return
 
     const tick = window.setInterval(() => {
@@ -155,8 +159,26 @@ export default function CanvasPage() {
       const st = useCanvasStore.getState()
       const endsAt = st.liveSessionEndsAt
       if (!endsAt || now < endsAt) return
-      window.clearInterval(tick)
-      exitLiveSessionDueToRemoteEnd()
+      void getDeployment(deploymentId)
+        .then((dep) => {
+          if (isTerminalDeploymentStatus(dep.status)) {
+            window.clearInterval(tick)
+            exitLiveSessionDueToRemoteEnd()
+            return
+          }
+          useMetricsStore
+            .getState()
+            .setStreamWarning(
+              'Session end is pending confirmation from the backend. Retrying...',
+            )
+        })
+        .catch(() => {
+          useMetricsStore
+            .getState()
+            .setStreamWarning(
+              'Could not confirm session end. Staying in live view and retrying...',
+            )
+        })
     }, 1000)
 
     return () => window.clearInterval(tick)
