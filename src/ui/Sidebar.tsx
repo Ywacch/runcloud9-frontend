@@ -1,5 +1,5 @@
 import { type DragEvent, useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   type DeploymentResult,
   createDeployment,
@@ -388,9 +388,13 @@ export function Sidebar() {
     >
       <div className="flex items-center justify-between gap-1 border-b border-[var(--c9-border)] bg-[var(--c9-surface)] p-2">
         {!collapsed ? (
-          <h1 className="min-w-0 truncate pl-2 text-lg font-semibold tracking-tight text-[var(--c9-text)]">
+          <Link
+            to="/"
+            className="min-w-0 truncate rounded px-2 text-left text-lg font-semibold tracking-tight text-[var(--c9-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
+            aria-label="Go to homepage"
+          >
             RunCloud9
-          </h1>
+          </Link>
         ) : (
           <span className="sr-only">RunCloud9</span>
         )}
