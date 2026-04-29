@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../context/ThemeContext'
+import { useAuthStore } from '../../store/authStore'
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const session = useAuthStore((s) => s.session)
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 20)
@@ -54,17 +57,27 @@ export function Navbar() {
               </svg>
             )}
           </button>
-          <Link
-            to="/login"
-            className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-all duration-200 hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
-          >
-            Log In
-          </Link>
+          {session ? (
+            <button
+              type="button"
+              onClick={() => void supabase.auth.signOut()}
+              className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-all duration-200 hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
+            >
+              Log Out
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-all duration-200 hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
+            >
+              Log In
+            </Link>
+          )}
           <Link
             to="/canvas"
             className="rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
           >
-            Get Started
+            Go to Canvas
           </Link>
         </div>
 
@@ -101,17 +114,27 @@ export function Navbar() {
             >
               Toggle Theme
             </button>
-            <Link
-              to="/login"
-              className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-center text-sm text-[var(--c9-muted)]"
-            >
-              Log In
-            </Link>
+            {session ? (
+              <button
+                type="button"
+                onClick={() => void supabase.auth.signOut()}
+                className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-center text-sm text-[var(--c9-muted)]"
+              >
+                Log Out
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-center text-sm text-[var(--c9-muted)]"
+              >
+                Log In
+              </Link>
+            )}
             <Link
               to="/canvas"
               className="rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-center text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
             >
-              Get Started
+              Go to Canvas
             </Link>
           </div>
         </div>

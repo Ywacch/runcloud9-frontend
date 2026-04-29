@@ -123,6 +123,8 @@ interface CanvasState {
     snapshot: CanvasSnapshot,
     targetMode: 'design' | 'simulate',
   ) => void
+  /** Start from a chosen template id with an empty canvas in design mode. */
+  startFromTemplate: (templateId: string) => void
   clearCanvas: () => void
 }
 
@@ -308,6 +310,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sessionSummary: null,
       movementLocked: false,
       mode: targetMode,
+    }),
+
+  startFromTemplate: (templateId) =>
+    set({
+      nodes: {},
+      edges: {},
+      selectedId: null,
+      pendingSourceId: null,
+      designTool: 'select',
+      placingNodeType: null,
+      connectHoverTargetId: null,
+      snapshotTemplateId: templateId,
+      deploymentId: null,
+      liveSessionEndsAt: null,
+      sessionSummary: null,
+      movementLocked: false,
+      mode: 'design',
     }),
 
   clearCanvas: () =>
