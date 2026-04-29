@@ -77,6 +77,17 @@ type PresetTemplateRow = ApiTemplateInfo &
     snapshot: CanvasSnapshot
   }
 
+export type TemplateSelectAction =
+  | {
+      kind: 'preset'
+      id: string
+      preset: () => CanvasSnapshot
+    }
+  | {
+      kind: 'scratch'
+      id: string
+    }
+
 type ModalTemplateItem =
   | { kind: 'preset'; row: PresetTemplateRow }
   | { kind: 'remote'; row: ApiTemplateInfo }
@@ -166,11 +177,11 @@ function MiniTopologyPreview({
 function TemplatePickerCard({
   row,
   isPremiumUser,
-  onUseTemplate,
+  onSelect,
 }: {
   row: PresetTemplateRow
   isPremiumUser: boolean
-  onUseTemplate: (snapshot: CanvasSnapshot, id: string) => void
+  onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
   const premiumLocked = row.premium && !isPremiumUser
   const snapshot = row.snapshot
@@ -226,18 +237,34 @@ function TemplatePickerCard({
           {row.components} components · {row.bottleneck}
         </p>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <button
             type="button"
             disabled={premiumLocked}
             title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
             onClick={() => {
               if (premiumLocked) return
-              onUseTemplate(row.snapshot, row.id)
+              onSelect({
+                kind: 'preset',
+                id: row.id,
+                preset: () => snapshot,
+              })
             }}
             className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Use template
+            Use preset
+          </button>
+          <button
+            type="button"
+            disabled={premiumLocked}
+            title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
+            onClick={() => {
+              if (premiumLocked) return
+              onSelect({ kind: 'scratch', id: row.id })
+            }}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Start from scratch
           </button>
         </div>
       </div>
@@ -320,8 +347,8 @@ export function TemplateModal({
 }: {
   open: boolean
   onClose: () => void
-  /** Load preset in design mode. Return `false` to keep the modal open (e.g. user cancelled confirm). */
-  onSelect: (preset: () => CanvasSnapshot, id: string) => boolean | void
+  /** Handle template action in design mode. Return `false` to keep modal open. */
+  onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
   const isPremiumUser = useAuthStore((s) => s.isPremium)
   const [items, setItems] = useState<ModalTemplateItem[]>([])
@@ -422,8 +449,8 @@ export function TemplateModal({
                     key={item.row.id}
                     row={item.row}
                     isPremiumUser={isPremiumUser}
-                    onUseTemplate={(snapshot, id) => {
-                      if (onSelect(() => snapshot, id) !== false) onClose()
+                    onSelect={(action) => {
+                      if (onSelect(action) !== false) onClose()
                     }}
                   />
                 ) : (

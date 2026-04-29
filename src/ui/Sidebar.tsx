@@ -37,7 +37,11 @@ import {
   type DeployStep,
 } from './DeployModal'
 import { RationalePanel } from './RationalePanel'
-import { TemplateModal, templateTitleForId } from './TemplateModal'
+import {
+  TemplateModal,
+  templateTitleForId,
+  type TemplateSelectAction,
+} from './TemplateModal'
 
 const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
@@ -202,6 +206,23 @@ export function Sidebar() {
       setDesignTool('select')
       setPlacingNodeType(type)
     }
+  }
+
+  const handleTemplateAction = (action: TemplateSelectAction): boolean | void => {
+    const st = useCanvasStore.getState()
+    if (Object.keys(st.nodes).length > 0) {
+      if (!window.confirm('Replace current design?')) return false
+    }
+    useSimulationStore.getState().stop()
+    if (action.kind === 'preset') {
+      st.loadTemplateSnapshot(action.preset(), 'design')
+      setBanner(`Loaded ${templateTitleForId(action.id) ?? action.id} template`)
+      return
+    }
+    st.startFromTemplate(action.id)
+    setBanner(
+      `Selected ${templateTitleForId(action.id) ?? action.id} template (blank canvas)`,
+    )
   }
 
   const handleAutoArrange = () => {
@@ -429,18 +450,21 @@ export function Sidebar() {
             {templateTitleForId(snapshotTemplateId) ?? 'Choose a template…'}
           </div>
         </button>
+        <button
+          type="button"
+          disabled={live || simulate || !snapshotTemplateId}
+          onClick={() => {
+            useCanvasStore.getState().setSnapshotTemplateId(null)
+            setBanner('Template cleared.')
+          }}
+          className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-4 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Clear template
+        </button>
         <TemplateModal
           open={templateModalOpen}
           onClose={() => setTemplateModalOpen(false)}
-          onSelect={(preset, id) => {
-            const st = useCanvasStore.getState()
-            if (Object.keys(st.nodes).length > 0) {
-              if (!window.confirm('Replace current design?')) return false
-            }
-            useSimulationStore.getState().stop()
-            st.loadTemplateSnapshot(preset(), 'design')
-            setBanner(`Loaded ${templateTitleForId(id) ?? id} template`)
-          }}
+          onSelect={handleTemplateAction}
         />
 
         <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
