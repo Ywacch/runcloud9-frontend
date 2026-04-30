@@ -96,6 +96,7 @@ export default function LoadtestPage() {
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [terminatingAll, setTerminatingAll] = useState(false)
+  const [startingLoadgenAll, setStartingLoadgenAll] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -307,6 +308,35 @@ export default function LoadtestPage() {
     setTerminatingAll(false)
   }
 
+  const onStartLoadgenAll = async () => {
+    if (visibleDeployments.length === 0) return
+    setStartingLoadgenAll(true)
+    const errors: string[] = []
+    await runWithConcurrency(visibleDeployments.length, 8, async (index) => {
+      const row = visibleDeployments[index]
+      const id = row.namespace || row.id
+      try {
+        await startLoadGen(id, {
+          rps: Math.max(1, globalRps),
+          durationSeconds: 0,
+          template: row.template,
+        })
+        setRowErrors((prev) => ({ ...prev, [id]: '' }))
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : 'Failed to start loadgen'
+        setRowErrors((prev) => ({ ...prev, [id]: message }))
+        errors.push(`${id}: ${message}`)
+      }
+    })
+    if (errors.length > 0) {
+      window.alert(
+        `Loadgen failed on some deployments:\n\n${errors.slice(0, 10).join('\n')}`,
+      )
+    }
+    setStartingLoadgenAll(false)
+  }
+
   return (
     <main className="min-h-screen bg-[var(--c9-bg)] px-6 pb-8 pt-24 text-[var(--c9-text)]">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -378,16 +408,28 @@ export default function LoadtestPage() {
             </div>
           </div>
           <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => void onTerminateAll()}
-              disabled={terminatingAll || deployments.length === 0}
-              className="rounded border border-red-700 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 transition-colors duration-200 hover:bg-red-900/50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {terminatingAll
-                ? 'Terminating deployments...'
-                : `Terminate all (${deployments.length})`}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void onStartLoadgenAll()}
+                disabled={startingLoadgenAll || visibleDeployments.length === 0}
+                className="rounded border border-emerald-700 bg-emerald-950/40 px-4 py-2 text-sm font-medium text-emerald-200 transition-colors duration-200 hover:bg-emerald-900/50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {startingLoadgenAll
+                  ? 'Starting loadgen for all...'
+                  : `Start loadgen for all (${visibleDeployments.length})`}
+              </button>
+              <button
+                type="button"
+                onClick={() => void onTerminateAll()}
+                disabled={terminatingAll || deployments.length === 0}
+                className="rounded border border-red-700 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 transition-colors duration-200 hover:bg-red-900/50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {terminatingAll
+                  ? 'Terminating deployments...'
+                  : `Terminate all (${deployments.length})`}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -445,6 +487,7 @@ export default function LoadtestPage() {
             <table className="w-full min-w-[900px] text-left text-xs">
               <thead className="text-[var(--c9-muted)]">
                 <tr>
+                  <th className="border-b border-[var(--c9-border)] px-2 py-2">#</th>
                   <th className="border-b border-[var(--c9-border)] px-2 py-2">Deployment</th>
                   <th className="border-b border-[var(--c9-border)] px-2 py-2">Template</th>
                   <th className="border-b border-[var(--c9-border)] px-2 py-2">Status</th>
@@ -455,7 +498,7 @@ export default function LoadtestPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleDeployments.map((d) => {
+                {visibleDeployments.map((d, i) => {
                   const id = d.namespace || d.id
                   const busy = Boolean(busyLoadgenIds[id])
                   return (
@@ -463,6 +506,7 @@ export default function LoadtestPage() {
                       key={id}
                       className="border-b border-[var(--c9-border)]/60 hover:bg-[var(--c9-bg)]/40"
                     >
+                      <td className="px-2 py-2 text-[var(--c9-muted)]">{i + 1}</td>
                       <td className="px-2 py-2 font-mono text-[11px]">{id}</td>
                       <td className="px-2 py-2">{d.template}</td>
                       <td className="px-2 py-2">{d.status}</td>
