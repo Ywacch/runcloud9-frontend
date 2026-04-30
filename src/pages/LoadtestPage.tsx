@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   createDeployment,
+  deleteDeployment,
   getDeployment,
   getTemplates,
   listActiveDeployments,
@@ -82,7 +82,6 @@ async function runWithConcurrency(
 }
 
 export default function LoadtestPage() {
-  const navigate = useNavigate()
   const [templates, setTemplates] = useState<TemplateInfo[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [count, setCount] = useState(5)
@@ -96,6 +95,7 @@ export default function LoadtestPage() {
   const [busyLoadgenIds, setBusyLoadgenIds] = useState<Record<string, boolean>>({})
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [terminatingAll, setTerminatingAll] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -153,6 +153,14 @@ export default function LoadtestPage() {
     if (statusFilter === 'all') return sorted
     return sorted.filter((d) => d.status === statusFilter)
   }, [deployments, statusFilter])
+
+  const statusByDeploymentId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of deployments) {
+      m.set(d.namespace || d.id, d.status)
+    }
+    return m
+  }, [deployments])
 
   const statusOptions = useMemo(() => {
     const set = new Set<string>()
@@ -252,7 +260,7 @@ export default function LoadtestPage() {
         dep.template || row.template,
       )
       persistLiveSession(id, snapshot)
-      navigate('/canvas')
+      window.open('/canvas', '_blank', 'noopener')
     } catch (e) {
       setRowErrors((prev) => ({
         ...prev,
@@ -261,6 +269,42 @@ export default function LoadtestPage() {
     } finally {
       setOpeningId(null)
     }
+  }
+
+  const onTerminateAll = async () => {
+    if (deployments.length === 0) return
+    if (
+      !window.confirm(
+        `Terminate all ${deployments.length} active deployments? This cannot be undone.`,
+      )
+    ) {
+      return
+    }
+    setTerminatingAll(true)
+    const errors: string[] = []
+    await runWithConcurrency(deployments.length, 6, async (index) => {
+      const row = deployments[index]
+      const id = row.namespace || row.id
+      try {
+        await deleteDeployment(id)
+      } catch (e) {
+        errors.push(
+          `${id}: ${e instanceof Error ? e.message : 'Termination failed'}`,
+        )
+      }
+    })
+    if (errors.length > 0) {
+      window.alert(
+        `Some deployments failed to terminate:\n\n${errors.slice(0, 10).join('\n')}`,
+      )
+    }
+    try {
+      const rows = await listActiveDeployments()
+      setDeployments(rows)
+    } catch {
+      /* ignore */
+    }
+    setTerminatingAll(false)
   }
 
   return (
@@ -333,6 +377,18 @@ export default function LoadtestPage() {
               </button>
             </div>
           </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => void onTerminateAll()}
+              disabled={terminatingAll || deployments.length === 0}
+              className="rounded border border-red-700 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 transition-colors duration-200 hover:bg-red-900/50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {terminatingAll
+                ? 'Terminating deployments...'
+                : `Terminate all (${deployments.length})`}
+            </button>
+          </div>
         </section>
 
         <section className="rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 p-5">
@@ -355,7 +411,11 @@ export default function LoadtestPage() {
                       #{r.index}{' '}
                       {r.error
                         ? `error: ${r.error}`
-                        : `${r.namespace || r.deploymentId} (${r.status || 'created'})`}
+                        : `${r.namespace || r.deploymentId} (${
+                            statusByDeploymentId.get(r.namespace || r.deploymentId || '') ||
+                            r.status ||
+                            'created'
+                          })`}
                     </li>
                   ))}
               </ul>
