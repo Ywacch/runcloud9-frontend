@@ -2,6 +2,22 @@ import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
 import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../store/canvasStore'
 import type { DeploymentDesign } from './api'
 
+/**
+ * Backend topology validation and env derivation typically read `strategy` on cache
+ * nodes. The canvas inspector uses `cacheStrategy`. Keep both in sync on the wire.
+ */
+export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
+  const config = { ...n.config } as Record<string, unknown>
+  if (n.type === 'cache') {
+    const strat = String(
+      config.cacheStrategy ?? config.strategy ?? 'cache-aside',
+    )
+    config.cacheStrategy = strat
+    config.strategy = strat
+  }
+  return config
+}
+
 export function snapshotToDeploymentDesign(
   snapshot: CanvasSnapshot
 ): DeploymentDesign {
@@ -14,7 +30,7 @@ export function snapshotToDeploymentDesign(
       id: n.id,
       type: canvasToBackend[n.type],
       name: n.label,
-      config: { ...n.config },
+      config: deployConfigForNode(n),
     }))
   const connections = snapshot.edges
     .filter(
@@ -48,13 +64,17 @@ export function deploymentDesignToSnapshot(
     const type = backendComponentToCanvasType[n.type] ?? 'compute'
     const x = idx * 2
     const z = 0
+    const raw = { ...n.config } as Record<string, unknown>
+    if (type === 'cache' && raw.cacheStrategy == null && raw.strategy != null) {
+      raw.cacheStrategy = raw.strategy
+    }
     return {
       id: n.id,
       type,
       // Keep baseline elevation consistent with runtime canvas placement.
       position: [x, 0.3, z],
       label: n.name || n.id,
-      config: { ...n.config },
+      config: raw,
       status: 'idle',
     }
   })

@@ -11,7 +11,10 @@ import {
   type DeploymentDesign,
   type TemplateInfo,
 } from '../lib/api'
-import { deploymentDesignToSnapshot } from '../lib/deployPayload'
+import {
+  deployConfigForNode,
+  deploymentDesignToSnapshot,
+} from '../lib/deployPayload'
 import { persistLiveSession } from '../lib/liveSessionStorage'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { canvasToBackend } from '../lib/typeMapping'
@@ -40,7 +43,7 @@ function buildDesignForTemplate(template: TemplateInfo): DeploymentDesign {
       id: n.id,
       type: canvasToBackend[n.type],
       name: n.label,
-      config: { ...n.config },
+      config: deployConfigForNode(n),
     }))
   const clientIds = new Set(
     snapshot.nodes.filter((n) => n.type === 'client').map((n) => n.id),
