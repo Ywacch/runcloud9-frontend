@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { applyCacheStrategyNormalizationToNodes } from '../lib/cacheTopologyStrategy'
 import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
 
 /** Design-mode interaction: select/move + inspector, connect nodes, or delete by clicking. */
@@ -186,8 +187,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         const e = edges[eid]
         if (e.sourceId === id || e.targetId === id) delete edges[eid]
       }
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(nodes, edges)
       return {
-        nodes,
+        nodes: nodesNorm,
         edges,
         selectedId: s.selectedId === id ? null : s.selectedId,
         pendingSourceId: s.pendingSourceId === id ? null : s.pendingSourceId,
@@ -200,8 +202,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         (e) => e.sourceId === edge.sourceId && e.targetId === edge.targetId
       )
       if (dup) return s
+      const edges = { ...s.edges, [edge.id]: edge }
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(s.nodes, edges)
       return {
-        edges: { ...s.edges, [edge.id]: edge },
+        edges,
+        nodes: nodesNorm,
         connectHoverTargetId: null,
       }
     }),
@@ -209,7 +214,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   removeEdge: (id) =>
     set((s) => {
       const { [id]: _removed, ...edges } = s.edges
-      return { edges }
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(s.nodes, edges)
+      return { edges, nodes: nodesNorm }
     }),
 
   setPendingSource: (pendingSourceId) =>

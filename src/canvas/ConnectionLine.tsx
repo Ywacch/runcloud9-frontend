@@ -18,9 +18,11 @@ function protocolLabel(protocol: CanvasEdge['protocol']): string {
 
 interface ConnectionLineProps {
   edge: CanvasEdge
+  /** UX warning from topology vs cache strategy (mirrors backend validation). */
+  topologyIssue?: string
 }
 
-export function ConnectionLine({ edge }: ConnectionLineProps) {
+export function ConnectionLine({ edge, topologyIssue }: ConnectionLineProps) {
   const mode = useCanvasStore((s) => s.mode)
   const designTool = useCanvasStore((s) => s.designTool)
   const nodes = useCanvasStore((s) => s.nodes)
@@ -44,7 +46,13 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
   const isLive = isMetricsViewportMode(mode)
 
   const lineWidth =
-    isCanvasEditMode(mode) && designTool === 'erase' ? 14 : 2
+    topologyIssue && isCanvasEditMode(mode)
+      ? 4
+      : isCanvasEditMode(mode) && designTool === 'erase'
+        ? 14
+        : 2
+
+  const designLineColor = topologyIssue ? '#b91c1c' : '#666666'
 
   const onContextMenu = (e: { stopPropagation: () => void; nativeEvent: Event }) => {
     if (!isCanvasEditMode(mode)) return
@@ -70,8 +78,8 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
         <>
           <Line
             points={points}
-            color="#64748b"
-            lineWidth={2}
+            color={topologyIssue ? '#b91c1c' : '#64748b'}
+            lineWidth={topologyIssue ? 3 : 2}
             transparent
             opacity={0.45}
             dashed={false}
@@ -91,7 +99,7 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
       ) : (
         <Line
           points={points}
-          color="#666666"
+          color={designLineColor}
           lineWidth={lineWidth}
           onContextMenu={onContextMenu}
           onPointerDown={onErasePointerDown}
@@ -104,10 +112,15 @@ export function ConnectionLine({ edge }: ConnectionLineProps) {
         style={{ pointerEvents: 'none' }}
       >
         <div
-          className="pointer-events-none rounded bg-gray-800 px-1.5 py-0.5 font-sans text-[10px] text-white"
-          style={{ whiteSpace: 'nowrap' }}
+          className="pointer-events-none rounded px-1.5 py-0.5 font-sans text-[10px] text-white"
+          style={{
+            whiteSpace: 'nowrap',
+            backgroundColor: topologyIssue ? '#7f1d1d' : '#1f2937',
+          }}
+          title={topologyIssue ?? undefined}
         >
           {protocolLabel(edge.protocol)}
+          {topologyIssue ? ' !' : ''}
         </div>
       </Html>
     </>

@@ -1,8 +1,13 @@
+import { useEffect, useMemo } from 'react'
+import {
+  getAvailableCacheStrategies,
+} from '../lib/cacheTopologyStrategy'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { getRelevantTemplateMetrics } from '../lib/templateMetricsFilter'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
   useCanvasStore,
+  type CanvasEdge,
   type CanvasNode,
 } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
@@ -23,6 +28,7 @@ export function InspectorPanel() {
   const mode = useCanvasStore((s) => s.mode)
   const selectedId = useCanvasStore((s) => s.selectedId)
   const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
   const selectNode = useCanvasStore((s) => s.selectNode)
   const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
   const updateNodeLabel = useCanvasStore((s) => s.updateNodeLabel)
@@ -99,6 +105,8 @@ export function InspectorPanel() {
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
                 <TypeFields
                   node={node}
+                  edges={edges}
+                  nodes={nodes}
                   simulationMode={simulationMode}
                   updateConfig={(patch) => updateNodeConfig(node.id, patch)}
                 />
@@ -192,12 +200,197 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
   )
 }
 
-function TypeFields({
+const CACHE_STRATEGY_LABEL: Record<string, string> = {
+  'cache-aside': 'cache-aside',
+  'write-through': 'write-through',
+  'write-behind': 'write-behind',
+  'read-through': 'read-through',
+}
+
+function CacheNodeInspectorFields({
   node,
+  nodes,
+  edges,
   simulationMode,
   updateConfig,
 }: {
   node: CanvasNode
+  nodes: Record<string, CanvasNode>
+  edges: Record<string, CanvasEdge>
+  simulationMode: boolean
+  updateConfig: (patch: Partial<CanvasNode['config']>) => void
+}) {
+  const c = node.config
+  const maxMemoryMB = Number(c.maxMemoryMB ?? 256)
+  const eviction = String(c.evictionPolicy ?? 'allkeys-lru')
+  const strategy = String(c.cacheStrategy ?? 'cache-aside')
+
+  const available = useMemo(
+    () => getAvailableCacheStrategies(node.id, nodes, edges),
+    [node.id, nodes, edges],
+  )
+
+  useEffect(() => {
+    if (available.length > 0 && !available.includes(strategy)) {
+      useCanvasStore.getState().updateNodeConfig(node.id, {
+        cacheStrategy: available[0],
+      })
+    }
+  }, [available, node.id, strategy])
+
+  const ambiguousTopology = available.length === 0
+  const selectValue = available.includes(strategy)
+    ? strategy
+    : available[0] ?? strategy
+
+  return (
+    <>
+      <div>
+        <span className={labelClass}>Engine</span>
+        <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
+          Redis
+        </span>
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="cache-mem">
+          Max memory (MB)
+        </label>
+        <input
+          id="cache-mem"
+          type="number"
+          min={64}
+          max={1024}
+          className={fieldClass}
+          value={maxMemoryMB}
+          onChange={(e) =>
+            updateConfig({
+              maxMemoryMB: clamp(
+                Number(e.target.value) || 64,
+                64,
+                1024
+              ),
+            })
+          }
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="cache-evict">
+          Eviction policy
+        </label>
+        <select
+          id="cache-evict"
+          className={fieldClass}
+          value={eviction}
+          onChange={(e) => updateConfig({ evictionPolicy: e.target.value })}
+        >
+          <option value="allkeys-lru">allkeys-lru</option>
+          <option value="lfu">lfu</option>
+          <option value="volatile-lru">volatile-lru</option>
+          <option value="volatile-ttl">volatile-ttl</option>
+          <option value="noeviction">noeviction</option>
+        </select>
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="cache-strat">
+          Cache strategy
+        </label>
+        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+          Options follow the canvas: proxy paths (cache→database, no direct connector→database)
+          vs cache-aside (connector→database, no cache→database).
+        </p>
+        <select
+          id="cache-strat"
+          className={fieldClass}
+          value={selectValue}
+          disabled={ambiguousTopology}
+          onChange={(e) => updateConfig({ cacheStrategy: e.target.value })}
+        >
+          {ambiguousTopology ? (
+            <option value={strategy}>
+              {CACHE_STRATEGY_LABEL[strategy] ?? strategy} (fix wiring)
+            </option>
+          ) : (
+            available.map((v) => (
+              <option key={v} value={v}>
+                {CACHE_STRATEGY_LABEL[v] ?? v}
+              </option>
+            ))
+          )}
+        </select>
+        {ambiguousTopology ? (
+          <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+            This wiring is invalid: a connector reaches this cache and the database while the cache
+            also reaches the database. Remove either the direct connector→database link or the
+            cache→database link, then pick a strategy again.
+          </p>
+        ) : null}
+      </div>
+      {simulationMode ? (
+        <>
+          <div>
+            <label className={labelClass} htmlFor="cache-replicas">
+              Instances
+            </label>
+            <input
+              id="cache-replicas"
+              type="number"
+              min={1}
+              max={20}
+              className={fieldClass}
+              value={Number(c.replicas ?? 1)}
+              onChange={(e) =>
+                updateConfig({
+                  replicas: clamp(Number(e.target.value) || 1, 1, 20),
+                })
+              }
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="cache-cap">
+              Capacity override (RPS, optional)
+            </label>
+            <input
+              id="cache-cap"
+              type="number"
+              min={1}
+              step={1}
+              placeholder="Auto"
+              className={fieldClass}
+              value={
+                Number.isFinite(Number(c.nodeCapacityRps)) &&
+                Number(c.nodeCapacityRps) > 0
+                  ? String(Number(c.nodeCapacityRps))
+                  : ''
+              }
+              onChange={(e) => {
+                const v = e.target.value.trim()
+                if (!v) {
+                  updateConfig({ nodeCapacityRps: undefined })
+                  return
+                }
+                const n = Number(v)
+                if (Number.isFinite(n) && n > 0) {
+                  updateConfig({ nodeCapacityRps: n })
+                }
+              }}
+            />
+          </div>
+        </>
+      ) : null}
+    </>
+  )
+}
+
+function TypeFields({
+  node,
+  edges,
+  nodes,
+  simulationMode,
+  updateConfig,
+}: {
+  node: CanvasNode
+  edges: Record<string, CanvasEdge>
+  nodes: Record<string, CanvasNode>
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
 }) {
@@ -487,127 +680,16 @@ function TypeFields({
       )
     }
 
-    case 'cache': {
-      const maxMemoryMB = Number(c.maxMemoryMB ?? 256)
-      const eviction = String(c.evictionPolicy ?? 'allkeys-lru')
-      const strategy = String(c.cacheStrategy ?? 'cache-aside')
+    case 'cache':
       return (
-        <>
-          <div>
-            <span className={labelClass}>Engine</span>
-            <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-              Redis
-            </span>
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="cache-mem">
-              Max memory (MB)
-            </label>
-            <input
-              id="cache-mem"
-              type="number"
-              min={64}
-              max={1024}
-              className={fieldClass}
-              value={maxMemoryMB}
-              onChange={(e) =>
-                updateConfig({
-                  maxMemoryMB: clamp(
-                    Number(e.target.value) || 64,
-                    64,
-                    1024
-                  ),
-                })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="cache-evict">
-              Eviction policy
-            </label>
-            <select
-              id="cache-evict"
-              className={fieldClass}
-              value={eviction}
-              onChange={(e) => updateConfig({ evictionPolicy: e.target.value })}
-            >
-              <option value="allkeys-lru">allkeys-lru</option>
-              <option value="lfu">lfu</option>
-              <option value="volatile-lru">volatile-lru</option>
-              <option value="volatile-ttl">volatile-ttl</option>
-              <option value="noeviction">noeviction</option>
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="cache-strat">
-              Cache strategy
-            </label>
-            <select
-              id="cache-strat"
-              className={fieldClass}
-              value={strategy}
-              onChange={(e) => updateConfig({ cacheStrategy: e.target.value })}
-            >
-              <option value="cache-aside">cache-aside</option>
-              <option value="write-through">write-through</option>
-              <option value="write-behind">write-behind</option>
-            </select>
-          </div>
-          {simulationMode ? (
-            <>
-              <div>
-                <label className={labelClass} htmlFor="cache-replicas">
-                  Instances
-                </label>
-                <input
-                  id="cache-replicas"
-                  type="number"
-                  min={1}
-                  max={20}
-                  className={fieldClass}
-                  value={Number(c.replicas ?? 1)}
-                  onChange={(e) =>
-                    updateConfig({
-                      replicas: clamp(Number(e.target.value) || 1, 1, 20),
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="cache-cap">
-                  Capacity override (RPS, optional)
-                </label>
-                <input
-                  id="cache-cap"
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="Auto"
-                  className={fieldClass}
-                  value={
-                    Number.isFinite(Number(c.nodeCapacityRps)) &&
-                    Number(c.nodeCapacityRps) > 0
-                      ? String(Number(c.nodeCapacityRps))
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value.trim()
-                    if (!v) {
-                      updateConfig({ nodeCapacityRps: undefined })
-                      return
-                    }
-                    const n = Number(v)
-                    if (Number.isFinite(n) && n > 0) {
-                      updateConfig({ nodeCapacityRps: n })
-                    }
-                  }}
-                />
-              </div>
-            </>
-          ) : null}
-        </>
+        <CacheNodeInspectorFields
+          node={node}
+          nodes={nodes}
+          edges={edges}
+          simulationMode={simulationMode}
+          updateConfig={updateConfig}
+        />
       )
-    }
 
     case 'message_queue':
       return (
