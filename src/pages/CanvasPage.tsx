@@ -6,6 +6,10 @@ import { useActiveDeploymentPrompt } from '../hooks/useActiveDeploymentPrompt'
 import { useLogSync } from '../hooks/useLogSync'
 import { useMetricsSync } from '../hooks/useMetricsSync'
 import { getDeployment } from '../lib/api'
+import {
+  normalizeComponentProvisionState,
+  parseProvisionMetrics,
+} from '../lib/provisionMetrics'
 import { clearLiveSessionPersist } from '../lib/liveSessionStorage'
 import {
   exitLiveSessionDueToRemoteEnd,
@@ -33,6 +37,7 @@ import { Sidebar } from '../ui/Sidebar'
 import { SystemTopBar } from '../ui/SystemTopBar'
 import { EventTimeline } from '../ui/EventTimeline'
 import { CascadeToast } from '../ui/CascadeToast'
+import { ProvisioningOverlay } from '../ui/ProvisioningOverlay'
 import { RejoinBanner } from '../ui/RejoinBanner'
 
 const VALID_TYPES: CanvasNode['type'][] = [
@@ -67,9 +72,12 @@ export default function CanvasPage() {
   )
   const simRunning = useSimulationStore((s) => s.running)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const nodes = useCanvasStore((s) => s.nodes)
   const [deployStatus, setDeployStatus] = useState<string | null>(null)
   const [provisioningError, setProvisioningError] = useState<string | null>(null)
   const [provisioningElapsed, setProvisioningElapsed] = useState(0)
+  const [provisionMetricsSummary, setProvisionMetricsSummary] =
+    useState<Record<string, unknown> | null>(null)
   const provisionStartRef = useRef<number>(Date.now())
 
   const realtimeDeploymentId = mode === 'live' ? deploymentId : null
@@ -81,6 +89,7 @@ export default function CanvasPage() {
       setDeployStatus(null)
       setProvisioningError(null)
       setProvisioningElapsed(0)
+      setProvisionMetricsSummary(null)
       return
     }
 
@@ -88,6 +97,7 @@ export default function CanvasPage() {
     provisionStartRef.current = Date.now()
     setDeployStatus('provisioning')
     setProvisioningError(null)
+    setProvisionMetricsSummary(null)
     const st = useCanvasStore.getState()
     Object.keys(st.nodes).forEach((nid) => {
       if (st.nodes[nid]?.type === 'client') return
@@ -104,6 +114,25 @@ export default function CanvasPage() {
         const dep = await getDeployment(deploymentId)
         if (cancelled) return
         setDeployStatus(dep.status)
+        setProvisionMetricsSummary(
+          dep.metricsSummary && typeof dep.metricsSummary === 'object'
+            ? (dep.metricsSummary as Record<string, unknown>)
+            : null,
+        )
+
+        const polled = parseProvisionMetrics(dep.metricsSummary)
+        if (polled && Object.keys(polled.componentStatus).length > 0) {
+          const stNodes = useCanvasStore.getState()
+          for (const [nid, raw] of Object.entries(polled.componentStatus)) {
+            const node = stNodes.nodes[nid]
+            if (!node || node.type === 'client') continue
+            const ns = normalizeComponentProvisionState(raw)
+            if (ns === 'ready') stNodes.updateNodeStatus(nid, 'healthy')
+            else if (ns === 'failed') stNodes.updateNodeStatus(nid, 'degraded')
+            else stNodes.updateNodeStatus(nid, 'provisioning')
+          }
+        }
+
         if (dep.status === 'running') {
           const endsAt = toMs(dep.expiresAt) ?? Date.now() + 9 * 60 * 1000
           const live = useCanvasStore.getState()
@@ -121,6 +150,13 @@ export default function CanvasPage() {
           spawnClientLoadgenNode()
           useMetricsStore.getState().clearMetrics()
           useLogStore.getState().clearLogs()
+          if (polled?.seedingStatus === 'failed') {
+            useMetricsStore
+              .getState()
+              .setStreamWarning(
+                'Live session started, but data seeding reported a failure. Metrics may be incomplete.',
+              )
+          }
           return
         }
         if (dep.status === 'failed' || dep.status === 'terminated') {
@@ -135,7 +171,7 @@ export default function CanvasPage() {
     void pollOnce()
     const pollId = window.setInterval(() => {
       void pollOnce()
-    }, 2000)
+    }, 2500)
     const timerId = window.setInterval(() => {
       setProvisioningElapsed(
         Math.floor((Date.now() - provisionStartRef.current) / 1000),
@@ -259,20 +295,11 @@ export default function CanvasPage() {
           </div>
         ) : null}
         {showProvisioningOverlay ? (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 p-5 text-[var(--c9-text)] shadow-xl">
-              <h3 className="text-lg font-semibold">Provisioning Infrastructure</h3>
-              <p className="mt-2 text-sm text-[var(--c9-muted)]">
-                Deployment is being created. This usually takes 60-120 seconds.
-              </p>
-              <div className="mt-4 h-2 w-full overflow-hidden rounded bg-[var(--c9-bg)]">
-                <div className="h-full w-1/3 animate-pulse bg-[var(--c9-accent)]" />
-              </div>
-              <p className="mt-3 text-xs text-[var(--c9-muted)]">
-                Deploying pods... {provisioningElapsed}s elapsed
-              </p>
-            </div>
-          </div>
+          <ProvisioningOverlay
+            elapsedSeconds={provisioningElapsed}
+            metricsSummary={provisionMetricsSummary}
+            nodes={nodes}
+          />
         ) : null}
         {showProvisioningError ? (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
