@@ -175,31 +175,19 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
         {node.type === 'compute' ? (
           <>
             <span className={badgeClass}>
-              Replicas: {String(c.replicas ?? 1)}
-            </span>
-            <span className={badgeClass}>
-              Size: {String(c.instanceSize ?? 'small')}
+              Resource profile: {String(c.instanceSize ?? 'small')}
             </span>
           </>
         ) : null}
         {node.type === 'database' ? (
           <>
             <span className={badgeClass}>Engine: PostgreSQL</span>
-            <span className={badgeClass}>
-              Max conn: {String(c.maxConnections ?? 100)}
-            </span>
           </>
         ) : null}
         {node.type === 'cache' ? (
           <>
             <span className={badgeClass}>
               Strategy: {String(c.cacheStrategy ?? 'cache-aside')}
-            </span>
-            <span className={badgeClass}>
-              Eviction: {String(c.evictionPolicy ?? 'allkeys-lru')}
-            </span>
-            <span className={badgeClass}>
-              Max mem: {String(c.maxMemoryMB ?? 256)} MB
             </span>
           </>
         ) : null}
@@ -211,18 +199,12 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
         {node.type === 'message_queue' ? (
           <>
             <span className={badgeClass}>Engine: RabbitMQ</span>
-            <span className={badgeClass}>
-              Durable: {String(c.durable ?? true)}
-            </span>
           </>
         ) : null}
         {node.type === 'worker' ? (
           <>
             <span className={badgeClass}>
-              Replicas: {String(c.replicas ?? 1)}
-            </span>
-            <span className={badgeClass}>
-              Size: {String(c.instanceSize ?? 'small')}
+              Resource profile: {String(c.instanceSize ?? 'small')}
             </span>
           </>
         ) : null}
@@ -255,8 +237,6 @@ function CacheNodeInspectorFields({
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
 }) {
   const c = node.config
-  const maxMemoryMB = Number(c.maxMemoryMB ?? 256)
-  const eviction = String(c.evictionPolicy ?? 'allkeys-lru')
   const strategy = String(c.cacheStrategy ?? 'cache-aside')
 
   const available = useMemo(
@@ -284,45 +264,6 @@ function CacheNodeInspectorFields({
         <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
           Redis
         </span>
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="cache-mem">
-          Max memory (MB)
-        </label>
-        <input
-          id="cache-mem"
-          type="number"
-          min={64}
-          max={1024}
-          className={fieldClass}
-          value={maxMemoryMB}
-          onChange={(e) =>
-            updateConfig({
-              maxMemoryMB: clamp(
-                Number(e.target.value) || 64,
-                64,
-                1024
-              ),
-            })
-          }
-        />
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="cache-evict">
-          Eviction policy
-        </label>
-        <select
-          id="cache-evict"
-          className={fieldClass}
-          value={eviction}
-          onChange={(e) => updateConfig({ evictionPolicy: e.target.value })}
-        >
-          <option value="allkeys-lru">allkeys-lru</option>
-          <option value="lfu">lfu</option>
-          <option value="volatile-lru">volatile-lru</option>
-          <option value="volatile-ttl">volatile-ttl</option>
-          <option value="noeviction">noeviction</option>
-        </select>
       </div>
       <div>
         <label className={labelClass} htmlFor="cache-strat">
@@ -361,24 +302,6 @@ function CacheNodeInspectorFields({
       </div>
       {simulationMode ? (
         <>
-          <div>
-            <label className={labelClass} htmlFor="cache-replicas">
-              Instances
-            </label>
-            <input
-              id="cache-replicas"
-              type="number"
-              min={1}
-              max={20}
-              className={fieldClass}
-              value={Number(c.replicas ?? 1)}
-              onChange={(e) =>
-                updateConfig({
-                  replicas: clamp(Number(e.target.value) || 1, 1, 20),
-                })
-              }
-            />
-          </div>
           <div>
             <label className={labelClass} htmlFor="cache-cap">
               Capacity override (RPS, optional)
@@ -534,32 +457,17 @@ function TypeFields({
       )
 
     case 'compute': {
-      const replicas = Number(c.replicas ?? 1)
       const instanceSize = String(c.instanceSize ?? 'small')
       return (
         <>
           <div>
-            <label className={labelClass} htmlFor="compute-replicas">
-              Replicas
-            </label>
-            <input
-              id="compute-replicas"
-              type="number"
-              min={1}
-              max={5}
-              className={fieldClass}
-              value={replicas}
-              onChange={(e) =>
-                updateConfig({
-                  replicas: clamp(Number(e.target.value) || 1, 1, 5),
-                })
-              }
-            />
-          </div>
-          <div>
             <label className={labelClass} htmlFor="compute-size">
-              Instance size
+              Resource profile
             </label>
+            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+              Adjusts Kubernetes CPU/memory reservations; performance impact depends on
+              workload bottlenecks.
+            </p>
             <select
               id="compute-size"
               className={fieldClass}
@@ -608,8 +516,6 @@ function TypeFields({
     }
 
     case 'database': {
-      const storageGB = Number(c.storageGB ?? 10)
-      const maxConnections = Number(c.maxConnections ?? 100)
       return (
         <>
           <div>
@@ -617,46 +523,6 @@ function TypeFields({
             <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
               PostgreSQL
             </span>
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="db-storage">
-              Storage (GB)
-            </label>
-            <input
-              id="db-storage"
-              type="number"
-              min={1}
-              max={100}
-              className={fieldClass}
-              value={storageGB}
-              onChange={(e) =>
-                updateConfig({
-                  storageGB: clamp(Number(e.target.value) || 1, 1, 100),
-                })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="db-conn">
-              Max connections
-            </label>
-            <input
-              id="db-conn"
-              type="number"
-              min={10}
-              max={500}
-              className={fieldClass}
-              value={maxConnections}
-              onChange={(e) =>
-                updateConfig({
-                  maxConnections: clamp(
-                    Number(e.target.value) || 10,
-                    10,
-                    500
-                  ),
-                })
-              }
-            />
           </div>
           {simulationMode ? (
             <>
@@ -734,22 +600,6 @@ function TypeFields({
               RabbitMQ
             </span>
           </div>
-          <div>
-            <label className={labelClass} htmlFor="mq-durable">
-              Durable queues
-            </label>
-            <select
-              id="mq-durable"
-              className={fieldClass}
-              value={String(c.durable ?? true)}
-              onChange={(e) =>
-                updateConfig({ durable: e.target.value === 'true' })
-              }
-            >
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
           {simulationMode ? (
             <>
               <div>
@@ -806,32 +656,17 @@ function TypeFields({
       )
 
     case 'worker': {
-      const replicas = Number(c.replicas ?? 1)
       const instanceSize = String(c.instanceSize ?? 'small')
       return (
         <>
           <div>
-            <label className={labelClass} htmlFor="worker-replicas">
-              Replicas
-            </label>
-            <input
-              id="worker-replicas"
-              type="number"
-              min={1}
-              max={10}
-              className={fieldClass}
-              value={replicas}
-              onChange={(e) =>
-                updateConfig({
-                  replicas: clamp(Number(e.target.value) || 1, 1, 10),
-                })
-              }
-            />
-          </div>
-          <div>
             <label className={labelClass} htmlFor="worker-size">
-              Instance size
+              Resource profile
             </label>
+            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+              Adjusts Kubernetes CPU/memory reservations; performance impact depends on
+              workload bottlenecks.
+            </p>
             <select
               id="worker-size"
               className={fieldClass}

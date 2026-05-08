@@ -8,6 +8,17 @@ import type { DeploymentDesign } from './api'
  */
 export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
   const config = { ...n.config } as Record<string, unknown>
+  // Prelaunch gating: keep payloads minimal and avoid emitting inactive knobs.
+  delete config.maxMemory
+  delete config.maxMemoryMB
+  delete config.evictionPolicy
+  delete config.durableQueues
+  delete config.durable
+  delete config.storageSize
+  delete config.storageGB
+  delete config.maxConnections
+  // Launch default: keep single replica semantics in deploy payload.
+  config.replicas = '1'
   if (n.type === 'cache') {
     const strat = String(
       config.cacheStrategy ?? config.strategy ?? 'cache-aside',
