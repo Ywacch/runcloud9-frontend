@@ -11,11 +11,13 @@ const COMPONENT_COLORS: Record<string, string> = {
   worker: '#A78BFA',
 }
 
-function logLevelClass(msg: string): string {
+function logLevelClass(level: string | undefined, msg: string): string {
+  const lvl = (level ?? '').toLowerCase()
   const lower = msg.toLowerCase()
-  if (lower.includes('error') || lower.includes('err')) return 'text-red-400'
-  if (lower.includes('warn')) return 'text-amber-400'
-  return 'text-gray-400'
+  if (lvl === 'error' || lower.includes('error') || lower.includes('err')) return 'text-red-400'
+  if (lvl === 'warn' || lvl === 'warning' || lower.includes('warn')) return 'text-amber-400'
+  if (lvl === 'debug') return 'text-slate-400'
+  return 'text-gray-300'
 }
 
 export function LogPanel() {
@@ -57,7 +59,7 @@ export function LogPanel() {
               >
                 {l.component}
               </span>
-              <span className={logLevelClass(l.message)}>{l.message}</span>
+              <span className={logLevelClass(l.level, l.message)}>{l.message}</span>
             </div>
           ))}
           <div ref={endRef} />
