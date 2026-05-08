@@ -5,7 +5,7 @@ import { useDeploymentRehydrate } from '../hooks/useDeploymentRehydrate'
 import { useActiveDeploymentPrompt } from '../hooks/useActiveDeploymentPrompt'
 import { useLogSync } from '../hooks/useLogSync'
 import { useMetricsSync } from '../hooks/useMetricsSync'
-import { getDeployment } from '../lib/api'
+import { deleteDeployment, getDeployment } from '../lib/api'
 import {
   normalizeComponentProvisionState,
   parseProvisionMetrics,
@@ -78,6 +78,8 @@ export default function CanvasPage() {
   const [provisioningElapsed, setProvisioningElapsed] = useState(0)
   const [provisionMetricsSummary, setProvisionMetricsSummary] =
     useState<Record<string, unknown> | null>(null)
+  const [isTerminating, setIsTerminating] = useState(false)
+  const [terminationMessage, setTerminationMessage] = useState<string | null>(null)
   const provisionStartRef = useRef<number>(Date.now())
 
   const realtimeDeploymentId = mode === 'live' ? deploymentId : null
@@ -90,10 +92,21 @@ export default function CanvasPage() {
       setProvisioningError(null)
       setProvisioningElapsed(0)
       setProvisionMetricsSummary(null)
+      setIsTerminating(false)
       return
     }
 
     let cancelled = false
+    let stopped = false
+    let pollId: number | null = null
+    let timerId: number | null = null
+    const stopPolling = () => {
+      if (stopped) return
+      stopped = true
+      if (pollId !== null) window.clearInterval(pollId)
+      if (timerId !== null) window.clearInterval(timerId)
+    }
+
     provisionStartRef.current = Date.now()
     setDeployStatus('provisioning')
     setProvisioningError(null)
@@ -157,10 +170,31 @@ export default function CanvasPage() {
                 'Live session started, but data seeding reported a failure. Metrics may be incomplete.',
               )
           }
+          stopPolling()
           return
         }
-        if (dep.status === 'failed' || dep.status === 'terminated') {
+        if (dep.status === 'failed') {
           setProvisioningError('Deployment failed during provisioning.')
+          setIsTerminating(false)
+          stopPolling()
+          return
+        }
+        if (dep.status === 'terminated') {
+          const stTerminated = useCanvasStore.getState()
+          stTerminated.setDeploymentId(null)
+          stTerminated.setLiveSessionEndsAt(null)
+          stTerminated.setMode('design')
+          stTerminated.setAllEdgesAnimated(false)
+          Object.keys(stTerminated.nodes).forEach((nid) => {
+            if (stTerminated.nodes[nid]?.type === 'client') return
+            stTerminated.updateNodeStatus(nid, 'idle')
+          })
+          clearLiveSessionPersist()
+          setIsTerminating(false)
+          setDeployStatus(null)
+          setProvisioningError(null)
+          setTerminationMessage('Provisioning cancelled. Deployment terminated.')
+          stopPolling()
           return
         }
       } catch {
@@ -169,10 +203,10 @@ export default function CanvasPage() {
     }
 
     void pollOnce()
-    const pollId = window.setInterval(() => {
+    pollId = window.setInterval(() => {
       void pollOnce()
     }, 2500)
-    const timerId = window.setInterval(() => {
+    timerId = window.setInterval(() => {
       setProvisioningElapsed(
         Math.floor((Date.now() - provisionStartRef.current) / 1000),
       )
@@ -180,10 +214,15 @@ export default function CanvasPage() {
 
     return () => {
       cancelled = true
-      window.clearInterval(pollId)
-      window.clearInterval(timerId)
+      stopPolling()
     }
   }, [deploymentId, mode])
+
+  useEffect(() => {
+    if (!terminationMessage) return
+    const id = window.setTimeout(() => setTerminationMessage(null), 3500)
+    return () => window.clearTimeout(id)
+  }, [terminationMessage])
 
   useEffect(() => {
     if (mode !== 'live') return
@@ -241,7 +280,9 @@ export default function CanvasPage() {
   }, [mode, simRunning, nodeTopologyKey, edgeTopologyKey])
 
   const showProvisioningOverlay =
-    mode !== 'live' && !!deploymentId && deployStatus === 'provisioning'
+    mode !== 'live' &&
+    !!deploymentId &&
+    (deployStatus === 'provisioning' || isTerminating)
   const showProvisioningError = mode !== 'live' && !!deploymentId && !!provisioningError
 
   return (
@@ -299,6 +340,22 @@ export default function CanvasPage() {
             elapsedSeconds={provisioningElapsed}
             metricsSummary={provisionMetricsSummary}
             nodes={nodes}
+            isTerminating={isTerminating}
+            onCancel={() => {
+              if (!deploymentId || isTerminating) return
+              setIsTerminating(true)
+              setDeployStatus('terminating')
+              setTerminationMessage(null)
+              void deleteDeployment(deploymentId).catch((err) => {
+                const msg =
+                  err instanceof Error
+                    ? err.message
+                    : 'Could not cancel provisioning. Please try again.'
+                setIsTerminating(false)
+                setDeployStatus('provisioning')
+                setTerminationMessage(msg)
+              })
+            }}
           />
         ) : null}
         {showProvisioningError ? (
@@ -334,6 +391,11 @@ export default function CanvasPage() {
         <DesignToolStrip />
         <InspectorPanel />
         {mode === 'live' ? <CascadeToast /> : null}
+        {terminationMessage ? (
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-3 py-2 text-xs text-[var(--c9-text)] shadow-lg">
+            {terminationMessage}
+          </div>
+        ) : null}
       </div>
     </div>
   )
