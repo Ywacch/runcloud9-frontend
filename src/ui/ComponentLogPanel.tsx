@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasNode } from '../store/canvasStore'
-import { useLogStore, type LogLine } from '../store/logStore'
+import { useLogStore } from '../store/logStore'
 import { canvasToBackend } from '../lib/typeMapping'
 
 const MAX_COMPONENT_LOGS = 500
