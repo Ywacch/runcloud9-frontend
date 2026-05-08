@@ -3,7 +3,9 @@ import { create } from 'zustand'
 export interface LogLine {
   timestamp: string
   component: string
+  level?: string
   message: string
+  fields?: Record<string, unknown>
 }
 
 interface LogState {
@@ -13,7 +15,7 @@ interface LogState {
   clearLogs: () => void
 }
 
-const MAX_LOGS = 500
+const MAX_LOGS = 3000
 
 export const useLogStore = create<LogState>((set) => ({
   logs: [],

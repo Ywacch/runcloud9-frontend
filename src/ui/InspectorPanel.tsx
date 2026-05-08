@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getAvailableCacheStrategies,
 } from '../lib/cacheTopologyStrategy'
@@ -11,6 +11,7 @@ import {
   type CanvasNode,
 } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { ComponentLogPanel } from './ComponentLogPanel'
 import { LiveMetrics } from './LiveMetrics'
 import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 
@@ -44,6 +45,12 @@ export function InspectorPanel() {
     node && liveMode
       ? getRelevantTemplateMetrics(templateMetrics, componentType)
       : {}
+  const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config'>('metrics')
+
+  useEffect(() => {
+    if (!open) return
+    setLiveTab('metrics')
+  }, [open, selectedId])
 
   const onDelete = () => {
     if (!node) return
@@ -94,10 +101,37 @@ export function InspectorPanel() {
 
           {liveMode ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="border-b border-[var(--c9-border)] px-4 pt-3">
+                <div className="flex gap-1">
+                  {([
+                    ['metrics', 'Metrics'],
+                    ['logs', 'Logs'],
+                    ['config', 'Config'],
+                  ] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setLiveTab(id)}
+                      className={`rounded-t-md border border-b-0 px-2.5 py-1 text-xs ${
+                        liveTab === id
+                          ? 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-text)]'
+                          : 'border-transparent text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                <ReadOnlyConfig node={node} />
-                <TemplateMetricsSnippet templateMetrics={relevantTemplateMetrics} />
-                <LiveMetrics node={node} />
+                {liveTab === 'metrics' ? (
+                  <>
+                    <TemplateMetricsSnippet templateMetrics={relevantTemplateMetrics} />
+                    <LiveMetrics node={node} />
+                  </>
+                ) : null}
+                {liveTab === 'logs' ? <ComponentLogPanel node={node} /> : null}
+                {liveTab === 'config' ? <ReadOnlyConfig node={node} /> : null}
               </div>
             </div>
           ) : (

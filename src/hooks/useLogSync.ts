@@ -6,10 +6,16 @@ import { useLogStore, type LogLine } from '../store/logStore'
 function isLogLine(x: unknown): x is LogLine {
   if (typeof x !== 'object' || x === null) return false
   const o = x as Record<string, unknown>
+  const fieldsOk =
+    o.fields === undefined ||
+    (typeof o.fields === 'object' && o.fields !== null && !Array.isArray(o.fields))
+  const levelOk = o.level === undefined || typeof o.level === 'string'
   return (
     typeof o.timestamp === 'string' &&
     typeof o.component === 'string' &&
-    typeof o.message === 'string'
+    typeof o.message === 'string' &&
+    fieldsOk &&
+    levelOk
   )
 }
 
