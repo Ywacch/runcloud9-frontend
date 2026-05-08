@@ -1,9 +1,6 @@
-export type DeployStep = {
-  id: string
-  label: string
-  state: 'pending' | 'active' | 'done' | 'error'
-  detail?: string
-}
+import { DeployProgressSteps, type DeployStep } from './DeployProgressSteps'
+
+export type { DeployStep }
 
 export type DeployModalMode =
   | 'progress'
@@ -80,52 +77,7 @@ export function DeployModal({
           </div>
         ) : null}
 
-        {showProgress ? (
-          <div className="space-y-3">
-            {steps.map((step, i) => (
-              <div key={step.id} className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  {step.state === 'done' ? (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20">
-                      <span className="text-xs text-emerald-400">✓</span>
-                    </div>
-                  ) : step.state === 'active' ? (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--c9-accent)]">
-                      <div className="h-2 w-2 animate-pulse rounded-full bg-[var(--c9-accent)]" />
-                    </div>
-                  ) : step.state === 'error' ? (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/20">
-                      <span className="text-xs text-red-400">✕</span>
-                    </div>
-                  ) : (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--c9-border)]">
-                      <span className="text-xs text-[var(--c9-muted)]">{i + 1}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1">
-                  <div
-                    className={`text-sm font-medium ${
-                      step.state === 'active'
-                        ? 'text-[var(--c9-text)]'
-                        : step.state === 'done'
-                          ? 'text-[var(--c9-muted)]'
-                          : step.state === 'error'
-                            ? 'text-red-400'
-                            : 'text-[var(--c9-muted)]'
-                    }`}
-                  >
-                    {step.label}
-                  </div>
-                  {step.detail ? (
-                    <div className="mt-0.5 text-xs text-[var(--c9-muted)]">{step.detail}</div>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        {showProgress ? <DeployProgressSteps steps={steps} /> : null}
 
         {showRequestRejected ? (
           <div className="space-y-3">
