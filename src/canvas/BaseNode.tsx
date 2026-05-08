@@ -3,6 +3,7 @@ import { type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDrag } from '@use-gesture/react'
 import * as THREE from 'three'
+import { defaultEdgeProtocol } from '../lib/defaultEdgeProtocol'
 import { computeHealthState } from '../lib/healthThresholds'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import {
@@ -275,11 +276,16 @@ export function BaseNode({ node }: BaseNodeProps) {
       s.setPendingSource(null)
       return
     }
+    const sourceNode = s.nodes[pending]
+    if (!sourceNode) {
+      s.setPendingSource(null)
+      return
+    }
     s.addEdge({
       id: crypto.randomUUID(),
       sourceId: pending,
       targetId: node.id,
-      protocol: 'http',
+      protocol: defaultEdgeProtocol(sourceNode.type, node.type),
       animated: false,
     })
     s.setPendingSource(null)
