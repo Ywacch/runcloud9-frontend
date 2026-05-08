@@ -1,4 +1,5 @@
 import { idleClientLoadgenBucket } from './clientMetrics'
+import { defaultEdgeProtocol } from './defaultEdgeProtocol'
 import { useCanvasStore } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
 
@@ -33,7 +34,7 @@ export function spawnClientLoadgenNode(): void {
     id: `edge-client-${entryNode.id}`,
     sourceId: CLIENT_LOADGEN_ID,
     targetId: entryNode.id,
-    protocol: 'http',
+    protocol: defaultEdgeProtocol('client', entryNode.type),
     animated: true,
   })
   useMetricsStore.getState().updateMetrics(CLIENT_LOADGEN_ID, idleClientLoadgenBucket())

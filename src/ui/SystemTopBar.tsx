@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { fmtMs, fmtPct, fmtRate } from '../lib/format'
-import { evaluateRequirements } from '../lib/requirements'
 import { readWriteFractions } from '../lib/simulation/workload'
 import { workloadProfileForTemplate } from '../lib/simulation/workloadProfiles'
 import { computeSystemAggregates } from '../lib/systemMetrics'
@@ -9,7 +8,6 @@ import { useCanvasStore } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
 import { FlowPanel } from './FlowPanel'
-import { GradePanel } from './GradePanel'
 
 const INGRESS_HELP_LIVE =
   'Requests per second entering the design: live load generator RPS. This is the workload hitting your system.'
@@ -53,7 +51,6 @@ function Stat({
 
 export function SystemTopBar() {
   const [flowOpen, setFlowOpen] = useState(false)
-  const [gradeOpen, setGradeOpen] = useState(false)
   const mode = useCanvasStore((s) => s.mode)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const nodes = useCanvasStore((s) => s.nodes)
@@ -102,17 +99,6 @@ export function SystemTopBar() {
     [mode, snapshotTemplateId, metrics, lastInspector, nodes, loadgen, templateMetrics]
   )
 
-  const gradeEvaluation = useMemo(() => {
-    if (mode !== 'live' && mode !== 'simulate') return null
-    return evaluateRequirements(snapshotTemplateId, {
-      metrics,
-      nodes,
-      inspector: lastInspector,
-      aggregates,
-      mode,
-    })
-  }, [snapshotTemplateId, metrics, nodes, lastInspector, aggregates, mode])
-
   if (mode !== 'live' && mode !== 'simulate') return null
 
   const ingressHelp = mode === 'simulate' ? INGRESS_HELP_SIM : INGRESS_HELP_LIVE
@@ -141,19 +127,6 @@ export function SystemTopBar() {
           >
             {mode === 'live' ? 'Live' : 'Sim'}
           </span>
-          <button
-            type="button"
-            onClick={() => setGradeOpen(true)}
-            className="mb-px shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-text)] hover:bg-[var(--c9-badge-bg)]/80"
-            title="Open design grade (functional and non-functional checklist)"
-          >
-            Grade
-            {gradeEvaluation ? (
-              <span className="ml-1 normal-case text-[var(--c9-muted)]">
-                · {gradeEvaluation.letter}
-              </span>
-            ) : null}
-          </button>
           {mode === 'simulate' ? (
             <button
               type="button"
@@ -222,7 +195,6 @@ export function SystemTopBar() {
         </div>
       ) : null}
       </div>
-      <GradePanel open={gradeOpen} onClose={() => setGradeOpen(false)} />
       <FlowPanel open={flowOpen} onClose={() => setFlowOpen(false)} />
     </>
   )
