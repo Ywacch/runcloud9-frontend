@@ -290,10 +290,14 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   elapsedSeconds,
   metricsSummary,
   nodes,
+  isTerminating = false,
+  onCancel,
 }: {
   elapsedSeconds: number
   metricsSummary: Record<string, unknown> | null
   nodes: Record<string, CanvasNode>
+  isTerminating?: boolean
+  onCancel?: () => void
 }) {
   const parsed = useMemo(
     () => parseProvisionMetrics(metricsSummary),
@@ -302,7 +306,9 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   const legacyPulse = shouldUseLegacyProvisioningPulse(metricsSummary)
 
   const provisionSubtitle =
-    parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
+    isTerminating
+      ? 'Terminating deployment...'
+      : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
       ? parsed.provisionPhase.replace(/-/g, ' ')
       : 'Deploying infrastructure…'
 
@@ -352,6 +358,18 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
               </p>
             </div>
           )}
+          {onCancel ? (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isTerminating}
+                className="rounded-md border border-[var(--c9-border)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--c9-muted)] transition-colors hover:border-red-400/45 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isTerminating ? 'Terminating…' : 'Cancel provisioning'}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
