@@ -236,6 +236,7 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
 
 const CACHE_STRATEGY_LABEL: Record<string, string> = {
   'cache-aside': 'cache-aside',
+  'timeline-store': 'timeline-store',
   'write-through': 'write-through',
   'write-behind': 'write-behind',
   'read-through': 'read-through',

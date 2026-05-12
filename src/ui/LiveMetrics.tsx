@@ -69,6 +69,11 @@ function loadgenElapsedSeconds(): number {
   return sec > 0 ? sec : 0
 }
 
+function isTimelineCacheMode(strategy: string, metricMode: string): boolean {
+  const normalizedMode = metricMode.toLowerCase()
+  return strategy === 'timeline-store' || normalizedMode.includes('sorted-set')
+}
+
 /** True if the worker emitted any non-empty inspector fields for this node. */
 function simInspectorHasContent(d: SimNodeInspector | undefined): boolean {
   if (!d) return false
@@ -111,6 +116,8 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   const edges = useCanvasStore((s) => s.edges)
   const nodes = useCanvasStore((s) => s.nodes)
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const simDetail = useSimulationStore((s) => s.lastInspector[nodeId])
   const simRunning = useSimulationStore((s) => s.running)
   const simPaused = useSimulationStore((s) => s.paused)
@@ -160,6 +167,8 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
         edges={edges}
         nodes={nodes}
         liveSessionEndsAt={liveSessionEndsAt}
+        snapshotTemplateId={snapshotTemplateId}
+        templateMetrics={templateMetrics}
       />
       {simInspectorCallout ? (
         <div className="space-y-2 border-t border-violet-900/40 pt-4">
@@ -533,6 +542,8 @@ function TypeSection({
   edges,
   nodes,
   liveSessionEndsAt,
+  snapshotTemplateId,
+  templateMetrics,
 }: {
   node: CanvasNode
   m: MetricsBucket
@@ -540,9 +551,18 @@ function TypeSection({
   edges: Record<string, CanvasEdge>
   nodes: Record<string, CanvasNode>
   liveSessionEndsAt: number | null
+  snapshotTemplateId: string | null
+  templateMetrics: Record<string, number>
 }) {
   const nodeId = node.id
   const nodeType = node.type
+  const isSocialFeed = snapshotTemplateId === 'social-feed'
+  const tmMqQueueDepth = templateMetrics['mq.queue_depth']
+  const tmMqProduceRate = templateMetrics['mq.produce_rate']
+  const tmMqConsumeRate = templateMetrics['mq.consume_rate']
+  const tmWorkerConsumeRate = templateMetrics['worker.consume_rate']
+  const tmWorkerRedisWriteRate = templateMetrics['worker.redis_write_rate']
+  const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
 
   switch (nodeType) {
     case 'compute': {
@@ -612,6 +632,12 @@ function TypeSection({
         const t = h.cacheHits + h.cacheMisses
         return t > 0 ? (h.cacheHits / t) * 100 : 0
       })
+      const backendStrategy =
+        (m.cacheStrategy ?? '').trim() ||
+        String(node.config.cacheStrategy ?? 'cache-aside')
+      const metricMode = (m.cacheMetricMode ?? '').trim()
+      const timelineMode = isTimelineCacheMode(backendStrategy, metricMode)
+
       return (
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -621,50 +647,122 @@ function TypeSection({
             />
             <MetricTile
               label="Strategy"
-              value={String(node.config.cacheStrategy ?? 'cache-aside')}
+              value={backendStrategy}
             />
           </div>
-          <MetricTile label="Hit Rate (30s)" value={hitRateLabel} />
+          {metricMode ? (
+            <p className="text-[11px] leading-relaxed text-gray-400">
+              {metricMode}
+            </p>
+          ) : null}
+          {m.cacheReadOperation || m.cacheWriteOperation ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {m.cacheReadOperation ? (
+                <MetricTile label="Read op" value={m.cacheReadOperation} />
+              ) : null}
+              {m.cacheWriteOperation ? (
+                <MetricTile label="Write op" value={m.cacheWriteOperation} />
+              ) : null}
+            </div>
+          ) : null}
+
+          {timelineMode ? (
+            <>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <MetricTile
+                  label="Redis ops"
+                  value={`${fmtRate(m.redisOpsPerSec || m.requestRate)}/s`}
+                />
+                <MetricTile
+                  label="Request rate"
+                  value={`${fmtRate(m.requestRate)}/s`}
+                />
+                <MetricTile
+                  label="Rejected conns"
+                  value={`${fmtRate(m.redisRejectedRate)}/s`}
+                />
+              </div>
+              {((m.redisConnectedClients ?? 0) > 0 || (m.redisAvgLatency ?? 0) > 0) ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(m.redisConnectedClients ?? 0) > 0 ? (
+                    <MetricTile
+                      label="Connected clients"
+                      value={fmtInt(Math.round(m.redisConnectedClients ?? 0))}
+                    />
+                  ) : null}
+                  {(m.redisAvgLatency ?? 0) > 0 ? (
+                    <MetricTile
+                      label="Redis avg latency"
+                      value={fmtMs((m.redisAvgLatency ?? 0) * 1000)}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="text-[11px] leading-relaxed text-gray-500">
+                Sorted-set timeline traffic does not use Redis keyspace hit/miss
+                counters as the primary health signal.
+              </p>
+            </>
+          ) : (
+            <>
+              <MetricTile label="Hit Rate (30s)" value={hitRateLabel} />
+              <div>
+                <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                  Current rate (30s)
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <MetricTile
+                    label="Hits"
+                    value={`${fmtRate(m.cacheHits)}/s`}
+                  />
+                  <MetricTile
+                    label="Misses"
+                    value={`${fmtRate(m.cacheMisses)}/s`}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+                  Last 9 min
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <MetricTile label="Hits" value={fmtInt(m.cacheHitsLast9m)} />
+                  <MetricTile label="Misses" value={fmtInt(m.cacheMissesLast9m)} />
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-gray-800">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-[width]"
+                  style={{ width: `${Math.min(100, hitRatePct)}%` }}
+                />
+              </div>
+              <div className={sparkWrap}>
+                <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                  Hit rate (30s)
+                </div>
+                <SparkLine
+                  data={hitRateSeries}
+                  color="#C0392B"
+                  showArea
+                  showDot
+                />
+              </div>
+            </>
+          )}
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-              Current rate (30s)
+            <div className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+              Keyspace counters
             </div>
             <div className="grid grid-cols-2 gap-2">
               <MetricTile
                 label="Hits"
-                value={`${fmtRate(m.cacheHits)}/s`}
+                value={`${fmtRate(m.redisKeyspaceHits || m.cacheHits)}/s`}
               />
               <MetricTile
                 label="Misses"
-                value={`${fmtRate(m.cacheMisses)}/s`}
+                value={`${fmtRate(m.redisKeyspaceMisses || m.cacheMisses)}/s`}
               />
             </div>
-          </div>
-          <div>
-            <div className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500">
-              Last 9 min
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <MetricTile label="Hits" value={fmtInt(m.cacheHitsLast9m)} />
-              <MetricTile label="Misses" value={fmtInt(m.cacheMissesLast9m)} />
-            </div>
-          </div>
-          <div className="h-2 rounded-full bg-gray-800">
-            <div
-              className="h-full rounded-full bg-emerald-500 transition-[width]"
-              style={{ width: `${Math.min(100, hitRatePct)}%` }}
-            />
-          </div>
-          <div className={sparkWrap}>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-              Hit rate (30s)
-            </div>
-            <SparkLine
-              data={hitRateSeries}
-              color="#C0392B"
-              showArea
-              showDot
-            />
           </div>
         </div>
       )
@@ -831,6 +929,18 @@ function TypeSection({
 
     case 'message_queue': {
       const prodSeries = history.map((h) => h.produceRate)
+      const produceRate =
+        isSocialFeed && Number.isFinite(tmMqProduceRate)
+          ? tmMqProduceRate
+          : m.produceRate
+      const consumeRate =
+        isSocialFeed && Number.isFinite(tmMqConsumeRate)
+          ? tmMqConsumeRate
+          : m.consumeRate
+      const queueDepth =
+        isSocialFeed && Number.isFinite(tmMqQueueDepth)
+          ? tmMqQueueDepth
+          : m.queueDepth
       const satRatio = Number.isFinite(m.mqSaturationRatio)
         ? m.mqSaturationRatio
         : 0
@@ -846,15 +956,15 @@ function TypeSection({
           <div className="grid grid-cols-2 gap-2">
             <MetricTile
               label="Produce"
-              value={`${fmtRate(m.produceRate)}/s`}
+              value={`${fmtRate(produceRate)}/s`}
             />
             <MetricTile
               label="Consume"
-              value={`${fmtRate(m.consumeRate)}/s`}
+              value={`${fmtRate(consumeRate)}/s`}
             />
             <MetricTile
               label="Queue depth"
-              value={fmtInt(Math.round(m.queueDepth))}
+              value={fmtInt(Math.round(queueDepth))}
             />
             <MetricTile
               label="Ready / unacked"
@@ -921,13 +1031,36 @@ function TypeSection({
         ? m.workerSaturation
         : 0
       const ws = Math.min(100, wSat * 100)
+      const consumeRate =
+        isSocialFeed && Number.isFinite(tmWorkerConsumeRate)
+          ? tmWorkerConsumeRate
+          : m.consumeRate
+
       return (
         <div className="space-y-2">
           <MetricTile label="Role" value="Consumer" />
-          <MetricTile
-            label="Queue depth"
-            value={fmtInt(Math.round(m.queueDepth))}
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <MetricTile
+              label="Queue depth"
+              value={fmtInt(Math.round(m.queueDepth))}
+            />
+            <MetricTile
+              label="Consume"
+              value={`${fmtRate(consumeRate)}/s`}
+            />
+            {Number.isFinite(tmWorkerRedisWriteRate) ? (
+              <MetricTile
+                label="Redis writes"
+                value={`${fmtRate(tmWorkerRedisWriteRate)}/s`}
+              />
+            ) : null}
+            {Number.isFinite(tmWorkerRedisErrors) ? (
+              <MetricTile
+                label="Redis errors"
+                value={`${fmtRate(tmWorkerRedisErrors)}/s`}
+              />
+            ) : null}
+          </div>
           <div className="space-y-1">
             <div className="text-[10px] uppercase tracking-wider text-gray-500">
               Saturation (vs capacity model)
