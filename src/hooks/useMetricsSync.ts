@@ -6,6 +6,7 @@ import {
   isTerminalDeploymentStatus,
 } from '../lib/sessionCapture'
 import { CLIENT_LOADGEN_ID } from '../lib/spawnClientNode'
+import { saveWsEventsJson } from '../lib/wsEventsPersist'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
 import {
@@ -278,9 +279,17 @@ export function useMetricsSync(deploymentId: string | null): void {
   const retryRef = useRef(0)
   const wsRef = useRef<WebSocket | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     retryRef.current = 0
+
+    const clearPersistTimer = () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current)
+        persistTimerRef.current = null
+      }
+    }
 
     const clearTimer = () => {
       if (timerRef.current) {
@@ -302,9 +311,19 @@ export function useMetricsSync(deploymentId: string | null): void {
 
     if (!deploymentId) {
       clearTimer()
+      clearPersistTimer()
       closeWs()
       useMetricsStore.getState().setStreamWarning(null)
       return
+    }
+
+    const schedulePersistWsEvents = () => {
+      clearPersistTimer()
+      persistTimerRef.current = setTimeout(() => {
+        persistTimerRef.current = null
+        const evs = useMetricsStore.getState().events
+        saveWsEventsJson(deploymentId, JSON.stringify(evs))
+      }, 350)
     }
 
     const connect = () => {
@@ -314,12 +333,19 @@ export function useMetricsSync(deploymentId: string | null): void {
       const ws = connectMetricsWS(deploymentId)
       wsRef.current = ws
 
+      ws.onopen = () => {
+        retryRef.current = 0
+        const m = useMetricsStore.getState()
+        if (m.events.length === 0) m.restorePersistedWsEvents(deploymentId)
+      }
+
       ws.onmessage = (ev) => {
         retryRef.current = 0
         useMetricsStore.getState().setStreamWarning(null)
         try {
           const data = JSON.parse(ev.data as string) as WsDeploymentMetrics
           applyMessage(data)
+          schedulePersistWsEvents()
         } catch {
           /* ignore bad frame */
         }
@@ -363,6 +389,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
     return () => {
       clearTimer()
+      clearPersistTimer()
       closeWs()
     }
   }, [deploymentId])

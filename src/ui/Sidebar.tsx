@@ -21,6 +21,7 @@ import {
   clearLiveSessionPersist,
   persistLiveSession,
 } from '../lib/liveSessionStorage'
+import { discardWsEventsStorage } from '../lib/wsEventsPersist'
 import { captureSessionSummaryWithApi } from '../lib/sessionCapture'
 import {
   CLIENT_LOADGEN_ID,
@@ -374,6 +375,7 @@ export function Sidebar() {
       st.setDeploymentId(null)
       st.setLiveSessionEndsAt(null)
       st.setAllEdgesAnimated(false)
+      discardWsEventsStorage(deploymentId)
       useMetricsStore.getState().clearMetrics()
       useLogStore.getState().clearLogs()
       Object.keys(st.nodes).forEach((nid) => {

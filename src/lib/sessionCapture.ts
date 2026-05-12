@@ -1,4 +1,5 @@
 import { getDeployment } from './api'
+import { discardWsEventsStorage } from './wsEventsPersist'
 import { clearLiveSessionPersist } from './liveSessionStorage'
 import {
   mergePeakScalars,
@@ -214,6 +215,7 @@ export function exitLiveSessionDueToRemoteEnd(): void {
 
   const finish = (apiMetricsSummary?: Record<string, unknown>) => {
     captureSessionSummaryWithApi(apiMetricsSummary)
+    if (deploymentId) discardWsEventsStorage(deploymentId)
     const s = useCanvasStore.getState()
     s.setMode('design')
     s.setDeploymentId(null)
