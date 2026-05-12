@@ -2,6 +2,8 @@ import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
 
 const PROXY_STRATEGIES = ['write-through', 'write-behind', 'read-through'] as const
 const CACHE_ASIDE = 'cache-aside'
+const TIMELINE_STORE = 'timeline-store'
+const NON_PROXY_STRATEGIES = [CACHE_ASIDE, TIMELINE_STORE] as const
 
 function edgeList(edges: Record<string, CanvasEdge>): CanvasEdge[] {
   return Object.values(edges)
@@ -42,10 +44,10 @@ export function getAvailableCacheStrategies(
     return [...PROXY_STRATEGIES]
   }
   if (!hasDBEdge && anyConnectorAlsoHasDb) {
-    return [CACHE_ASIDE]
+    return [...NON_PROXY_STRATEGIES]
   }
   if (!hasDBEdge && !anyConnectorAlsoHasDb) {
-    return [CACHE_ASIDE]
+    return [...NON_PROXY_STRATEGIES]
   }
   return []
 }
@@ -56,6 +58,7 @@ export function defaultCacheStrategyForTopology(
   edges: Record<string, CanvasEdge>,
 ): string {
   const available = getAvailableCacheStrategies(cacheNodeId, nodes, edges)
+  if (available.includes(TIMELINE_STORE)) return TIMELINE_STORE
   return available[0] ?? CACHE_ASIDE
 }
 

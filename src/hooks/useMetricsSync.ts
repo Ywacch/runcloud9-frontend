@@ -16,6 +16,16 @@ import {
 
 interface WsComponentMetrics {
   component?: string
+  cacheStrategy?: string
+  cacheMetricMode?: string
+  cacheReadOperation?: string
+  cacheWriteOperation?: string
+  redisOpsPerSec?: number
+  redisRejectedRate?: number
+  redisKeyspaceHits?: number
+  redisKeyspaceMisses?: number
+  redisAvgLatency?: number
+  redisConnectedClients?: number
   cpuUsage?: number
   memoryUsage?: number
   memoryBytes?: number
@@ -136,6 +146,16 @@ function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     p95Latency: cm.p95Latency ?? 0,
     p99Latency: p99Sec * 1000,
     avgLatency,
+    cacheStrategy: cm.cacheStrategy ?? '',
+    cacheMetricMode: cm.cacheMetricMode ?? '',
+    cacheReadOperation: cm.cacheReadOperation ?? '',
+    cacheWriteOperation: cm.cacheWriteOperation ?? '',
+    redisOpsPerSec: cm.redisOpsPerSec ?? 0,
+    redisRejectedRate: cm.redisRejectedRate ?? 0,
+    redisKeyspaceHits: cm.redisKeyspaceHits ?? 0,
+    redisKeyspaceMisses: cm.redisKeyspaceMisses ?? 0,
+    redisAvgLatency: cm.redisAvgLatency ?? 0,
+    redisConnectedClients: cm.redisConnectedClients ?? 0,
     cacheHits: Math.round(cm.cacheHits ?? 0),
     cacheMisses: Math.round(cm.cacheMisses ?? 0),
     cacheHitsLast9m: Math.round(cm.cacheHitsLast9m ?? 0),

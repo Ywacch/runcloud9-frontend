@@ -2,6 +2,21 @@ import { useMemo } from 'react'
 import { fmtInt, fmtMs, fmtRate } from '../lib/format'
 import { useMetricsStore } from '../store/metricsStore'
 
+const TEMPLATE_METRIC_LABELS: Record<string, string> = {
+  'mq.queue_depth': 'MQ queue depth',
+  'mq.produce_rate': 'MQ produce rate',
+  'mq.consume_rate': 'MQ consume rate',
+  'mq.saturation_ratio': 'MQ saturation ratio',
+  'worker.backlog': 'Worker backlog',
+  'worker.redis_write_rate': 'Worker Redis write rate',
+  'worker.consume_rate': 'Worker consume rate',
+  'worker.errors.redis': 'Worker Redis error rate',
+  'redis.ops_per_sec': 'Redis ops/sec',
+  'redis.connected_clients': 'Redis connected clients',
+  'redis.rejected_connections_rate': 'Redis rejected conn rate',
+  'redis.avg_latency': 'Redis avg latency',
+}
+
 /** Compact read-only table of latest `templateMetrics` from the WS (backend Prometheus). */
 export function TemplateMetricsSnippet({
   title = 'Template metrics',
@@ -41,7 +56,7 @@ export function TemplateMetricsSnippet({
             {rows.map(([k, v]) => (
               <tr key={k} className="border-t border-gray-800/80 first:border-t-0">
                 <td className="max-w-[55%] truncate px-2 py-1 font-mono text-gray-400" title={k}>
-                  {k}
+                  {TEMPLATE_METRIC_LABELS[k] ?? k}
                 </td>
                 <td className="px-2 py-1 text-right font-mono text-gray-100">
                   {formatTemplateMetricValue(k, v)}
@@ -57,6 +72,21 @@ export function TemplateMetricsSnippet({
 
 function formatTemplateMetricValue(key: string, v: number): string {
   if (!Number.isFinite(v)) return '—'
+  if (key === 'mq.saturation_ratio') return `${v.toFixed(2)}×`
+  if (key === 'redis.avg_latency') return fmtMs(v * 1000)
+  if (
+    key === 'mq.queue_depth' ||
+    key === 'worker.backlog' ||
+    key === 'redis.connected_clients'
+  ) {
+    return fmtInt(Math.round(v))
+  }
+  if (
+    key === 'redis.ops_per_sec' ||
+    key === 'redis.rejected_connections_rate'
+  ) {
+    return `${fmtRate(v)}/s`
+  }
   if (key.includes('fanout')) {
     return Math.abs(v - Math.round(v)) < 1e-3 ? fmtInt(Math.round(v)) : v.toFixed(2)
   }

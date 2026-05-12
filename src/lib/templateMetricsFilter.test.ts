@@ -9,6 +9,7 @@ describe('getRelevantTemplateMetrics', () => {
     'posts.total_sync': 3,
     'shortener.collisions': 1,
     'checkout.sync_total': 2,
+    'redis.ops_per_sec': 99,
   }
 
   it('returns only worker.* for worker', () => {
@@ -33,7 +34,12 @@ describe('getRelevantTemplateMetrics', () => {
     )
   })
 
-  it('returns empty for db/cache/lb or undefined metrics', () => {
+  it('returns redis.* for cache', () => {
+    const out = getRelevantTemplateMetrics(sample, 'cache')
+    expect(Object.keys(out)).toEqual(['redis.ops_per_sec'])
+  })
+
+  it('returns empty for db/lb or undefined metrics', () => {
     expect(getRelevantTemplateMetrics(sample, 'db')).toEqual({})
     expect(getRelevantTemplateMetrics(undefined, 'app-server')).toEqual({})
   })

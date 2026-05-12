@@ -2,6 +2,7 @@ export const COMPONENT_METRIC_PREFIXES: Record<string, string[]> = {
   'app-server': ['feed.', 'posts.', 'checkout.', 'shortener.'],
   worker: ['worker.'],
   mq: ['mq.'],
+  cache: ['redis.'],
 }
 
 export function getRelevantTemplateMetrics(

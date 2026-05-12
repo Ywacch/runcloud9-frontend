@@ -35,6 +35,16 @@ export interface MetricsBucket {
   avgLatency: number
 
   // Cache-specific
+  cacheStrategy?: string
+  cacheMetricMode?: string
+  cacheReadOperation?: string
+  cacheWriteOperation?: string
+  redisOpsPerSec?: number
+  redisRejectedRate?: number
+  redisKeyspaceHits?: number
+  redisKeyspaceMisses?: number
+  redisAvgLatency?: number
+  redisConnectedClients?: number
   cacheHits: number
   cacheMisses: number
   cacheHitsLast9m: number
