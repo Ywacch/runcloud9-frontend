@@ -74,6 +74,9 @@ interface WsEventPayload {
   component?: string
   title?: string
   description?: string
+  narrative?: string
+  suggestion?: string
+  related?: string[]
 }
 
 interface WsDeploymentMetrics {
@@ -203,6 +206,15 @@ function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] {
       component: e.component,
       title,
       description: e.description ?? '',
+      narrative:
+        typeof e.narrative === 'string' && e.narrative.trim() ? e.narrative : undefined,
+      suggestion:
+        typeof e.suggestion === 'string' && e.suggestion.trim()
+          ? e.suggestion
+          : undefined,
+      related: Array.isArray(e.related)
+        ? e.related.map((x) => String(x)).filter(Boolean)
+        : undefined,
     })
   }
   return out

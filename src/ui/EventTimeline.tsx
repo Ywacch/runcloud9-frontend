@@ -1,7 +1,8 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { useCanvasStore } from '../store/canvasStore'
-import { useMetricsStore } from '../store/metricsStore'
+import { useMetricsStore, type WsEvent } from '../store/metricsStore'
+import { NarrativeCard } from './NarrativeCard'
 
 function formatTime(iso: string): string {
   const t = Date.parse(iso)
@@ -22,13 +23,14 @@ function pillClass(type: string): string {
 
 /**
  * Horizontal time strip (oldest → newest); scrolls to the latest tick.
- * Click a pill to select the first canvas node matching the backend component.
+ * Click a pill: opens narrative when present, else selects the related canvas node.
  */
 export function EventTimeline() {
   const events = useMetricsStore((s) => s.events)
   const scrollRef = useRef<HTMLDivElement>(null)
   const selectNode = useCanvasStore((s) => s.selectNode)
   const nodes = useCanvasStore((s) => s.nodes)
+  const [expandedEvent, setExpandedEvent] = useState<WsEvent | null>(null)
 
   const sorted = useMemo(() => {
     return [...events].sort(
@@ -44,7 +46,12 @@ export function EventTimeline() {
 
   if (!sorted.length) return null
 
-  const onPillClick = (component: string | undefined) => {
+  const onPillClick = (e: WsEvent) => {
+    if (e.narrative && e.narrative.trim()) {
+      setExpandedEvent(e)
+      return
+    }
+    const component = e.component
     if (!component) return
     const canvasType = backendComponentToCanvasType[component]
     if (!canvasType) return
@@ -54,33 +61,44 @@ export function EventTimeline() {
     if (match) selectNode(match.id)
   }
 
+  const pillInteractive = (e: WsEvent) =>
+    Boolean((e.narrative && e.narrative.trim()) || e.component)
+
   return (
-    <div className="pointer-events-auto w-full max-w-2xl">
-      <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)]">
-        Event timeline
+    <>
+      <div className="pointer-events-auto w-full max-w-2xl">
+        <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)]">
+          Event timeline
+        </div>
+        <div
+          ref={scrollRef}
+          className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/85 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
+        >
+          {sorted.map((e, i) => (
+            <button
+              key={`${e.timestamp}-${i}-${e.title}`}
+              type="button"
+              title={e.description || e.title}
+              onClick={() => onPillClick(e)}
+              disabled={!pillInteractive(e)}
+              className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type)} ${
+                pillInteractive(e) ? 'cursor-pointer' : ''
+              }`}
+            >
+              <span className="mr-1 font-mono text-[var(--c9-muted)]">
+                {formatTime(e.timestamp)}
+              </span>
+              <span className="text-[var(--c9-text)]">{e.title}</span>
+            </button>
+          ))}
+        </div>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/85 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
-      >
-        {sorted.map((e, i) => (
-          <button
-            key={`${e.timestamp}-${i}-${e.title}`}
-            type="button"
-            title={e.description || e.title}
-            onClick={() => onPillClick(e.component)}
-            disabled={!e.component}
-            className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type)} ${
-              e.component ? 'cursor-pointer' : ''
-            }`}
-          >
-            <span className="mr-1 font-mono text-[var(--c9-muted)]">
-              {formatTime(e.timestamp)}
-            </span>
-            <span className="text-[var(--c9-text)]">{e.title}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+      {expandedEvent ? (
+        <NarrativeCard
+          event={expandedEvent}
+          onClose={() => setExpandedEvent(null)}
+        />
+      ) : null}
+    </>
   )
 }

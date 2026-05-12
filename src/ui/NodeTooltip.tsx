@@ -1,4 +1,5 @@
 import { Html } from '@react-three/drei'
+import { useMemo } from 'react'
 import {
   fmtCpuMilliCores,
   fmtMemMB,
@@ -6,9 +7,11 @@ import {
   fmtPct,
   fmtRate,
 } from '../lib/format'
+import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import type { HealthState } from '../lib/healthThresholds'
 import type { CanvasNode } from '../store/canvasStore'
 import type { MetricsBucket } from '../store/metricsStore'
+import { useCanvasStore } from '../store/canvasStore'
 
 interface NodeTooltipProps {
   node: CanvasNode
@@ -49,20 +52,40 @@ export function NodeTooltip({
   health,
   align,
 }: NodeTooltipProps) {
+  const nodes = useCanvasStore((s) => s.nodes)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+  const roleLabel = useMemo(
+    () => resolveRole(node.type, snapshotTemplateId, topology),
+    [node.type, snapshotTemplateId, topology]
+  )
+
   const cpuPct = metrics?.cpuIsEstimated ? 0 : pct(metrics?.cpuPercent)
   const memPct = metrics?.memIsEstimated ? 0 : pct(metrics?.memPercent)
   const cpuValue = cpuLabel(metrics)
   const memValue = memLabel(metrics)
-  const rpsClass = health === 'high-load' ? 'text-amber-300' : 'text-cyan-300'
+  const rpsClass =
+    health === 'warning'
+      ? 'text-amber-300'
+      : health === 'error'
+        ? 'text-red-300'
+        : 'text-cyan-300'
   const x = align === 'right' ? 0.92 : -0.92
+
+  const cpuHint = metrics?.cpuIsEstimated
+    ? 'Allocated CPU request vs usage (estimated until real metrics scrape).'
+    : 'CPU utilization vs pod limit — sustained high values mean pressure.'
+  const memHint = metrics?.memIsEstimated
+    ? 'Allocated memory vs usage (estimated until real metrics scrape).'
+    : 'Memory utilization vs pod limit — watch for pressure before OOM risk.'
+  const rpsHint =
+    'Request throughput through this component (rolling view from the stream).'
 
   return (
     <Html
       position={[x, 1.35, 0]}
       center={false}
       zIndexRange={[25, 12]}
-      /* drei ignores pointerEvents prop unless transform={true}; without this the portal div steals the
-         cursor, the mesh fires pointerleave, tooltip unmounts, then pointerenter again → flicker. */
       style={{ pointerEvents: 'none' }}
     >
       <div
@@ -73,6 +96,9 @@ export function NodeTooltip({
         <p className="truncate text-center text-[13px] font-semibold text-violet-300">
           {node.label}
         </p>
+        <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
+          {roleLabel}
+        </p>
         <div className="mt-1 border-t border-white/10 pt-1.5">
           <div className="grid grid-cols-3 gap-2">
             <div>
@@ -80,6 +106,7 @@ export function NodeTooltip({
               <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
                 {cpuValue}
               </p>
+              <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">{cpuHint}</p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div
                   className="h-full rounded bg-violet-400 transition-[width] duration-150"
@@ -92,6 +119,7 @@ export function NodeTooltip({
               <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
                 {memValue}
               </p>
+              <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">{memHint}</p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div
                   className="h-full rounded bg-sky-400 transition-[width] duration-150"
@@ -104,6 +132,7 @@ export function NodeTooltip({
               <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
                 {fmtRate(metrics?.requestRate ?? 0)}
               </p>
+              <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">{rpsHint}</p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div className="h-full w-full rounded bg-cyan-400/85" />
               </div>
@@ -111,8 +140,13 @@ export function NodeTooltip({
           </div>
           <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
             <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
-            <span className="font-mono text-[11px] text-zinc-200">{fmtMs(metrics?.p99Latency ?? 0)}</span>
+            <span className="font-mono text-[11px] text-zinc-200">
+              {fmtMs(metrics?.p99Latency ?? 0)}
+            </span>
           </div>
+          <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">
+            End-to-end tail latency for this hop (from metrics stream).
+          </p>
         </div>
       </div>
     </Html>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   getAvailableCacheStrategies,
 } from '../lib/cacheTopologyStrategy'
+import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { getRelevantTemplateMetrics } from '../lib/templateMetricsFilter'
 import { canvasToBackend } from '../lib/typeMapping'
@@ -35,8 +36,13 @@ export function InspectorPanel() {
   const updateNodeLabel = useCanvasStore((s) => s.updateNodeLabel)
   const removeNode = useCanvasStore((s) => s.removeNode)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
 
   const node = selectedId ? (nodes[selectedId] ?? null) : null
+  const roleLabel = useMemo(() => {
+    if (!node) return ''
+    return resolveRole(node.type, snapshotTemplateId, getTopologyFlags(nodes))
+  }, [node, snapshotTemplateId, nodes])
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
@@ -88,6 +94,11 @@ export function InspectorPanel() {
                   {node.label}
                 </p>
               )}
+              {roleLabel ? (
+                <p className="mt-1 text-[10px] leading-tight text-[var(--c9-muted)]">
+                  {roleLabel}
+                </p>
+              ) : null}
             </div>
             <button
               type="button"
