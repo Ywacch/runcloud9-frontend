@@ -1,13 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { getTopologyFlags } from '../lib/componentRole'
 import { readWriteFractions } from '../lib/simulation/workload'
 import { workloadProfileForTemplate } from '../lib/simulation/workloadProfiles'
 import { computeSystemAggregates } from '../lib/systemMetrics'
+import {
+  filterJourneySteps,
+  getJourneys,
+  journeyById,
+  kpiRowToJourneyId,
+} from '../lib/requestJourney'
 import { templateKpiRows } from '../lib/templateKpis'
 import { useCanvasStore } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
 import { FlowPanel } from './FlowPanel'
+import { RequestJourneyPanel } from './RequestJourneyPanel'
 
 const INGRESS_HELP_LIVE =
   'Requests per second entering the design: live load generator RPS. This is the workload hitting your system.'
@@ -22,16 +30,20 @@ function Stat({
   valueClass,
   wrap,
   containerClassName,
+  onClick,
+  title,
 }: {
   label: string
   value: string
   valueClass?: string
-  /** Multi-line value (e.g. load mix) — no truncation. */
   wrap?: boolean
   containerClassName?: string
+  /** When set, the whole stat is clickable (e.g. open request journey). */
+  onClick?: () => void
+  title?: string
 }) {
-  return (
-    <div className={`flex min-w-0 flex-col gap-px ${containerClassName ?? ''}`}>
+  const inner = (
+    <>
       <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-200">
         {label}
       </span>
@@ -45,12 +57,31 @@ function Stat({
       >
         {value}
       </span>
-    </div>
+    </>
   )
+  const cls = `flex min-w-0 flex-col gap-px ${containerClassName ?? ''}`
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        title={title}
+        onClick={onClick}
+        className={`${cls} cursor-pointer rounded border border-transparent text-left transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/5`}
+      >
+        {inner}
+      </button>
+    )
+  }
+  return <div className={cls}>{inner}</div>
 }
 
 export function SystemTopBar() {
   const [flowOpen, setFlowOpen] = useState(false)
+  const [journeyUi, setJourneyUi] = useState<{
+    open: boolean
+    overview: boolean
+    id: string | null
+  }>({ open: false, overview: false, id: null })
   const mode = useCanvasStore((s) => s.mode)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const nodes = useCanvasStore((s) => s.nodes)
@@ -98,6 +129,34 @@ export function SystemTopBar() {
         : [],
     [mode, snapshotTemplateId, metrics, lastInspector, nodes, loadgen, templateMetrics]
   )
+
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+  const allJourneys = useMemo(() => {
+    const raw = getJourneys(snapshotTemplateId, topology)
+    return raw.map((j) => filterJourneySteps(j, topology))
+  }, [snapshotTemplateId, topology])
+
+  const activeJourney = useMemo(() => {
+    if (!journeyUi.open || journeyUi.overview || !journeyUi.id) return null
+    return journeyById(snapshotTemplateId, journeyUi.id, topology)
+  }, [journeyUi, snapshotTemplateId, topology])
+
+  const openJourney = useCallback(
+    (id: string | null) => {
+      if (!id || allJourneys.length === 0) return
+      setJourneyUi({ open: true, overview: false, id })
+    },
+    [allJourneys.length]
+  )
+
+  const openJourneyOverview = useCallback(() => {
+    if (allJourneys.length === 0) return
+    setJourneyUi({ open: true, overview: true, id: null })
+  }, [allJourneys.length])
+
+  const closeJourney = useCallback(() => {
+    setJourneyUi({ open: false, overview: false, id: null })
+  }, [])
 
   if (mode !== 'live' && mode !== 'simulate') return null
 
@@ -149,7 +208,17 @@ export function SystemTopBar() {
               />
             </>
           ) : null}
-          {mixLabel ? (
+          {mixLabel && allJourneys.length > 0 ? (
+            <Stat
+              label="Load mix"
+              value={mixLabel}
+              wrap
+              valueClass="!text-amber-100"
+              containerClassName="min-w-0 flex-1 basis-full sm:basis-52"
+              title="Click to see request journeys for this template"
+              onClick={openJourneyOverview}
+            />
+          ) : mixLabel ? (
             <Stat
               label="Load mix"
               value={mixLabel}
@@ -180,22 +249,59 @@ export function SystemTopBar() {
 
       {kpiRows.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-2.5 py-1 backdrop-blur-sm">
-          {kpiRows.map((row) => (
-            <span
-              key={row.id}
-              className="inline-flex max-w-full items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)]"
-              title={row.label}
-            >
-              <span className="truncate text-[var(--c9-muted)]">{row.label}</span>
-              <span className="shrink-0 font-mono font-medium text-[var(--c9-text)]">
-                {row.value}
+          {kpiRows.map((row) => {
+            const jid = kpiRowToJourneyId(snapshotTemplateId, row)
+            const content = (
+              <>
+                <span className="truncate text-[var(--c9-muted)]">{row.label}</span>
+                <span className="shrink-0 font-mono font-medium text-[var(--c9-text)]">
+                  {row.value}
+                </span>
+              </>
+            )
+            if (jid) {
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  title={`${row.label} — click for request journey`}
+                  onClick={() => openJourney(jid)}
+                  className="inline-flex max-w-full cursor-pointer items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-left text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)] transition-all hover:ring-2 hover:ring-cyan-400/40"
+                >
+                  {content}
+                </button>
+              )
+            }
+            return (
+              <span
+                key={row.id}
+                className="inline-flex max-w-full items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)]"
+                title={row.label}
+              >
+                {content}
               </span>
-            </span>
-          ))}
+            )
+          })}
         </div>
       ) : null}
       </div>
       <FlowPanel open={flowOpen} onClose={() => setFlowOpen(false)} />
+      <RequestJourneyPanel
+        open={journeyUi.open}
+        overview={journeyUi.overview}
+        journey={activeJourney}
+        allJourneys={allJourneys}
+        nodes={nodes}
+        metrics={metrics}
+        onClose={closeJourney}
+        onSelectJourney={(id) => {
+          if (id === '__overview__') {
+            setJourneyUi({ open: true, overview: true, id: null })
+          } else {
+            setJourneyUi({ open: true, overview: false, id })
+          }
+        }}
+      />
     </>
   )
 }

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useCanvasStore } from './canvasStore'
 
 /** Event from backend metrics stream (threshold, cascade, loadgen actions). */
 export interface WsEvent {
@@ -8,6 +9,9 @@ export interface WsEvent {
   component?: string
   title: string
   description: string
+  narrative?: string
+  suggestion?: string
+  related?: string[]
 }
 
 /** Per-node metrics snapshot (full WS component payload mapped for UI). */
@@ -155,8 +159,9 @@ export const useMetricsStore = create<MetricsState>((set) => ({
 
   setStreamWarning: (streamWarning) => set({ streamWarning }),
 
-  clearMetrics: () =>
-    set({
+  clearMetrics: () => {
+    useCanvasStore.getState().setNarrativeHighlightNodeIds([])
+    return set({
       metrics: {},
       history: {},
       loadgen: null,
@@ -164,5 +169,6 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       templateMetrics: {},
       cascadeToast: null,
       streamWarning: null,
-    }),
+    })
+  },
 }))

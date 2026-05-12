@@ -75,8 +75,8 @@ export function BaseNode({ node }: BaseNodeProps) {
   const healthEdgeColor =
     health === 'error'
       ? healthEdge.error
-      : health === 'high-load'
-        ? healthEdge.highLoad
+      : health === 'warning'
+        ? healthEdge.warning
         : edge
   const edgeColor = selected ? '#FFD700' : healthEdgeColor
   const replicasRaw = Number(
@@ -188,21 +188,50 @@ export function BaseNode({ node }: BaseNodeProps) {
     }
     const latestMetrics = useMetricsStore.getState().metrics[node.id]
     const state = computeHealthState(latestMetrics, n.status)
-    if (state === 'normal') {
-      mat.emissive.set('#1E8A54')
-      mat.emissiveIntensity = 0.2
-    } else if (state === 'error') {
-      mat.emissive.set('#E05E8A')
-      mat.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.012) * 0.2
-      inv()
-    } else if (state === 'high-load' || n.status === 'provisioning') {
-      mat.emissive.set('#F0A040')
-      mat.emissiveIntensity = 0.2 + Math.sin(Date.now() * 0.003) * 0.15
-      inv()
-    } else {
-      mat.emissive.set('#000000')
-      mat.emissiveIntensity = 0
+    const pulseNarrative = useCanvasStore.getState().narrativeHighlightNodeIds.includes(
+      node.id
+    )
+
+    let er = 0
+    let eg = 0
+    let eb = 0
+    let emissiveIntensity = 0
+
+    switch (state) {
+      case 'idle':
+        break
+      case 'healthy':
+        er = 0.12
+        eg = 0.54
+        eb = 0.33
+        emissiveIntensity = 0.2
+        break
+      case 'warning':
+        er = 0.94
+        eg = 0.63
+        eb = 0.25
+        emissiveIntensity = 0.2 + Math.sin(Date.now() * 0.003) * 0.15
+        inv()
+        break
+      case 'error':
+        er = 0.88
+        eg = 0.37
+        eb = 0.54
+        emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.012) * 0.2
+        inv()
+        break
     }
+
+    if (pulseNarrative) {
+      er = Math.min(1, er + 0.12)
+      eg = Math.min(1, eg + 0.38)
+      eb = Math.min(1, eb + 0.48)
+      emissiveIntensity += 0.12 + Math.sin(Date.now() * 0.005) * 0.07
+      inv()
+    }
+
+    mat.emissive.setRGB(er, eg, eb)
+    mat.emissiveIntensity = emissiveIntensity
     /* Do not invalidate for idle/healthy — constant inv() × N nodes × 60fps breaks drei Html when the inspector opens. */
   })
 

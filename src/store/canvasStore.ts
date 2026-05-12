@@ -95,6 +95,8 @@ interface CanvasState {
   /** Client-side session end (deploy + 9m) for countdown. */
   liveSessionEndsAt: number | null
   sessionSummary: SessionSummary | null
+  /** Canvas node ids to pulse (narrative card `related` components). */
+  narrativeHighlightNodeIds: string[]
 
   addNode: (node: CanvasNode) => void
   updateNodePosition: (id: string, pos: [number, number, number]) => void
@@ -116,6 +118,7 @@ interface CanvasState {
   setSnapshotTemplateId: (id: string | null) => void
   setLiveSessionEndsAt: (t: number | null) => void
   setSessionSummary: (summary: SessionSummary | null) => void
+  setNarrativeHighlightNodeIds: (ids: string[]) => void
   setAllEdgesAnimated: (animated: boolean) => void
   exportJSON: () => CanvasSnapshot
   loadJSON: (snapshot: CanvasSnapshot) => void
@@ -143,6 +146,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   snapshotTemplateId: null,
   liveSessionEndsAt: null,
   sessionSummary: null,
+  narrativeHighlightNodeIds: [],
 
   addNode: (node) => set((s) => ({ nodes: { ...s.nodes, [node.id]: node } })),
 
@@ -264,6 +268,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setSessionSummary: (sessionSummary) => set({ sessionSummary }),
 
+  setNarrativeHighlightNodeIds: (narrativeHighlightNodeIds) =>
+    set({ narrativeHighlightNodeIds }),
+
   setAllEdgesAnimated: (animated) =>
     set((s) => {
       const edges = { ...s.edges }
@@ -299,6 +306,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sessionSummary: null,
       movementLocked: false,
       mode: 'design',
+      narrativeHighlightNodeIds: [],
     }),
 
   loadTemplateSnapshot: (snapshot, targetMode) =>
@@ -316,6 +324,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sessionSummary: null,
       movementLocked: false,
       mode: targetMode,
+      narrativeHighlightNodeIds: [],
     }),
 
   startFromTemplate: (templateId) =>
@@ -333,6 +342,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sessionSummary: null,
       movementLocked: false,
       mode: 'design',
+      narrativeHighlightNodeIds: [],
     }),
 
   clearCanvas: () =>
@@ -350,5 +360,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       liveSessionEndsAt: null,
       sessionSummary: null,
       movementLocked: false,
+      narrativeHighlightNodeIds: [],
     }),
 }))
