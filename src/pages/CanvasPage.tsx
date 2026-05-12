@@ -11,6 +11,7 @@ import {
   parseProvisionMetrics,
 } from '../lib/provisionMetrics'
 import { clearLiveSessionPersist } from '../lib/liveSessionStorage'
+import { discardWsEventsStorage } from '../lib/wsEventsPersist'
 import {
   exitLiveSessionDueToRemoteEnd,
   isTerminalDeploymentStatus,
@@ -161,6 +162,7 @@ export default function CanvasPage() {
           live.setPlacingNodeType(null)
           live.setDesignTool('select')
           spawnClientLoadgenNode()
+          discardWsEventsStorage(deploymentId)
           useMetricsStore.getState().clearMetrics()
           useLogStore.getState().clearLogs()
           if (polled?.seedingStatus === 'failed') {

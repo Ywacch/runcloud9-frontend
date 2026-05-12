@@ -141,7 +141,7 @@ export function InspectorPanel() {
                     <LiveMetrics node={node} />
                   </>
                 ) : null}
-                {liveTab === 'logs' ? <ComponentLogPanel node={node} /> : null}
+                {liveTab === 'logs' ? <ComponentLogPanel key={node.id} node={node} /> : null}
                 {liveTab === 'config' ? <ReadOnlyConfig node={node} /> : null}
               </div>
             </div>

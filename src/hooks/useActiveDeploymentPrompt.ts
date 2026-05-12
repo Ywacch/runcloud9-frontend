@@ -107,8 +107,10 @@ export function useActiveDeploymentPrompt(): {
       fin.setPlacingNodeType(null)
       fin.setDesignTool('select')
 
-      useMetricsStore.getState().clearMetrics()
+      const metrics = useMetricsStore.getState()
+      metrics.clearMetrics()
       useLogStore.getState().clearLogs()
+      metrics.restorePersistedWsEvents(id)
 
       setPrompt(null)
     } catch {

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { loadWsEventsJson } from '../lib/wsEventsPersist'
 import { useCanvasStore } from './canvasStore'
 
 /** Event from backend metrics stream (threshold, cascade, loadgen actions). */
@@ -98,6 +99,49 @@ export interface LiveLoadgenState {
 
 const MAX_EVENTS = 100
 
+function parsePersistedWsEvents(raw: string): WsEvent[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  const out: WsEvent[] = []
+  for (const row of parsed) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    const title =
+      (typeof r.title === 'string' && r.title.trim()) ||
+      (typeof r.description === 'string' && r.description.trim()) ||
+      ''
+    if (!title) continue
+    out.push({
+      timestamp:
+        typeof r.timestamp === 'string' && r.timestamp.trim()
+          ? r.timestamp
+          : new Date().toISOString(),
+      type: typeof r.type === 'string' ? r.type : 'action',
+      source: typeof r.source === 'string' ? r.source : 'unknown',
+      component: typeof r.component === 'string' ? r.component : undefined,
+      title,
+      description: typeof r.description === 'string' ? r.description : '',
+      narrative:
+        typeof r.narrative === 'string' && r.narrative.trim()
+          ? r.narrative
+          : undefined,
+      suggestion:
+        typeof r.suggestion === 'string' && r.suggestion.trim()
+          ? r.suggestion
+          : undefined,
+      related: Array.isArray(r.related)
+        ? r.related.map((x) => String(x)).filter(Boolean)
+        : undefined,
+    })
+  }
+  return out
+}
+
 interface MetricsState {
   metrics: Record<string, MetricsBucket>
   history: Record<string, MetricsBucket[]>
@@ -118,6 +162,8 @@ interface MetricsState {
   dismissCascadeToast: () => void
   setStreamWarning: (msg: string | null) => void
   clearMetrics: () => void
+  /** Hydrate timeline from sessionStorage (same-tab refresh / rejoin). */
+  restorePersistedWsEvents: (deploymentId: string) => void
 }
 
 export const useMetricsStore = create<MetricsState>((set) => ({
@@ -171,4 +217,13 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       streamWarning: null,
     })
   },
+
+  restorePersistedWsEvents: (deploymentId) =>
+    set((s) => {
+      const json = loadWsEventsJson(deploymentId)
+      if (!json) return s
+      const events = parsePersistedWsEvents(json)
+      if (!events.length) return s
+      return { events: events.slice(-MAX_EVENTS) }
+    }),
 }))

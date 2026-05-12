@@ -69,8 +69,10 @@ export function useDeploymentRehydrate(): void {
           fin.setDesignTool('select')
         }
 
-        useMetricsStore.getState().clearMetrics()
+        const metrics = useMetricsStore.getState()
+        metrics.clearMetrics()
         useLogStore.getState().clearLogs()
+        metrics.restorePersistedWsEvents(persisted.deploymentId)
         if (row.status === 'running') {
           ensureClientLoadgenMetrics()
         }

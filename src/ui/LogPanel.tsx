@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useCanvasStore } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 
@@ -20,15 +20,39 @@ function logLevelClass(level: string | undefined, msg: string): string {
   return 'text-gray-300'
 }
 
+const PIN_THRESHOLD_PX = 72
+
 export function LogPanel() {
   const mode = useCanvasStore((s) => s.mode)
   const logs = useLogStore((s) => s.logs)
   const [open, setOpen] = useState(false)
-  const endRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const distanceFromBottomRef = useRef(0)
+  const prevOpenRef = useRef(false)
 
-  useEffect(() => {
-    if (open) endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs.length, open])
+  const syncDistanceFromBottom = () => {
+    const el = listRef.current
+    if (!el) return
+    distanceFromBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight
+  }
+
+  useLayoutEffect(() => {
+    if (open && !prevOpenRef.current) {
+      distanceFromBottomRef.current = 0
+    }
+    prevOpenRef.current = open
+    if (!open) return
+    const el = listRef.current
+    if (!el) return
+    if (distanceFromBottomRef.current <= PIN_THRESHOLD_PX) {
+      el.scrollTop = el.scrollHeight
+    }
+    syncDistanceFromBottom()
+  }, [logs, open])
+
+  const onScroll = () => {
+    syncDistanceFromBottom()
+  }
 
   if (mode !== 'live') return null
 
@@ -42,7 +66,11 @@ export function LogPanel() {
         {open ? '▼ Hide Logs' : '▲ Show Logs'} ({logs.length})
       </button>
       {open ? (
-        <div className="max-h-48 overflow-y-auto border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2 font-mono text-xs backdrop-blur-sm">
+        <div
+          ref={listRef}
+          onScroll={onScroll}
+          className="max-h-48 overflow-y-auto border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2 font-mono text-xs backdrop-blur-sm"
+        >
           {logs.slice(-200).map((l, i) => (
             <div
               key={`${l.timestamp}-${i}-${l.component}`}
@@ -62,7 +90,6 @@ export function LogPanel() {
               <span className={logLevelClass(l.level, l.message)}>{l.message}</span>
             </div>
           ))}
-          <div ref={endRef} />
         </div>
       ) : null}
     </div>

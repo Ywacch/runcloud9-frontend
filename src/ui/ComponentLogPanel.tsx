@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasNode } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 import { canvasToBackend } from '../lib/typeMapping'
 
 const MAX_COMPONENT_LOGS = 500
+/** If the user is within this many px of the bottom, new lines keep the tail pinned. */
+const PIN_THRESHOLD_PX = 72
 
 function levelColor(level: string | undefined, message: string): string {
   const lvl = (level ?? '').toLowerCase()
@@ -31,10 +33,10 @@ function fieldsEntries(fields: Record<string, unknown> | undefined): [string, st
 
 export function ComponentLogPanel({ node }: { node: CanvasNode }) {
   const logs = useLogStore((s) => s.logs)
-  const [autoScroll, setAutoScroll] = useState(true)
+  const [followTail, setFollowTail] = useState(true)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const listRef = useRef<HTMLDivElement | null>(null)
-  const endRef = useRef<HTMLDivElement | null>(null)
+  const distanceFromBottomRef = useRef(0)
   const component = canvasToBackend[node.type]
 
   const filtered = useMemo(
@@ -45,19 +47,30 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
     [logs, component],
   )
 
-  useEffect(() => {
-    if (!autoScroll) return
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [filtered.length, autoScroll])
-
-  const onScroll = () => {
+  const syncDistanceFromBottom = () => {
     const el = listRef.current
     if (!el) return
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 16
-    if (nearBottom) {
-      if (!autoScroll) setAutoScroll(true)
-    } else if (autoScroll) {
-      setAutoScroll(false)
+    distanceFromBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight
+  }
+
+  /** New log lines do not emit `scroll`; measure pin using the last scroll position. */
+  useLayoutEffect(() => {
+    if (!followTail) return
+    const el = listRef.current
+    if (!el) return
+    if (distanceFromBottomRef.current <= PIN_THRESHOLD_PX) {
+      el.scrollTop = el.scrollHeight
+    }
+    syncDistanceFromBottom()
+  }, [filtered, followTail])
+
+  const onScroll = () => {
+    syncDistanceFromBottom()
+    const d = distanceFromBottomRef.current
+    if (d <= PIN_THRESHOLD_PX) {
+      if (!followTail) setFollowTail(true)
+    } else if (followTail) {
+      setFollowTail(false)
     }
   }
 
@@ -70,10 +83,21 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
         <label className="flex items-center gap-1 text-[10px] text-[var(--c9-muted)]">
           <input
             type="checkbox"
-            checked={autoScroll}
-            onChange={(e) => setAutoScroll(e.target.checked)}
+            checked={followTail}
+            onChange={(e) => {
+              const on = e.target.checked
+              setFollowTail(on)
+              if (on) {
+                queueMicrotask(() => {
+                  const el = listRef.current
+                  if (!el) return
+                  el.scrollTop = el.scrollHeight
+                  syncDistanceFromBottom()
+                })
+              }
+            }}
           />
-          auto-scroll
+          Follow new logs
         </label>
       </div>
       <div
@@ -122,7 +146,6 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
             )
           })
         )}
-        <div ref={endRef} />
       </div>
     </div>
   )
