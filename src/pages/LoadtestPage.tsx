@@ -17,6 +17,7 @@ import {
 } from '../lib/deployPayload'
 import { persistLiveSession } from '../lib/liveSessionStorage'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { canvasToBackend } from '../lib/typeMapping'
 
 type LaunchResult = {
@@ -107,6 +108,7 @@ export default function LoadtestPage() {
     getTemplates()
       .then((rows) => {
         if (cancelled) return
+        useTemplateRegistryStore.getState().mergeTemplates(rows)
         setTemplates(rows)
         if (!selectedTemplateId && rows.length > 0) {
           setSelectedTemplateId(rows[0].id)
