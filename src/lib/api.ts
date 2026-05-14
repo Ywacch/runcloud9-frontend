@@ -1,4 +1,5 @@
 import { getAccessToken } from './auth'
+import type { StorytellingSpec } from './storytellingTypes'
 
 /**
  * Same-origin prefix for deployment APIs (`/deployments/...`).
@@ -80,6 +81,8 @@ export interface TemplateInfo {
   deployable: boolean
   tags: string[]
   preset?: TemplatePreset
+  /** Template-scoped storytelling (journeys, roles, narrative hints) from GET /templates. */
+  storytelling?: StorytellingSpec | null
 }
 
 export interface TemplatePresetNode {

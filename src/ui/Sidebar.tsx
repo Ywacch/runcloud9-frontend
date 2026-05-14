@@ -28,6 +28,7 @@ import {
 } from '../lib/spawnClientNode'
 import { autoArrangeByDependencyLayers } from '../lib/autoArrange'
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { useAuthStore } from '../store/authStore'
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore } from '../store/metricsStore'
@@ -122,6 +123,7 @@ export function Sidebar() {
         const byId: Record<string, TemplateInfo> = {}
         for (const t of rows) byId[t.id] = t
         setTemplateInfoById(byId)
+        useTemplateRegistryStore.getState().mergeTemplates(rows)
       })
       .catch(() => {
         /* deploy flow still backend-validated; ignore metadata fetch failures */

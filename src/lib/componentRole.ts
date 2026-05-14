@@ -1,4 +1,6 @@
 import type { CanvasNode } from '../store/canvasStore'
+import { matchesWhen } from './storytellingEngine'
+import type { StorytellingSpec } from './storytellingTypes'
 import { canvasToBackend } from './typeMapping'
 
 export interface TopologyFlags {
@@ -6,17 +8,9 @@ export interface TopologyFlags {
   hasWorker: boolean
   hasCache: boolean
   hasLB: boolean
+  cacheStrategy: string
 }
 
-interface RoleSpec {
-  base: string
-  variants?: {
-    condition: (t: TopologyFlags) => boolean
-    modifier: string
-  }[]
-}
-
-/** Backend component keys used in role registry (matches deploy / WS). */
 type RoleKey =
   | 'cache'
   | 'db'
@@ -24,69 +18,6 @@ type RoleKey =
   | 'worker'
   | 'app-server'
   | 'lb'
-
-const roleRegistry: Record<string, Partial<Record<RoleKey, RoleSpec>>> = {
-  'social-feed': {
-    cache: {
-      base: 'Timeline store for follower feeds',
-      variants: [
-        {
-          condition: (t) => t.hasMQ && t.hasWorker,
-          modifier: 'Receives async fan-out writes from worker',
-        },
-        {
-          condition: (t) => !t.hasMQ,
-          modifier: 'Receives sync fan-out writes from app-server',
-        },
-      ],
-    },
-    mq: { base: 'Post queue — buffers new posts for async fan-out' },
-    worker: {
-      base: 'Fan-out worker — writes to follower timelines',
-      variants: [
-        {
-          condition: (t) => !t.hasCache,
-          modifier: 'No cache target — fan-out writes have nowhere to go',
-        },
-      ],
-    },
-    db: { base: 'Source of truth — users, posts, follows graph' },
-    'app-server': {
-      base: 'Handles post creation and feed reads',
-      variants: [
-        {
-          condition: (t) => !t.hasCache && !t.hasMQ,
-          modifier: 'Pull mode — every feed read is a DB JOIN',
-        },
-        {
-          condition: (t) => t.hasCache && !t.hasMQ,
-          modifier: 'Sync fan-out on write, Redis reads on read',
-        },
-        {
-          condition: (t) => t.hasMQ,
-          modifier: 'Posts go to MQ, feed reads from Redis',
-        },
-      ],
-    },
-    lb: { base: 'Distributes requests across app-server instances' },
-  },
-  'url-shortener': {
-    cache: { base: 'Lookup cache for shortened URLs' },
-    db: { base: 'URL storage — code-to-original mapping' },
-    'app-server': { base: 'Handles shorten and resolve requests' },
-    lb: { base: 'Distributes requests across app-server instances' },
-  },
-  ecommerce: {
-    cache: { base: 'Product catalog cache' },
-    db: { base: 'Inventory and order storage' },
-    mq: { base: 'Order queue for async fulfillment' },
-    worker: { base: 'Order fulfillment processor' },
-    'app-server': { base: 'Handles catalog browsing and checkout' },
-    lb: { base: 'Distributes requests across app-server instances' },
-  },
-}
-
-roleRegistry['social-feed-pull'] = roleRegistry['social-feed']
 
 const roleKeyLabels: Record<RoleKey | 'client', string> = {
   cache: 'Redis',
@@ -99,12 +30,17 @@ const roleKeyLabels: Record<RoleKey | 'client', string> = {
 }
 
 export function getTopologyFlags(nodes: Record<string, CanvasNode>): TopologyFlags {
-  const types = new Set(Object.values(nodes).map((n) => n.type))
+  const vals = Object.values(nodes)
+  const types = new Set(vals.map((n) => n.type))
+  const cacheNode = vals.find((n) => n.type === 'cache')
   return {
     hasMQ: types.has('message_queue'),
     hasWorker: types.has('worker'),
     hasCache: types.has('cache'),
     hasLB: types.has('load_balancer'),
+    cacheStrategy: String(
+      cacheNode?.config?.cacheStrategy ?? cacheNode?.config?.strategy ?? 'cache-aside',
+    ),
   }
 }
 
@@ -125,33 +61,28 @@ function canvasTypeToRoleKey(type: CanvasNode['type']): RoleKey | 'client' | nul
 }
 
 /**
- * Topology-aware role description for a node.
- * Falls back to a readable label when the template has no registry entry.
+ * Topology-aware role description for a node from template `storytelling.roles`,
+ * with fallbacks to generic component labels.
  */
 export function resolveRole(
   canvasNodeType: CanvasNode['type'],
-  templateId: string | null,
-  topology: TopologyFlags
+  _templateId: string | null,
+  topology: TopologyFlags,
+  storytelling: StorytellingSpec | null | undefined,
 ): string {
   const rk = canvasTypeToRoleKey(canvasNodeType)
   if (!rk || rk === 'client') {
     return roleKeyLabels.client
   }
 
-  const templateRoles = roleRegistry[templateId ?? '']
-  if (!templateRoles) {
+  const roleSpec = storytelling?.roles?.[rk]
+  if (!roleSpec) {
     return roleKeyLabels[rk] ?? canvasNodeType
   }
-
-  const spec = templateRoles[rk]
-  if (!spec) {
-    return roleKeyLabels[rk] ?? canvasNodeType
-  }
-
-  if (spec.variants) {
-    for (const v of spec.variants) {
-      if (v.condition(topology)) return `${spec.base} · ${v.modifier}`
+  if (roleSpec.variants) {
+    for (const v of roleSpec.variants) {
+      if (matchesWhen(v.when, topology)) return v.label
     }
   }
-  return spec.base
+  return roleSpec.base
 }

@@ -4,14 +4,10 @@ import { getTopologyFlags } from '../lib/componentRole'
 import { readWriteFractions } from '../lib/simulation/workload'
 import { workloadProfileForTemplate } from '../lib/simulation/workloadProfiles'
 import { computeSystemAggregates } from '../lib/systemMetrics'
-import {
-  filterJourneySteps,
-  getJourneys,
-  journeyById,
-  kpiRowToJourneyId,
-} from '../lib/requestJourney'
+import { getJourneys, journeyById, kpiRowToJourneyId } from '../lib/requestJourney'
 import { templateKpiRows } from '../lib/templateKpis'
 import { useCanvasStore } from '../store/canvasStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
 import { FlowPanel } from './FlowPanel'
@@ -90,6 +86,9 @@ export function SystemTopBar() {
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const lastInspector = useSimulationStore((s) => s.lastInspector)
   const simRunning = useSimulationStore((s) => s.running)
+  const storytelling = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
 
   const mixLabel = useMemo(() => {
     const p = workloadProfileForTemplate(snapshotTemplateId)
@@ -131,15 +130,15 @@ export function SystemTopBar() {
   )
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
-  const allJourneys = useMemo(() => {
-    const raw = getJourneys(snapshotTemplateId, topology)
-    return raw.map((j) => filterJourneySteps(j, topology))
-  }, [snapshotTemplateId, topology])
+  const allJourneys = useMemo(
+    () => getJourneys(snapshotTemplateId, topology, storytelling),
+    [snapshotTemplateId, topology, storytelling],
+  )
 
   const activeJourney = useMemo(() => {
     if (!journeyUi.open || journeyUi.overview || !journeyUi.id) return null
-    return journeyById(snapshotTemplateId, journeyUi.id, topology)
-  }, [journeyUi, snapshotTemplateId, topology])
+    return journeyById(snapshotTemplateId, journeyUi.id, topology, storytelling)
+  }, [journeyUi, snapshotTemplateId, topology, storytelling])
 
   const openJourney = useCallback(
     (id: string | null) => {
@@ -250,7 +249,7 @@ export function SystemTopBar() {
       {kpiRows.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-2.5 py-1 backdrop-blur-sm">
           {kpiRows.map((row) => {
-            const jid = kpiRowToJourneyId(snapshotTemplateId, row)
+            const jid = kpiRowToJourneyId(snapshotTemplateId, row, storytelling)
             const content = (
               <>
                 <span className="truncate text-[var(--c9-muted)]">{row.label}</span>

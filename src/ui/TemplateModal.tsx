@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { getTemplates, type TemplateInfo as ApiTemplateInfo } from '../lib/api'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../store/authStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import type { CanvasSnapshot } from '../store/canvasStore'
 
 /** Display names when the API has not been fetched yet (Sidebar label). */
@@ -363,6 +364,7 @@ export function TemplateModal({
     getTemplates()
       .then((list) => {
         if (cancelled) return
+        useTemplateRegistryStore.getState().mergeTemplates(list)
         const next: ModalTemplateItem[] = []
         for (const t of list) {
           const meta = TEMPLATE_META_BY_ID[t.id]

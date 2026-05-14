@@ -11,6 +11,7 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from '../store/canvasStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { ComponentLogPanel } from './ComponentLogPanel'
 import { LiveMetrics } from './LiveMetrics'
@@ -37,12 +38,20 @@ export function InspectorPanel() {
   const removeNode = useCanvasStore((s) => s.removeNode)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const storytelling = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
 
   const node = selectedId ? (nodes[selectedId] ?? null) : null
   const roleLabel = useMemo(() => {
     if (!node) return ''
-    return resolveRole(node.type, snapshotTemplateId, getTopologyFlags(nodes))
-  }, [node, snapshotTemplateId, nodes])
+    return resolveRole(
+      node.type,
+      snapshotTemplateId,
+      getTopologyFlags(nodes),
+      storytelling,
+    )
+  }, [node, snapshotTemplateId, nodes, storytelling])
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'

@@ -12,6 +12,7 @@ import type { HealthState } from '../lib/healthThresholds'
 import type { CanvasNode } from '../store/canvasStore'
 import type { MetricsBucket } from '../store/metricsStore'
 import { useCanvasStore } from '../store/canvasStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 
 interface NodeTooltipProps {
   node: CanvasNode
@@ -54,10 +55,13 @@ export function NodeTooltip({
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const storytelling = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const roleLabel = useMemo(
-    () => resolveRole(node.type, snapshotTemplateId, topology),
-    [node.type, snapshotTemplateId, topology]
+    () => resolveRole(node.type, snapshotTemplateId, topology, storytelling),
+    [node.type, snapshotTemplateId, topology, storytelling],
   )
 
   const cpuPct = metrics?.cpuIsEstimated ? 0 : pct(metrics?.cpuPercent)
