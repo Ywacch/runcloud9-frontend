@@ -73,6 +73,7 @@ interface WsEventPayload {
   type?: string
   source?: string
   component?: string
+  rule?: string
   title?: string
   description?: string
   narrative?: string
@@ -200,11 +201,14 @@ function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] {
       (e?.description && String(e.description).trim()) ||
       ''
     if (!title) continue
+    const rule =
+      typeof e.rule === 'string' && e.rule.trim() ? e.rule.trim() : undefined
     out.push({
       timestamp: e.timestamp ?? new Date().toISOString(),
       type: e.type ?? 'action',
       source: e.source ?? 'unknown',
       component: e.component,
+      rule,
       title,
       description: e.description ?? '',
       narrative:

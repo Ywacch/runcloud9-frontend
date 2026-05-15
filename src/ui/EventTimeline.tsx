@@ -1,7 +1,9 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { sortEventsBySeverityThenTime } from '../lib/eventSeverity'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { useCanvasStore } from '../store/canvasStore'
 import { useMetricsStore, type WsEvent } from '../store/metricsStore'
+import { useStorytellingStore } from '../store/storytellingStore'
 import { NarrativeCard } from './NarrativeCard'
 
 function formatTime(iso: string): string {
@@ -22,26 +24,32 @@ function pillClass(type: string): string {
 }
 
 /**
- * Horizontal time strip (oldest → newest); scrolls to the latest tick.
+ * Event strip: cascade → threshold → action, newest first within each tier.
  * Click a pill: opens narrative when present, else selects the related canvas node.
  */
 export function EventTimeline() {
   const events = useMetricsStore((s) => s.events)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const restorePredicted = useStorytellingStore((s) => s.restorePersistedPredictions)
+  const isPredicted = useStorytellingStore((s) => s.isPredicted)
   const scrollRef = useRef<HTMLDivElement>(null)
   const selectNode = useCanvasStore((s) => s.selectNode)
   const nodes = useCanvasStore((s) => s.nodes)
   const [expandedEvent, setExpandedEvent] = useState<WsEvent | null>(null)
 
-  const sorted = useMemo(() => {
-    return [...events].sort(
-      (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp)
-    )
-  }, [events])
+  useEffect(() => {
+    if (snapshotTemplateId) restorePredicted(snapshotTemplateId)
+  }, [snapshotTemplateId, restorePredicted])
+
+  const sorted = useMemo(
+    () => sortEventsBySeverityThenTime(events),
+    [events],
+  )
 
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollLeft = el.scrollWidth - el.clientWidth
+    el.scrollLeft = 0
   }, [sorted])
 
   const showStrip = sorted.length > 0
@@ -87,10 +95,17 @@ export function EventTimeline() {
                   pillInteractive(e) ? 'cursor-pointer' : ''
                 }`}
               >
-                <span className="mr-1 font-mono text-[var(--c9-muted)]">
-                  {formatTime(e.timestamp)}
+                <span className="flex flex-wrap items-center gap-1">
+                  <span className="mr-1 font-mono text-[var(--c9-muted)]">
+                    {formatTime(e.timestamp)}
+                  </span>
+                  <span className="text-[var(--c9-text)]">{e.title}</span>
+                  {isPredicted(e) ? (
+                    <span className="rounded bg-cyan-500/20 px-1 text-[8px] font-semibold uppercase text-cyan-200">
+                      predicted
+                    </span>
+                  ) : null}
                 </span>
-                <span className="text-[var(--c9-text)]">{e.title}</span>
               </button>
             ))}
           </div>

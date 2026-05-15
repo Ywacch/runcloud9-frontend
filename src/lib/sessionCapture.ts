@@ -1,6 +1,7 @@
 import { getDeployment } from './api'
 import { discardWsEventsStorage } from './wsEventsPersist'
 import { clearLiveSessionPersist } from './liveSessionStorage'
+import { parseEventsSummary } from './eventsSummaryFromApi'
 import {
   mergePeakScalars,
   normalizeSparklines,
@@ -158,6 +159,7 @@ function mergeApiMetricsSummary(
   const dur = parsePeakFieldsFromMetricsSummary(apiMetricsSummary).durationSeconds
   const parsed = parseSessionHistory(apiMetricsSummary.session_history)
   const sessionSparklines = parsed ? normalizeSparklines(parsed) : undefined
+  const eventsSummary = parseEventsSummary(apiMetricsSummary.events_summary)
 
   let duration = base.duration
   if (dur != null && dur > 0) {
@@ -180,6 +182,7 @@ function mergeApiMetricsSummary(
     ...scalars,
     duration,
     sessionSparklines,
+    eventsSummary: eventsSummary.length > 0 ? eventsSummary : undefined,
   }
 }
 
