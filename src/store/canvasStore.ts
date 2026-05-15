@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../lib/cacheTopologyStrategy'
+import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
 import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
 
 /** Design-mode interaction: select/move + inspector, connect nodes, or delete by clicking. */
@@ -62,6 +63,8 @@ export interface SessionSummary {
   eventsRecorded?: number
   /** Downsampled series from API `metrics_summary.session_history` after teardown. */
   sessionSparklines?: SessionSparklines
+  /** Flat highlight reel from API `metrics_summary.events_summary`. */
+  eventsSummary?: SessionEventSummary[]
   componentSummaries: Record<
     string,
     {

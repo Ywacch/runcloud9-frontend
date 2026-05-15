@@ -38,6 +38,7 @@ import {
   type DeployModalMode,
   type DeployStep,
 } from './DeployModal'
+import { PredictionCards } from './PredictionCards'
 import { RationalePanel } from './RationalePanel'
 import {
   TemplateModal,
@@ -531,6 +532,7 @@ export function Sidebar() {
             )
           })}
         </ul>
+        {!live ? <PredictionCards /> : null}
         {!live ? <RationalePanel /> : null}
       </div>
       <div

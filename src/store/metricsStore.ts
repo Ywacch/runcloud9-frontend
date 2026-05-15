@@ -8,6 +8,8 @@ export interface WsEvent {
   type: string
   source: string
   component?: string
+  /** Rule id from backend (matches narrativeContext keys / event title). */
+  rule?: string
   title: string
   description: string
   narrative?: string

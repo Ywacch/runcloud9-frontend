@@ -1,10 +1,15 @@
 import { useEffect } from 'react'
 import { useMetricsStore } from '../store/metricsStore'
+import { useStorytellingStore } from '../store/storytellingStore'
+import { AsPredictedBadge } from './AsPredictedBadge'
 
 /** Brief banner when the latest batch included a `cascade` event. */
 export function CascadeToast() {
   const toast = useMetricsStore((s) => s.cascadeToast)
   const dismiss = useMetricsStore((s) => s.dismissCascadeToast)
+  const isPredicted = useStorytellingStore((s) =>
+    toast ? s.isPredicted(toast) : false,
+  )
 
   useEffect(() => {
     if (!toast) return
@@ -20,8 +25,11 @@ export function CascadeToast() {
     <div className="pointer-events-auto fixed bottom-6 left-1/2 z-[45] w-[min(100%,28rem)] -translate-x-1/2 rounded-lg border border-red-800/70 bg-red-950/95 px-3 py-2.5 shadow-xl backdrop-blur-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-red-300">
-            Cascade detected
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-300">
+              Cascade detected
+            </span>
+            {isPredicted ? <AsPredictedBadge /> : null}
           </div>
           <div className="mt-0.5 text-sm font-semibold text-white">{toast.title}</div>
           {toast.description ? (

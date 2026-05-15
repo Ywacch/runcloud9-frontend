@@ -5,7 +5,10 @@ import {
   fmtPct,
 } from '../lib/format'
 import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
+import { useEffect } from 'react'
 import { useCanvasStore } from '../store/canvasStore'
+import { useStorytellingStore } from '../store/storytellingStore'
+import { HighlightReel } from './HighlightReel'
 import { SparkLine } from './SparkLine'
 
 function markerRatios(
@@ -21,7 +24,12 @@ function markerRatios(
 
 export function SessionSummary() {
   const summary = useCanvasStore((s) => s.sessionSummary)
+  const restorePredicted = useStorytellingStore((s) => s.restorePersistedPredictions)
   const dismiss = () => useCanvasStore.getState().setSessionSummary(null)
+
+  useEffect(() => {
+    if (summary?.template) restorePredicted(summary.template)
+  }, [summary?.template, restorePredicted])
 
   if (!summary) return null
 
@@ -39,6 +47,10 @@ export function SessionSummary() {
             Finished
           </span>
         </div>
+
+        {summary.eventsSummary?.length ? (
+          <HighlightReel events={summary.eventsSummary} />
+        ) : null}
 
         {summary.sessionSparklines ? (
           <div className="mb-4 space-y-3 border-b border-[var(--c9-border)] pb-4">

@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { nodeIdsForRelatedBackendComponents } from '../lib/narrativeHighlight'
 import type { WsEvent } from '../store/metricsStore'
 import { useCanvasStore } from '../store/canvasStore'
+import { useStorytellingStore } from '../store/storytellingStore'
+import { AsPredictedBadge } from './AsPredictedBadge'
 
 const PRETTY_RELATED: Record<string, string> = {
   lb: 'Load balancer',
@@ -18,6 +20,7 @@ interface NarrativeCardProps {
 }
 
 export function NarrativeCard({ event, onClose }: NarrativeCardProps) {
+  const isPredicted = useStorytellingStore((s) => s.isPredicted(event))
   const body = (event.narrative && event.narrative.trim()) || event.description
   const relatedChain =
     event.related?.map((r) => PRETTY_RELATED[r] ?? r).join(' → ') ?? ''
@@ -54,12 +57,15 @@ export function NarrativeCard({ event, onClose }: NarrativeCardProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 border-b border-[var(--c9-border)] pb-3">
-          <h2
-            id="narrative-card-title"
-            className="text-base font-semibold text-violet-300"
-          >
-            {event.title}
-          </h2>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2
+              id="narrative-card-title"
+              className="text-base font-semibold text-violet-300"
+            >
+              {event.title}
+            </h2>
+            {isPredicted ? <AsPredictedBadge /> : null}
+          </div>
           <time className="shrink-0 font-mono text-[10px] text-[var(--c9-muted)]">
             {new Date(event.timestamp).toLocaleTimeString(undefined, {
               hour: '2-digit',
