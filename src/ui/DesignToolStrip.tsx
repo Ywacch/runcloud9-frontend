@@ -3,6 +3,7 @@ import {
   useCanvasStore,
   type DesignTool,
 } from '../store/canvasStore'
+import { useWalkthroughStore } from '../store/walkthroughStore'
 
 const tools: { id: DesignTool; label: string; hotkey: string; title: string }[] = [
   { id: 'select', label: 'Select', hotkey: '1', title: 'Select & move (1)' },
@@ -14,8 +15,9 @@ export function DesignToolStrip() {
   const mode = useCanvasStore((s) => s.mode)
   const designTool = useCanvasStore((s) => s.designTool)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
+  const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
 
-  if (!isCanvasEditMode(mode)) return null
+  if (!isCanvasEditMode(mode) || walkthroughActive) return null
 
   return (
     <div

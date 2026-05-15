@@ -81,8 +81,8 @@ export function resolveRole(
   }
   if (roleSpec.variants) {
     for (const v of roleSpec.variants) {
-      if (matchesWhen(v.when, topology)) return v.label
+      if (matchesWhen(v.when, topology)) return v.label ?? roleKeyLabels[rk]
     }
   }
-  return roleSpec.base
+  return roleSpec.base ?? roleKeyLabels[rk] ?? canvasNodeType
 }

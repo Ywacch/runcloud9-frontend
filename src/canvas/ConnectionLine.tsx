@@ -27,6 +27,12 @@ export function ConnectionLine({ edge, topologyIssue }: ConnectionLineProps) {
   const designTool = useCanvasStore((s) => s.designTool)
   const nodes = useCanvasStore((s) => s.nodes)
   const removeEdge = useCanvasStore((s) => s.removeEdge)
+  const walkthroughHighlightedEdgeIds = useCanvasStore(
+    (s) => s.walkthroughHighlightedEdgeIds,
+  )
+  const walkthroughParticipatingNodeIds = useCanvasStore(
+    (s) => s.walkthroughParticipatingNodeIds,
+  )
 
   const source = nodes[edge.sourceId]
   const target = nodes[edge.targetId]
@@ -44,6 +50,17 @@ export function ConnectionLine({ edge, topologyIssue }: ConnectionLineProps) {
   const labelPos = useMemo(() => midpointAlongWaypoints(waypoints), [waypoints])
 
   const isLive = isMetricsViewportMode(mode)
+  const isWalkthroughEdge = walkthroughHighlightedEdgeIds.includes(edge.id)
+  const walkthroughRunning = walkthroughParticipatingNodeIds.length > 0
+  const edgeOnWalkthroughPath =
+    walkthroughParticipatingNodeIds.includes(edge.sourceId) &&
+    walkthroughParticipatingNodeIds.includes(edge.targetId)
+  const designLineOpacity =
+    walkthroughRunning && !isWalkthroughEdge
+      ? edgeOnWalkthroughPath
+        ? 0.35
+        : 0.12
+      : 1
 
   const lineWidth =
     topologyIssue && isCanvasEditMode(mode)
@@ -97,13 +114,28 @@ export function ConnectionLine({ edge, topologyIssue }: ConnectionLineProps) {
           ) : null}
         </>
       ) : (
-        <Line
-          points={points}
-          color={designLineColor}
-          lineWidth={lineWidth}
-          onContextMenu={onContextMenu}
-          onPointerDown={onErasePointerDown}
-        />
+        <>
+          <Line
+            points={points}
+            color={designLineColor}
+            lineWidth={isWalkthroughEdge ? 3 : lineWidth}
+            transparent
+            opacity={designLineOpacity}
+            onContextMenu={onContextMenu}
+            onPointerDown={onErasePointerDown}
+          />
+          {isWalkthroughEdge ? (
+            <EdgeParticles
+              waypoints={waypoints}
+              sourceNodeId={edge.sourceId}
+              connectionId={edge.id}
+              animated
+              color="#22d3ee"
+              forceRender
+              walkthroughParticleCount={10}
+            />
+          ) : null}
+        </>
       )}
       <Html
         position={labelPos}

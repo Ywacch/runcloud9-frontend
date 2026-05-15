@@ -167,6 +167,40 @@ export function BaseNode({ node }: BaseNodeProps) {
       inv()
     }
     const st = useCanvasStore.getState()
+    const walkthroughRunning =
+      st.walkthroughActiveNodeId != null ||
+      st.walkthroughParticipatingNodeIds.length > 0
+    const walkthroughActive = st.walkthroughActiveNodeId === node.id
+    const walkthroughVisited = st.walkthroughVisitedNodeIds.includes(node.id)
+    const walkthroughParticipating =
+      st.walkthroughParticipatingNodeIds.includes(node.id)
+
+    if (walkthroughRunning && st.mode === 'design') {
+      mat.transparent = true
+      if (walkthroughActive) {
+        mat.emissive.setRGB(0.15, 0.75, 0.9)
+        mat.emissiveIntensity = 0.45 + Math.sin(Date.now() * 0.004) * 0.15
+        mat.opacity = 1
+        inv()
+      } else if (walkthroughVisited) {
+        mat.emissive.setRGB(0.08, 0.35, 0.42)
+        mat.emissiveIntensity = 0.15
+        mat.opacity = 0.92
+      } else if (walkthroughParticipating) {
+        mat.emissive.set('#000000')
+        mat.emissiveIntensity = 0
+        mat.opacity = 0.55
+      } else {
+        mat.emissive.set('#000000')
+        mat.emissiveIntensity = 0
+        mat.opacity = 0.25
+      }
+      return
+    }
+
+    mat.transparent = false
+    mat.opacity = 1
+
     if (!isMetricsViewportMode(st.mode)) {
       mat.emissive.set('#000000')
       mat.emissiveIntensity = 0

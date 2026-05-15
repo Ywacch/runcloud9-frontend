@@ -25,6 +25,7 @@ interface RequestJourneyPanelProps {
   metrics: Record<string, MetricsBucket>
   onClose: () => void
   onSelectJourney: (id: string) => void
+  onStartWalkthrough?: (journeyId: string) => void
 }
 
 export function RequestJourneyPanel({
@@ -36,6 +37,7 @@ export function RequestJourneyPanel({
   metrics,
   onClose,
   onSelectJourney,
+  onStartWalkthrough,
 }: RequestJourneyPanelProps) {
   const stepsWithP99 = useMemo(() => {
     if (!journey) return []
@@ -75,10 +77,10 @@ export function RequestJourneyPanel({
             </p>
             <ul className="mt-4 space-y-2">
               {allJourneys.map((j) => (
-                <li key={j.id}>
+                <li key={j.id} className="flex gap-2">
                   <button
                     type="button"
-                    className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/40 px-3 py-2 text-left text-sm text-[var(--c9-text)] hover:border-cyan-500/40 hover:bg-[var(--c9-surface)]"
+                    className="min-w-0 flex-1 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/40 px-3 py-2 text-left text-sm text-[var(--c9-text)] hover:border-cyan-500/40 hover:bg-[var(--c9-surface)]"
                     onClick={() => onSelectJourney(j.id)}
                   >
                     <span className="font-mono text-xs text-cyan-300/90">
@@ -89,6 +91,16 @@ export function RequestJourneyPanel({
                       {j.trafficPercent != null ? ` · ~${j.trafficPercent}% traffic` : ''}
                     </span>
                   </button>
+                  {onStartWalkthrough ? (
+                    <button
+                      type="button"
+                      title="Architecture walkthrough"
+                      className="shrink-0 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20"
+                      onClick={() => onStartWalkthrough(j.id)}
+                    >
+                      ▶ Walk
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -96,18 +108,31 @@ export function RequestJourneyPanel({
         ) : journey ? (
           <>
             <div className="border-b border-[var(--c9-border)] pb-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
-                Request journey
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-violet-300">
-                {journey.method} {journey.path}
-              </h2>
-              <p className="mt-0.5 text-xs text-[var(--c9-muted)]">
-                {journey.label}
-                {journey.trafficPercent != null
-                  ? ` · ~${journey.trafficPercent}% of traffic`
-                  : ''}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
+                    Request journey
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-violet-300">
+                    {journey.method} {journey.path}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-[var(--c9-muted)]">
+                    {journey.label}
+                    {journey.trafficPercent != null
+                      ? ` · ~${journey.trafficPercent}% of traffic`
+                      : ''}
+                  </p>
+                </div>
+                {onStartWalkthrough ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20"
+                    onClick={() => onStartWalkthrough(journey.id)}
+                  >
+                    ▶ Walkthrough
+                  </button>
+                ) : null}
+              </div>
             </div>
             <ol className="relative mt-4 space-y-0 border-l-2 border-cyan-500/30 pl-5">
               {stepsWithP99.map(({ step, index, p99 }) => (

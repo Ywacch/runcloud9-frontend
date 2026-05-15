@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../lib/cacheTopologyStrategy'
+import { resetDesignStorytellingUi } from '../lib/resetStorytellingUi'
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
 import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
 
@@ -100,6 +101,14 @@ interface CanvasState {
   sessionSummary: SessionSummary | null
   /** Canvas node ids to pulse (narrative card `related` components). */
   narrativeHighlightNodeIds: string[]
+  /** Walkthrough: spotlight node for the current step. */
+  walkthroughActiveNodeId: string | null
+  /** Walkthrough: nodes already visited in this journey. */
+  walkthroughVisitedNodeIds: string[]
+  /** Walkthrough: edge ids with animated particles for the current hop. */
+  walkthroughHighlightedEdgeIds: string[]
+  /** Walkthrough: nodes on the journey path (others are dimmed). */
+  walkthroughParticipatingNodeIds: string[]
 
   addNode: (node: CanvasNode) => void
   updateNodePosition: (id: string, pos: [number, number, number]) => void
@@ -122,6 +131,13 @@ interface CanvasState {
   setLiveSessionEndsAt: (t: number | null) => void
   setSessionSummary: (summary: SessionSummary | null) => void
   setNarrativeHighlightNodeIds: (ids: string[]) => void
+  setWalkthroughHighlights: (payload: {
+    activeNodeId: string | null
+    visitedNodeIds: string[]
+    highlightedEdgeIds: string[]
+    participatingNodeIds: string[]
+  }) => void
+  clearWalkthrough: () => void
   setAllEdgesAnimated: (animated: boolean) => void
   exportJSON: () => CanvasSnapshot
   loadJSON: (snapshot: CanvasSnapshot) => void
@@ -150,6 +166,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   liveSessionEndsAt: null,
   sessionSummary: null,
   narrativeHighlightNodeIds: [],
+  walkthroughActiveNodeId: null,
+  walkthroughVisitedNodeIds: [],
+  walkthroughHighlightedEdgeIds: [],
+  walkthroughParticipatingNodeIds: [],
 
   addNode: (node) => set((s) => ({ nodes: { ...s.nodes, [node.id]: node } })),
 
@@ -265,7 +285,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connectHoverTargetId: null,
     }),
 
-  setSnapshotTemplateId: (snapshotTemplateId) => set({ snapshotTemplateId }),
+  setSnapshotTemplateId: (snapshotTemplateId) => {
+    const prev = get().snapshotTemplateId
+    if (prev !== snapshotTemplateId) {
+      resetDesignStorytellingUi({
+        syncPredictions: Boolean(snapshotTemplateId),
+      })
+    }
+    set({ snapshotTemplateId })
+  },
 
   setLiveSessionEndsAt: (liveSessionEndsAt) => set({ liveSessionEndsAt }),
 
@@ -273,6 +301,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setNarrativeHighlightNodeIds: (narrativeHighlightNodeIds) =>
     set({ narrativeHighlightNodeIds }),
+
+  setWalkthroughHighlights: ({
+    activeNodeId,
+    visitedNodeIds,
+    highlightedEdgeIds,
+    participatingNodeIds,
+  }) =>
+    set({
+      walkthroughActiveNodeId: activeNodeId,
+      walkthroughVisitedNodeIds: visitedNodeIds,
+      walkthroughHighlightedEdgeIds: highlightedEdgeIds,
+      walkthroughParticipatingNodeIds: participatingNodeIds,
+    }),
+
+  clearWalkthrough: () =>
+    set({
+      walkthroughActiveNodeId: null,
+      walkthroughVisitedNodeIds: [],
+      walkthroughHighlightedEdgeIds: [],
+      walkthroughParticipatingNodeIds: [],
+    }),
 
   setAllEdgesAnimated: (animated) =>
     set((s) => {
@@ -294,7 +343,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
   },
 
-  loadJSON: (snapshot) =>
+  loadJSON: (snapshot) => {
+    resetDesignStorytellingUi()
     set({
       nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
@@ -310,9 +360,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       movementLocked: false,
       mode: 'design',
       narrativeHighlightNodeIds: [],
-    }),
+      walkthroughActiveNodeId: null,
+      walkthroughVisitedNodeIds: [],
+      walkthroughHighlightedEdgeIds: [],
+      walkthroughParticipatingNodeIds: [],
+    })
+    resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
+  },
 
-  loadTemplateSnapshot: (snapshot, targetMode) =>
+  loadTemplateSnapshot: (snapshot, targetMode) => {
+    resetDesignStorytellingUi()
     set({
       nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
@@ -328,9 +385,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       movementLocked: false,
       mode: targetMode,
       narrativeHighlightNodeIds: [],
-    }),
+      walkthroughActiveNodeId: null,
+      walkthroughVisitedNodeIds: [],
+      walkthroughHighlightedEdgeIds: [],
+      walkthroughParticipatingNodeIds: [],
+    })
+    resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
+  },
 
-  startFromTemplate: (templateId) =>
+  startFromTemplate: (templateId) => {
+    resetDesignStorytellingUi()
     set({
       nodes: {},
       edges: {},
@@ -346,9 +410,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       movementLocked: false,
       mode: 'design',
       narrativeHighlightNodeIds: [],
-    }),
+      walkthroughActiveNodeId: null,
+      walkthroughVisitedNodeIds: [],
+      walkthroughHighlightedEdgeIds: [],
+      walkthroughParticipatingNodeIds: [],
+    })
+    resetDesignStorytellingUi({ syncPredictions: true })
+  },
 
-  clearCanvas: () =>
+  clearCanvas: () => {
+    resetDesignStorytellingUi()
     set({
       mode: 'design',
       nodes: {},
@@ -364,5 +435,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sessionSummary: null,
       movementLocked: false,
       narrativeHighlightNodeIds: [],
-    }),
+      walkthroughActiveNodeId: null,
+      walkthroughVisitedNodeIds: [],
+      walkthroughHighlightedEdgeIds: [],
+      walkthroughParticipatingNodeIds: [],
+    })
+  },
 }))

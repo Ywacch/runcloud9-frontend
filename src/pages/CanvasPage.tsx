@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CanvasRoot } from '../canvas/CanvasRoot'
 import { useCanvasKeyboard } from '../hooks/useCanvasKeyboard'
 import { useDeploymentRehydrate } from '../hooks/useDeploymentRehydrate'
@@ -18,6 +18,8 @@ import {
 } from '../lib/sessionCapture'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { spawnClientLoadgenNode } from '../lib/spawnClientNode'
+import { getTopologyFlags } from '../lib/componentRole'
+import { getJourneys, journeyById } from '../lib/requestJourney'
 import {
   isCanvasEditMode,
   useCanvasStore,
@@ -26,6 +28,8 @@ import {
 import { useLogStore } from '../store/logStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
+import { useWalkthroughStore } from '../store/walkthroughStore'
 import { DesignToolStrip } from '../ui/DesignToolStrip'
 import { InspectorPanel } from '../ui/InspectorPanel'
 import { DeploymentPlayground } from '../ui/DeploymentPlayground'
@@ -40,6 +44,8 @@ import { EventTimeline } from '../ui/EventTimeline'
 import { CascadeToast } from '../ui/CascadeToast'
 import { ProvisioningOverlay } from '../ui/ProvisioningOverlay'
 import { RejoinBanner } from '../ui/RejoinBanner'
+import { RequestJourneyPanel } from '../ui/RequestJourneyPanel'
+import { WalkthroughOverlay } from '../ui/WalkthroughOverlay'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
@@ -74,6 +80,18 @@ export default function CanvasPage() {
   const simRunning = useSimulationStore((s) => s.running)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const nodes = useCanvasStore((s) => s.nodes)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const metrics = useMetricsStore((s) => s.metrics)
+  const storytelling = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
+  const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
+  const startWalkthrough = useWalkthroughStore((s) => s.startWalkthrough)
+  const [designJourneyUi, setDesignJourneyUi] = useState<{
+    open: boolean
+    overview: boolean
+    id: string | null
+  }>({ open: false, overview: false, id: null })
   const [deployStatus, setDeployStatus] = useState<string | null>(null)
   const [provisioningError, setProvisioningError] = useState<string | null>(null)
   const [provisioningElapsed, setProvisioningElapsed] = useState(0)
@@ -281,6 +299,34 @@ export default function CanvasPage() {
     )
   }, [mode, simRunning, nodeTopologyKey, edgeTopologyKey])
 
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+  const designJourneys = useMemo(
+    () => getJourneys(snapshotTemplateId, topology, storytelling),
+    [snapshotTemplateId, topology, storytelling],
+  )
+  const designActiveJourney = useMemo(() => {
+    if (!designJourneyUi.open || designJourneyUi.overview || !designJourneyUi.id) {
+      return null
+    }
+    return journeyById(snapshotTemplateId, designJourneyUi.id, topology, storytelling)
+  }, [designJourneyUi, snapshotTemplateId, topology, storytelling])
+
+  const closeDesignJourney = useCallback(() => {
+    setDesignJourneyUi({ open: false, overview: false, id: null })
+  }, [])
+
+  useEffect(() => {
+    setDesignJourneyUi({ open: false, overview: false, id: null })
+  }, [snapshotTemplateId])
+
+  const handleDesignStartWalkthrough = useCallback(
+    (journeyId: string) => {
+      startWalkthrough(journeyId)
+      closeDesignJourney()
+    },
+    [startWalkthrough, closeDesignJourney],
+  )
+
   const showProvisioningOverlay =
     mode !== 'live' &&
     !!deploymentId &&
@@ -325,6 +371,19 @@ export default function CanvasPage() {
               }}
               onDismiss={dismiss}
             />
+          </div>
+        ) : null}
+        {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
+          <div className="pointer-events-none absolute left-3 top-3 z-30">
+            <button
+              type="button"
+              className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
+              onClick={() =>
+                setDesignJourneyUi({ open: true, overview: true, id: null })
+              }
+            >
+              Request journeys
+            </button>
           </div>
         ) : null}
         {mode !== 'design' ? (
@@ -391,7 +450,27 @@ export default function CanvasPage() {
         <DeploymentPlayground />
         <LogPanel />
         <DesignToolStrip />
-        <InspectorPanel />
+        <WalkthroughOverlay />
+        {!walkthroughActive ? <InspectorPanel /> : null}
+        {mode === 'design' ? (
+          <RequestJourneyPanel
+            open={designJourneyUi.open}
+            overview={designJourneyUi.overview}
+            journey={designActiveJourney}
+            allJourneys={designJourneys}
+            nodes={nodes}
+            metrics={metrics}
+            onClose={closeDesignJourney}
+            onSelectJourney={(id) => {
+              if (id === '__overview__') {
+                setDesignJourneyUi({ open: true, overview: true, id: null })
+              } else {
+                setDesignJourneyUi({ open: true, overview: false, id })
+              }
+            }}
+            onStartWalkthrough={handleDesignStartWalkthrough}
+          />
+        ) : null}
         {mode === 'live' ? <CascadeToast /> : null}
         {terminationMessage ? (
           <div className="pointer-events-none absolute bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-3 py-2 text-xs text-[var(--c9-text)] shadow-lg">

@@ -1,4 +1,4 @@
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useMetricsStore } from '../store/metricsStore'
@@ -58,6 +58,10 @@ interface EdgeParticlesProps {
   connectionId?: string
   animated: boolean
   color?: string
+  /** Render in design mode (architecture walkthrough). */
+  forceRender?: boolean
+  /** Fixed particle count when not driven by live metrics. */
+  walkthroughParticleCount?: number
 }
 
 export function EdgeParticles({
@@ -66,12 +70,15 @@ export function EdgeParticles({
   connectionId,
   animated,
   color = '#4A90D9',
+  forceRender = false,
+  walkthroughParticleCount = 8,
 }: EdgeParticlesProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
   const particleData = useRef<{ progress: number; speed: number }[]>([])
 
   const pathData = useMemo(() => buildPathData(waypoints), [waypoints])
+  const invalidate = useThree((s) => s.invalidate)
 
   const geometry = useMemo(
     () => new THREE.SphereGeometry(PARTICLE_SIZE, 6, 6),
@@ -104,8 +111,9 @@ export function EdgeParticles({
         ? edgeQ
         : (metrics?.requestRate ?? 0)
 
-    const targetCount =
-      rps > 0
+    const targetCount = forceRender
+      ? Math.max(2, Math.min(MAX_PARTICLES, walkthroughParticleCount))
+      : rps > 0
         ? Math.max(1, Math.min(MAX_PARTICLES, Math.ceil(rps / 1000)))
         : 1
 
@@ -117,8 +125,11 @@ export function EdgeParticles({
       data.pop()
     }
 
-    const speedMultiplier =
-      rps <= 0 ? 0.35 : Math.max(0.5, Math.min(3, 0.5 + rps / 500))
+    const speedMultiplier = forceRender
+      ? 1.2
+      : rps <= 0
+        ? 0.35
+        : Math.max(0.5, Math.min(3, 0.5 + rps / 500))
 
     const { pts, segLen, total } = pathData
 
@@ -144,6 +155,7 @@ export function EdgeParticles({
     }
 
     mesh.instanceMatrix.needsUpdate = true
+    if (forceRender) invalidate()
   })
 
   if (!animated || waypoints.length < 2) return null
