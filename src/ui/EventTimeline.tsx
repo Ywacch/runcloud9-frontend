@@ -29,7 +29,7 @@ function pillClass(type: string): string {
 }
 
 /**
- * Event strip with user-selectable sort: importance (severity) or time (newest first).
+ * Event strip with user-selectable sort: importance (severity) or time (oldest first).
  * Click a pill: opens narrative when present, else selects the related canvas node.
  */
 export function EventTimeline() {
@@ -60,7 +60,11 @@ export function EventTimeline() {
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollLeft = 0
+    if (sortMode === 'time') {
+      el.scrollLeft = el.scrollWidth
+    } else {
+      el.scrollLeft = 0
+    }
   }, [sorted, sortMode])
 
   const showStrip = sorted.length > 0

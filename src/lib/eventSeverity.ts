@@ -40,9 +40,13 @@ function compareByTimestampDesc(a: WsEvent, b: WsEvent): number {
   return a.title.localeCompare(b.title)
 }
 
-/** Newest first (left in the horizontal strip). */
+function compareByTimestampAsc(a: WsEvent, b: WsEvent): number {
+  return -compareByTimestampDesc(a, b)
+}
+
+/** Oldest first (left in the horizontal strip); newest on the right. */
 export function sortEventsByTime(events: WsEvent[]): WsEvent[] {
-  return [...events].sort(compareByTimestampDesc)
+  return [...events].sort(compareByTimestampAsc)
 }
 
 /** Cascade first, then threshold, then action; newest first within each tier. */

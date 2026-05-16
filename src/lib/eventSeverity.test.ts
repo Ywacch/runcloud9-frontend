@@ -21,7 +21,7 @@ function ev(
 }
 
 describe('sortEventsByTime', () => {
-  it('orders newest first', () => {
+  it('orders oldest first', () => {
     const events = [
       ev('action', '2026-01-01T10:00:00Z'),
       ev('cascade', '2026-01-01T12:00:00Z'),
@@ -29,9 +29,9 @@ describe('sortEventsByTime', () => {
     ]
     const sorted = sortEventsByTime(events)
     expect(sorted.map((e) => e.timestamp)).toEqual([
-      '2026-01-01T12:00:00Z',
-      '2026-01-01T11:00:00Z',
       '2026-01-01T10:00:00Z',
+      '2026-01-01T11:00:00Z',
+      '2026-01-01T12:00:00Z',
     ])
   })
 })
@@ -61,8 +61,8 @@ describe('sortTimelineEvents', () => {
       ev('action', '2026-01-01T12:00:00Z'),
     ]
     expect(sortTimelineEvents(events, 'time').map((e) => e.type)).toEqual([
-      'action',
       'cascade',
+      'action',
     ])
   })
 })
