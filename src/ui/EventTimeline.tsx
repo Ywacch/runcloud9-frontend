@@ -1,5 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { sortEventsBySeverityThenTime } from '../lib/eventSeverity'
+import {
+  readTimelineEventSort,
+  sortTimelineEvents,
+  writeTimelineEventSort,
+  type TimelineEventSort,
+} from '../lib/eventSeverity'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { useCanvasStore } from '../store/canvasStore'
 import { useMetricsStore, type WsEvent } from '../store/metricsStore'
@@ -24,7 +29,7 @@ function pillClass(type: string): string {
 }
 
 /**
- * Event strip: cascade → threshold → action, newest first within each tier.
+ * Event strip with user-selectable sort: importance (severity) or time (newest first).
  * Click a pill: opens narrative when present, else selects the related canvas node.
  */
 export function EventTimeline() {
@@ -36,21 +41,27 @@ export function EventTimeline() {
   const selectNode = useCanvasStore((s) => s.selectNode)
   const nodes = useCanvasStore((s) => s.nodes)
   const [expandedEvent, setExpandedEvent] = useState<WsEvent | null>(null)
+  const [sortMode, setSortMode] = useState<TimelineEventSort>(readTimelineEventSort)
 
   useEffect(() => {
     if (snapshotTemplateId) restorePredicted(snapshotTemplateId)
   }, [snapshotTemplateId, restorePredicted])
 
+  const setSort = (mode: TimelineEventSort) => {
+    setSortMode(mode)
+    writeTimelineEventSort(mode)
+  }
+
   const sorted = useMemo(
-    () => sortEventsBySeverityThenTime(events),
-    [events],
+    () => sortTimelineEvents(events, sortMode),
+    [events, sortMode],
   )
 
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
     el.scrollLeft = 0
-  }, [sorted])
+  }, [sorted, sortMode])
 
   const showStrip = sorted.length > 0
   if (!showStrip && !expandedEvent) return null
@@ -77,8 +88,40 @@ export function EventTimeline() {
     <>
       {showStrip ? (
         <div className="pointer-events-auto w-full max-w-2xl">
-          <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)]">
-            Event timeline
+          <div className="mb-0.5 flex items-center justify-between gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)]">
+              Event timeline
+            </span>
+            <div
+              role="group"
+              aria-label="Sort timeline events"
+              className="flex rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-px text-[9px] font-medium"
+            >
+              <button
+                type="button"
+                aria-pressed={sortMode === 'severity'}
+                onClick={() => setSort('severity')}
+                className={`rounded px-1.5 py-0.5 transition-colors ${
+                  sortMode === 'severity'
+                    ? 'bg-[var(--c9-surface)] text-[var(--c9-text)] shadow-sm'
+                    : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                }`}
+              >
+                Importance
+              </button>
+              <button
+                type="button"
+                aria-pressed={sortMode === 'time'}
+                onClick={() => setSort('time')}
+                className={`rounded px-1.5 py-0.5 transition-colors ${
+                  sortMode === 'time'
+                    ? 'bg-[var(--c9-surface)] text-[var(--c9-text)] shadow-sm'
+                    : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                }`}
+              >
+                Time
+              </button>
+            </div>
           </div>
           <div
             ref={scrollRef}
