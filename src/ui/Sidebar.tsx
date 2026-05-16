@@ -39,7 +39,6 @@ import {
   type DeployStep,
 } from './DeployModal'
 import { PredictionCards } from './PredictionCards'
-import { RationalePanel } from './RationalePanel'
 import {
   TemplateModal,
   templateTitleForId,
@@ -533,7 +532,6 @@ export function Sidebar() {
           })}
         </ul>
         {!live ? <PredictionCards /> : null}
-        {!live ? <RationalePanel /> : null}
       </div>
       <div
         className={`space-y-2 border-t border-[var(--c9-border)] bg-[var(--c9-surface)]/80 p-4 ${
