@@ -1,6 +1,6 @@
-import { Edges, Html, Line } from '@react-three/drei'
-import { type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Html, Line } from '@react-three/drei'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDrag } from '@use-gesture/react'
 import * as THREE from 'three'
 import { defaultEdgeProtocol } from '../lib/defaultEdgeProtocol'
@@ -13,6 +13,9 @@ import {
   type CanvasNode,
 } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { getLabelY, getNodeUnitSpec } from './nodeShapes/nodeBounds'
+import { NodeCollider } from './nodeShapes/NodeCollider'
+import { ReplicaStackVisual } from './nodeShapes/ReplicaStackVisual'
 import { NodeTooltip } from '../ui/NodeTooltip'
 
 const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
@@ -58,8 +61,6 @@ export function BaseNode({ node }: BaseNodeProps) {
   const edgesById = useCanvasStore((s) => s.edges)
   const [hovered, setHovered] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const expandProgress = useRef(0)
-  const [displayProgress, setDisplayProgress] = useState(0)
 
   const { camera, gl, invalidate: inv } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -71,6 +72,16 @@ export function BaseNode({ node }: BaseNodeProps) {
     designTool === 'connect'
   const isClient = node.type === 'client'
   const { face, edge, healthEdge } = NODE_VISUAL[node.type]
+  const unitSpec = getNodeUnitSpec(node.type)
+  const bodyMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: face,
+        roughness: 0.8,
+        metalness: 0,
+      }),
+    [face],
+  )
   const health = computeHealthState(metrics, nodeStatus)
   const healthEdgeColor =
     health === 'error'
@@ -101,11 +112,13 @@ export function BaseNode({ node }: BaseNodeProps) {
     ) &&
     visualReplicas > 1
 
-  useEffect(() => {
-    if (!hasReplicaStack || !selected) {
-      setExpanded(false)
-    }
-  }, [hasReplicaStack, selected])
+  const mqPartitions = useMemo(() => {
+    if (node.type !== 'message_queue') return 1
+    const n = Number(node.config.partitions ?? 1)
+    return Number.isFinite(n)
+      ? Math.max(1, Math.min(32, Math.floor(n)))
+      : 1
+  }, [node.type, node.config.partitions])
 
   const connectedNeighborAvgX = useMemo(() => {
     const neighbors: number[] = []
@@ -122,50 +135,35 @@ export function BaseNode({ node }: BaseNodeProps) {
 
   const preferredSign = connectedNeighborAvgX >= node.position[0] ? -1 : 1
 
-  const replicaOffsets = useMemo(() => {
-    const out: [number, number, number][] = [[0, 0, 0]]
-    for (let i = 1; i < visualReplicas; i++) {
-      // Camera is at [10,10,10] — "behind" the node from the viewer's perspective
-      // is the +X/+Z direction (away from camera). Step each replica there so it
-      // peeks out from behind the primary in the iso view, like stacked cards.
-      const s = 0.3 * i
-      const collapsed: [number, number, number] = [s, 0, s]
+  const replicaSpreadOffsets = useMemo((): [number, number, number][] => {
+    const out: [number, number, number][] = []
+    for (let i = 0; i < visualReplicas; i++) {
+      if (i === 0) {
+        out.push([0, 0.1, 0])
+        continue
+      }
       const side = i % 2 === 1 ? preferredSign : -preferredSign
       const step = Math.ceil(i / 2)
-      const expandedOffset: [number, number, number] = [
-        0.55 * side * step,
-        -0.18 * step,
-        0.48 * step,
-      ]
-      const staggerStart = Math.min(0.35, i * 0.12)
-      const localProgress = THREE.MathUtils.clamp(
-        (displayProgress - staggerStart) / (1 - staggerStart),
-        0,
-        1
-      )
-      out.push([
-        THREE.MathUtils.lerp(collapsed[0], expandedOffset[0], localProgress),
-        THREE.MathUtils.lerp(collapsed[1], expandedOffset[1], localProgress),
-        THREE.MathUtils.lerp(collapsed[2], expandedOffset[2], localProgress),
-      ])
+      out.push([0.55 * side * step, -0.12 * step, 0.48 * step])
     }
     return out
-  }, [visualReplicas, preferredSign, displayProgress])
+  }, [visualReplicas, preferredSign])
+
+  useEffect(() => {
+    if (!hasReplicaStack || !selected) {
+      setExpanded(false)
+    }
+  }, [hasReplicaStack, selected])
+
+  const toggleReplicaExpandAllowed =
+    hasReplicaStack &&
+    (isMetricsViewportMode(mode) ||
+      (isCanvasEditMode(mode) && designTool === 'select'))
 
   useFrame(() => {
     const mesh = meshRef.current
     if (!mesh) return
     const mat = mesh.material as THREE.MeshStandardMaterial
-    expandProgress.current = THREE.MathUtils.damp(
-      expandProgress.current,
-      expanded ? 1 : 0,
-      7,
-      1 / 60
-    )
-    if (Math.abs(displayProgress - expandProgress.current) > 0.001) {
-      setDisplayProgress(expandProgress.current)
-      inv()
-    }
     const st = useCanvasStore.getState()
     const walkthroughRunning =
       st.walkthroughActiveNodeId != null ||
@@ -303,11 +301,9 @@ export function BaseNode({ node }: BaseNodeProps) {
 
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation()
-    const toggleAllowed =
-      hasReplicaStack &&
-      (isMetricsViewportMode(mode) ||
-        (isCanvasEditMode(mode) && designTool === 'select'))
-    if (toggleAllowed) setExpanded((v) => !v)
+    if (toggleReplicaExpandAllowed) {
+      setExpanded((v) => !v)
+    }
     if (isMetricsViewportMode(mode)) {
       useCanvasStore.getState().selectNode(node.id)
       return
@@ -355,94 +351,150 @@ export function BaseNode({ node }: BaseNodeProps) {
     s.selectNode(node.id)
   }
 
-  // Node box dimensions — height intentionally slim so stacked replicas peek out cleanly
-  const nodeW = isClient ? 1.0 : 1.4
-  const nodeH = isClient ? 0.28 : 0.35
-  const nodeD = isClient ? 1.0 : 1.4
+  const labelY = useMemo(() => {
+    const stacked = getLabelY(unitSpec, visualReplicas)
+    if (!expanded || !hasReplicaStack) return stacked
+    const maxTip = Math.max(
+      ...replicaSpreadOffsets.map(([, yy]) => yy + unitSpec.h * 0.55),
+      stacked,
+    )
+    return maxTip + unitSpec.labelMargin
+  }, [
+    expanded,
+    hasReplicaStack,
+    replicaSpreadOffsets,
+    unitSpec,
+    visualReplicas,
+  ])
 
   return (
     <group position={node.position}>
       {isPendingSource ? <PendingSourceRing /> : null}
-      {/* Render replica meshes BEFORE the primary so they sit behind it in depth */}
-      {hasReplicaStack
-        ? replicaOffsets.slice(1).map((offset, idx) => {
-            // Slightly darker per step so they read as "further back" — fully opaque.
-            const darken = 1 - (idx + 1) * 0.10
-            const replicaFace = '#' + new THREE.Color(face)
-              .multiplyScalar(darken)
-              .getHexString()
-            return (
-            <group key={`${node.id}-replica-${idx + 1}`} position={offset}>
-              <mesh>
-                <boxGeometry args={[nodeW, nodeH, nodeD]} />
-                <meshStandardMaterial color={replicaFace} roughness={0.7} metalness={0} />
-                <Edges threshold={15} color={edgeColor} />
-              </mesh>
-              {expanded ? (
-                <Html
-                  position={[0, -0.5, 0]}
-                  center
-                  zIndexRange={[20, 10]}
-                  style={{ pointerEvents: 'none' }}
-                >
-                  <div className="pointer-events-none rounded bg-black/60 px-1 py-px font-mono text-[9px] text-zinc-200">
-                    replica {idx + 1}
-                  </div>
-                </Html>
-              ) : null}
-              {expanded ? (
-                <Line
-                  points={[
-                    [0, 0, 0],
-                    [-offset[0], -offset[1], -offset[2]],
-                  ]}
-                  raycast={() => null}
-                  color="#9CA3AF"
-                  lineWidth={1}
-                  dashed
-                  dashScale={4}
-                  dashSize={0.4}
-                  gapSize={0.25}
-                  transparent
-                  opacity={0.45}
-                />
-              ) : null}
+      {hasReplicaStack && expanded ? (
+        <>
+          {replicaSpreadOffsets.map((offset, idx) => (
+            <group key={`${node.id}-slot-${idx}`} position={offset}>
+              {idx === 0 ? (
+                <>
+                  <NodeCollider
+                    ref={meshRef}
+                    type={node.type}
+                    face={face}
+                    edgeColor={edgeColor}
+                    bodyMaterial={bodyMaterial}
+                    replicas={1}
+                    mqPartitions={mqPartitions}
+                    singleStackSlot={0}
+                    stackUnitUseLocalOrigin
+                    dragBind={dragBind}
+                    movementLocked={movementLocked}
+                    onClick={handleClick}
+                    onPointerEnter={() => setHovered(true)}
+                    onPointerLeave={() => setHovered(false)}
+                    onPointerOver={() => {
+                      if (!isCanvasEditMode(mode) || designTool !== 'connect')
+                        return
+                      const pending = useCanvasStore.getState().pendingSourceId
+                      if (pending && pending !== node.id) {
+                        setConnectHoverTargetId(node.id)
+                      }
+                    }}
+                    onPointerOut={() => {
+                      if (
+                        useCanvasStore.getState().connectHoverTargetId === node.id
+                      ) {
+                        setConnectHoverTargetId(null)
+                      }
+                    }}
+                  />
+                  <Html
+                    position={[0, -0.48, 0]}
+                    center
+                    zIndexRange={[20, 10]}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <div className="pointer-events-none rounded bg-black/60 px-1 py-px text-center font-mono text-[9px] text-zinc-200">
+                      <div>˄ collapse</div>
+                      <div className="text-zinc-400">primary</div>
+                    </div>
+                  </Html>
+                </>
+              ) : (
+                <>
+                  <ReplicaStackVisual
+                    type={node.type}
+                    face={face}
+                    edgeColor={edgeColor}
+                    darkenFactor={1 - idx * 0.1}
+                    replicas={1}
+                    singleStackSlot={idx}
+                    stackUnitUseLocalOrigin
+                    mqPartitions={mqPartitions}
+                  />
+                  <Html
+                    position={[0, -0.42, 0]}
+                    center
+                    zIndexRange={[20, 10]}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <div className="pointer-events-none rounded bg-black/60 px-1 py-px font-mono text-[9px] text-zinc-200">
+                      replica {idx}
+                    </div>
+                  </Html>
+                  <Line
+                    points={[
+                      [0, 0, 0],
+                      [
+                        replicaSpreadOffsets[0][0] - offset[0],
+                        replicaSpreadOffsets[0][1] - offset[1],
+                        replicaSpreadOffsets[0][2] - offset[2],
+                      ],
+                    ]}
+                    raycast={() => null}
+                    color="#9CA3AF"
+                    lineWidth={1}
+                    dashed
+                    dashScale={4}
+                    dashSize={0.4}
+                    gapSize={0.25}
+                    transparent
+                    opacity={0.45}
+                  />
+                </>
+              )}
             </group>
-          )
-          })
-        : null}
-      {/* Primary node — rendered after replicas so it occludes them in front */}
-      <mesh
-        ref={meshRef}
-        {...dragBind}
-        onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-          if (e.button === 0) e.stopPropagation()
-          if (!movementLocked) {
-            dragBind.onPointerDown?.(e as unknown as ReactPointerEvent<HTMLElement>)
-          }
-        }}
-        onClick={handleClick}
-        onPointerEnter={() => setHovered(true)}
-        onPointerLeave={() => setHovered(false)}
-        onPointerOver={() => {
-          if (!isCanvasEditMode(mode) || designTool !== 'connect') return
-          const pending = useCanvasStore.getState().pendingSourceId
-          if (pending && pending !== node.id) {
-            setConnectHoverTargetId(node.id)
-          }
-        }}
-        onPointerOut={() => {
-          if (useCanvasStore.getState().connectHoverTargetId === node.id) {
-            setConnectHoverTargetId(null)
-          }
-        }}
-      >
-        <boxGeometry args={[nodeW, nodeH, nodeD]} />
-        <meshStandardMaterial color={face} roughness={0.7} metalness={0} />
-        <Edges threshold={15} color={edgeColor} />
-      </mesh>
+          ))}
+        </>
+      ) : (
+        <NodeCollider
+          ref={meshRef}
+          type={node.type}
+          face={face}
+          edgeColor={edgeColor}
+          bodyMaterial={bodyMaterial}
+          replicas={visualReplicas}
+          mqPartitions={mqPartitions}
+          dragBind={dragBind}
+          movementLocked={movementLocked}
+          onClick={handleClick}
+          onPointerEnter={() => setHovered(true)}
+          onPointerLeave={() => setHovered(false)}
+          onPointerOver={() => {
+            if (!isCanvasEditMode(mode) || designTool !== 'connect') return
+            const pending = useCanvasStore.getState().pendingSourceId
+            if (pending && pending !== node.id) {
+              setConnectHoverTargetId(node.id)
+            }
+          }}
+          onPointerOut={() => {
+            if (useCanvasStore.getState().connectHoverTargetId === node.id) {
+              setConnectHoverTargetId(null)
+            }
+          }}
+        />
+      )}
       <Html
-        position={[0, 0.6, 0]}
+        position={[0, labelY, 0]}
         center
         zIndexRange={[20, 10]}
         style={{ pointerEvents: 'none' }}
@@ -456,20 +508,15 @@ export function BaseNode({ node }: BaseNodeProps) {
             }}
           >
             {node.label}
-            {hasReplicaStack && !expanded ? (
+            {hasReplicaStack ? (
               <span className="ml-1 font-mono text-[8px] text-sky-700">
                 {node.type === 'database' ? `+${replicas} read` : `×${replicas}`}
               </span>
             ) : null}
           </div>
-          {hasReplicaStack ? (
+          {hasReplicaStack && !expanded ? (
             <div className="mt-1 text-center font-mono text-[8px] text-zinc-300/65">
-              {expanded ? '˄ collapse' : '˄ expand'}
-            </div>
-          ) : null}
-          {hasReplicaStack && expanded ? (
-            <div className="mt-0.5 text-center font-mono text-[8px] text-zinc-200/80">
-              primary
+              ˄ expand
             </div>
           ) : null}
         </div>

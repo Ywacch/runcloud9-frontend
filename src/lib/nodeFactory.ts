@@ -23,7 +23,7 @@ export function defaultConfigForType(
         cacheStrategy: 'cache-aside',
       }
     case 'message_queue':
-      return { engine: 'rabbitmq', durable: true }
+      return { engine: 'rabbitmq', durable: true, partitions: 1 }
     case 'worker':
       return { replicas: 1, instanceSize: 'small' }
     case 'client':

@@ -633,7 +633,7 @@ function TypeFields({
                   min={1}
                   max={32}
                   className={fieldClass}
-                  value={Number(c.partitions ?? 4)}
+                  value={Number(c.partitions ?? 1)}
                   onChange={(e) =>
                     updateConfig({
                       partitions: clamp(Number(e.target.value) || 1, 1, 32),
