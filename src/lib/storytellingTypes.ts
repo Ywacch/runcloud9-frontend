@@ -5,8 +5,8 @@ export interface WhenSpec {
 }
 
 export interface StorytellingRoleSpec {
-  base: string
-  variants?: { when: WhenSpec; label: string }[]
+  base?: string
+  variants?: { when: WhenSpec; label?: string }[]
 }
 
 export interface StorytellingJourneyStep {
@@ -27,8 +27,8 @@ export interface StorytellingJourney {
   label: string
   trafficPercent?: number
   steps: StorytellingJourneyStep[]
-  explanation: string
-  explanationVariants?: { when: WhenSpec; text: string }[]
+  explanation?: string
+  explanationVariants?: { when: WhenSpec; text?: string }[]
 }
 
 export interface NarrativeRuleContext {

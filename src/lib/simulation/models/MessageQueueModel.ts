@@ -10,8 +10,8 @@ export class MessageQueueModel extends ComponentModel {
   }
 
   private get partitions(): number {
-    const n = Number(this.node.config.partitions ?? 4)
-    return Number.isFinite(n) && n > 0 ? Math.min(32, Math.floor(n)) : 4
+    const n = Number(this.node.config.partitions ?? 1)
+    return Number.isFinite(n) && n > 0 ? Math.min(32, Math.floor(n)) : 1
   }
 
   private get capacityMultiplier(): number {

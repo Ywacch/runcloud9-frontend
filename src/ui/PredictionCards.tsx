@@ -7,8 +7,20 @@ import {
 import { useCanvasStore } from '../store/canvasStore'
 import { useStorytellingStore } from '../store/storytellingStore'
 import { useTemplateRegistryStore } from '../store/templateRegistryStore'
+import { useWalkthroughStore } from '../store/walkthroughStore'
 
-function PredictionCardItem({ card }: { card: PredictionCard }) {
+function PredictionCardItem({
+  card,
+  onWalkJourney,
+}: {
+  card: PredictionCard
+  onWalkJourney?: (journeyId: string) => void
+}) {
+  const journeyId =
+    card.kind === 'journey' && card.id.startsWith('journey:')
+      ? card.id.slice('journey:'.length)
+      : null
+
   return (
     <li className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -23,6 +35,15 @@ function PredictionCardItem({ card }: { card: PredictionCard }) {
           Watch for: {card.suggestion}
         </p>
       ) : null}
+      {journeyId && onWalkJourney ? (
+        <button
+          type="button"
+          className="mt-3 w-full rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-2 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20"
+          onClick={() => onWalkJourney(journeyId)}
+        >
+          ▶ Architecture walkthrough
+        </button>
+      ) : null}
     </li>
   )
 }
@@ -35,6 +56,7 @@ export function PredictionCards() {
     templateId ? s.byId[templateId]?.storytelling : undefined,
   )
   const syncPredictions = useStorytellingStore((s) => s.syncPredictionsFromCanvas)
+  const startWalkthrough = useWalkthroughStore((s) => s.startWalkthrough)
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const cards = useMemo(
@@ -60,7 +82,11 @@ export function PredictionCards() {
       </p>
       <ul className="max-h-64 space-y-2 overflow-y-auto">
         {cards.map((card) => (
-          <PredictionCardItem key={card.id} card={card} />
+          <PredictionCardItem
+            key={card.id}
+            card={card}
+            onWalkJourney={startWalkthrough}
+          />
         ))}
       </ul>
     </div>

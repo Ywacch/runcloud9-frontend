@@ -34,8 +34,8 @@ export interface JourneySpec {
   explanation: string
 }
 
-function asBackendComponent(raw: string): JourneyBackendComponent {
-  const c = raw.trim()
+function asBackendComponent(raw: string | undefined): JourneyBackendComponent {
+  const c = (raw ?? '').trim()
   if (
     c === 'lb' ||
     c === 'app-server' ||

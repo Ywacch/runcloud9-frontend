@@ -20,10 +20,19 @@ function topologyFlagValue(t: TopologyFlags, flag: string): boolean {
   }
 }
 
+function normStrategy(value: unknown): string {
+  if (value == null) return ''
+  return String(value).trim()
+}
+
 export function matchesWhen(when: WhenSpec, topology: TopologyFlags): boolean {
-  if (when.strategy && topology.cacheStrategy.trim() !== when.strategy.trim()) return false
+  const wantStrategy = normStrategy(when.strategy)
+  if (wantStrategy) {
+    const haveStrategy = normStrategy(topology.cacheStrategy)
+    if (haveStrategy !== wantStrategy) return false
+  }
   if (when.topology) {
-    const parts = when.topology.split('+')
+    const parts = String(when.topology).split('+')
     for (const raw of parts) {
       const token = raw.trim()
       if (!token) continue
@@ -69,8 +78,11 @@ export function resolveExplanation(
 ): string {
   if (journey.explanationVariants) {
     for (const v of journey.explanationVariants) {
-      if (matchesWhen(v.when, topology)) return v.text
+      if (matchesWhen(v.when, topology)) {
+        const text = v.text ?? ''
+        if (text.trim()) return text
+      }
     }
   }
-  return journey.explanation
+  return journey.explanation ?? ''
 }

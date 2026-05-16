@@ -26,7 +26,7 @@ export function collectPredictions(
 
   for (const j of storytelling?.journeys ?? []) {
     const body = resolveExplanation(j, topology)
-    if (!body.trim()) continue
+    if (!body?.trim()) continue
     cards.push({
       id: `journey:${j.id}`,
       kind: 'journey',

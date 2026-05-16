@@ -56,6 +56,34 @@ describe('filterSteps', () => {
 })
 
 describe('resolveExplanation', () => {
+  it('returns empty string when explanation and variants are missing', () => {
+    const j: StorytellingJourney = {
+      id: 'push',
+      method: 'POST',
+      path: '/feed/push',
+      label: 'Push',
+      steps: [],
+    }
+    expect(resolveExplanation(j, baseTopology())).toBe('')
+  })
+
+  it('skips variant entries with empty text', () => {
+    const j: StorytellingJourney = {
+      id: 'push',
+      method: 'POST',
+      path: '/feed/push',
+      label: 'Push',
+      steps: [],
+      explanation: 'fallback',
+      explanationVariants: [
+        { when: { topology: 'hasMQ' }, text: '' },
+        { when: { topology: '!hasMQ' }, text: 'no mq' },
+      ],
+    }
+    const t = { ...baseTopology(), hasMQ: true }
+    expect(resolveExplanation(j, t)).toBe('fallback')
+  })
+
   it('uses first matching variant', () => {
     const j: StorytellingJourney = {
       id: 'j1',
