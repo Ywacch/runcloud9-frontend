@@ -19,6 +19,8 @@ export interface JourneyStep {
   /** When omitted, UI derives from `component` (see `journeyStepHeading`). */
   title?: string
   action: string
+  /** Per-step teaching copy (walkthrough "Why this matters"). */
+  lesson?: string
   detail?: string
   branchLabel?: string
   metricsKey?: string
@@ -53,6 +55,7 @@ function storytellingStepToJourneyStep(step: StorytellingJourneyStep): JourneySt
   return {
     component: asBackendComponent(step.component),
     action: step.action,
+    lesson: step.lesson,
     detail: step.detail,
     branchLabel: step.condition,
     metricsKey: step.metricsKey,

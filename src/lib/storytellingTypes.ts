@@ -12,6 +12,8 @@ export interface StorytellingRoleSpec {
 export interface StorytellingJourneyStep {
   component: string
   action: string
+  /** Optional per-step teaching copy for walkthrough "Why this matters". */
+  lesson?: string
   detail?: string
   metricsKey?: string
   requires?: string[]
