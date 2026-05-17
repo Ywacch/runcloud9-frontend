@@ -1,3 +1,4 @@
+import type { TopologyFlags } from './componentRole'
 import type { CanvasNode } from '../store/canvasStore'
 import type { LiveLoadgenState, MetricsBucket } from '../store/metricsStore'
 import type { SimNodeInspector } from './simulation/types'
@@ -104,26 +105,18 @@ const TEMPLATE_METRIC_ROWS: Record<
   Array<{ key: string; label: string; format: (n: number) => string }>
 > = {
   'social-feed': [
-    { key: 'feed.pull_rate', label: 'Feed pull rate', format: (n) => `${fmtRate(n)}/s` },
-    { key: 'feed.push_rate', label: 'Feed push rate', format: (n) => `${fmtRate(n)}/s` },
-    {
-      key: 'feed.pull_p95',
-      label: 'Feed pull p95',
-      format: (n) => fmtMs(n * 1000),
-    },
-    {
-      key: 'feed.push_p95',
-      label: 'Feed push p95',
-      format: (n) => fmtMs(n * 1000),
-    },
-    { key: 'worker.processed', label: 'Worker processed', format: (n) => fmtInt(Math.round(n)) },
-    { key: 'worker.errors', label: 'Worker errors', format: (n) => fmtInt(Math.round(n)) },
+    { key: 'feed.pull_rate', label: 'Feed reads/s (pull)', format: (n) => `${fmtRate(n)}/s` },
+    { key: 'feed.push_rate', label: 'Feed reads/s (push)', format: (n) => `${fmtRate(n)}/s` },
+    { key: 'feed.pull_p95', label: 'Feed read p95 (pull)', format: (n) => fmtMs(n * 1000) },
+    { key: 'feed.push_p95', label: 'Feed read p95 (push)', format: (n) => fmtMs(n * 1000) },
+    { key: 'worker.processed', label: 'Fan-out jobs done', format: (n) => fmtInt(Math.round(n)) },
+    { key: 'worker.errors', label: 'Fan-out errors', format: (n) => fmtInt(Math.round(n)) },
     {
       key: 'worker.fanout_p99',
-      label: 'Worker fanout p99',
+      label: 'Fan-out p99',
       format: (n) => (n >= 10 ? fmtInt(Math.round(n)) : n.toFixed(2)),
     },
-    { key: 'mq.publish_total', label: 'MQ publish total', format: (n) => fmtInt(Math.round(n)) },
+    { key: 'mq.publish_total', label: 'Messages published', format: (n) => fmtInt(Math.round(n)) },
   ],
   ecommerce: [
     {
@@ -131,18 +124,10 @@ const TEMPLATE_METRIC_ROWS: Record<
       label: 'Inventory conflicts',
       format: (n) => fmtInt(Math.round(n)),
     },
-    {
-      key: 'checkout.sync_p95',
-      label: 'Checkout sync p95',
-      format: (n) => fmtMs(n * 1000),
-    },
-    {
-      key: 'checkout.async_p95',
-      label: 'Checkout async p95',
-      format: (n) => fmtMs(n * 1000),
-    },
-    { key: 'mq.publish_errors', label: 'MQ publish errors', format: (n) => fmtInt(Math.round(n)) },
-    { key: 'mq.publish_total', label: 'MQ publish total', format: (n) => fmtInt(Math.round(n)) },
+    { key: 'checkout.sync_p95', label: 'Checkout p95 (sync)', format: (n) => fmtMs(n * 1000) },
+    { key: 'checkout.async_p95', label: 'Checkout p95 (async)', format: (n) => fmtMs(n * 1000) },
+    { key: 'mq.publish_errors', label: 'Publish failures', format: (n) => fmtInt(Math.round(n)) },
+    { key: 'mq.publish_total', label: 'Messages published', format: (n) => fmtInt(Math.round(n)) },
   ],
 }
 
@@ -152,13 +137,42 @@ export interface TemplateKpiRow {
   value: string
 }
 
+function isMetricRelevant(
+  templateId: string,
+  key: string,
+  topology: TopologyFlags | undefined,
+): boolean {
+  if (!topology) return true
+
+  const { hasMQ, hasWorker, hasCache } = topology
+  if (templateId === 'social-feed') {
+    if (!hasMQ && (key.includes('async') || key.includes('worker') || key.includes('mq.'))) {
+      return false
+    }
+    if (hasMQ && key === 'posts.total_sync') return false
+    if (!hasMQ && key === 'posts.total_async') return false
+    if (!hasCache && key.startsWith('feed.push')) return false
+    if (hasCache && hasMQ && key.startsWith('feed.pull')) return false
+    if (!hasWorker && key.startsWith('worker.')) return false
+  }
+  if (templateId === 'ecommerce') {
+    if (!hasMQ && (key.includes('async') || key.startsWith('mq.'))) return false
+    if (hasMQ && key === 'checkout.sync_total') return false
+    if (!hasMQ && key === 'checkout.async_total') return false
+    if (hasMQ && key === 'checkout.sync_p95') return false
+    if (!hasMQ && key === 'checkout.async_p95') return false
+  }
+  return true
+}
+
 export function templateKpiRows(
   templateId: string | null | undefined,
   metrics: Record<string, MetricsBucket>,
   inspector: Record<string, SimNodeInspector>,
   nodes: Record<string, CanvasNode>,
   loadgen: LiveLoadgenState | null,
-  templateMetrics: Record<string, number> = {}
+  templateMetrics: Record<string, number> = {},
+  topology?: TopologyFlags,
 ): TemplateKpiRow[] {
   if (!templateId) return []
   const defs = TEMPLATE_KPIS[templateId]
@@ -188,17 +202,25 @@ export function templateKpiRows(
   if (templateId === 'ecommerce' && preferEcommerceCheckoutTotals(templateMetrics)) {
     const s = templateMetrics['checkout.sync_total']
     const a = templateMetrics['checkout.async_total']
-    if (s != null && Number.isFinite(s)) {
+    if (
+      s != null &&
+      Number.isFinite(s) &&
+      isMetricRelevant(templateId, 'checkout.sync_total', topology)
+    ) {
       rows.push({
         id: 'tm-checkout-sync-total',
-        label: 'Checkouts (sync)',
+        label: 'Checkouts written (sync)',
         value: fmtInt(Math.round(s)),
       })
     }
-    if (a != null && Number.isFinite(a)) {
+    if (
+      a != null &&
+      Number.isFinite(a) &&
+      isMetricRelevant(templateId, 'checkout.async_total', topology)
+    ) {
       rows.push({
         id: 'tm-checkout-async-total',
-        label: 'Checkouts (async)',
+        label: 'Checkouts written (async)',
         value: fmtInt(Math.round(a)),
       })
     }
@@ -207,17 +229,25 @@ export function templateKpiRows(
   if (templateId === 'social-feed' && preferSocialPostTotals(templateMetrics)) {
     const s = templateMetrics['posts.total_sync']
     const a = templateMetrics['posts.total_async']
-    if (s != null && Number.isFinite(s)) {
+    if (
+      s != null &&
+      Number.isFinite(s) &&
+      isMetricRelevant(templateId, 'posts.total_sync', topology)
+    ) {
       rows.push({
         id: 'tm-posts-sync',
-        label: 'Posts (sync)',
+        label: 'Posts written (sync)',
         value: fmtInt(Math.round(s)),
       })
     }
-    if (a != null && Number.isFinite(a)) {
+    if (
+      a != null &&
+      Number.isFinite(a) &&
+      isMetricRelevant(templateId, 'posts.total_async', topology)
+    ) {
       rows.push({
         id: 'tm-posts-async',
-        label: 'Posts (async)',
+        label: 'Posts written (async)',
         value: fmtInt(Math.round(a)),
       })
     }
@@ -247,6 +277,7 @@ export function templateKpiRows(
   if (extra?.length) {
     for (const { key, label, format } of extra) {
       if (skipKeys.has(key)) continue
+      if (!isMetricRelevant(templateId, key, topology)) continue
       const v = templateMetrics[key]
       if (v == null || !Number.isFinite(v)) continue
       rows.push({

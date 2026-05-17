@@ -157,12 +157,14 @@ export function RequestJourneyPanel({
                 </li>
               ))}
             </ol>
-            <div className="mt-6 border-t border-[var(--c9-border)] pt-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
-                Why this matters
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-200">{journey.explanation}</p>
-            </div>
+            {journey.explanation ? (
+              <div className="mt-6 border-t border-[var(--c9-border)] pt-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
+                  Why this matters
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-200">{journey.explanation}</p>
+              </div>
+            ) : null}
           </>
         ) : null}
 

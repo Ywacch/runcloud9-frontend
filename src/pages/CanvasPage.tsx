@@ -175,7 +175,8 @@ export default function CanvasPage() {
           live.setMode('live')
           live.setAllEdgesAnimated(true)
           live.setLiveSessionEndsAt(endsAt)
-          live.selectNode(null)
+          // Keep the current selection when entering live so the inspector stays open
+          // while metrics stream in (clearing here caused an empty sidebar race).
           live.setPendingSource(null)
           live.setPlacingNodeType(null)
           live.setDesignTool('select')

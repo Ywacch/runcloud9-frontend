@@ -169,12 +169,14 @@ export function WalkthroughOverlay() {
         </>
       ) : null}
 
-      <div className="mt-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
-          Why this matters
-        </p>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-300">{journey.explanation}</p>
-      </div>
+      {journey.explanation ? (
+        <div className="mt-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
+            Why this matters
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-300">{journey.explanation}</p>
+        </div>
+      ) : null}
     </div>
   )
 }

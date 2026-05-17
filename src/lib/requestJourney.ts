@@ -54,7 +54,7 @@ function storytellingStepToJourneyStep(step: StorytellingJourneyStep): JourneySt
     component: asBackendComponent(step.component),
     action: step.action,
     detail: step.detail,
-    branchLabel: step.condition ?? step.metricsKey,
+    branchLabel: step.condition,
     metricsKey: step.metricsKey,
   }
 }
@@ -67,15 +67,17 @@ export function getJourneys(
   storytelling: StorytellingSpec | null | undefined,
 ): FilteredJourney[] {
   const journeys = storytelling?.journeys ?? []
-  return journeys.map((j) => ({
-    id: j.id,
-    method: j.method,
-    path: j.path,
-    label: j.label,
-    trafficPercent: j.trafficPercent,
-    explanation: resolveExplanation(j, topology),
-    steps: filterSteps(j.steps, topology).map(storytellingStepToJourneyStep),
-  }))
+  return journeys
+    .map((j) => ({
+      id: j.id,
+      method: j.method,
+      path: j.path,
+      label: j.label,
+      trafficPercent: j.trafficPercent,
+      explanation: resolveExplanation(j, topology),
+      steps: filterSteps(j.steps, topology).map(storytellingStepToJourneyStep),
+    }))
+    .filter((j) => j.steps.length > 0)
 }
 
 export function journeyById(
