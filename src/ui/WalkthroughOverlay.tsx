@@ -45,6 +45,16 @@ export function WalkthroughOverlay() {
     return journeyStepHeading(step, currentStepIndex)
   }, [step, currentStepIndex])
 
+  const whyThisMatters = useMemo(() => {
+    if (!journey || !step) return ''
+    const stepCount = journey.steps.length
+    const isLast = currentStepIndex >= stepCount - 1
+    return (
+      step.lesson?.trim() ||
+      (isLast ? journey.explanation?.trim() ?? '' : '')
+    )
+  }, [journey, step, currentStepIndex])
+
   if (!activeJourneyId || !journey || mode !== 'design') return null
 
   const badge = step ? COMPONENT_BADGE[step.component] ?? step.component.toUpperCase() : ''
@@ -169,12 +179,15 @@ export function WalkthroughOverlay() {
         </>
       ) : null}
 
-      {journey.explanation ? (
-        <div className="mt-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
+      {whyThisMatters ? (
+        <div
+          key={`why-${currentStepIndex}-${whyThisMatters}`}
+          className="mt-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3"
+        >
           <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
             Why this matters
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-300">{journey.explanation}</p>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-300">{whyThisMatters}</p>
         </div>
       ) : null}
     </div>
