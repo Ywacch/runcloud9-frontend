@@ -4,7 +4,7 @@ import { getTopologyFlags } from '../lib/componentRole'
 import { readWriteFractions } from '../lib/simulation/workload'
 import { workloadProfileForTemplate } from '../lib/simulation/workloadProfiles'
 import { computeSystemAggregates } from '../lib/systemMetrics'
-import { getJourneys, journeyById, kpiRowToJourneyId } from '../lib/requestJourney'
+import { getJourneys, journeyById } from '../lib/requestJourney'
 import { templateKpiRows } from '../lib/templateKpis'
 import { useCanvasStore } from '../store/canvasStore'
 import { useTemplateRegistryStore } from '../store/templateRegistryStore'
@@ -114,6 +114,8 @@ export function SystemTopBar() {
     [metrics, nodes, loadgen, mode, lastInspector, simRunning]
   )
 
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+
   const kpiRows = useMemo(
     () =>
       mode === 'live' || mode === 'simulate'
@@ -123,13 +125,21 @@ export function SystemTopBar() {
             lastInspector,
             nodes,
             loadgen,
-            templateMetrics
+            templateMetrics,
+            topology,
           )
         : [],
-    [mode, snapshotTemplateId, metrics, lastInspector, nodes, loadgen, templateMetrics]
+    [
+      mode,
+      snapshotTemplateId,
+      metrics,
+      lastInspector,
+      nodes,
+      loadgen,
+      templateMetrics,
+      topology,
+    ],
   )
-
-  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const allJourneys = useMemo(
     () => getJourneys(snapshotTemplateId, topology, storytelling),
     [snapshotTemplateId, topology, storytelling],
@@ -207,23 +217,21 @@ export function SystemTopBar() {
               />
             </>
           ) : null}
-          {mixLabel && allJourneys.length > 0 ? (
+          {mixLabel ? (
             <Stat
               label="Load mix"
               value={mixLabel}
               wrap
               valueClass="!text-amber-100"
               containerClassName="min-w-0 flex-1 basis-full sm:basis-52"
-              title="Click to see request journeys for this template"
-              onClick={openJourneyOverview}
-            />
-          ) : mixLabel ? (
-            <Stat
-              label="Load mix"
-              value={mixLabel}
-              wrap
-              valueClass="!text-amber-100"
-              containerClassName="min-w-0 flex-1 basis-full sm:basis-52"
+              title={
+                allJourneys.length > 0
+                  ? 'Click to see request journeys for this template'
+                  : 'Read/write mix for this template'
+              }
+              onClick={
+                allJourneys.length > 0 ? openJourneyOverview : undefined
+              }
             />
           ) : null}
         </div>
@@ -249,7 +257,7 @@ export function SystemTopBar() {
       {kpiRows.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-2.5 py-1 backdrop-blur-sm">
           {kpiRows.map((row) => {
-            const jid = kpiRowToJourneyId(snapshotTemplateId, row, storytelling)
+            const jid = null // Disabled: journey popups from KPI rows are not useful yet
             const content = (
               <>
                 <span className="truncate text-[var(--c9-muted)]">{row.label}</span>

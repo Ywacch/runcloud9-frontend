@@ -26,10 +26,10 @@ function pct(v: number | undefined): number {
 }
 
 function cpuLabel(metrics: MetricsBucket | undefined): string {
-  if (!metrics) return '—'
+  if (!metrics) return '-'
   if (metrics.cpuIsEstimated) {
     if (metrics.cpuLimit > 0) {
-      return `${fmtCpuMilliCores(metrics.cpuUsage)} / ${fmtCpuMilliCores(metrics.cpuLimit)} (allocated)`
+      return `${fmtCpuMilliCores(metrics.cpuLimit)} (allocated)`
     }
     return `${fmtCpuMilliCores(metrics.cpuUsage)} (est.)`
   }
@@ -37,10 +37,10 @@ function cpuLabel(metrics: MetricsBucket | undefined): string {
 }
 
 function memLabel(metrics: MetricsBucket | undefined): string {
-  if (!metrics) return '—'
+  if (!metrics) return '-'
   if (metrics.memIsEstimated) {
     if (metrics.memoryLimit > 0) {
-      return `${fmtMemMB(metrics.memoryBytes)} / ${fmtMemMB(metrics.memoryLimit)} (allocated)`
+      return `${fmtMemMB(metrics.memoryLimit)} (allocated)`
     }
     return `${fmtMemMB(metrics.memoryBytes)} (est.)`
   }
@@ -77,11 +77,11 @@ export function NodeTooltip({
   const x = align === 'right' ? 0.92 : -0.92
 
   const cpuHint = metrics?.cpuIsEstimated
-    ? 'Allocated CPU request vs usage (estimated until real metrics scrape).'
-    : 'CPU utilization vs pod limit — sustained high values mean pressure.'
+    ? 'Allocated to this pod. Real utilization appears once metrics collection starts, or if the pod restarted.'
+    : 'CPU utilization vs pod limit. Sustained high values mean pressure.'
   const memHint = metrics?.memIsEstimated
-    ? 'Allocated memory vs usage (estimated until real metrics scrape).'
-    : 'Memory utilization vs pod limit — watch for pressure before OOM risk.'
+    ? 'Allocated to this pod. Real utilization appears once metrics collection starts, or if the pod restarted.'
+    : 'Memory utilization vs pod limit. Watch for pressure before OOM risk.'
   const rpsHint =
     'Request throughput through this component (rolling view from the stream).'
 

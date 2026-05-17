@@ -108,6 +108,22 @@ interface LiveMetricsProps {
   node: CanvasNode
 }
 
+export function MetricsWaitingSkeleton() {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+        Live metrics
+      </p>
+      <p className="text-sm text-gray-500">Waiting for metrics…</p>
+      <div className="space-y-2 animate-pulse" aria-hidden>
+        <div className="h-9 rounded-lg bg-gray-800/60" />
+        <div className="h-9 rounded-lg bg-gray-800/60" />
+        <div className="h-16 rounded-lg bg-gray-800/40" />
+      </div>
+    </div>
+  )
+}
+
 export function LiveMetrics({ node }: LiveMetricsProps) {
   const nodeId = node.id
   const mode = useCanvasStore((s) => s.mode)
@@ -142,9 +158,23 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   }, [mode, simDetail, simRunning, simPaused, lastTickWallClockMs])
 
   if (!m) {
-    return (
-      <p className="text-sm text-gray-500">Waiting for metrics stream…</p>
-    )
+    if (mode === 'simulate') {
+      return (
+        <div className="space-y-4">
+          {simInspectorCallout ? (
+            <p className="text-[11px] leading-relaxed text-gray-500">
+              {simInspectorCallout}
+            </p>
+          ) : null}
+          {simInspectorHasContent(simDetail) ? (
+            <SimulationInspectorSection detail={simDetail!} nodes={nodes} />
+          ) : (
+            <MetricsWaitingSkeleton />
+          )}
+        </div>
+      )
+    }
+    return <MetricsWaitingSkeleton />
   }
 
   return (
@@ -517,12 +547,12 @@ function SimulationInspectorSection({
 function CommonSection({ m }: { m: MetricsBucket }) {
   const cpuValue = m.cpuIsEstimated
     ? m.cpuLimit > 0
-      ? `${fmtCpuMilliCores(m.cpuUsage)} / ${fmtCpuMilliCores(m.cpuLimit)} (allocated)`
+      ? `${fmtCpuMilliCores(m.cpuLimit)} (allocated)`
       : `${fmtCpuMilliCores(m.cpuUsage)} (allocated)`
     : fmtPct(m.cpuPercent)
   const memValue = m.memIsEstimated
     ? m.memoryLimit > 0
-      ? `${fmtMemMB(m.memoryBytes)} / ${fmtMemMB(m.memoryLimit)} (allocated)`
+      ? `${fmtMemMB(m.memoryLimit)} (allocated)`
       : `${fmtMemMB(m.memoryBytes)} (allocated)`
     : `${fmtBytes(m.memoryBytes)}${
         m.memoryLimit > 0 ? ` · ${fmtPct(m.memPercent)}` : ''
