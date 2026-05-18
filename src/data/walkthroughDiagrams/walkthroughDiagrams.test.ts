@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { JourneyStep } from '../../lib/requestJourney'
 import { resolveWalkthroughDiagramSpec } from './index'
-import { SOCIAL_FEED_WRITE_5, SOCIAL_FEED_WRITE_7 } from './socialFeedWrite'
+import { SOCIAL_FEED_WRITE_5 } from './socialFeedWrite'
 import { SOCIAL_FEED_READ_5 } from './socialFeedRead'
 
 function steps(
