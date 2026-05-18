@@ -4,6 +4,10 @@ import { useWalkthroughTimer } from '../hooks/useWalkthroughTimer'
 import { journeyStepHeading } from '../lib/requestJourney'
 import { useCanvasStore } from '../store/canvasStore'
 import {
+  WalkthroughDiagram,
+  resolveWalkthroughDiagramSpec,
+} from '../components/walkthrough/WalkthroughDiagram'
+import {
   useWalkthroughStore,
   type WalkthroughSpeed,
 } from '../store/walkthroughStore'
@@ -55,13 +59,22 @@ export function WalkthroughOverlay() {
     )
   }, [journey, step, currentStepIndex])
 
+  const diagramSpec = useMemo(() => {
+    if (!journey) return null
+    return resolveWalkthroughDiagramSpec(journey.id, journey.steps)
+  }, [journey])
+
   if (!activeJourneyId || !journey || mode !== 'design') return null
 
   const badge = step ? COMPONENT_BADGE[step.component] ?? step.component.toUpperCase() : ''
   const atLast = currentStepIndex >= stepCount - 1
 
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-[35] max-h-[min(42vh,22rem)] overflow-y-auto border-t border-cyan-500/30 bg-[var(--c9-surface)]/95 px-4 py-3 pb-4 shadow-[0_-8px_32px_rgba(0,0,0,0.35)] backdrop-blur-md">
+    <div
+      className={`pointer-events-auto absolute inset-x-0 bottom-0 z-[35] overflow-y-auto border-t border-cyan-500/30 bg-[var(--c9-surface)]/95 px-4 py-3 pb-4 shadow-[0_-8px_32px_rgba(0,0,0,0.35)] backdrop-blur-md ${
+        diagramSpec ? 'max-h-[min(58vh,34rem)]' : 'max-h-[min(42vh,22rem)]'
+      }`}
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300/90">
           Architecture walkthrough
@@ -167,9 +180,23 @@ export function WalkthroughOverlay() {
         />
       </div>
 
+      {diagramSpec ? (
+        <WalkthroughDiagram
+          spec={diagramSpec}
+          journeyId={journey.id}
+          currentStepIndex={currentStepIndex}
+          playbackSpeed={speed}
+          className="border-b border-white/5"
+        />
+      ) : null}
+
       {step ? (
         <>
-          <p className="text-sm font-semibold text-[var(--c9-text)]">{heading}</p>
+          <p
+            className={`text-sm font-semibold text-[var(--c9-text)] ${diagramSpec ? 'mt-3' : ''}`}
+          >
+            {heading}
+          </p>
           <p className="mt-1 text-sm leading-relaxed text-zinc-300">{step.action}</p>
           {step.detail ? (
             <pre className="mt-2 overflow-x-auto rounded bg-black/35 p-2 font-mono text-[11px] text-zinc-300">
