@@ -29,7 +29,7 @@ function cpuLabel(metrics: MetricsBucket | undefined): string {
   if (!metrics) return '-'
   if (metrics.cpuIsEstimated) {
     if (metrics.cpuLimit > 0) {
-      return `${fmtCpuMilliCores(metrics.cpuLimit)} (allocated)`
+      return `${fmtCpuMilliCores(metrics.cpuLimit)} (alloc)`
     }
     return `${fmtCpuMilliCores(metrics.cpuUsage)} (est.)`
   }
@@ -40,7 +40,7 @@ function memLabel(metrics: MetricsBucket | undefined): string {
   if (!metrics) return '-'
   if (metrics.memIsEstimated) {
     if (metrics.memoryLimit > 0) {
-      return `${fmtMemMB(metrics.memoryLimit)} (allocated)`
+      return `${fmtMemMB(metrics.memoryLimit)} (alloc)`
     }
     return `${fmtMemMB(metrics.memoryBytes)} (est.)`
   }
@@ -76,12 +76,6 @@ export function NodeTooltip({
         : 'text-cyan-300'
   const x = align === 'right' ? 0.92 : -0.92
 
-  const cpuHint = metrics?.cpuIsEstimated
-    ? 'Allocated to this pod. Real utilization appears once metrics collection starts, or if the pod restarted.'
-    : 'CPU utilization vs pod limit. Sustained high values mean pressure.'
-  const memHint = metrics?.memIsEstimated
-    ? 'Allocated to this pod. Real utilization appears once metrics collection starts, or if the pod restarted.'
-    : 'Memory utilization vs pod limit. Watch for pressure before OOM risk.'
   const rpsHint =
     'Request throughput through this component (rolling view from the stream).'
 
@@ -110,7 +104,6 @@ export function NodeTooltip({
               <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
                 {cpuValue}
               </p>
-              <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">{cpuHint}</p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div
                   className="h-full rounded bg-violet-400 transition-[width] duration-150"
@@ -123,7 +116,6 @@ export function NodeTooltip({
               <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
                 {memValue}
               </p>
-              <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">{memHint}</p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div
                   className="h-full rounded bg-sky-400 transition-[width] duration-150"
