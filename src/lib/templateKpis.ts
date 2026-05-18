@@ -68,17 +68,27 @@ const ecommerceKpis: TemplateKpi[] = [
   },
 ]
 
-const socialKpis: TemplateKpi[] = [
-  {
-    id: 'posts',
-    label: 'Posts / writes (est.)',
-    compute: (metrics, _insp, _nodes, loadgen) => {
-      const total = ingressTotalRequests(metrics, loadgen)
-      return Math.max(0, Math.floor(total * writeShare('social-feed')))
+function socialKpisFor(templateId: 'social-feed' | 'social-feed-pull'): TemplateKpi[] {
+  const profileId = templateId === 'social-feed-pull' ? 'social-feed' : templateId
+  return [
+    {
+      id: 'posts',
+      label: 'Posts / writes (est.)',
+      compute: (metrics, _insp, _nodes, loadgen) => {
+        const total = ingressTotalRequests(metrics, loadgen)
+        return Math.max(0, Math.floor(total * writeShare(profileId)))
+      },
+      format: (v) => fmtInt(v),
     },
-    format: (v) => fmtInt(v),
-  },
-]
+  ]
+}
+
+const socialKpis = socialKpisFor('social-feed')
+const socialPullKpis = socialKpisFor('social-feed-pull')
+
+function isSocialFeedTemplate(templateId: string): boolean {
+  return templateId === 'social-feed' || templateId === 'social-feed-pull'
+}
 
 function tmFinite(tm: Record<string, number>, key: string): boolean {
   const v = tm[key]
@@ -97,6 +107,7 @@ export const TEMPLATE_KPIS: Record<string, TemplateKpi[]> = {
   'url-shortener': urlShortenerKpis,
   ecommerce: ecommerceKpis,
   'social-feed': socialKpis,
+  'social-feed-pull': socialPullKpis,
 }
 
 /** Optional rows merged from backend `templateMetrics` (see ganymede `collectTemplateMetrics`). */
@@ -117,6 +128,11 @@ const TEMPLATE_METRIC_ROWS: Record<
       format: (n) => (n >= 10 ? fmtInt(Math.round(n)) : n.toFixed(2)),
     },
     { key: 'mq.publish_total', label: 'Messages published', format: (n) => fmtInt(Math.round(n)) },
+  ],
+  'social-feed-pull': [
+    { key: 'feed.pull_rate', label: 'Feed reads/s (pull)', format: (n) => `${fmtRate(n)}/s` },
+    { key: 'feed.pull_p95', label: 'Feed read p95 (pull)', format: (n) => fmtMs(n * 1000) },
+    { key: 'posts.total_sync', label: 'Posts written (sync)', format: (n) => fmtInt(Math.round(n)) },
   ],
   ecommerce: [
     {
@@ -145,6 +161,14 @@ function isMetricRelevant(
   if (!topology) return true
 
   const { hasMQ, hasWorker, hasCache } = topology
+  if (templateId === 'social-feed-pull') {
+    if (key.startsWith('feed.push')) return false
+    if (key.includes('async') || key.startsWith('worker.') || key.startsWith('mq.')) {
+      return false
+    }
+    if (key === 'posts.total_async') return false
+    return true
+  }
   if (templateId === 'social-feed') {
     if (!hasMQ && (key.includes('async') || key.includes('worker') || key.includes('mq.'))) {
       return false
@@ -188,7 +212,7 @@ export function templateKpiRows(
       continue
     }
     if (
-      templateId === 'social-feed' &&
+      isSocialFeedTemplate(templateId) &&
       d.id === 'posts' &&
       preferSocialPostTotals(templateMetrics)
     ) {
@@ -226,7 +250,7 @@ export function templateKpiRows(
     }
   }
 
-  if (templateId === 'social-feed' && preferSocialPostTotals(templateMetrics)) {
+  if (isSocialFeedTemplate(templateId) && preferSocialPostTotals(templateMetrics)) {
     const s = templateMetrics['posts.total_sync']
     const a = templateMetrics['posts.total_async']
     if (
@@ -241,6 +265,7 @@ export function templateKpiRows(
       })
     }
     if (
+      templateId === 'social-feed' &&
       a != null &&
       Number.isFinite(a) &&
       isMetricRelevant(templateId, 'posts.total_async', topology)
@@ -264,9 +289,9 @@ export function templateKpiRows(
   }
 
   const skipKeys = new Set<string>()
-  if (templateId === 'social-feed' && preferSocialPostTotals(templateMetrics)) {
+  if (isSocialFeedTemplate(templateId) && preferSocialPostTotals(templateMetrics)) {
     skipKeys.add('posts.total_sync')
-    skipKeys.add('posts.total_async')
+    if (templateId === 'social-feed') skipKeys.add('posts.total_async')
   }
   if (templateId === 'ecommerce' && preferEcommerceCheckoutTotals(templateMetrics)) {
     skipKeys.add('checkout.sync_total')
