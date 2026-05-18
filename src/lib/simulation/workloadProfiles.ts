@@ -143,7 +143,9 @@ export function workloadProfileForTemplate(
   templateId: string | null | undefined
 ): WorkloadProfile | undefined {
   if (!templateId) return undefined
-  const p = WORKLOAD_BY_TEMPLATE_ID[templateId]
+  const resolved =
+    templateId === 'social-feed-pull' ? 'social-feed' : templateId
+  const p = WORKLOAD_BY_TEMPLATE_ID[resolved]
   if (!p || p.archetypes.length === 0) return undefined
   return p
 }
