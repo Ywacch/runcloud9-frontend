@@ -17,6 +17,17 @@ import {
 } from '../store/canvasStore'
 import { useMetricsStore, type MetricsBucket } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
+import {
+  CPU_ALLOC_HELP,
+  CPU_UTIL_HELP,
+  LATENCY_HELP,
+  LATENCY_P99_SPARK_HELP,
+  MEM_ALLOC_HELP,
+  MEM_UTIL_HELP,
+  THROUGHPUT_HELP,
+  withPodRateDisclaimer,
+} from '../lib/metricHelp'
+import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
 import { SparkLine } from './SparkLine'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
@@ -26,11 +37,20 @@ function truncatePodName(name: string, max = 28): string {
   return `${name.slice(0, max - 1)}…`
 }
 
-function MetricTile({ label, value }: { label: string; value: string }) {
+function MetricTile({
+  label,
+  value,
+  help,
+}: {
+  label: string
+  value: string
+  help?: string
+}) {
   return (
     <div className="rounded-lg border border-gray-700/50 bg-gray-800/50 p-2.5">
-      <div className="text-[10px] uppercase tracking-wider text-gray-500">
-        {label}
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+        <span>{label}</span>
+        {help ? <MetricHelpIcon title={help} /> : null}
       </div>
       <div className="mt-0.5 font-mono text-sm font-semibold text-white">
         {value}
@@ -547,20 +567,22 @@ function SimulationInspectorSection({
 function CommonSection({ m }: { m: MetricsBucket }) {
   const cpuValue = m.cpuIsEstimated
     ? m.cpuLimit > 0
-      ? `${fmtCpuMilliCores(m.cpuLimit)} (allocated)`
-      : `${fmtCpuMilliCores(m.cpuUsage)} (allocated)`
+      ? `${fmtCpuMilliCores(m.cpuLimit)} (alloc)`
+      : `${fmtCpuMilliCores(m.cpuUsage)} (alloc)`
     : fmtPct(m.cpuPercent)
   const memValue = m.memIsEstimated
     ? m.memoryLimit > 0
-      ? `${fmtMemMB(m.memoryLimit)} (allocated)`
-      : `${fmtMemMB(m.memoryBytes)} (allocated)`
+      ? `${fmtMemMB(m.memoryLimit)} (alloc)`
+      : `${fmtMemMB(m.memoryBytes)} (alloc)`
     : `${fmtBytes(m.memoryBytes)}${
         m.memoryLimit > 0 ? ` · ${fmtPct(m.memPercent)}` : ''
       }`
+  const cpuHelp = m.cpuIsEstimated ? CPU_ALLOC_HELP : CPU_UTIL_HELP
+  const memHelp = m.memIsEstimated ? MEM_ALLOC_HELP : MEM_UTIL_HELP
   return (
     <div className="grid grid-cols-2 gap-2">
-      <MetricTile label="CPU" value={cpuValue} />
-      <MetricTile label="Memory" value={memValue} />
+      <MetricTile label="CPU" value={cpuValue} help={cpuHelp} />
+      <MetricTile label="Memory" value={memValue} help={memHelp} />
     </div>
   )
 }
@@ -613,9 +635,7 @@ function TypeSection({
             />
           ) : null}
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-              Requests
-            </div>
+            <MetricSectionHeading help={THROUGHPUT_HELP}>Requests</MetricSectionHeading>
             <div className="grid grid-cols-3 gap-2">
               <MetricTile label="Total" value={fmtInt(m.totalRequests)} />
               <MetricTile label="Avg RPS" value={fmtInt(avgRps)} />
@@ -623,15 +643,16 @@ function TypeSection({
             </div>
           </div>
           <MetricTile label="Error Rate" value={fmtErrorRate(m.errorRate)} />
+          <MetricSectionHeading help={LATENCY_HELP}>Latency</MetricSectionHeading>
           <div className="grid grid-cols-3 gap-2">
             <MetricTile label="p50" value={fmtMs(m.p50Latency)} />
             <MetricTile label="p95" value={fmtMs(m.p95Latency)} />
             <MetricTile label="p99" value={fmtMs(m.p99Latency)} />
           </div>
           <div className={sparkWrap}>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+            <MetricSectionHeading help={THROUGHPUT_HELP}>
               Throughput (30s)
-            </div>
+            </MetricSectionHeading>
             <SparkLine
               data={rpsSeries}
               color="#8A9BB0"
@@ -640,9 +661,9 @@ function TypeSection({
             />
           </div>
           <div className={sparkWrap}>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+            <MetricSectionHeading help={LATENCY_P99_SPARK_HELP}>
               p99 Latency (30s)
-            </div>
+            </MetricSectionHeading>
             <SparkLine
               data={latencySeries}
               color="#E74C3C"
@@ -655,6 +676,7 @@ function TypeSection({
     }
 
     case 'cache': {
+      const cacheRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'cache')
       const total = m.cacheHits + m.cacheMisses
       const hitRatePct = total > 0 ? (m.cacheHits / total) * 100 : 0
       const hitRateLabel = total > 0 ? fmtPct(hitRatePct) : '—'
@@ -702,10 +724,12 @@ function TypeSection({
                 <MetricTile
                   label="Redis ops"
                   value={`${fmtRate(m.redisOpsPerSec || m.requestRate)}/s`}
+                  help={cacheRateHelp}
                 />
                 <MetricTile
                   label="Request rate"
                   value={`${fmtRate(m.requestRate)}/s`}
+                  help={cacheRateHelp}
                 />
                 <MetricTile
                   label="Rejected conns"
@@ -724,6 +748,7 @@ function TypeSection({
                     <MetricTile
                       label="Redis avg latency"
                       value={fmtMs((m.redisAvgLatency ?? 0) * 1000)}
+                      help={withPodRateDisclaimer(LATENCY_HELP, 'cache')}
                     />
                   ) : null}
                 </div>
@@ -737,9 +762,9 @@ function TypeSection({
             <>
               <MetricTile label="Hit Rate (30s)" value={hitRateLabel} />
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+                <MetricSectionHeading help={cacheRateHelp}>
                   Current rate (30s)
-                </div>
+                </MetricSectionHeading>
                 <div className="grid grid-cols-2 gap-2">
                   <MetricTile
                     label="Hits"
@@ -780,9 +805,12 @@ function TypeSection({
             </>
           )}
           <div>
-            <div className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+            <MetricSectionHeading
+              help={cacheRateHelp}
+              className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500"
+            >
               Keyspace counters
-            </div>
+            </MetricSectionHeading>
             <div className="grid grid-cols-2 gap-2">
               <MetricTile
                 label="Hits"
@@ -799,6 +827,7 @@ function TypeSection({
     }
 
     case 'database': {
+      const dbRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'database')
       const maxConn =
         m.maxConnections > 0
           ? m.maxConnections
@@ -812,6 +841,7 @@ function TypeSection({
             <MetricTile
               label="Query Rate"
               value={`${fmtRate(m.dbQueryRate)}/s`}
+              help={dbRateHelp}
             />
             <MetricTile
               label="Connections"
@@ -831,9 +861,9 @@ function TypeSection({
             />
           </div>
           <div className={sparkWrap}>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+            <MetricSectionHeading help={dbRateHelp}>
               Query rate (30s)
-            </div>
+            </MetricSectionHeading>
             <SparkLine
               data={queryRateSeries}
               color="#5C6B7A"
@@ -846,6 +876,7 @@ function TypeSection({
     }
 
     case 'load_balancer': {
+      const lbRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'load_balancer')
       const lbRpsSeries = history.map((h) => h.requestRate)
       const backends = Object.values(edges)
         .filter((e) => e.sourceId === nodeId)
@@ -870,6 +901,7 @@ function TypeSection({
           <MetricTile
             label="Requests routed"
             value={`${fmtInt(m.requestRate)} rps`}
+            help={lbRateHelp}
           />
           {connLimit > 0 ? (
             <div className="space-y-1">
@@ -913,9 +945,9 @@ function TypeSection({
           </div>
           {perBe.length > 0 ? (
             <div>
-              <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+              <MetricSectionHeading help={lbRateHelp}>
                 RPS by backend (pods)
-              </div>
+              </MetricSectionHeading>
               <ul className="space-y-1 text-xs text-gray-300">
                 {perBe.map(([name, rps]) => (
                   <li
@@ -935,9 +967,9 @@ function TypeSection({
             </div>
           ) : null}
           <div className={sparkWrap}>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
+            <MetricSectionHeading help={lbRateHelp}>
               Throughput (30s)
-            </div>
+            </MetricSectionHeading>
             <SparkLine
               data={lbRpsSeries}
               color="#4A90D9"
@@ -1057,6 +1089,7 @@ function TypeSection({
     }
 
     case 'worker': {
+      const workerRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'worker')
       const wSat = Number.isFinite(m.workerSaturation)
         ? m.workerSaturation
         : 0
@@ -1077,11 +1110,13 @@ function TypeSection({
             <MetricTile
               label="Consume"
               value={`${fmtRate(consumeRate)}/s`}
+              help={workerRateHelp}
             />
             {Number.isFinite(tmWorkerRedisWriteRate) ? (
               <MetricTile
                 label="Redis writes"
                 value={`${fmtRate(tmWorkerRedisWriteRate)}/s`}
+                help={workerRateHelp}
               />
             ) : null}
             {Number.isFinite(tmWorkerRedisErrors) ? (
