@@ -1,12 +1,14 @@
 import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Landing from './pages/Landing'
 import LoginPage from './pages/LoginPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import SetPasswordPage from './pages/SetPasswordPage'
-import LoadtestPage from './pages/LoadtestPage'
+import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './ui/NavHeader'
+
+const LoadtestPage = lazy(() => import('./pages/LoadtestPage'))
 
 const CanvasPage = lazy(() => import('./pages/CanvasPage'))
 
@@ -78,7 +80,18 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/set-password" element={<SetPasswordPage />} />
-          <Route path="/loadtest" element={<LoadtestPage />} />
+          <Route
+            path="/loadtest"
+            element={
+              LOADTEST_ROUTE_ENABLED ? (
+                <Suspense fallback={<CanvasRouteFallback />}>
+                  <LoadtestPage />
+                </Suspense>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
           <Route
             path="/canvas"
             element={
