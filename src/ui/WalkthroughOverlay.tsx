@@ -7,6 +7,7 @@ import {
   WalkthroughDiagram,
   resolveWalkthroughDiagramSpec,
 } from '../components/walkthrough/WalkthroughDiagram'
+import { SqlDetailBlock } from './SqlDetailBlock'
 import {
   useWalkthroughStore,
   type WalkthroughSpeed,
@@ -198,11 +199,7 @@ export function WalkthroughOverlay() {
             {heading}
           </p>
           <p className="mt-1 text-sm leading-relaxed text-zinc-300">{step.action}</p>
-          {step.detail ? (
-            <pre className="mt-2 overflow-x-auto rounded bg-black/35 p-2 font-mono text-[11px] text-zinc-300">
-              {step.detail}
-            </pre>
-          ) : null}
+          {step.detail ? <SqlDetailBlock sql={step.detail} /> : null}
         </>
       ) : null}
 

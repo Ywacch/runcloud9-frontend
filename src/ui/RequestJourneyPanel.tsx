@@ -4,6 +4,7 @@ import { fmtMs } from '../lib/format'
 import { journeyStepHeading, type JourneySpec } from '../lib/requestJourney'
 import type { CanvasNode } from '../store/canvasStore'
 import type { MetricsBucket } from '../store/metricsStore'
+import { SqlDetailBlock } from './SqlDetailBlock'
 
 function firstMetricsForBackend(
   nodes: Record<string, CanvasNode>,
@@ -144,11 +145,7 @@ export function RequestJourneyPanel({
                     {journeyStepHeading(step, index)}
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-zinc-200">{step.action}</p>
-                  {step.detail ? (
-                    <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 font-mono text-[11px] text-zinc-300">
-                      {step.detail}
-                    </pre>
-                  ) : null}
+                  {step.detail ? <SqlDetailBlock sql={step.detail} /> : null}
                   {p99 != null && p99 > 0 ? (
                     <p className="mt-2 font-mono text-[11px] text-zinc-400">
                       Live p99 (this component): {fmtMs(p99)}
