@@ -10,15 +10,18 @@ export interface LogLine {
 
 interface LogState {
   logs: LogLine[]
+  activeTraceId: string | null
   addLog: (line: LogLine) => void
   addBatch: (lines: LogLine[]) => void
   clearLogs: () => void
+  setActiveTraceId: (id: string | null) => void
 }
 
 const MAX_LOGS = 3000
 
 export const useLogStore = create<LogState>((set) => ({
   logs: [],
+  activeTraceId: null,
   addLog: (line) =>
     set((s) => ({
       logs: [...s.logs, line].slice(-MAX_LOGS),
@@ -28,4 +31,5 @@ export const useLogStore = create<LogState>((set) => ({
       logs: [...s.logs, ...lines].slice(-MAX_LOGS),
     })),
   clearLogs: () => set({ logs: [] }),
+  setActiveTraceId: (id) => set({ activeTraceId: id }),
 }))
