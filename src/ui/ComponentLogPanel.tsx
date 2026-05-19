@@ -63,6 +63,7 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
   const [pinnedLineId, setPinnedLineId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
+  const pinnedRef = useRef<HTMLDivElement | null>(null)
   const distanceFromBottomRef = useRef(0)
   const component = canvasToBackend[node.type]
 
@@ -91,6 +92,16 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
     }
     syncDistanceFromBottom()
   }, [filtered, followTail])
+
+  /**
+   * Keep the pinned line in view as new logs arrive below it. Runs after the
+   * follow-tail effect so it overrides any auto-scroll done in this same frame.
+   */
+  useLayoutEffect(() => {
+    if (!pinnedLineId || followTail) return
+    pinnedRef.current?.scrollIntoView({ block: 'nearest' })
+    syncDistanceFromBottom()
+  }, [filtered, pinnedLineId, followTail])
 
   const onScroll = () => {
     syncDistanceFromBottom()
@@ -182,8 +193,8 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
               : `Waiting for ${component} logs…`}
           </p>
         ) : (
-          filtered.map((line, i) => {
-            const id = `${line.timestamp}-${i}-${line.component}`
+          filtered.map((line) => {
+            const id = String(line.id)
             const hasFields = Boolean(line.fields && Object.keys(line.fields).length)
             const isPinned = pinnedLineId === id
             const isTraced =
@@ -196,6 +207,7 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
             return (
               <div
                 key={id}
+                ref={isPinned ? pinnedRef : undefined}
                 className={`border-b border-[var(--c9-border)]/50 py-1.5 transition-colors last:border-0 ${decorationClass}`}
               >
                 <button

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { connectLogsWS } from '../lib/api'
 import { useCanvasStore } from '../store/canvasStore'
-import { useLogStore, type LogLine } from '../store/logStore'
+import { useLogStore, type RawLogLine } from '../store/logStore'
 
-function isLogLine(x: unknown): x is LogLine {
+function isLogLine(x: unknown): x is RawLogLine {
   if (typeof x !== 'object' || x === null) return false
   const o = x as Record<string, unknown>
   const fieldsOk =

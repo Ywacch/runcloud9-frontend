@@ -72,12 +72,12 @@ export function LogPanel() {
           onScroll={onScroll}
           className="max-h-48 overflow-y-auto border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2 font-mono text-xs backdrop-blur-sm"
         >
-          {logs.slice(-200).map((l, i) => {
+          {logs.slice(-200).map((l) => {
             const isTraced =
               activeTraceId != null && l.fields?.request_id === activeTraceId
             return (
               <div
-                key={`${l.timestamp}-${i}-${l.component}`}
+                key={l.id}
                 className={`flex gap-2 border-b border-[var(--c9-border)] py-1 ${
                   isTraced ? 'border-l-2 border-l-cyan-400 bg-cyan-400/5 pl-1' : ''
                 }`}
