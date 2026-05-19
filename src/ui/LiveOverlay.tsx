@@ -157,18 +157,40 @@ export function LiveOverlay() {
             type="button"
             disabled={busy}
             onClick={onStopLoad}
-            className="rounded bg-orange-600 px-2 py-0.5 text-[11px] font-semibold text-white transition-colors duration-200 hover:bg-orange-500 disabled:opacity-50"
+            className={`flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold text-white transition-all duration-200 ${
+              busy
+                ? 'cursor-wait bg-orange-600/60'
+                : 'bg-orange-600 hover:bg-orange-500'
+            }`}
           >
-            Stop load
+            {busy ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Stopping…
+              </>
+            ) : (
+              'Stop load'
+            )}
           </button>
         ) : (
           <button
             type="button"
             disabled={busy}
             onClick={onStartLoad}
-            className="rounded bg-[var(--c9-accent)] px-2 py-0.5 text-[11px] font-semibold text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
+            className={`flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold text-white transition-all duration-200 ${
+              busy
+                ? 'cursor-wait bg-[var(--c9-accent)]/60'
+                : 'bg-[var(--c9-accent)] hover:bg-[var(--c9-accent-hover)]'
+            }`}
           >
-            Start load
+            {busy ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Starting…
+              </>
+            ) : (
+              'Start load'
+            )}
           </button>
         )}
       </div>
