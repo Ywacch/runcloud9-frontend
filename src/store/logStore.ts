@@ -22,23 +22,37 @@ interface LogState {
   setActiveTraceId: (id: string | null) => void
 }
 
-const MAX_LOGS = 3000
+/**
+ * Ring-buffer cap. 1500 keeps roughly the last ~5 minutes of structured logs at
+ * 50 RPS, which is plenty for live inspection while halving steady-state memory
+ * vs the previous 3000.
+ */
+const MAX_LOGS = 1500
 let _nextId = 1
+
+/** Mutates `arr` in place to keep at most `MAX_LOGS` trailing entries. */
+function trimInPlace(arr: LogLine[]): void {
+  const overflow = arr.length - MAX_LOGS
+  if (overflow > 0) arr.splice(0, overflow)
+}
 
 export const useLogStore = create<LogState>((set) => ({
   logs: [],
   activeTraceId: null,
   addLog: (line) =>
-    set((s) => ({
-      logs: [...s.logs, { ...line, id: _nextId++ }].slice(-MAX_LOGS),
-    })),
+    set((s) => {
+      const next = s.logs.concat({ ...line, id: _nextId++ })
+      trimInPlace(next)
+      return { logs: next }
+    }),
   addBatch: (lines) =>
-    set((s) => ({
-      logs: [
-        ...s.logs,
-        ...lines.map((l) => ({ ...l, id: _nextId++ })),
-      ].slice(-MAX_LOGS),
-    })),
+    set((s) => {
+      if (lines.length === 0) return s
+      const stamped = lines.map((l) => ({ ...l, id: _nextId++ }))
+      const next = s.logs.concat(stamped)
+      trimInPlace(next)
+      return { logs: next }
+    }),
   clearLogs: () => set({ logs: [] }),
   setActiveTraceId: (id) => set({ activeTraceId: id }),
 }))

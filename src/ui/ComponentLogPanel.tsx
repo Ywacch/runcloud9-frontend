@@ -3,7 +3,7 @@ import type { CanvasNode } from '../store/canvasStore'
 import { useLogStore } from '../store/logStore'
 import { canvasToBackend } from '../lib/typeMapping'
 
-const MAX_COMPONENT_LOGS = 500
+const MAX_COMPONENT_LOGS = 300
 /** If the user is within this many px of the bottom, new lines keep the tail pinned. */
 const PIN_THRESHOLD_PX = 72
 
