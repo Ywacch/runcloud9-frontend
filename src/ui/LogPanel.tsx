@@ -25,6 +25,7 @@ const PIN_THRESHOLD_PX = 72
 export function LogPanel() {
   const mode = useCanvasStore((s) => s.mode)
   const logs = useLogStore((s) => s.logs)
+  const activeTraceId = useLogStore((s) => s.activeTraceId)
   const [open, setOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const distanceFromBottomRef = useRef(0)
@@ -71,25 +72,31 @@ export function LogPanel() {
           onScroll={onScroll}
           className="max-h-48 overflow-y-auto border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2 font-mono text-xs backdrop-blur-sm"
         >
-          {logs.slice(-200).map((l, i) => (
-            <div
-              key={`${l.timestamp}-${i}-${l.component}`}
-              className="flex gap-2 border-b border-[var(--c9-border)] py-1"
-            >
-              <span className="shrink-0 text-[var(--c9-muted)]">
-                {new Date(l.timestamp).toLocaleTimeString('en-US', {
-                  hour12: false,
-                })}
-              </span>
-              <span
-                className="shrink-0 rounded px-1 text-[10px]"
-                style={{ color: COMPONENT_COLORS[l.component] ?? '#888' }}
+          {logs.slice(-200).map((l, i) => {
+            const isTraced =
+              activeTraceId != null && l.fields?.request_id === activeTraceId
+            return (
+              <div
+                key={`${l.timestamp}-${i}-${l.component}`}
+                className={`flex gap-2 border-b border-[var(--c9-border)] py-1 ${
+                  isTraced ? 'border-l-2 border-l-cyan-400 bg-cyan-400/5 pl-1' : ''
+                }`}
               >
-                {l.component}
-              </span>
-              <span className={logLevelClass(l.level, l.message)}>{l.message}</span>
-            </div>
-          ))}
+                <span className="shrink-0 text-[var(--c9-muted)]">
+                  {new Date(l.timestamp).toLocaleTimeString('en-US', {
+                    hour12: false,
+                  })}
+                </span>
+                <span
+                  className="shrink-0 rounded px-1 text-[10px]"
+                  style={{ color: COMPONENT_COLORS[l.component] ?? '#888' }}
+                >
+                  {l.component}
+                </span>
+                <span className={logLevelClass(l.level, l.message)}>{l.message}</span>
+              </div>
+            )
+          })}
         </div>
       ) : null}
     </div>
