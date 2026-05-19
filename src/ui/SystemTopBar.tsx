@@ -248,7 +248,13 @@ export function SystemTopBar() {
               {showWaiting ? '—' : fmtRate(throughput)}
             </span>
             {!showWaiting ? (
-              <span className="text-xs font-medium text-[var(--c9-muted)]">rps</span>
+              loadgen?.active && loadgen.targetRps > 0 ? (
+                <span className="text-xs font-medium text-[var(--c9-muted)]">
+                  /{fmtRate(loadgen.targetRps)} rps
+                </span>
+              ) : (
+                <span className="text-xs font-medium text-[var(--c9-muted)]">rps</span>
+              )
             ) : null}
           </div>
         </div>
