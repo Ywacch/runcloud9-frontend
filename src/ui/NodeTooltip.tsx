@@ -76,9 +76,6 @@ export function NodeTooltip({
         : 'text-cyan-300'
   const x = align === 'right' ? 0.92 : -0.92
 
-  const rpsHint =
-    'Request throughput through this component (rolling view from the stream).'
-
   return (
     <Html
       position={[x, 1.35, 0]}
@@ -128,7 +125,6 @@ export function NodeTooltip({
               <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
                 {fmtRate(metrics?.requestRate ?? 0)}
               </p>
-              <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">{rpsHint}</p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div className="h-full w-full rounded bg-cyan-400/85" />
               </div>
@@ -140,9 +136,6 @@ export function NodeTooltip({
               {fmtMs(metrics?.p99Latency ?? 0)}
             </span>
           </div>
-          <p className="mt-0.5 text-[8px] leading-snug text-zinc-500">
-            End-to-end tail latency for this hop (from metrics stream).
-          </p>
         </div>
       </div>
     </Html>
