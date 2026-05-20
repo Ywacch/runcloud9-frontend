@@ -41,9 +41,11 @@ export function InspectorPanel() {
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
-  const storytelling = useTemplateRegistryStore((s) =>
-    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  const templateInfo = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId] : undefined,
   )
+  const storytelling = templateInfo?.storytelling
+  const cacheKeyPatterns = templateInfo?.introspection?.cache?.keyPatterns
 
   const node = selectedId ? (nodes[selectedId] ?? null) : null
   const roleLabel = useMemo(() => {
@@ -174,6 +176,7 @@ export function InspectorPanel() {
                   <CacheBrowser
                     deploymentId={deploymentId}
                     component={canvasToBackend[node.type]}
+                    keyPatterns={cacheKeyPatterns}
                   />
                 ) : null}
               </div>

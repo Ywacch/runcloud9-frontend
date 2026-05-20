@@ -26,7 +26,7 @@ export interface ColumnInfo {
 export interface IndexInfo {
   name: string
   table: string
-  columns: string[]
+  columns?: string[] | null
   unique: boolean
   primary: boolean
   definition: string

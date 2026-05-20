@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fmtBytes } from '../lib/format'
 import {
   fetchKeys,
@@ -6,8 +6,6 @@ import {
   type KeyInfo,
   type KeyValue,
 } from '../lib/introspectApi'
-
-const DEFAULT_PATTERNS = ['*', 'timeline:*', 'feed:*', 'short:*']
 
 type RedisType = string
 
@@ -160,10 +158,19 @@ function KeyValueView({ kv }: { kv: KeyValue }) {
 interface CacheBrowserProps {
   deploymentId: string
   component: string
+  keyPatterns?: string[]
 }
 
-export function CacheBrowser({ deploymentId, component }: CacheBrowserProps) {
-  const [pattern, setPattern] = useState(DEFAULT_PATTERNS[0] ?? '*')
+export function CacheBrowser({
+  deploymentId,
+  component,
+  keyPatterns,
+}: CacheBrowserProps) {
+  const patterns = useMemo(
+    () => (keyPatterns?.length ? keyPatterns : ['*']),
+    [keyPatterns],
+  )
+  const [pattern, setPattern] = useState(() => patterns[0] ?? '*')
   const [keys, setKeys] = useState<KeyInfo[]>([])
   const [nextCursor, setNextCursor] = useState(0)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -171,6 +178,12 @@ export function CacheBrowser({ deploymentId, component }: CacheBrowserProps) {
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPattern((current) =>
+      patterns.includes(current) ? current : (patterns[0] ?? '*'),
+    )
+  }, [patterns])
 
   const scanFromStart = useCallback(
     async (pat: string) => {
@@ -242,7 +255,7 @@ export function CacheBrowser({ deploymentId, component }: CacheBrowserProps) {
             onChange={(e) => setPattern(e.target.value)}
             className="max-w-[10rem] rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--c9-text)]"
           >
-            {DEFAULT_PATTERNS.map((p) => (
+            {patterns.map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>

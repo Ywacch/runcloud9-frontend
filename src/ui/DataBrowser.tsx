@@ -146,7 +146,7 @@ function IndexesSection({
                     </span>
                   ) : null}
                   <span className="text-[var(--c9-muted)]">
-                    [{idx.columns.join(', ')}]
+                    [{(idx.columns ?? []).join(', ')}]
                   </span>
                 </div>
               </li>
