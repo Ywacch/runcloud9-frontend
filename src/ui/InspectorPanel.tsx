@@ -13,7 +13,9 @@ import {
 } from '../store/canvasStore'
 import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { CacheBrowser } from './CacheBrowser'
 import { ComponentLogPanel } from './ComponentLogPanel'
+import { DataBrowser } from './DataBrowser'
 import { LiveMetrics } from './LiveMetrics'
 import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 
@@ -38,6 +40,7 @@ export function InspectorPanel() {
   const removeNode = useCanvasStore((s) => s.removeNode)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const deploymentId = useCanvasStore((s) => s.deploymentId)
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
   )
@@ -60,7 +63,9 @@ export function InspectorPanel() {
     node && liveMode
       ? getRelevantTemplateMetrics(templateMetrics, componentType)
       : {}
-  const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config'>('metrics')
+  const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
+    'metrics',
+  )
 
   useEffect(() => {
     if (!open) return
@@ -123,15 +128,22 @@ export function InspectorPanel() {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="border-b border-[var(--c9-border)] px-4 pt-3">
                 <div className="flex gap-1">
-                  {([
-                    ['metrics', 'Metrics'],
-                    ['logs', 'Logs'],
-                    ['config', 'Config'],
-                  ] as const).map(([id, label]) => (
+                  {(
+                    [
+                      ['metrics', 'Metrics'],
+                      ['logs', 'Logs'],
+                      ['config', 'Config'],
+                      ...(node.type === 'database' || node.type === 'cache'
+                        ? ([['data', 'Data']] as [string, string][])
+                        : []),
+                    ] as [string, string][]
+                  ).map(([id, label]) => (
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setLiveTab(id)}
+                      onClick={() =>
+                        setLiveTab(id as 'metrics' | 'logs' | 'config' | 'data')
+                      }
                       className={`rounded-t-md border border-b-0 px-2.5 py-1 text-xs ${
                         liveTab === id
                           ? 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-text)]'
@@ -152,6 +164,18 @@ export function InspectorPanel() {
                 ) : null}
                 {liveTab === 'logs' ? <ComponentLogPanel key={node.id} node={node} /> : null}
                 {liveTab === 'config' ? <ReadOnlyConfig node={node} /> : null}
+                {liveTab === 'data' && deploymentId && node.type === 'database' ? (
+                  <DataBrowser
+                    deploymentId={deploymentId}
+                    component={canvasToBackend[node.type]}
+                  />
+                ) : null}
+                {liveTab === 'data' && deploymentId && node.type === 'cache' ? (
+                  <CacheBrowser
+                    deploymentId={deploymentId}
+                    component={canvasToBackend[node.type]}
+                  />
+                ) : null}
               </div>
             </div>
           ) : (
