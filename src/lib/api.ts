@@ -83,6 +83,8 @@ export interface TemplateInfo {
   preset?: TemplatePreset
   /** Template-scoped storytelling (journeys, roles, narrative hints) from GET /templates. */
   storytelling?: StorytellingSpec | null
+  /** Default load-generator RPS for this template (from GET /templates). */
+  loadgenDefaultRps?: number
 }
 
 export interface TemplatePresetNode {

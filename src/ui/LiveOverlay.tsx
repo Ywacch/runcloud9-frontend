@@ -5,6 +5,7 @@ import { fmtInt } from '../lib/format'
 import { useCanvasStore } from '../store/canvasStore'
 import { useAuthStore } from '../store/authStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 
 function formatMmSs(totalSeconds: number): string {
   const s = Math.max(0, totalSeconds)
@@ -22,11 +23,20 @@ export function LiveOverlay() {
   const session = useAuthStore((s) => s.session)
   const loadgen = useMetricsStore((s) => s.loadgen)
   const streamWarning = useMetricsStore((s) => s.streamWarning)
+  const templateDefaultRps = useTemplateRegistryStore((s) => {
+    if (!snapshotTemplateId) return 50
+    return s.byId[snapshotTemplateId]?.loadgenDefaultRps ?? 50
+  })
 
   const [remaining, setRemaining] = useState(0)
-  const [rps, setRps] = useState(50)
+  const [rps, setRps] = useState(templateDefaultRps)
+  const [hasUserSetRps, setHasUserSetRps] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!hasUserSetRps) setRps(templateDefaultRps)
+  }, [templateDefaultRps, hasUserSetRps])
 
   useEffect(() => {
     if (!liveSessionEndsAt || mode !== 'live') {
@@ -127,8 +137,14 @@ export function LiveOverlay() {
             min={1}
             max={500}
             value={rps}
-            onChange={(e) => setRps(Math.max(1, Number(e.target.value) || 1))}
-            className="w-14 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-1.5 py-0.5 text-sm font-mono font-semibold text-[var(--c9-text)] backdrop-blur-sm"
+            disabled={loadgen?.active}
+            onChange={(e) => {
+              setHasUserSetRps(true)
+              setRps(Math.max(1, Number(e.target.value) || 1))
+            }}
+            className={`w-14 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-1.5 py-0.5 text-sm font-mono font-semibold text-[var(--c9-text)] backdrop-blur-sm ${
+              loadgen?.active ? 'cursor-not-allowed opacity-50' : ''
+            }`}
           />
         </label>
         {loadgen?.totalRequests != null ? (
