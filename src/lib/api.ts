@@ -85,6 +85,15 @@ export interface TemplateInfo {
   storytelling?: StorytellingSpec | null
   /** Default load-generator RPS for this template (from GET /templates). */
   loadgenDefaultRps?: number
+  /** Per-component introspection config (tables, Redis key patterns, etc.). */
+  introspection?: Record<
+    string,
+    {
+      engine: string
+      tables?: string[]
+      keyPatterns?: string[]
+    }
+  >
 }
 
 export interface TemplatePresetNode {
