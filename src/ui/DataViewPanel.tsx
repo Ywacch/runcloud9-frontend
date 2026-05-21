@@ -37,6 +37,13 @@ function Spinner() {
   )
 }
 
+function ActionError({ message }: { message?: string | null }) {
+  if (!message) return null
+  return <p className="mt-1 text-[11px] text-red-400">{message}</p>
+}
+
+const TRACE_HISTORY_MAX = 10
+
 function traceOpBarClass(message: string, fields?: Record<string, unknown>): string {
   const op = String(fields?.operation ?? fields?.op ?? message).toLowerCase()
   if (op.includes('cache') || op.includes('redis')) return 'bg-cyan-500'
@@ -157,12 +164,11 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
 
   const [activeTrace, setActiveTrace] = useState<string | null>(null)
   const [traceHistory, setTraceHistory] = useState<TraceEntry[]>([])
-  const [loading, setLoading] = useState(false)
-  const [, setLastResult] = useState<ProxyResponse | null>(null)
+  const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  const [actionErrors, setActionErrors] = useState<Record<string, string | null>>({})
   const [shortenUrl, setShortenUrl] = useState('https://example.com/my-page')
   const [lastCode, setLastCode] = useState<string | null>(null)
   const [resolveCode, setResolveCode] = useState('')
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const waterfallRef = useRef<HTMLDivElement | null>(null)
 
@@ -186,25 +192,31 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
     [setActiveTraceId],
   )
 
+  const handleClose = useCallback(() => {
+    setActiveTraceId(null)
+    setActiveTrace(null)
+    onClose()
+  }, [onClose, setActiveTraceId])
+
   const dispatch = useCallback(
     async (
+      actionKey: string,
       label: string,
       run: (requestId: string) => Promise<ProxyResponse>,
       onSuccess?: (result: ProxyResponse) => void,
     ) => {
       if (!deploymentId) {
-        setActionError('No active deployment')
+        setActionErrors((e) => ({ ...e, [actionKey]: 'No active deployment' }))
         return
       }
       const requestId = crypto.randomUUID()
       setActiveTrace(requestId)
       setActiveTraceId(requestId)
-      setLoading(true)
-      setActionError(null)
+      setLoadingAction(actionKey)
+      setActionErrors((e) => ({ ...e, [actionKey]: null }))
       const startedAt = Date.now()
       try {
         const result = await run(requestId)
-        setLastResult(result)
         const durationMs = Date.now() - startedAt
         setTraceHistory((prev) =>
           [
@@ -216,7 +228,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
               status: result.status,
             },
             ...prev,
-          ].slice(0, 30),
+          ].slice(0, TRACE_HISTORY_MAX),
         )
         if (result.status >= 400) {
           const err =
@@ -225,14 +237,17 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             'error' in (result.body as object)
               ? String((result.body as { error?: unknown }).error)
               : `HTTP ${result.status}`
-          setActionError(err)
+          setActionErrors((e) => ({ ...e, [actionKey]: err }))
         } else {
           onSuccess?.(result)
         }
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : 'Request failed')
+      } catch (err) {
+        setActionErrors((e) => ({
+          ...e,
+          [actionKey]: err instanceof Error ? err.message : 'Request failed',
+        }))
       } finally {
-        setLoading(false)
+        setLoadingAction(null)
       }
     },
     [deploymentId, setActiveTraceId],
@@ -253,10 +268,11 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             />
             <button
               type="button"
-              disabled={loading || !deploymentId}
+              disabled={loadingAction != null || !deploymentId}
               className={`${actionBtnClass} shrink-0`}
               onClick={() =>
                 void dispatch(
+                  'shorten',
                   'POST /shorten',
                   (requestId) =>
                     proxyRequest(deploymentId!, PROXY_COMPONENT, 'shorten', {
@@ -271,9 +287,10 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
                 )
               }
             >
-              {loading ? <Spinner /> : 'Shorten'}
+              {loadingAction === 'shorten' ? <Spinner /> : 'Shorten'}
             </button>
           </div>
+          <ActionError message={actionErrors.shorten} />
         </div>
         <div>
           <SectionHeading>Resolve a URL</SectionHeading>
@@ -289,20 +306,24 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
           />
           <button
             type="button"
-            disabled={loading || !deploymentId || !resolveCode.trim()}
+            disabled={loadingAction != null || !deploymentId || !resolveCode.trim()}
             className={actionBtnClass}
             onClick={() => {
               const code = resolveCode.trim()
-              void dispatch('GET /r/' + code, (requestId) =>
-                proxyRequest(deploymentId!, PROXY_COMPONENT, `r/${encodeURIComponent(code)}`, {
-                  method: 'GET',
-                  requestId,
-                }),
+              void dispatch(
+                'resolve',
+                'GET /r/' + code,
+                (requestId) =>
+                  proxyRequest(deploymentId!, PROXY_COMPONENT, `r/${encodeURIComponent(code)}`, {
+                    method: 'GET',
+                    requestId,
+                  }),
               )
             }}
           >
-            {loading ? <Spinner /> : 'Resolve'}
+            {loadingAction === 'resolve' ? <Spinner /> : 'Resolve'}
           </button>
+          <ActionError message={actionErrors.resolve} />
         </div>
       </div>
     ) : null
@@ -312,10 +333,10 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
       <div className="space-y-3">
         <button
           type="button"
-          disabled={loading || !deploymentId}
+          disabled={loadingAction != null || !deploymentId}
           className={actionBtnClass}
           onClick={() =>
-            void dispatch('POST /post', async (requestId) => {
+            void dispatch('post', 'POST /post', async (requestId) => {
               let userId = 1
               try {
                 const pool = await proxyRequest(
@@ -344,14 +365,15 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             })
           }
         >
-          {loading ? <Spinner /> : 'Post as @alice'}
+          {loadingAction === 'post' ? <Spinner /> : 'Post as @alice'}
         </button>
+        <ActionError message={actionErrors.post} />
         <button
           type="button"
-          disabled={loading || !deploymentId}
+          disabled={loadingAction != null || !deploymentId}
           className={actionBtnClass}
           onClick={() =>
-            void dispatch('GET /feed/1', (requestId) =>
+            void dispatch('feed', 'GET /feed/1', (requestId) =>
               proxyRequest(deploymentId!, PROXY_COMPONENT, 'feed/1', {
                 method: 'GET',
                 requestId,
@@ -359,8 +381,9 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             )
           }
         >
-          {loading ? <Spinner /> : 'Read feed'}
+          {loadingAction === 'feed' ? <Spinner /> : 'Read feed'}
         </button>
+        <ActionError message={actionErrors.feed} />
       </div>
     ) : null
 
@@ -369,10 +392,10 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
       <div className="space-y-3">
         <button
           type="button"
-          disabled={loading || !deploymentId}
+          disabled={loadingAction != null || !deploymentId}
           className={actionBtnClass}
           onClick={() =>
-            void dispatch('GET /catalog', (requestId) =>
+            void dispatch('catalog', 'GET /catalog', (requestId) =>
               proxyRequest(deploymentId!, PROXY_COMPONENT, 'catalog', {
                 method: 'GET',
                 requestId,
@@ -380,14 +403,15 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             )
           }
         >
-          {loading ? <Spinner /> : 'Browse catalog'}
+          {loadingAction === 'catalog' ? <Spinner /> : 'Browse catalog'}
         </button>
+        <ActionError message={actionErrors.catalog} />
         <button
           type="button"
-          disabled={loading || !deploymentId}
+          disabled={loadingAction != null || !deploymentId}
           className={actionBtnClass}
           onClick={() =>
-            void dispatch('POST /checkout', (requestId) =>
+            void dispatch('checkout', 'POST /checkout', (requestId) =>
               proxyRequest(deploymentId!, PROXY_COMPONENT, 'checkout', {
                 method: 'POST',
                 body: { items: [{ product_id: 1, qty: 1 }] },
@@ -396,8 +420,9 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             )
           }
         >
-          {loading ? <Spinner /> : 'Checkout'}
+          {loadingAction === 'checkout' ? <Spinner /> : 'Checkout'}
         </button>
+        <ActionError message={actionErrors.checkout} />
       </div>
     ) : null
 
@@ -425,7 +450,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="shrink-0 rounded p-2 text-[var(--c9-muted)] transition-colors hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
           aria-label="Close playground"
         >
@@ -439,12 +464,6 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             <p className="rounded border border-amber-700/40 bg-amber-950/40 px-2 py-2 text-[11px] text-amber-100">
               Deploy or join a live session to dispatch requests.
             </p>
-          ) : null}
-
-          {actionError ? (
-            <div className="rounded border border-red-700/50 bg-red-950/65 px-2 py-2 text-[11px] text-red-100">
-              {actionError}
-            </div>
           ) : null}
 
           {templateActions}
