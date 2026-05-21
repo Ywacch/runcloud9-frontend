@@ -436,7 +436,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
   return (
     <aside
       className={`fixed top-0 left-0 z-[45] flex h-full w-80 flex-col border-r border-[var(--c9-border)] bg-[var(--c9-bg)]/95 text-[var(--c9-text)] shadow-xl backdrop-blur-sm transition-transform duration-200 ease-out ${
-        open ? 'translate-x-0' : 'pointer-events-none -translate-x-full'
+        open ? 'pointer-events-auto translate-x-0' : 'pointer-events-none -translate-x-full'
       }`}
       aria-hidden={!open}
     >
