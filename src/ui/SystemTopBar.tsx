@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fmtMs, fmtPct, fmtRate } from '../lib/format'
 import { getTopologyFlags } from '../lib/componentRole'
 import { readWriteFractions } from '../lib/simulation/workload'
@@ -10,6 +10,7 @@ import { useCanvasStore } from '../store/canvasStore'
 import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
+import { DataViewPanel } from './DataViewPanel'
 import { FlowPanel } from './FlowPanel'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
 
@@ -73,6 +74,7 @@ function Stat({
 
 export function SystemTopBar() {
   const [flowOpen, setFlowOpen] = useState(false)
+  const [dataViewOpen, setDataViewOpen] = useState(false)
   const [journeyUi, setJourneyUi] = useState<{
     open: boolean
     overview: boolean
@@ -167,6 +169,10 @@ export function SystemTopBar() {
     setJourneyUi({ open: false, overview: false, id: null })
   }, [])
 
+  useEffect(() => {
+    if (mode !== 'live') setDataViewOpen(false)
+  }, [mode])
+
   if (mode !== 'live' && mode !== 'simulate') return null
 
   const ingressHelp = mode === 'simulate' ? INGRESS_HELP_SIM : INGRESS_HELP_LIVE
@@ -203,6 +209,16 @@ export function SystemTopBar() {
               title="Open request flow view"
             >
               Flow
+            </button>
+          ) : null}
+          {mode === 'live' ? (
+            <button
+              type="button"
+              onClick={() => setDataViewOpen(true)}
+              className="mb-px shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-text)] hover:bg-[var(--c9-badge-bg)]/80"
+              title="Open interactive playground"
+            >
+              Playground
             </button>
           ) : null}
           {showWaiting ? (
@@ -315,6 +331,12 @@ export function SystemTopBar() {
           }
         }}
       />
+      {mode === 'live' ? (
+        <DataViewPanel
+          open={dataViewOpen}
+          onClose={() => setDataViewOpen(false)}
+        />
+      ) : null}
     </>
   )
 }
