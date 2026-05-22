@@ -7,13 +7,40 @@ import { templateTitleForId } from './TemplateModal'
 const PROXY_COMPONENT = 'app-server'
 
 const actionBtnClass =
-  'rounded border border-[var(--c9-accent)]/50 bg-[var(--c9-accent)]/10 px-3 py-1.5 text-xs font-medium text-[var(--c9-accent)] transition-colors hover:bg-[var(--c9-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50'
+  'rounded-md border border-[var(--c9-accent)]/40 bg-[var(--c9-accent)]/10 px-3 py-1.5 text-xs font-medium text-[var(--c9-accent)] transition-[transform,background-color,border-color] duration-200 hover:border-[var(--c9-accent)]/60 hover:bg-[var(--c9-accent)]/15 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50'
+
+const actionBtnGhostClass =
+  'rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg)]/80 px-2.5 py-1.5 text-xs font-medium text-[var(--c9-text)] transition-[transform,background-color] duration-200 hover:bg-[var(--c9-surface)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50'
 
 const fieldClass =
-  'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 font-mono text-xs text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
+  'w-full rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2.5 py-1.5 text-xs text-[var(--c9-text)] transition-colors focus:border-[var(--c9-accent)] focus:outline-none'
 
 const sectionTitleClass =
   'text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]'
+
+function PlaygroundSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[var(--c9-border)]/90 bg-[var(--c9-surface)]/30">
+      <div className="border-b border-[var(--c9-border)]/70 px-3 py-2">
+        <h3 className="text-[11px] font-semibold tracking-tight text-[var(--c9-text)]">
+          {title}
+        </h3>
+        {hint ? (
+          <p className="mt-0.5 text-[10px] leading-relaxed text-[var(--c9-muted)]">{hint}</p>
+        ) : null}
+      </div>
+      <div className="space-y-2.5 px-3 py-2.5">{children}</div>
+    </section>
+  )
+}
 
 interface DataViewPanelProps {
   open: boolean
@@ -67,7 +94,7 @@ function traceOpLabel(line: LogLine): string {
   if (typeof op === 'string' && op) return op
   const m = msg.match(/\b(cache_\w+|db_\w+|mq_\w+|get_\w+|post_\w+)\b/i)
   if (m) return m[1]
-  return msg.length > 28 ? `${msg.slice(0, 28)}…` : msg
+  return msg
 }
 
 function traceOpDetail(line: LogLine): string {
@@ -77,10 +104,7 @@ function traceOpDetail(line: LogLine): string {
   if (f.hit != null) parts.push(String(f.hit) === 'true' || f.hit === true ? 'HIT' : 'MISS')
   if (f.result != null && f.hit == null) parts.push(String(f.result))
   if (f.table != null) parts.push(String(f.table))
-  if (f.query != null) {
-    const q = String(f.query)
-    parts.push(q.length > 24 ? `${q.slice(0, 24)}…` : q)
-  }
+  if (f.query != null) parts.push(String(f.query))
   return parts.join(' ')
 }
 
@@ -94,7 +118,11 @@ function extractShortCode(body: unknown): string | null {
 }
 
 const SF_POST_MAX_CHARS = 280
-const SF_USER_POOL_HYDRATE_LIMIT = 30
+const SF_PICKER_LIST_MAX = 8
+/** Max catalog rows rendered at once in the narrow playground panel. */
+const EC_CATALOG_VISIBLE_MAX = 80
+
+const labelClass = 'text-[10px] font-medium text-[var(--c9-muted)]'
 
 interface SocialFeedUser {
   id: number
@@ -174,23 +202,60 @@ async function fetchSocialFeedUserById(
   return { id, username: `user-${id}` }
 }
 
-async function loadSocialFeedUsers(deploymentId: string): Promise<SocialFeedUser[]> {
+function mergeSocialFeedUsers(
+  primary: SocialFeedUser[],
+  extra: SocialFeedUser[],
+): SocialFeedUser[] {
+  const byId = new Map<number, SocialFeedUser>()
+  for (const u of primary) byId.set(u.id, u)
+  for (const u of extra) {
+    if (!byId.has(u.id)) byId.set(u.id, u)
+  }
+  return [...byId.values()].sort((a, b) => a.id - b.id)
+}
+
+async function loadSocialFeedUserDirectory(
+  deploymentId: string,
+): Promise<{ users: SocialFeedUser[]; poolSize: number }> {
+  const poolRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'user-pool', {
+    method: 'GET',
+  })
+  const poolIds = parseUserPoolIds(poolRes.body)
+
   const listRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'users', {
     method: 'GET',
   })
   const fromList = parseSocialFeedUsers(listRes.body)
-  if (fromList.length > 0) return fromList
 
-  const poolRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'user-pool', {
-    method: 'GET',
-  })
-  const ids = parseUserPoolIds(poolRes.body).slice(0, SF_USER_POOL_HYDRATE_LIMIT)
-  if (ids.length === 0) return []
+  return {
+    users: fromList,
+    poolSize: poolIds.length > 0 ? poolIds.length : fromList.length,
+  }
+}
 
-  const hydrated = await Promise.all(
-    ids.map((id) => fetchSocialFeedUserById(deploymentId, id)),
-  )
-  return hydrated.filter((u): u is SocialFeedUser => u != null)
+async function lookupSocialFeedUser(
+  deploymentId: string,
+  query: string,
+): Promise<SocialFeedUser | null> {
+  const q = query.trim()
+  if (!q) return null
+
+  if (/^\d+$/.test(q)) {
+    return fetchSocialFeedUserById(deploymentId, Number(q))
+  }
+
+  const encoded = encodeURIComponent(q)
+  const paths = [`users/by-username/${encoded}`, `users/search?username=${encoded}`]
+  for (const path of paths) {
+    const res = await proxyRequest(deploymentId, PROXY_COMPONENT, path, { method: 'GET' })
+    if (res.status >= 400) continue
+    const fromBody = extractCreatedSocialUser(res.body)
+    if (fromBody) return fromBody
+    const rows = parseSocialFeedUsers(res.body)
+    if (rows[0]) return rows[0]
+  }
+
+  return null
 }
 
 function extractCreatedSocialUser(body: unknown): SocialFeedUser | null {
@@ -255,16 +320,54 @@ function EcommercePlayground({
   const [ecProductId, setEcProductId] = useState(1)
   const [ecQuantity, setEcQuantity] = useState(1)
   const [catalogRows, setCatalogRows] = useState<CatalogProductRow[] | null>(null)
+  const [catalogFilter, setCatalogFilter] = useState('')
 
   const busy = loadingAction != null
-  const preview = catalogRows?.slice(0, 5) ?? []
+
+  const catalogMatches = useMemo(() => {
+    if (!catalogRows?.length) return []
+    const q = catalogFilter.trim().toLowerCase()
+    if (!q) return catalogRows
+    return catalogRows.filter(
+      (p) => p.name.toLowerCase().includes(q) || String(p.id).includes(q),
+    )
+  }, [catalogRows, catalogFilter])
+
+  const catalogVisible = useMemo(
+    () => catalogMatches.slice(0, EC_CATALOG_VISIBLE_MAX),
+    [catalogMatches],
+  )
+
+  const catalogStatus = useMemo(() => {
+    if (catalogRows == null) return null
+    if (catalogRows.length === 0) return 'empty'
+    const total = catalogRows.length
+    const matchCount = catalogMatches.length
+    const shown = catalogVisible.length
+    if (matchCount === 0) return { kind: 'no_match' as const, total }
+    if (shown < matchCount) {
+      return {
+        kind: 'truncated' as const,
+        total,
+        matchCount,
+        shown,
+        filtered: catalogFilter.trim().length > 0,
+      }
+    }
+    if (catalogFilter.trim()) {
+      return { kind: 'filtered' as const, total, matchCount }
+    }
+    return { kind: 'all' as const, total, matchCount }
+  }, [catalogRows, catalogMatches, catalogVisible, catalogFilter])
 
   const clampPositive = (n: number) => (Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1)
 
   return (
-    <div className="space-y-3">
-      <div>
-        <SectionHeading>Catalog</SectionHeading>
+    <div className="space-y-2.5">
+      <PlaygroundSection
+        title="Catalog"
+        hint="Browse loads the full catalog into memory. Filter by id or name, then click a row to set checkout product id."
+      >
         <button
           type="button"
           disabled={busy || !deploymentId}
@@ -278,74 +381,116 @@ function EcommercePlayground({
                   method: 'GET',
                   requestId,
                 }),
-              (result) => setCatalogRows(parseCatalogProducts(result.body)),
+              (result) => {
+                setCatalogRows(parseCatalogProducts(result.body))
+                setCatalogFilter('')
+              },
             )
           }
         >
           {loadingAction === 'catalog' ? <Spinner /> : 'Browse catalog'}
         </button>
         <ActionError message={actionErrors.catalog} />
-        {preview.length > 0 ? (
-          <table className="mt-2 w-full border-collapse font-mono text-[10px]">
-            <thead>
-              <tr className="border-b border-[var(--c9-border)] text-left text-[var(--c9-muted)]">
-                <th className="py-1 pr-2">id</th>
-                <th className="py-1 pr-2">name</th>
-                <th className="py-1">price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.map((p) => (
-                <tr key={p.id} className="border-b border-[var(--c9-border)]/40">
-                  <td className="py-1 pr-2 text-[var(--c9-text)]">{p.id}</td>
-                  <td className="max-w-[7rem] truncate py-1 pr-2 text-[var(--c9-text)]">
-                    {p.name}
-                  </td>
-                  <td className="py-1 text-[var(--c9-muted)]">{p.price}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : catalogRows != null && catalogRows.length === 0 ? (
-          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">Catalog returned no products.</p>
+
+        {catalogRows != null && catalogRows.length > 0 ? (
+          <label className="flex flex-col gap-1.5">
+            <span className={labelClass}>Filter products</span>
+            <input
+              type="search"
+              value={catalogFilter}
+              onChange={(e) => setCatalogFilter(e.target.value)}
+              disabled={busy}
+              placeholder="id or name"
+              className={fieldClass}
+            />
+          </label>
         ) : null}
-        {catalogRows != null && catalogRows.length > 5 ? (
-          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
-            Showing 5 of {catalogRows.length} products.
+
+        {catalogVisible.length > 0 ? (
+          <div className="max-h-44 overflow-y-auto rounded-md border border-[var(--c9-border)]/80">
+            <table className="w-full border-collapse font-mono text-[10px]">
+              <thead className="sticky top-0 bg-[var(--c9-bg)]">
+                <tr className="border-b border-[var(--c9-border)] text-left text-[var(--c9-muted)]">
+                  <th className="px-2 py-1">id</th>
+                  <th className="px-2 py-1">name</th>
+                  <th className="px-2 py-1">price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {catalogVisible.map((p) => (
+                  <tr key={p.id}>
+                    <td colSpan={3} className="p-0">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setEcProductId(p.id)}
+                        className={`grid w-full grid-cols-[2.5rem_1fr_3.5rem] gap-0 border-b border-[var(--c9-border)]/40 px-2 py-1 text-left transition-colors hover:bg-[var(--c9-surface)] active:scale-[0.99] ${
+                          ecProductId === p.id
+                            ? 'bg-[var(--c9-accent)]/10 text-[var(--c9-accent)]'
+                            : 'text-[var(--c9-text)]'
+                        }`}
+                      >
+                        <span>{p.id}</span>
+                        <span className="truncate">{p.name}</span>
+                        <span className="text-right text-[var(--c9-muted)]">{p.price}</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : catalogStatus === 'empty' ? (
+          <p className="text-[10px] text-[var(--c9-muted)]">Catalog returned no products.</p>
+        ) : catalogStatus?.kind === 'no_match' ? (
+          <p className="text-[10px] text-[var(--c9-muted)]">
+            No products match &ldquo;{catalogFilter.trim()}&rdquo; ({catalogStatus.total}{' '}
+            in catalog).
           </p>
         ) : null}
-      </div>
 
-      <div>
-        <SectionHeading>Checkout</SectionHeading>
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          <label className="block text-[10px] text-[var(--c9-muted)]">
-            Product ID
+        {catalogStatus && catalogStatus !== 'empty' && catalogStatus.kind !== 'no_match' ? (
+          <p className="text-[10px] text-[var(--c9-muted)]">
+            {catalogStatus.kind === 'truncated'
+              ? `Showing ${catalogStatus.shown} of ${catalogStatus.matchCount} matches${
+                  catalogStatus.filtered ? '' : ` (${catalogStatus.total} total)`
+                } — narrow your search to see more.`
+              : catalogStatus.kind === 'filtered'
+                ? `${catalogStatus.matchCount} of ${catalogStatus.total} products match.`
+                : `${catalogStatus.matchCount} products loaded.`}
+          </p>
+        ) : null}
+      </PlaygroundSection>
+
+      <PlaygroundSection title="Checkout">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1.5">
+            <span className={labelClass}>Product ID</span>
             <input
               type="number"
               min={1}
               value={ecProductId}
               onChange={(e) => setEcProductId(clampPositive(Number(e.target.value)))}
               disabled={busy}
-              className={`${fieldClass} mt-0.5`}
+              className={fieldClass}
             />
           </label>
-          <label className="block text-[10px] text-[var(--c9-muted)]">
-            Quantity
+          <label className="flex flex-col gap-1.5">
+            <span className={labelClass}>Quantity</span>
             <input
               type="number"
               min={1}
               value={ecQuantity}
               onChange={(e) => setEcQuantity(clampPositive(Number(e.target.value)))}
               disabled={busy}
-              className={`${fieldClass} mt-0.5`}
+              className={fieldClass}
             />
           </label>
         </div>
         <button
           type="button"
           disabled={busy || !deploymentId}
-          className={`${actionBtnClass} mt-2`}
+          className={actionBtnClass}
           onClick={() =>
             void dispatch('checkout', 'POST /checkout', (requestId) =>
               proxyRequest(deploymentId!, PROXY_COMPONENT, 'checkout', {
@@ -359,7 +504,7 @@ function EcommercePlayground({
           {loadingAction === 'checkout' ? <Spinner /> : 'Checkout'}
         </button>
         <ActionError message={actionErrors.checkout} />
-      </div>
+      </PlaygroundSection>
     </div>
   )
 }
@@ -378,9 +523,13 @@ function SocialFeedPlayground({
   actionErrors: Record<string, string | null>
 }) {
   const [sfUsers, setSfUsers] = useState<SocialFeedUser[]>([])
+  const [sfPoolSize, setSfPoolSize] = useState(0)
   const [sfLoading, setSfLoading] = useState(false)
   const [sfUsersError, setSfUsersError] = useState<string | null>(null)
   const [sfActiveUserId, setSfActiveUserId] = useState<number | null>(null)
+  const [sfUserQuery, setSfUserQuery] = useState('')
+  const [sfLookupBusy, setSfLookupBusy] = useState(false)
+  const [sfLookupError, setSfLookupError] = useState<string | null>(null)
   const [sfFollowTargetId, setSfFollowTargetId] = useState('')
   const [sfPostContent, setSfPostContent] = useState('')
   const [sfNewUsername, setSfNewUsername] = useState('')
@@ -390,8 +539,9 @@ function SocialFeedPlayground({
     setSfLoading(true)
     setSfUsersError(null)
     try {
-      const users = await loadSocialFeedUsers(deploymentId)
+      const { users, poolSize } = await loadSocialFeedUserDirectory(deploymentId)
       setSfUsers(users)
+      setSfPoolSize(poolSize)
       setSfActiveUserId((prev) => {
         if (prev != null && users.some((u) => u.id === prev)) return prev
         return users[0]?.id ?? null
@@ -399,6 +549,7 @@ function SocialFeedPlayground({
     } catch (e) {
       setSfUsersError(e instanceof Error ? e.message : 'Failed to load users')
       setSfUsers([])
+      setSfPoolSize(0)
     } finally {
       setSfLoading(false)
     }
@@ -410,65 +561,164 @@ function SocialFeedPlayground({
   }, [open, deploymentId, fetchSfUsers])
 
   const activeUser = sfUsers.find((u) => u.id === sfActiveUserId)
-  const busy = loadingAction != null || sfLoading
+  const busy = loadingAction != null || sfLoading || sfLookupBusy
   const followTarget = Number.parseInt(sfFollowTargetId, 10)
 
-  return (
-    <div className="space-y-3">
-      <div>
-        <SectionHeading>Acting as</SectionHeading>
-        {sfLoading ? (
-          <p className="mt-1 flex items-center gap-2 text-[11px] text-[var(--c9-muted)]">
-            <Spinner /> Loading users…
-          </p>
-        ) : (
-          <select
-            value={sfActiveUserId ?? ''}
-            onChange={(e) => {
-              const id = Number(e.target.value)
-              setSfActiveUserId(Number.isFinite(id) ? id : null)
-            }}
-            disabled={busy || sfUsers.length === 0}
-            className={`${fieldClass} mt-1`}
-          >
-            {sfUsers.length === 0 ? (
-              <option value="">No users loaded</option>
-            ) : (
-              sfUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  @{u.username} (id {u.id})
-                </option>
-              ))
-            )}
-          </select>
-        )}
-        <ActionError message={sfUsersError} />
-        {sfUsers.length === 0 && !sfLoading && !sfUsersError ? (
-          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
-            Create a user below or refresh after deploy finishes seeding.
-          </p>
-        ) : null}
-      </div>
+  const pickerMatches = useMemo(() => {
+    const q = sfUserQuery.trim().toLowerCase()
+    const list = q
+      ? sfUsers.filter(
+          (u) =>
+            u.username.toLowerCase().includes(q) || String(u.id).includes(q),
+        )
+      : sfUsers
+    return list.slice(0, SF_PICKER_LIST_MAX)
+  }, [sfUsers, sfUserQuery])
 
-      <div>
-        <SectionHeading>Post</SectionHeading>
-        <textarea
-          value={sfPostContent}
-          onChange={(e) =>
-            setSfPostContent(e.target.value.slice(0, SF_POST_MAX_CHARS))
-          }
-          rows={3}
-          disabled={busy}
-          placeholder="What's happening?"
-          className={`${fieldClass} mt-1 resize-y`}
-        />
-        <p className="mt-0.5 text-right text-[10px] text-[var(--c9-muted)]">
+  const addUserToCache = useCallback((user: SocialFeedUser) => {
+    setSfUsers((prev) => mergeSocialFeedUsers(prev, [user]))
+    setSfActiveUserId(user.id)
+    setSfUserQuery(user.username)
+    setSfLookupError(null)
+  }, [])
+
+  const resolveUser = useCallback(async () => {
+    if (!deploymentId || !sfUserQuery.trim()) return
+    setSfLookupBusy(true)
+    setSfLookupError(null)
+    try {
+      const found = await lookupSocialFeedUser(deploymentId, sfUserQuery.trim())
+      if (found) {
+        addUserToCache(found)
+      } else {
+        setSfLookupError('No user found for that username or id.')
+      }
+    } catch (e) {
+      setSfLookupError(e instanceof Error ? e.message : 'Lookup failed')
+    } finally {
+      setSfLookupBusy(false)
+    }
+  }, [addUserToCache, deploymentId, sfUserQuery])
+
+  const poolHint =
+    sfPoolSize > 0
+      ? `${sfPoolSize.toLocaleString()} users in the pool. Search by username or numeric id — the list below is only a sample.`
+      : 'Search by username or numeric id to choose who you act as.'
+
+  return (
+    <div className="space-y-2.5">
+      <PlaygroundSection title="Acting as" hint={poolHint}>
+        {sfLoading ? (
+          <div className="space-y-2">
+            <div className="h-8 animate-pulse rounded-md bg-[var(--c9-surface)]" />
+            <div className="h-8 w-2/3 animate-pulse rounded-md bg-[var(--c9-surface)]" />
+          </div>
+        ) : (
+          <>
+            {activeUser ? (
+              <div className="rounded-md border border-[var(--c9-accent)]/35 bg-[var(--c9-accent)]/8 px-2.5 py-2">
+                <p className="text-[10px] text-[var(--c9-muted)]">Current persona</p>
+                <p className="font-mono text-xs text-[var(--c9-text)]">
+                  @{activeUser.username}
+                  <span className="text-[var(--c9-muted)]"> · id {activeUser.id}</span>
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-[var(--c9-muted)]">
+                Look up a user to start posting and reading feeds.
+              </p>
+            )}
+
+            <label className="flex flex-col gap-1.5">
+              <span className={labelClass}>Find user</span>
+              <input
+                type="text"
+                value={sfUserQuery}
+                onChange={(e) => {
+                  setSfUserQuery(e.target.value)
+                  setSfLookupError(null)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void resolveUser()
+                }}
+                disabled={busy || !deploymentId}
+                placeholder="username or user id"
+                className={fieldClass}
+              />
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || !deploymentId || !sfUserQuery.trim()}
+                className={actionBtnClass}
+                onClick={() => void resolveUser()}
+              >
+                {sfLookupBusy ? <Spinner /> : 'Look up'}
+              </button>
+              <button
+                type="button"
+                disabled={busy || !deploymentId}
+                className={actionBtnGhostClass}
+                onClick={() => void fetchSfUsers()}
+              >
+                Refresh list
+              </button>
+            </div>
+            <ActionError message={sfUsersError ?? sfLookupError} />
+
+            {pickerMatches.length > 0 ? (
+              <ul className="max-h-32 overflow-y-auto rounded-md border border-[var(--c9-border)]/80 divide-y divide-[var(--c9-border)]/60">
+                {pickerMatches.map((u) => (
+                  <li key={u.id}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => addUserToCache(u)}
+                      className={`flex w-full items-center justify-between px-2.5 py-2 text-left text-xs transition-colors hover:bg-[var(--c9-surface)] active:scale-[0.99] ${
+                        sfActiveUserId === u.id
+                          ? 'bg-[var(--c9-accent)]/10 text-[var(--c9-accent)]'
+                          : 'text-[var(--c9-text)]'
+                      }`}
+                    >
+                      <span className="truncate font-medium">@{u.username}</span>
+                      <span className="shrink-0 pl-2 font-mono text-[10px] text-[var(--c9-muted)]">
+                        {u.id}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : sfUsers.length > 0 && sfUserQuery.trim() ? (
+              <p className="text-[10px] text-[var(--c9-muted)]">
+                No cached match — try Look up to fetch from the API.
+              </p>
+            ) : null}
+          </>
+        )}
+      </PlaygroundSection>
+
+      <PlaygroundSection title="Post">
+        <label className="flex flex-col gap-1.5">
+          <span className={labelClass}>Content</span>
+          <textarea
+            value={sfPostContent}
+            onChange={(e) =>
+              setSfPostContent(e.target.value.slice(0, SF_POST_MAX_CHARS))
+            }
+            rows={3}
+            disabled={busy}
+            placeholder="What's happening?"
+            className={`${fieldClass} resize-y`}
+          />
+        </label>
+        <p className="text-right text-[10px] text-[var(--c9-muted)]">
           {sfPostContent.length}/{SF_POST_MAX_CHARS}
         </p>
         <button
           type="button"
           disabled={busy || !deploymentId || sfActiveUserId == null || !sfPostContent.trim()}
-          className={`${actionBtnClass} mt-1`}
+          className={actionBtnClass}
           onClick={() =>
             void dispatch(
               'sf-post',
@@ -486,10 +736,16 @@ function SocialFeedPlayground({
           {loadingAction === 'sf-post' ? <Spinner /> : 'Post'}
         </button>
         <ActionError message={actionErrors['sf-post']} />
-      </div>
+      </PlaygroundSection>
 
-      <div>
-        <SectionHeading>Read feed</SectionHeading>
+      <PlaygroundSection
+        title="Read feed"
+        hint={
+          activeUser
+            ? `Timeline for @${activeUser.username}`
+            : 'Select a persona above before loading a feed.'
+        }
+      >
         <button
           type="button"
           disabled={busy || !deploymentId || sfActiveUserId == null}
@@ -508,25 +764,22 @@ function SocialFeedPlayground({
           {loadingAction === 'sf-feed' ? <Spinner /> : 'Read my feed'}
         </button>
         <ActionError message={actionErrors['sf-feed']} />
-        {activeUser ? (
-          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
-            Timeline for @{activeUser.username}
-          </p>
-        ) : null}
-      </div>
+      </PlaygroundSection>
 
-      <div>
-        <SectionHeading>Follow / unfollow</SectionHeading>
-        <input
-          type="number"
-          min={1}
-          value={sfFollowTargetId}
-          onChange={(e) => setSfFollowTargetId(e.target.value)}
-          disabled={busy}
-          placeholder="Target user id"
-          className={`${fieldClass} mt-1`}
-        />
-        <div className="mt-2 flex flex-wrap gap-2">
+      <PlaygroundSection title="Follow / unfollow">
+        <label className="flex flex-col gap-1.5">
+          <span className={labelClass}>Target user id</span>
+          <input
+            type="number"
+            min={1}
+            value={sfFollowTargetId}
+            onChange={(e) => setSfFollowTargetId(e.target.value)}
+            disabled={busy}
+            placeholder="e.g. 847"
+            className={fieldClass}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             disabled={
@@ -580,22 +833,24 @@ function SocialFeedPlayground({
         </div>
         <ActionError message={actionErrors['sf-follow']} />
         <ActionError message={actionErrors['sf-unfollow']} />
-      </div>
+      </PlaygroundSection>
 
-      <div>
-        <SectionHeading>Create user</SectionHeading>
-        <input
-          type="text"
-          value={sfNewUsername}
-          onChange={(e) => setSfNewUsername(e.target.value)}
-          disabled={busy}
-          placeholder="username"
-          className={`${fieldClass} mt-1`}
-        />
+      <PlaygroundSection title="Create user">
+        <label className="flex flex-col gap-1.5">
+          <span className={labelClass}>Username</span>
+          <input
+            type="text"
+            value={sfNewUsername}
+            onChange={(e) => setSfNewUsername(e.target.value)}
+            disabled={busy}
+            placeholder="new handle"
+            className={fieldClass}
+          />
+        </label>
         <button
           type="button"
           disabled={busy || !deploymentId || !sfNewUsername.trim()}
-          className={`${actionBtnClass} mt-2`}
+          className={actionBtnClass}
           onClick={() =>
             void dispatch(
               'sf-create-user',
@@ -609,9 +864,11 @@ function SocialFeedPlayground({
               (result) => {
                 setSfNewUsername('')
                 const created = extractCreatedSocialUser(result.body)
-                void fetchSfUsers().then(() => {
-                  if (created) setSfActiveUserId(created.id)
-                })
+                if (created) {
+                  addUserToCache(created)
+                } else {
+                  void fetchSfUsers()
+                }
               },
             )
           }
@@ -619,7 +876,7 @@ function SocialFeedPlayground({
           {loadingAction === 'sf-create-user' ? <Spinner /> : 'Create'}
         </button>
         <ActionError message={actionErrors['sf-create-user']} />
-      </div>
+      </PlaygroundSection>
     </div>
   )
 }
@@ -698,24 +955,48 @@ function TraceWaterfallRow({
   )
   const detail = traceOpDetail(line)
   const label = traceOpLabel(line)
+  const hasDetail = detail.length > 0
+  const fullTitle = hasDetail ? `${label} — ${detail}` : label
+  const barTitle =
+    Number.isFinite(logged) && logged > 0
+      ? `${logged}ms (bar capped for display)`
+      : `${durationMs}ms`
+
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="w-9 shrink-0 text-right text-[var(--c9-muted)]">{offsetMs}ms</span>
+    <div
+      className="grid min-w-0 items-center gap-x-2 gap-y-0.5"
+      style={{ gridTemplateColumns: '2.25rem minmax(0, 1fr) 4.5rem' }}
+      title={fullTitle}
+    >
       <span
-        className="min-w-0 flex-1 truncate text-[var(--c9-text)]"
-        title={`${label}${detail ? ` ${detail}` : ''}`}
+        className={`col-start-1 row-start-1 tabular-nums text-right text-[var(--c9-muted)] ${
+          hasDetail ? 'row-span-2 self-start pt-px' : 'self-center'
+        }`}
       >
-        {label}
-        {detail ? <span className="text-[var(--c9-muted)]"> {detail}</span> : null}
+        {offsetMs}ms
       </span>
+
+      {hasDetail ? (
+        <>
+          <span className="col-start-2 row-start-1 block min-w-0 truncate font-medium text-[var(--c9-text)]">
+            {label}
+          </span>
+          <span className="col-start-2 row-start-2 block min-w-0 truncate text-[var(--c9-muted)]">
+            {detail}
+          </span>
+        </>
+      ) : (
+        <span className="col-start-2 row-start-1 block min-w-0 truncate text-[var(--c9-text)]">
+          {label}
+        </span>
+      )}
+
       <div
-        className="relative h-3 shrink-0 overflow-hidden rounded-sm bg-[var(--c9-surface)]/80"
+        className={`relative col-start-3 row-start-1 h-3 shrink-0 justify-self-end overflow-hidden rounded-sm bg-[var(--c9-surface)]/80 ${
+          hasDetail ? 'row-span-2 self-center' : 'self-center'
+        }`}
         style={{ width: TRACE_BAR_TRACK_PX }}
-        title={
-          Number.isFinite(logged) && logged > 0
-            ? `${logged}ms (bar capped for display)`
-            : `${durationMs}ms`
-        }
+        title={barTitle}
       >
         <div
           className={`absolute left-0 top-0 h-3 max-w-full rounded-sm ${traceOpBarClass(line.message, line.fields)}`}
@@ -1009,8 +1290,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
     >
       <header className="flex shrink-0 items-center justify-between border-b border-[var(--c9-border)] px-4 py-3">
         <div>
-          <p className="text-sm font-semibold text-[var(--c9-text)]">
-            <span aria-hidden>🎭 </span>
+          <p className="text-sm font-semibold tracking-tight text-[var(--c9-text)]">
             Live Playground
           </p>
           <p className="text-xs text-[var(--c9-muted)]">{templateTitle}</p>
@@ -1025,16 +1305,19 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
         </button>
       </header>
 
-      <div className="shrink-0 space-y-3 border-b border-[var(--c9-border)] p-4">
-        {!deploymentId ? (
-          <p className="rounded border border-amber-700/40 bg-amber-950/40 px-2 py-2 text-[11px] text-amber-100">
-            Deploy or join a live session to dispatch requests.
-          </p>
-        ) : null}
-        {templateActions}
+      <div className="flex min-h-0 max-h-[48%] shrink-0 flex-col border-b border-[var(--c9-border)]">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          {!deploymentId ? (
+            <p className="rounded border border-amber-700/40 bg-amber-950/40 px-2 py-2 text-[11px] text-amber-100">
+              Deploy or join a live session to dispatch requests.
+            </p>
+          ) : null}
+          {templateActions}
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div ref={waterfallRef} className="space-y-4">
           <div>
             <p className="mb-1 text-[11px] text-[var(--c9-muted)]">
@@ -1044,11 +1327,10 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
               </span>
             </p>
             <p className="mb-2 text-[10px] leading-snug text-[var(--c9-muted)]">
-              Bars use log timestamps
               {activeHistoryEntry
-                ? `; this request took ${activeHistoryEntry.durationMs}ms end-to-end via the proxy.`
-                : '; history ms values are full proxy round-trip.'}{' '}
-              Bar length uses capped duration_ms or time until the next log line.
+                ? `${activeHistoryEntry.durationMs}ms proxy round-trip.`
+                : 'Select a trace from history or run an action.'}{' '}
+              Bar width uses capped duration_ms between log lines.
             </p>
             <TraceWaterfall lines={traceLines} />
           </div>
@@ -1080,6 +1362,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
               </ul>
             </div>
           ) : null}
+        </div>
         </div>
       </div>
     </aside>
