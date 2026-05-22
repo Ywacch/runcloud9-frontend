@@ -208,6 +208,162 @@ function extractCreatedSocialUser(body: unknown): SocialFeedUser | null {
   }
 }
 
+interface CatalogProductRow {
+  id: number
+  name: string
+  price: string
+}
+
+function parseCatalogProducts(body: unknown): CatalogProductRow[] {
+  if (!body || typeof body !== 'object') return []
+  const o = body as Record<string, unknown>
+  const arr = Array.isArray(o.products) ? o.products : []
+  const rows: CatalogProductRow[] = []
+  for (const row of arr) {
+    if (!row || typeof row !== 'object') continue
+    const p = row as Record<string, unknown>
+    const id =
+      typeof p.id === 'number'
+        ? p.id
+        : typeof p.product_id === 'number'
+          ? p.product_id
+          : null
+    if (id == null) continue
+    const name = typeof p.name === 'string' ? p.name : `Product ${id}`
+    let price = '—'
+    if (typeof p.price === 'number' && Number.isFinite(p.price)) {
+      price = p.price.toFixed(2)
+    } else if (typeof p.price === 'string') {
+      price = p.price
+    }
+    rows.push({ id, name, price })
+  }
+  return rows
+}
+
+function EcommercePlayground({
+  deploymentId,
+  dispatch,
+  loadingAction,
+  actionErrors,
+}: {
+  deploymentId: string | null
+  dispatch: PlaygroundDispatch
+  loadingAction: string | null
+  actionErrors: Record<string, string | null>
+}) {
+  const [ecProductId, setEcProductId] = useState(1)
+  const [ecQuantity, setEcQuantity] = useState(1)
+  const [catalogRows, setCatalogRows] = useState<CatalogProductRow[] | null>(null)
+
+  const busy = loadingAction != null
+  const preview = catalogRows?.slice(0, 5) ?? []
+
+  const clampPositive = (n: number) => (Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1)
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <SectionHeading>Catalog</SectionHeading>
+        <button
+          type="button"
+          disabled={busy || !deploymentId}
+          className={actionBtnClass}
+          onClick={() =>
+            void dispatch(
+              'catalog',
+              'GET /catalog',
+              (requestId) =>
+                proxyRequest(deploymentId!, PROXY_COMPONENT, 'catalog', {
+                  method: 'GET',
+                  requestId,
+                }),
+              (result) => setCatalogRows(parseCatalogProducts(result.body)),
+            )
+          }
+        >
+          {loadingAction === 'catalog' ? <Spinner /> : 'Browse catalog'}
+        </button>
+        <ActionError message={actionErrors.catalog} />
+        {preview.length > 0 ? (
+          <table className="mt-2 w-full border-collapse font-mono text-[10px]">
+            <thead>
+              <tr className="border-b border-[var(--c9-border)] text-left text-[var(--c9-muted)]">
+                <th className="py-1 pr-2">id</th>
+                <th className="py-1 pr-2">name</th>
+                <th className="py-1">price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.map((p) => (
+                <tr key={p.id} className="border-b border-[var(--c9-border)]/40">
+                  <td className="py-1 pr-2 text-[var(--c9-text)]">{p.id}</td>
+                  <td className="max-w-[7rem] truncate py-1 pr-2 text-[var(--c9-text)]">
+                    {p.name}
+                  </td>
+                  <td className="py-1 text-[var(--c9-muted)]">{p.price}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : catalogRows != null && catalogRows.length === 0 ? (
+          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">Catalog returned no products.</p>
+        ) : null}
+        {catalogRows != null && catalogRows.length > 5 ? (
+          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
+            Showing 5 of {catalogRows.length} products.
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <SectionHeading>Checkout</SectionHeading>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <label className="block text-[10px] text-[var(--c9-muted)]">
+            Product ID
+            <input
+              type="number"
+              min={1}
+              value={ecProductId}
+              onChange={(e) => setEcProductId(clampPositive(Number(e.target.value)))}
+              disabled={busy}
+              className={`${fieldClass} mt-0.5`}
+            />
+          </label>
+          <label className="block text-[10px] text-[var(--c9-muted)]">
+            Quantity
+            <input
+              type="number"
+              min={1}
+              value={ecQuantity}
+              onChange={(e) => setEcQuantity(clampPositive(Number(e.target.value)))}
+              disabled={busy}
+              className={`${fieldClass} mt-0.5`}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={busy || !deploymentId}
+          className={`${actionBtnClass} mt-2`}
+          onClick={() =>
+            void dispatch('checkout', 'POST /checkout', (requestId) =>
+              proxyRequest(deploymentId!, PROXY_COMPONENT, 'checkout', {
+                method: 'POST',
+                body: { product_id: ecProductId, quantity: ecQuantity },
+                requestId,
+              }),
+            )
+          }
+        >
+          {loadingAction === 'checkout' ? <Spinner /> : 'Checkout'}
+        </button>
+        <ActionError message={actionErrors.checkout} />
+      </div>
+    </div>
+  )
+}
+
 function SocialFeedPlayground({
   deploymentId,
   open,
@@ -829,41 +985,12 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
 
   const ecommerceActions =
     snapshotTemplateId === 'ecommerce' ? (
-      <div className="space-y-3">
-        <button
-          type="button"
-          disabled={loadingAction != null || !deploymentId}
-          className={actionBtnClass}
-          onClick={() =>
-            void dispatch('catalog', 'GET /catalog', (requestId) =>
-              proxyRequest(deploymentId!, PROXY_COMPONENT, 'catalog', {
-                method: 'GET',
-                requestId,
-              }),
-            )
-          }
-        >
-          {loadingAction === 'catalog' ? <Spinner /> : 'Browse catalog'}
-        </button>
-        <ActionError message={actionErrors.catalog} />
-        <button
-          type="button"
-          disabled={loadingAction != null || !deploymentId}
-          className={actionBtnClass}
-          onClick={() =>
-            void dispatch('checkout', 'POST /checkout', (requestId) =>
-              proxyRequest(deploymentId!, PROXY_COMPONENT, 'checkout', {
-                method: 'POST',
-                body: { items: [{ product_id: 1, qty: 1 }] },
-                requestId,
-              }),
-            )
-          }
-        >
-          {loadingAction === 'checkout' ? <Spinner /> : 'Checkout'}
-        </button>
-        <ActionError message={actionErrors.checkout} />
-      </div>
+      <EcommercePlayground
+        deploymentId={deploymentId}
+        dispatch={dispatch}
+        loadingAction={loadingAction}
+        actionErrors={actionErrors}
+      />
     ) : null
 
   const templateActions =
