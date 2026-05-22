@@ -49,6 +49,15 @@ function traceOpBarClass(message: string, fields?: Record<string, unknown>): str
   if (op.includes('cache') || op.includes('redis')) return 'bg-cyan-500'
   if (op.includes('db') || op.includes('sql') || op.includes('postgres')) return 'bg-amber-500'
   if (op.includes('mq') || op.includes('rabbit') || op.includes('queue')) return 'bg-violet-500'
+  if (
+    op.includes('get_url') ||
+    op.includes('shorten') ||
+    op.includes('handler') ||
+    op.includes('app') ||
+    op.includes('http')
+  ) {
+    return 'bg-emerald-500'
+  }
   return 'bg-[var(--c9-accent)]'
 }
 
@@ -56,7 +65,7 @@ function traceOpLabel(line: LogLine): string {
   const msg = line.message.trim()
   const op = line.fields?.operation ?? line.fields?.op
   if (typeof op === 'string' && op) return op
-  const m = msg.match(/\b(cache_\w+|db_\w+|mq_\w+)\b/i)
+  const m = msg.match(/\b(cache_\w+|db_\w+|mq_\w+|get_\w+|post_\w+)\b/i)
   if (m) return m[1]
   return msg.length > 28 ? `${msg.slice(0, 28)}…` : msg
 }
@@ -84,29 +93,89 @@ function extractShortCode(body: unknown): string | null {
   return null
 }
 
-function TraceWaterfall({ lines }: { lines: LogLine[] }) {
-  const sorted = useMemo(
-    () =>
-      [...lines].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-      ),
-    [lines],
+/** Fixed timeline track — bar width is pixels within this, not % of the panel row. */
+const TRACE_BAR_TRACK_PX = 88
+
+function dedupeTraceLines(sorted: LogLine[], firstTs: number): LogLine[] {
+  const seen = new Set<string>()
+  const out: LogLine[] = []
+  for (const line of sorted) {
+    const offsetMs = new Date(line.timestamp).getTime() - firstTs
+    const key = `${offsetMs}|${line.component}|${traceOpLabel(line)}|${traceOpDetail(line)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(line)
+  }
+  return out
+}
+
+function groupTraceLinesByComponent(lines: LogLine[]): { component: string; lines: LogLine[] }[] {
+  const groups: { component: string; lines: LogLine[] }[] = []
+  for (const line of lines) {
+    const component = line.component || 'unknown'
+    const last = groups[groups.length - 1]
+    if (last?.component === component) last.lines.push(line)
+    else groups.push({ component, lines: [line] })
+  }
+  return groups
+}
+
+function TraceWaterfallRow({
+  line,
+  firstTs,
+  maxDur,
+}: {
+  line: LogLine
+  firstTs: number
+  maxDur: number
+}) {
+  const offsetMs = new Date(line.timestamp).getTime() - firstTs
+  const dur = Number(line.fields?.duration_ms)
+  const durationMs = Number.isFinite(dur) && dur > 0 ? dur : 12
+  const barPx = Math.max(4, Math.round((durationMs / maxDur) * TRACE_BAR_TRACK_PX))
+  const detail = traceOpDetail(line)
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-9 shrink-0 text-right text-[var(--c9-muted)]">{offsetMs}ms</span>
+      <div
+        className="relative h-3 shrink-0 rounded-sm bg-[var(--c9-surface)]/80"
+        style={{ width: TRACE_BAR_TRACK_PX }}
+        title={`${durationMs}ms`}
+      >
+        <div
+          className={`absolute left-0 top-0 h-3 rounded-sm ${traceOpBarClass(line.message, line.fields)}`}
+          style={{ width: barPx }}
+        />
+      </div>
+      <span className="min-w-0 flex-1 truncate text-[var(--c9-text)]">
+        {traceOpLabel(line)}
+        {detail ? <span className="text-[var(--c9-muted)]"> {detail}</span> : null}
+      </span>
+    </div>
   )
+}
 
-  const firstTs = sorted.length
-    ? new Date(sorted[0].timestamp).getTime()
-    : 0
-
-  const maxDur = useMemo(() => {
+function TraceWaterfall({ lines }: { lines: LogLine[] }) {
+  const { groups, firstTs, maxDur, isEmpty } = useMemo(() => {
+    const sorted = [...lines].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    )
+    const first = sorted.length ? new Date(sorted[0].timestamp).getTime() : 0
+    const deduped = dedupeTraceLines(sorted, first)
     let m = 1
-    for (const l of sorted) {
+    for (const l of deduped) {
       const d = Number(l.fields?.duration_ms)
-      if (Number.isFinite(d) && d > m) m = d
+      if (Number.isFinite(d) && d > 0 && d > m) m = d
     }
-    return m
-  }, [sorted])
+    return {
+      groups: groupTraceLinesByComponent(deduped),
+      firstTs: first,
+      maxDur: m,
+      isEmpty: deduped.length === 0,
+    }
+  }, [lines])
 
-  if (sorted.length === 0) {
+  if (isEmpty) {
     return (
       <p className="py-4 text-center text-[11px] text-[var(--c9-muted)]">
         Waiting for trace logs…
@@ -115,34 +184,26 @@ function TraceWaterfall({ lines }: { lines: LogLine[] }) {
   }
 
   return (
-    <div className="space-y-1.5 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 p-2 font-mono text-[10px]">
-      {sorted.map((line) => {
-        const offsetMs = new Date(line.timestamp).getTime() - firstTs
-        const dur = Number(line.fields?.duration_ms)
-        const durationMs = Number.isFinite(dur) && dur > 0 ? dur : 12
-        const widthPct = Math.min(100, Math.max(12, (durationMs / maxDur) * 100))
-        const detail = traceOpDetail(line)
-        return (
-          <div key={line.id} className="flex items-center gap-2">
-            <span className="w-9 shrink-0 text-right text-[var(--c9-muted)]">
-              {offsetMs}ms
-            </span>
-            <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <div
-                className={`h-3 shrink-0 rounded-sm ${traceOpBarClass(line.message, line.fields)}`}
-                style={{ width: `${widthPct}%`, minWidth: '1.25rem' }}
-                title={`${durationMs}ms`}
-              />
-              <span className="min-w-0 truncate text-[var(--c9-text)]">
-                {traceOpLabel(line)}
-                {detail ? (
-                  <span className="text-[var(--c9-muted)]"> {detail}</span>
-                ) : null}
-              </span>
+    <div className="overflow-x-auto rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 p-2 font-mono text-[10px]">
+      <div className="min-w-[min(100%,14rem)] space-y-2">
+        {groups.map((group) => (
+          <div key={group.component}>
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
+              {group.component}
+            </p>
+            <div className="space-y-1">
+              {group.lines.map((line) => (
+                <TraceWaterfallRow
+                  key={line.id}
+                  line={line}
+                  firstTs={firstTs}
+                  maxDur={maxDur}
+                />
+              ))}
             </div>
           </div>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }
@@ -178,10 +239,22 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
     if (lastCode) setResolveCode(lastCode)
   }, [lastCode])
 
+  useEffect(() => {
+    if (!open) {
+      setActiveTrace(null)
+      setActiveTraceId(null)
+    }
+  }, [open, setActiveTraceId])
+
   const traceLines = useMemo(() => {
     if (!activeTrace) return []
     return logs.filter((l) => l.fields?.request_id === activeTrace)
   }, [logs, activeTrace])
+
+  const activeHistoryEntry = useMemo(
+    () => traceHistory.find((t) => t.requestId === activeTrace),
+    [traceHistory, activeTrace],
+  )
 
   const selectTrace = useCallback(
     (requestId: string) => {
@@ -255,7 +328,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
 
   const urlShortenerActions =
     snapshotTemplateId === 'url-shortener' ? (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <SectionHeading>Shorten a URL</SectionHeading>
           <div className="mt-2 flex gap-2">
@@ -458,22 +531,30 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-4 p-4">
-          {!deploymentId ? (
-            <p className="rounded border border-amber-700/40 bg-amber-950/40 px-2 py-2 text-[11px] text-amber-100">
-              Deploy or join a live session to dispatch requests.
-            </p>
-          ) : null}
+      <div className="shrink-0 space-y-3 border-b border-[var(--c9-border)] p-4">
+        {!deploymentId ? (
+          <p className="rounded border border-amber-700/40 bg-amber-950/40 px-2 py-2 text-[11px] text-amber-100">
+            Deploy or join a live session to dispatch requests.
+          </p>
+        ) : null}
+        {templateActions}
+      </div>
 
-          {templateActions}
-
-          <div ref={waterfallRef} className="border-t border-[var(--c9-border)] pt-4">
-            <p className="mb-2 text-[11px] text-[var(--c9-muted)]">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div ref={waterfallRef} className="space-y-4">
+          <div>
+            <p className="mb-1 text-[11px] text-[var(--c9-muted)]">
               Trace:{' '}
               <span className="font-mono text-[var(--c9-text)]">
                 {activeTrace ? `${activeTrace.slice(0, 8)}…` : '—'}
               </span>
+            </p>
+            <p className="mb-2 text-[10px] leading-snug text-[var(--c9-muted)]">
+              Bars use log timestamps
+              {activeHistoryEntry
+                ? `; this request took ${activeHistoryEntry.durationMs}ms end-to-end via the proxy.`
+                : '; history ms values are full proxy round-trip.'}{' '}
+              Bar length uses duration_ms when the backend logs it.
             </p>
             <TraceWaterfall lines={traceLines} />
           </div>

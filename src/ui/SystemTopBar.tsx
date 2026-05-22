@@ -7,6 +7,7 @@ import { computeSystemAggregates } from '../lib/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { templateKpiRows } from '../lib/templateKpis'
 import { useCanvasStore } from '../store/canvasStore'
+import { useLogStore } from '../store/logStore'
 import { useTemplateRegistryStore } from '../store/templateRegistryStore'
 import { useMetricsStore } from '../store/metricsStore'
 import { useSimulationStore } from '../store/simulationStore'
@@ -81,6 +82,7 @@ export function SystemTopBar() {
     id: string | null
   }>({ open: false, overview: false, id: null })
   const mode = useCanvasStore((s) => s.mode)
+  const setActiveTraceId = useLogStore((s) => s.setActiveTraceId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const nodes = useCanvasStore((s) => s.nodes)
   const metrics = useMetricsStore((s) => s.metrics)
@@ -170,8 +172,11 @@ export function SystemTopBar() {
   }, [])
 
   useEffect(() => {
-    if (mode !== 'live') setDataViewOpen(false)
-  }, [mode])
+    if (mode !== 'live') {
+      setDataViewOpen(false)
+      setActiveTraceId(null)
+    }
+  }, [mode, setActiveTraceId])
 
   if (mode !== 'live' && mode !== 'simulate') return null
 
