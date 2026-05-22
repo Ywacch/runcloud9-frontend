@@ -94,7 +94,10 @@ function extractShortCode(body: unknown): string | null {
 }
 
 /** Fixed timeline track — bar width is pixels within this, not % of the panel row. */
-const TRACE_BAR_TRACK_PX = 88
+const TRACE_BAR_TRACK_PX = 72
+/** Cap bar scaling so one huge duration_ms (e.g. full request span) cannot dominate. */
+const TRACE_BAR_VISUAL_CAP_MS = 48
+const TRACE_FALLBACK_DUR_MS = 12
 
 function dedupeTraceLines(sorted: LogLine[], firstTs: number): LogLine[] {
   const seen = new Set<string>()
@@ -109,69 +112,111 @@ function dedupeTraceLines(sorted: LogLine[], firstTs: number): LogLine[] {
   return out
 }
 
-function groupTraceLinesByComponent(lines: LogLine[]): { component: string; lines: LogLine[] }[] {
-  const groups: { component: string; lines: LogLine[] }[] = []
-  for (const line of lines) {
-    const component = line.component || 'unknown'
+interface TraceRowModel {
+  line: LogLine
+  offsetMs: number
+  nextOffsetMs: number | null
+}
+
+function groupTraceRowsByComponent(
+  rows: TraceRowModel[],
+): { component: string; rows: TraceRowModel[] }[] {
+  const groups: { component: string; rows: TraceRowModel[] }[] = []
+  for (const row of rows) {
+    const component = row.line.component || 'unknown'
     const last = groups[groups.length - 1]
-    if (last?.component === component) last.lines.push(line)
-    else groups.push({ component, lines: [line] })
+    if (last?.component === component) last.rows.push(row)
+    else groups.push({ component, rows: [row] })
   }
   return groups
 }
 
+function visualDurationMs(
+  line: LogLine,
+  offsetMs: number,
+  nextOffsetMs: number | null,
+): number {
+  const logged = Number(line.fields?.duration_ms)
+  const fromLog =
+    Number.isFinite(logged) && logged > 0 ? Math.min(logged, TRACE_BAR_VISUAL_CAP_MS) : null
+  if (fromLog != null) return fromLog
+  if (nextOffsetMs != null) {
+    return Math.min(
+      TRACE_BAR_VISUAL_CAP_MS,
+      Math.max(4, nextOffsetMs - offsetMs),
+    )
+  }
+  return TRACE_FALLBACK_DUR_MS
+}
+
 function TraceWaterfallRow({
-  line,
-  firstTs,
+  row,
   maxDur,
 }: {
-  line: LogLine
-  firstTs: number
+  row: TraceRowModel
   maxDur: number
 }) {
-  const offsetMs = new Date(line.timestamp).getTime() - firstTs
-  const dur = Number(line.fields?.duration_ms)
-  const durationMs = Number.isFinite(dur) && dur > 0 ? dur : 12
-  const barPx = Math.max(4, Math.round((durationMs / maxDur) * TRACE_BAR_TRACK_PX))
+  const { line, offsetMs, nextOffsetMs } = row
+  const logged = Number(line.fields?.duration_ms)
+  const durationMs =
+    Number.isFinite(logged) && logged > 0 ? logged : TRACE_FALLBACK_DUR_MS
+  const visualMs = visualDurationMs(line, offsetMs, nextOffsetMs)
+  const barPx = Math.min(
+    TRACE_BAR_TRACK_PX,
+    Math.max(4, Math.round((visualMs / maxDur) * TRACE_BAR_TRACK_PX)),
+  )
   const detail = traceOpDetail(line)
+  const label = traceOpLabel(line)
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <span className="w-9 shrink-0 text-right text-[var(--c9-muted)]">{offsetMs}ms</span>
+      <span
+        className="min-w-0 flex-1 truncate text-[var(--c9-text)]"
+        title={`${label}${detail ? ` ${detail}` : ''}`}
+      >
+        {label}
+        {detail ? <span className="text-[var(--c9-muted)]"> {detail}</span> : null}
+      </span>
       <div
-        className="relative h-3 shrink-0 rounded-sm bg-[var(--c9-surface)]/80"
+        className="relative h-3 shrink-0 overflow-hidden rounded-sm bg-[var(--c9-surface)]/80"
         style={{ width: TRACE_BAR_TRACK_PX }}
-        title={`${durationMs}ms`}
+        title={
+          Number.isFinite(logged) && logged > 0
+            ? `${logged}ms (bar capped for display)`
+            : `${durationMs}ms`
+        }
       >
         <div
-          className={`absolute left-0 top-0 h-3 rounded-sm ${traceOpBarClass(line.message, line.fields)}`}
+          className={`absolute left-0 top-0 h-3 max-w-full rounded-sm ${traceOpBarClass(line.message, line.fields)}`}
           style={{ width: barPx }}
         />
       </div>
-      <span className="min-w-0 flex-1 truncate text-[var(--c9-text)]">
-        {traceOpLabel(line)}
-        {detail ? <span className="text-[var(--c9-muted)]"> {detail}</span> : null}
-      </span>
     </div>
   )
 }
 
 function TraceWaterfall({ lines }: { lines: LogLine[] }) {
-  const { groups, firstTs, maxDur, isEmpty } = useMemo(() => {
+  const { groups, maxDur, isEmpty } = useMemo(() => {
     const sorted = [...lines].sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     )
     const first = sorted.length ? new Date(sorted[0].timestamp).getTime() : 0
     const deduped = dedupeTraceLines(sorted, first)
-    let m = 1
-    for (const l of deduped) {
-      const d = Number(l.fields?.duration_ms)
-      if (Number.isFinite(d) && d > 0 && d > m) m = d
+    const offsets = deduped.map((l) => new Date(l.timestamp).getTime() - first)
+    const rows: TraceRowModel[] = deduped.map((line, i) => ({
+      line,
+      offsetMs: offsets[i]!,
+      nextOffsetMs: i < offsets.length - 1 ? offsets[i + 1]! : null,
+    }))
+    let m = TRACE_FALLBACK_DUR_MS
+    for (const row of rows) {
+      const v = visualDurationMs(row.line, row.offsetMs, row.nextOffsetMs)
+      if (v > m) m = v
     }
     return {
-      groups: groupTraceLinesByComponent(deduped),
-      firstTs: first,
+      groups: groupTraceRowsByComponent(rows),
       maxDur: m,
-      isEmpty: deduped.length === 0,
+      isEmpty: rows.length === 0,
     }
   }, [lines])
 
@@ -185,20 +230,15 @@ function TraceWaterfall({ lines }: { lines: LogLine[] }) {
 
   return (
     <div className="overflow-x-auto rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 p-2 font-mono text-[10px]">
-      <div className="min-w-[min(100%,14rem)] space-y-2">
+      <div className="space-y-2">
         {groups.map((group) => (
           <div key={group.component}>
             <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
               {group.component}
             </p>
             <div className="space-y-1">
-              {group.lines.map((line) => (
-                <TraceWaterfallRow
-                  key={line.id}
-                  line={line}
-                  firstTs={firstTs}
-                  maxDur={maxDur}
-                />
+              {group.rows.map((row) => (
+                <TraceWaterfallRow key={row.line.id} row={row} maxDur={maxDur} />
               ))}
             </div>
           </div>
@@ -554,7 +594,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
               {activeHistoryEntry
                 ? `; this request took ${activeHistoryEntry.durationMs}ms end-to-end via the proxy.`
                 : '; history ms values are full proxy round-trip.'}{' '}
-              Bar length uses duration_ms when the backend logs it.
+              Bar length uses capped duration_ms or time until the next log line.
             </p>
             <TraceWaterfall lines={traceLines} />
           </div>
