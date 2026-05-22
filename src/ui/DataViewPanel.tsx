@@ -93,6 +93,537 @@ function extractShortCode(body: unknown): string | null {
   return null
 }
 
+const SF_POST_MAX_CHARS = 280
+const SF_USER_POOL_HYDRATE_LIMIT = 30
+
+interface SocialFeedUser {
+  id: number
+  username: string
+}
+
+type PlaygroundDispatch = (
+  actionKey: string,
+  label: string,
+  run: (requestId: string) => Promise<ProxyResponse>,
+  onSuccess?: (result: ProxyResponse) => void,
+) => void
+
+function mapSocialFeedUserRows(arr: unknown[]): SocialFeedUser[] {
+  const out: SocialFeedUser[] = []
+  for (const row of arr) {
+    if (!row || typeof row !== 'object') continue
+    const u = row as Record<string, unknown>
+    const id =
+      typeof u.id === 'number'
+        ? u.id
+        : typeof u.user_id === 'number'
+          ? u.user_id
+          : null
+    if (id == null) continue
+    const username =
+      typeof u.username === 'string' && u.username.trim()
+        ? u.username
+        : `user-${id}`
+    out.push({ id, username })
+  }
+  return out
+}
+
+function parseSocialFeedUsers(body: unknown): SocialFeedUser[] {
+  if (Array.isArray(body)) return mapSocialFeedUserRows(body)
+  if (!body || typeof body !== 'object') return []
+  const o = body as Record<string, unknown>
+  if (Array.isArray(o.users)) return mapSocialFeedUserRows(o.users)
+  if (Array.isArray(o.userIds)) {
+    return (o.userIds as unknown[])
+      .filter((id): id is number => typeof id === 'number')
+      .map((id) => ({ id, username: `#${id}` }))
+  }
+  return []
+}
+
+function parseUserPoolIds(body: unknown): number[] {
+  if (!body || typeof body !== 'object') return []
+  const o = body as Record<string, unknown>
+  if (!Array.isArray(o.userIds)) return []
+  return (o.userIds as unknown[]).filter((id): id is number => typeof id === 'number')
+}
+
+async function fetchSocialFeedUserById(
+  deploymentId: string,
+  id: number,
+): Promise<SocialFeedUser | null> {
+  const res = await proxyRequest(deploymentId, PROXY_COMPONENT, `users/${id}`, {
+    method: 'GET',
+  })
+  if (res.status >= 400) return { id, username: `user-${id}` }
+  const parsed = parseSocialFeedUsers(res.body)
+  if (parsed[0]) return parsed[0]
+  if (res.body && typeof res.body === 'object') {
+    const u = res.body as Record<string, unknown>
+    if (typeof u.id === 'number') {
+      return {
+        id: u.id,
+        username:
+          typeof u.username === 'string' && u.username.trim()
+            ? u.username
+            : `user-${u.id}`,
+      }
+    }
+  }
+  return { id, username: `user-${id}` }
+}
+
+async function loadSocialFeedUsers(deploymentId: string): Promise<SocialFeedUser[]> {
+  const listRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'users', {
+    method: 'GET',
+  })
+  const fromList = parseSocialFeedUsers(listRes.body)
+  if (fromList.length > 0) return fromList
+
+  const poolRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'user-pool', {
+    method: 'GET',
+  })
+  const ids = parseUserPoolIds(poolRes.body).slice(0, SF_USER_POOL_HYDRATE_LIMIT)
+  if (ids.length === 0) return []
+
+  const hydrated = await Promise.all(
+    ids.map((id) => fetchSocialFeedUserById(deploymentId, id)),
+  )
+  return hydrated.filter((u): u is SocialFeedUser => u != null)
+}
+
+function extractCreatedSocialUser(body: unknown): SocialFeedUser | null {
+  if (!body || typeof body !== 'object') return null
+  const parsed = parseSocialFeedUsers(body)
+  if (parsed[0]) return parsed[0]
+  const u = body as Record<string, unknown>
+  if (typeof u.id !== 'number') return null
+  return {
+    id: u.id,
+    username:
+      typeof u.username === 'string' && u.username.trim()
+        ? u.username
+        : `user-${u.id}`,
+  }
+}
+
+interface CatalogProductRow {
+  id: number
+  name: string
+  price: string
+}
+
+function parseCatalogProducts(body: unknown): CatalogProductRow[] {
+  if (!body || typeof body !== 'object') return []
+  const o = body as Record<string, unknown>
+  const arr = Array.isArray(o.products) ? o.products : []
+  const rows: CatalogProductRow[] = []
+  for (const row of arr) {
+    if (!row || typeof row !== 'object') continue
+    const p = row as Record<string, unknown>
+    const id =
+      typeof p.id === 'number'
+        ? p.id
+        : typeof p.product_id === 'number'
+          ? p.product_id
+          : null
+    if (id == null) continue
+    const name = typeof p.name === 'string' ? p.name : `Product ${id}`
+    let price = '—'
+    if (typeof p.price === 'number' && Number.isFinite(p.price)) {
+      price = p.price.toFixed(2)
+    } else if (typeof p.price === 'string') {
+      price = p.price
+    }
+    rows.push({ id, name, price })
+  }
+  return rows
+}
+
+function EcommercePlayground({
+  deploymentId,
+  dispatch,
+  loadingAction,
+  actionErrors,
+}: {
+  deploymentId: string | null
+  dispatch: PlaygroundDispatch
+  loadingAction: string | null
+  actionErrors: Record<string, string | null>
+}) {
+  const [ecProductId, setEcProductId] = useState(1)
+  const [ecQuantity, setEcQuantity] = useState(1)
+  const [catalogRows, setCatalogRows] = useState<CatalogProductRow[] | null>(null)
+
+  const busy = loadingAction != null
+  const preview = catalogRows?.slice(0, 5) ?? []
+
+  const clampPositive = (n: number) => (Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1)
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <SectionHeading>Catalog</SectionHeading>
+        <button
+          type="button"
+          disabled={busy || !deploymentId}
+          className={actionBtnClass}
+          onClick={() =>
+            void dispatch(
+              'catalog',
+              'GET /catalog',
+              (requestId) =>
+                proxyRequest(deploymentId!, PROXY_COMPONENT, 'catalog', {
+                  method: 'GET',
+                  requestId,
+                }),
+              (result) => setCatalogRows(parseCatalogProducts(result.body)),
+            )
+          }
+        >
+          {loadingAction === 'catalog' ? <Spinner /> : 'Browse catalog'}
+        </button>
+        <ActionError message={actionErrors.catalog} />
+        {preview.length > 0 ? (
+          <table className="mt-2 w-full border-collapse font-mono text-[10px]">
+            <thead>
+              <tr className="border-b border-[var(--c9-border)] text-left text-[var(--c9-muted)]">
+                <th className="py-1 pr-2">id</th>
+                <th className="py-1 pr-2">name</th>
+                <th className="py-1">price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.map((p) => (
+                <tr key={p.id} className="border-b border-[var(--c9-border)]/40">
+                  <td className="py-1 pr-2 text-[var(--c9-text)]">{p.id}</td>
+                  <td className="max-w-[7rem] truncate py-1 pr-2 text-[var(--c9-text)]">
+                    {p.name}
+                  </td>
+                  <td className="py-1 text-[var(--c9-muted)]">{p.price}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : catalogRows != null && catalogRows.length === 0 ? (
+          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">Catalog returned no products.</p>
+        ) : null}
+        {catalogRows != null && catalogRows.length > 5 ? (
+          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
+            Showing 5 of {catalogRows.length} products.
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <SectionHeading>Checkout</SectionHeading>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <label className="block text-[10px] text-[var(--c9-muted)]">
+            Product ID
+            <input
+              type="number"
+              min={1}
+              value={ecProductId}
+              onChange={(e) => setEcProductId(clampPositive(Number(e.target.value)))}
+              disabled={busy}
+              className={`${fieldClass} mt-0.5`}
+            />
+          </label>
+          <label className="block text-[10px] text-[var(--c9-muted)]">
+            Quantity
+            <input
+              type="number"
+              min={1}
+              value={ecQuantity}
+              onChange={(e) => setEcQuantity(clampPositive(Number(e.target.value)))}
+              disabled={busy}
+              className={`${fieldClass} mt-0.5`}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={busy || !deploymentId}
+          className={`${actionBtnClass} mt-2`}
+          onClick={() =>
+            void dispatch('checkout', 'POST /checkout', (requestId) =>
+              proxyRequest(deploymentId!, PROXY_COMPONENT, 'checkout', {
+                method: 'POST',
+                body: { product_id: ecProductId, quantity: ecQuantity },
+                requestId,
+              }),
+            )
+          }
+        >
+          {loadingAction === 'checkout' ? <Spinner /> : 'Checkout'}
+        </button>
+        <ActionError message={actionErrors.checkout} />
+      </div>
+    </div>
+  )
+}
+
+function SocialFeedPlayground({
+  deploymentId,
+  open,
+  dispatch,
+  loadingAction,
+  actionErrors,
+}: {
+  deploymentId: string | null
+  open: boolean
+  dispatch: PlaygroundDispatch
+  loadingAction: string | null
+  actionErrors: Record<string, string | null>
+}) {
+  const [sfUsers, setSfUsers] = useState<SocialFeedUser[]>([])
+  const [sfLoading, setSfLoading] = useState(false)
+  const [sfUsersError, setSfUsersError] = useState<string | null>(null)
+  const [sfActiveUserId, setSfActiveUserId] = useState<number | null>(null)
+  const [sfFollowTargetId, setSfFollowTargetId] = useState('')
+  const [sfPostContent, setSfPostContent] = useState('')
+  const [sfNewUsername, setSfNewUsername] = useState('')
+
+  const fetchSfUsers = useCallback(async () => {
+    if (!deploymentId) return
+    setSfLoading(true)
+    setSfUsersError(null)
+    try {
+      const users = await loadSocialFeedUsers(deploymentId)
+      setSfUsers(users)
+      setSfActiveUserId((prev) => {
+        if (prev != null && users.some((u) => u.id === prev)) return prev
+        return users[0]?.id ?? null
+      })
+    } catch (e) {
+      setSfUsersError(e instanceof Error ? e.message : 'Failed to load users')
+      setSfUsers([])
+    } finally {
+      setSfLoading(false)
+    }
+  }, [deploymentId])
+
+  useEffect(() => {
+    if (!open || !deploymentId) return
+    void fetchSfUsers()
+  }, [open, deploymentId, fetchSfUsers])
+
+  const activeUser = sfUsers.find((u) => u.id === sfActiveUserId)
+  const busy = loadingAction != null || sfLoading
+  const followTarget = Number.parseInt(sfFollowTargetId, 10)
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <SectionHeading>Acting as</SectionHeading>
+        {sfLoading ? (
+          <p className="mt-1 flex items-center gap-2 text-[11px] text-[var(--c9-muted)]">
+            <Spinner /> Loading users…
+          </p>
+        ) : (
+          <select
+            value={sfActiveUserId ?? ''}
+            onChange={(e) => {
+              const id = Number(e.target.value)
+              setSfActiveUserId(Number.isFinite(id) ? id : null)
+            }}
+            disabled={busy || sfUsers.length === 0}
+            className={`${fieldClass} mt-1`}
+          >
+            {sfUsers.length === 0 ? (
+              <option value="">No users loaded</option>
+            ) : (
+              sfUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  @{u.username} (id {u.id})
+                </option>
+              ))
+            )}
+          </select>
+        )}
+        <ActionError message={sfUsersError} />
+        {sfUsers.length === 0 && !sfLoading && !sfUsersError ? (
+          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
+            Create a user below or refresh after deploy finishes seeding.
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <SectionHeading>Post</SectionHeading>
+        <textarea
+          value={sfPostContent}
+          onChange={(e) =>
+            setSfPostContent(e.target.value.slice(0, SF_POST_MAX_CHARS))
+          }
+          rows={3}
+          disabled={busy}
+          placeholder="What's happening?"
+          className={`${fieldClass} mt-1 resize-y`}
+        />
+        <p className="mt-0.5 text-right text-[10px] text-[var(--c9-muted)]">
+          {sfPostContent.length}/{SF_POST_MAX_CHARS}
+        </p>
+        <button
+          type="button"
+          disabled={busy || !deploymentId || sfActiveUserId == null || !sfPostContent.trim()}
+          className={`${actionBtnClass} mt-1`}
+          onClick={() =>
+            void dispatch(
+              'sf-post',
+              'POST /post',
+              (requestId) =>
+                proxyRequest(deploymentId!, PROXY_COMPONENT, 'post', {
+                  method: 'POST',
+                  body: { user_id: sfActiveUserId, content: sfPostContent.trim() },
+                  requestId,
+                }),
+              () => setSfPostContent(''),
+            )
+          }
+        >
+          {loadingAction === 'sf-post' ? <Spinner /> : 'Post'}
+        </button>
+        <ActionError message={actionErrors['sf-post']} />
+      </div>
+
+      <div>
+        <SectionHeading>Read feed</SectionHeading>
+        <button
+          type="button"
+          disabled={busy || !deploymentId || sfActiveUserId == null}
+          className={actionBtnClass}
+          onClick={() =>
+            void dispatch('sf-feed', `GET /feed/${sfActiveUserId}`, (requestId) =>
+              proxyRequest(
+                deploymentId!,
+                PROXY_COMPONENT,
+                `feed/${sfActiveUserId}`,
+                { method: 'GET', requestId },
+              ),
+            )
+          }
+        >
+          {loadingAction === 'sf-feed' ? <Spinner /> : 'Read my feed'}
+        </button>
+        <ActionError message={actionErrors['sf-feed']} />
+        {activeUser ? (
+          <p className="mt-1 text-[10px] text-[var(--c9-muted)]">
+            Timeline for @{activeUser.username}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <SectionHeading>Follow / unfollow</SectionHeading>
+        <input
+          type="number"
+          min={1}
+          value={sfFollowTargetId}
+          onChange={(e) => setSfFollowTargetId(e.target.value)}
+          disabled={busy}
+          placeholder="Target user id"
+          className={`${fieldClass} mt-1`}
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={
+              busy ||
+              !deploymentId ||
+              sfActiveUserId == null ||
+              !Number.isFinite(followTarget) ||
+              followTarget <= 0
+            }
+            className={actionBtnClass}
+            onClick={() =>
+              void dispatch('sf-follow', 'POST /follow', (requestId) =>
+                proxyRequest(deploymentId!, PROXY_COMPONENT, 'follow', {
+                  method: 'POST',
+                  body: {
+                    follower_id: sfActiveUserId,
+                    following_id: followTarget,
+                  },
+                  requestId,
+                }),
+              )
+            }
+          >
+            {loadingAction === 'sf-follow' ? <Spinner /> : 'Follow'}
+          </button>
+          <button
+            type="button"
+            disabled={
+              busy ||
+              !deploymentId ||
+              sfActiveUserId == null ||
+              !Number.isFinite(followTarget) ||
+              followTarget <= 0
+            }
+            className={actionBtnClass}
+            onClick={() =>
+              void dispatch('sf-unfollow', 'POST /unfollow', (requestId) =>
+                proxyRequest(deploymentId!, PROXY_COMPONENT, 'unfollow', {
+                  method: 'POST',
+                  body: {
+                    follower_id: sfActiveUserId,
+                    following_id: followTarget,
+                  },
+                  requestId,
+                }),
+              )
+            }
+          >
+            {loadingAction === 'sf-unfollow' ? <Spinner /> : 'Unfollow'}
+          </button>
+        </div>
+        <ActionError message={actionErrors['sf-follow']} />
+        <ActionError message={actionErrors['sf-unfollow']} />
+      </div>
+
+      <div>
+        <SectionHeading>Create user</SectionHeading>
+        <input
+          type="text"
+          value={sfNewUsername}
+          onChange={(e) => setSfNewUsername(e.target.value)}
+          disabled={busy}
+          placeholder="username"
+          className={`${fieldClass} mt-1`}
+        />
+        <button
+          type="button"
+          disabled={busy || !deploymentId || !sfNewUsername.trim()}
+          className={`${actionBtnClass} mt-2`}
+          onClick={() =>
+            void dispatch(
+              'sf-create-user',
+              'POST /users',
+              (requestId) =>
+                proxyRequest(deploymentId!, PROXY_COMPONENT, 'users', {
+                  method: 'POST',
+                  body: { username: sfNewUsername.trim() },
+                  requestId,
+                }),
+              (result) => {
+                setSfNewUsername('')
+                const created = extractCreatedSocialUser(result.body)
+                void fetchSfUsers().then(() => {
+                  if (created) setSfActiveUserId(created.id)
+                })
+              },
+            )
+          }
+        >
+          {loadingAction === 'sf-create-user' ? <Spinner /> : 'Create'}
+        </button>
+        <ActionError message={actionErrors['sf-create-user']} />
+      </div>
+    </div>
+  )
+}
+
 /** Fixed timeline track — bar width is pixels within this, not % of the panel row. */
 const TRACE_BAR_TRACK_PX = 72
 /** Cap bar scaling so one huge duration_ms (e.g. full request span) cannot dominate. */
@@ -443,100 +974,23 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
 
   const socialFeedActions =
     snapshotTemplateId === 'social-feed' ? (
-      <div className="space-y-3">
-        <button
-          type="button"
-          disabled={loadingAction != null || !deploymentId}
-          className={actionBtnClass}
-          onClick={() =>
-            void dispatch('post', 'POST /post', async (requestId) => {
-              let userId = 1
-              try {
-                const pool = await proxyRequest(
-                  deploymentId!,
-                  PROXY_COMPONENT,
-                  'user-pool',
-                  { method: 'GET', requestId: crypto.randomUUID() },
-                )
-                const body = pool.body
-                if (Array.isArray(body) && body.length > 0) {
-                  const first = body[0] as Record<string, unknown>
-                  if (typeof first.id === 'number') userId = first.id
-                  else if (typeof first.user_id === 'number') userId = first.user_id
-                }
-              } catch {
-                /* use default user_id */
-              }
-              return proxyRequest(deploymentId!, PROXY_COMPONENT, 'post', {
-                method: 'POST',
-                body: {
-                  user_id: userId,
-                  content: `Hello from the playground! ${Date.now()}`,
-                },
-                requestId,
-              })
-            })
-          }
-        >
-          {loadingAction === 'post' ? <Spinner /> : 'Post as @alice'}
-        </button>
-        <ActionError message={actionErrors.post} />
-        <button
-          type="button"
-          disabled={loadingAction != null || !deploymentId}
-          className={actionBtnClass}
-          onClick={() =>
-            void dispatch('feed', 'GET /feed/1', (requestId) =>
-              proxyRequest(deploymentId!, PROXY_COMPONENT, 'feed/1', {
-                method: 'GET',
-                requestId,
-              }),
-            )
-          }
-        >
-          {loadingAction === 'feed' ? <Spinner /> : 'Read feed'}
-        </button>
-        <ActionError message={actionErrors.feed} />
-      </div>
+      <SocialFeedPlayground
+        deploymentId={deploymentId}
+        open={open}
+        dispatch={dispatch}
+        loadingAction={loadingAction}
+        actionErrors={actionErrors}
+      />
     ) : null
 
   const ecommerceActions =
     snapshotTemplateId === 'ecommerce' ? (
-      <div className="space-y-3">
-        <button
-          type="button"
-          disabled={loadingAction != null || !deploymentId}
-          className={actionBtnClass}
-          onClick={() =>
-            void dispatch('catalog', 'GET /catalog', (requestId) =>
-              proxyRequest(deploymentId!, PROXY_COMPONENT, 'catalog', {
-                method: 'GET',
-                requestId,
-              }),
-            )
-          }
-        >
-          {loadingAction === 'catalog' ? <Spinner /> : 'Browse catalog'}
-        </button>
-        <ActionError message={actionErrors.catalog} />
-        <button
-          type="button"
-          disabled={loadingAction != null || !deploymentId}
-          className={actionBtnClass}
-          onClick={() =>
-            void dispatch('checkout', 'POST /checkout', (requestId) =>
-              proxyRequest(deploymentId!, PROXY_COMPONENT, 'checkout', {
-                method: 'POST',
-                body: { items: [{ product_id: 1, qty: 1 }] },
-                requestId,
-              }),
-            )
-          }
-        >
-          {loadingAction === 'checkout' ? <Spinner /> : 'Checkout'}
-        </button>
-        <ActionError message={actionErrors.checkout} />
-      </div>
+      <EcommercePlayground
+        deploymentId={deploymentId}
+        dispatch={dispatch}
+        loadingAction={loadingAction}
+        actionErrors={actionErrors}
+      />
     ) : null
 
   const templateActions =
