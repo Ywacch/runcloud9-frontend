@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import type { CanvasNode } from '../../store/canvasStore'
 import { useNodeLogo } from '../useNodeLogo'
 import { getNodeUnitSpec, getUnitCenterY, type NodeUnitSpec } from './nodeBounds'
+import { getMqClusterOffsets } from './mqClusterLayout'
 import { darkenHex, lightenHex } from './shapeUtils'
 
 const OUTLINE_THRESHOLD = 15
@@ -414,34 +415,6 @@ function ClientShape({
 /* ------------------------------------------------------------------ */
 /* Message Queue — honeycomb cluster of horizontal hex tubes (Kinesis) */
 /* ------------------------------------------------------------------ */
-
-/**
- * Tube positions in the cluster's local Y/Z plane (X is the tube axis).
- * Five pointy-top hexagons in a tight, flush honeycomb: 1 center + 4 around.
- *
- * For pointy-top hexagons with circumradius `r`, neighboring center distance is
- * `r * sqrt(3)`. The 4 surrounding hexes sit at angles 60°, 120°, 240°, 300°
- * from the centre at that distance, which yields offsets (±r√3/2, ±1.5r).
- */
-function getMqHoneycombUnitOffsets(): Array<[number, number]> {
-  const sqrt3 = Math.sqrt(3)
-  return [
-    [0, 0],
-    [sqrt3 / 2, 1.5],
-    [-sqrt3 / 2, 1.5],
-    [-sqrt3 / 2, -1.5],
-    [sqrt3 / 2, -1.5],
-  ]
-}
-
-/** Cross-section offsets [dz, dy] for 1–5 flush-packed horizontal hex tubes. */
-function getMqClusterOffsets(tubeCount: number, tubeR: number): Array<[number, number]> {
-  const base = getMqHoneycombUnitOffsets().slice(
-    0,
-    Math.min(5, Math.max(1, tubeCount)),
-  )
-  return base.map(([u, v]) => [u * tubeR, v * tubeR])
-}
 
 function MessageQueueShape({
   face,
