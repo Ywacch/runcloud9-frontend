@@ -118,7 +118,8 @@ function extractShortCode(body: unknown): string | null {
 }
 
 const SF_POST_MAX_CHARS = 280
-const SF_PICKER_LIST_MAX = 8
+/** Max rows when filtering the in-memory sample; unfiltered shows every loaded user. */
+const SF_PICKER_FILTER_MAX = 50
 /** Max catalog rows rendered at once in the narrow playground panel. */
 const EC_CATALOG_VISIBLE_MAX = 80
 
@@ -170,11 +171,67 @@ function parseSocialFeedUsers(body: unknown): SocialFeedUser[] {
   return []
 }
 
+function parsePositiveInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.floor(value)
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    return Number(value.trim())
+  }
+  return null
+}
+
+function parseCollectionTotal(body: unknown, fallback: number): number {
+  if (!body || typeof body !== 'object') return fallback
+  const o = body as Record<string, unknown>
+  return (
+    parsePositiveInt(o.count) ??
+    parsePositiveInt(o.total) ??
+    parsePositiveInt(o.size) ??
+    parsePositiveInt(o.pool_size) ??
+    parsePositiveInt(o.poolSize) ??
+    parsePositiveInt(o.user_count) ??
+    fallback
+  )
+}
+
 function parseUserPoolIds(body: unknown): number[] {
   if (!body || typeof body !== 'object') return []
   const o = body as Record<string, unknown>
   if (!Array.isArray(o.userIds)) return []
   return (o.userIds as unknown[]).filter((id): id is number => typeof id === 'number')
+}
+
+async function fetchSocialFeedUserList(
+  deploymentId: string,
+): Promise<{ users: SocialFeedUser[]; listTotal: number }> {
+  const res = await proxyRequest(deploymentId, PROXY_COMPONENT, 'users', { method: 'GET' })
+  if (res.status >= 400) return { users: [], listTotal: 0 }
+  const users = parseSocialFeedUsers(res.body)
+  return {
+    users,
+    listTotal: parseCollectionTotal(res.body, users.length),
+  }
+}
+
+/** Partial username search — up to 20 matches from GET /users?username= or ?q=. */
+async function searchSocialFeedUsers(
+  deploymentId: string,
+  query: string,
+): Promise<SocialFeedUser[]> {
+  const encoded = encodeURIComponent(query.trim())
+  for (const param of ['username', 'q'] as const) {
+    const res = await proxyRequest(
+      deploymentId,
+      PROXY_COMPONENT,
+      `users?${param}=${encoded}`,
+      { method: 'GET' },
+    )
+    if (res.status >= 400) continue
+    const users = parseSocialFeedUsers(res.body)
+    if (users.length > 0) return users
+  }
+  return []
 }
 
 async function fetchSocialFeedUserById(
@@ -216,20 +273,22 @@ function mergeSocialFeedUsers(
 
 async function loadSocialFeedUserDirectory(
   deploymentId: string,
-): Promise<{ users: SocialFeedUser[]; poolSize: number }> {
+): Promise<{ users: SocialFeedUser[]; poolSize: number; listTotal: number }> {
   const poolRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'user-pool', {
     method: 'GET',
   })
   const poolIds = parseUserPoolIds(poolRes.body)
+  const poolTotal = parseCollectionTotal(
+    poolRes.body,
+    poolIds.length > 0 ? poolIds.length : 0,
+  )
 
-  const listRes = await proxyRequest(deploymentId, PROXY_COMPONENT, 'users', {
-    method: 'GET',
-  })
-  const fromList = parseSocialFeedUsers(listRes.body)
+  const { users: fromList, listTotal } = await fetchSocialFeedUserList(deploymentId)
 
   return {
     users: fromList,
-    poolSize: poolIds.length > 0 ? poolIds.length : fromList.length,
+    listTotal,
+    poolSize: poolTotal > 0 ? poolTotal : listTotal > 0 ? listTotal : fromList.length,
   }
 }
 
@@ -244,18 +303,14 @@ async function lookupSocialFeedUser(
     return fetchSocialFeedUserById(deploymentId, Number(q))
   }
 
-  const encoded = encodeURIComponent(q)
-  const paths = [`users/by-username/${encoded}`, `users/search?username=${encoded}`]
-  for (const path of paths) {
-    const res = await proxyRequest(deploymentId, PROXY_COMPONENT, path, { method: 'GET' })
-    if (res.status >= 400) continue
-    const fromBody = extractCreatedSocialUser(res.body)
-    if (fromBody) return fromBody
-    const rows = parseSocialFeedUsers(res.body)
-    if (rows[0]) return rows[0]
-  }
-
-  return null
+  const matches = await searchSocialFeedUsers(deploymentId, q)
+  if (matches.length === 0) return null
+  const needle = q.toLowerCase()
+  return (
+    matches.find((u) => u.username.toLowerCase() === needle) ??
+    matches[0] ??
+    null
+  )
 }
 
 function extractCreatedSocialUser(body: unknown): SocialFeedUser | null {
@@ -524,6 +579,7 @@ function SocialFeedPlayground({
 }) {
   const [sfUsers, setSfUsers] = useState<SocialFeedUser[]>([])
   const [sfPoolSize, setSfPoolSize] = useState(0)
+  const [sfListTotal, setSfListTotal] = useState(0)
   const [sfLoading, setSfLoading] = useState(false)
   const [sfUsersError, setSfUsersError] = useState<string | null>(null)
   const [sfActiveUserId, setSfActiveUserId] = useState<number | null>(null)
@@ -539,9 +595,10 @@ function SocialFeedPlayground({
     setSfLoading(true)
     setSfUsersError(null)
     try {
-      const { users, poolSize } = await loadSocialFeedUserDirectory(deploymentId)
+      const { users, poolSize, listTotal } = await loadSocialFeedUserDirectory(deploymentId)
       setSfUsers(users)
       setSfPoolSize(poolSize)
+      setSfListTotal(listTotal)
       setSfActiveUserId((prev) => {
         if (prev != null && users.some((u) => u.id === prev)) return prev
         return users[0]?.id ?? null
@@ -550,6 +607,7 @@ function SocialFeedPlayground({
       setSfUsersError(e instanceof Error ? e.message : 'Failed to load users')
       setSfUsers([])
       setSfPoolSize(0)
+      setSfListTotal(0)
     } finally {
       setSfLoading(false)
     }
@@ -566,14 +624,14 @@ function SocialFeedPlayground({
 
   const pickerMatches = useMemo(() => {
     const q = sfUserQuery.trim().toLowerCase()
-    const list = q
-      ? sfUsers.filter(
-          (u) =>
-            u.username.toLowerCase().includes(q) || String(u.id).includes(q),
-        )
-      : sfUsers
-    return list.slice(0, SF_PICKER_LIST_MAX)
+    if (!q) return sfUsers
+    const list = sfUsers.filter(
+      (u) => u.username.toLowerCase().includes(q) || String(u.id).includes(q),
+    )
+    return list.slice(0, SF_PICKER_FILTER_MAX)
   }, [sfUsers, sfUserQuery])
+
+  const pickerFiltered = sfUserQuery.trim().length > 0
 
   const addUserToCache = useCallback((user: SocialFeedUser) => {
     setSfUsers((prev) => mergeSocialFeedUsers(prev, [user]))
@@ -587,11 +645,24 @@ function SocialFeedPlayground({
     setSfLookupBusy(true)
     setSfLookupError(null)
     try {
-      const found = await lookupSocialFeedUser(deploymentId, sfUserQuery.trim())
-      if (found) {
-        addUserToCache(found)
+      const q = sfUserQuery.trim()
+      if (/^\d+$/.test(q)) {
+        const found = await lookupSocialFeedUser(deploymentId, q)
+        if (found) addUserToCache(found)
+        else setSfLookupError(`No user with id ${q}.`)
       } else {
-        setSfLookupError('No user found for that username or id.')
+        const matches = await searchSocialFeedUsers(deploymentId, q)
+        if (matches.length === 0) {
+          setSfLookupError(
+            `No users matching "${q}". Search is partial and returns up to 20 matches.`,
+          )
+          return
+        }
+        setSfUsers((prev) => mergeSocialFeedUsers(prev, matches))
+        const needle = q.toLowerCase()
+        const pick =
+          matches.find((u) => u.username.toLowerCase() === needle) ?? matches[0]!
+        addUserToCache(pick)
       }
     } catch (e) {
       setSfLookupError(e instanceof Error ? e.message : 'Lookup failed')
@@ -600,10 +671,22 @@ function SocialFeedPlayground({
     }
   }, [addUserToCache, deploymentId, sfUserQuery])
 
-  const poolHint =
-    sfPoolSize > 0
-      ? `${sfPoolSize.toLocaleString()} users in the pool. Search by username or numeric id — the list below is only a sample.`
-      : 'Search by username or numeric id to choose who you act as.'
+  const poolHint = (() => {
+    if (sfPoolSize <= 0 && sfUsers.length === 0) {
+      return 'Look up by numeric id or partial username (GET /users?username=, up to 20 matches).'
+    }
+    const poolPart =
+      sfPoolSize > 0 ? `${sfPoolSize.toLocaleString()} users in the pool` : 'Users in the pool'
+    const loadedPart =
+      sfUsers.length > 0
+        ? `${sfUsers.length} loaded for quick pick${
+            sfListTotal > sfUsers.length
+              ? ` (API page size ${sfListTotal.toLocaleString()})`
+              : ''
+          }`
+        : 'none loaded yet'
+    return `${poolPart}; ${loadedPart}. Look up by id or search username (partial match, max 20 results).`
+  })()
 
   return (
     <div className="space-y-2.5">
@@ -630,7 +713,7 @@ function SocialFeedPlayground({
             )}
 
             <label className="flex flex-col gap-1.5">
-              <span className={labelClass}>Find user</span>
+              <span className={labelClass}>User id or username</span>
               <input
                 type="text"
                 value={sfUserQuery}
@@ -642,7 +725,7 @@ function SocialFeedPlayground({
                   if (e.key === 'Enter') void resolveUser()
                 }}
                 disabled={busy || !deploymentId}
-                placeholder="username or user id"
+                placeholder="id (847) or username (alice)"
                 className={fieldClass}
               />
             </label>
@@ -668,7 +751,7 @@ function SocialFeedPlayground({
             <ActionError message={sfUsersError ?? sfLookupError} />
 
             {pickerMatches.length > 0 ? (
-              <ul className="max-h-32 overflow-y-auto rounded-md border border-[var(--c9-border)]/80 divide-y divide-[var(--c9-border)]/60">
+              <ul className="max-h-44 overflow-y-auto rounded-md border border-[var(--c9-border)]/80 divide-y divide-[var(--c9-border)]/60">
                 {pickerMatches.map((u) => (
                   <li key={u.id}>
                     <button
@@ -689,9 +772,20 @@ function SocialFeedPlayground({
                   </li>
                 ))}
               </ul>
-            ) : sfUsers.length > 0 && sfUserQuery.trim() ? (
+            ) : sfUsers.length > 0 && pickerFiltered ? (
               <p className="text-[10px] text-[var(--c9-muted)]">
-                No cached match — try Look up to fetch from the API.
+                No match in the {sfUsers.length} loaded users — use Look up for ids outside
+                that page.
+              </p>
+            ) : null}
+            {sfUsers.length > 0 && pickerFiltered && pickerMatches.length >= SF_PICKER_FILTER_MAX ? (
+              <p className="text-[10px] text-[var(--c9-muted)]">
+                Showing first {SF_PICKER_FILTER_MAX} filter matches — refine search or Look up.
+              </p>
+            ) : null}
+            {sfUsers.length > 0 && !pickerFiltered && sfPoolSize > sfUsers.length ? (
+              <p className="text-[10px] text-[var(--c9-muted)]">
+                Quick pick only includes the users returned by GET /users (not the full pool).
               </p>
             ) : null}
           </>
