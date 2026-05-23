@@ -88,6 +88,8 @@ export function Sidebar() {
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const session = useAuthStore((s) => s.session)
+  const pendingDeployAfterAuth = useAuthStore((s) => s.pendingDeployAfterAuth)
+  const setPendingDeployAfterAuth = useAuthStore((s) => s.setPendingDeployAfterAuth)
 
   const [deploying, setDeploying] = useState(false)
   const [tearing, setTearing] = useState(false)
@@ -247,7 +249,7 @@ export function Sidebar() {
       e.dataTransfer.setDragImage(getEmptyDragImage(), 0, 0)
     }
 
-  const handleDeploy = async () => {
+  const runDeploy = useCallback(async () => {
     if (live || deploying) return
     if (nodeCount === 0) {
       setBanner('Add at least one node before deploying.')
@@ -259,19 +261,15 @@ export function Sidebar() {
       setBanner('Select a template before deploying.')
       return
     }
-    // Deployability is determined by backend template metadata / validation.
 
-    if (!session) {
+    const activeSession = useAuthStore.getState().session
+    if (!activeSession) {
       setDeploying(false)
+      setPendingDeployAfterAuth(true)
       setDeployModalOpen(true)
-      setDeployModalMode('request_rejected')
+      setDeployModalMode('auth_required')
       setDeploySimulationMessage(null)
-      setDeployRequestMessage({
-        title: 'Deployment request was not accepted',
-        body: 'Please sign in to deploy infrastructure.',
-        technicalDetails: 'No active Supabase session found.',
-        actionLabel: 'Sign in',
-      })
+      setDeployRequestMessage(null)
       return
     }
 
@@ -341,8 +339,14 @@ export function Sidebar() {
       proceedWithDeployResult(result)
     } catch (e) {
       const friendly = mapDeployRequestError(e)
-      setDeployModalMode('request_rejected')
-      setDeployRequestMessage(friendly)
+      if (friendly.actionLabel === 'Sign in') {
+        setPendingDeployAfterAuth(true)
+        setDeployModalMode('auth_required')
+        setDeployRequestMessage(null)
+      } else {
+        setDeployModalMode('request_rejected')
+        setDeployRequestMessage(friendly)
+      }
       setDeploySimulationMessage(null)
       setDeploySteps((s) =>
         s.map((step) =>
@@ -353,7 +357,32 @@ export function Sidebar() {
       )
       setDeploying(false)
     }
+  }, [
+    deploying,
+    live,
+    nodeCount,
+    proceedWithDeployResult,
+    setPendingDeployAfterAuth,
+  ])
+
+  const handleDeploy = () => {
+    void runDeploy()
   }
+
+  useEffect(() => {
+    if (!session || !pendingDeployAfterAuth) return
+    setPendingDeployAfterAuth(false)
+    void runDeploy()
+  }, [session, pendingDeployAfterAuth, runDeploy, setPendingDeployAfterAuth])
+
+  const dismissAuthModal = useCallback(() => {
+    setPendingDeployAfterAuth(false)
+    setDeployModalOpen(false)
+    setDeployModalMode('progress')
+    setDeployRequestMessage(null)
+    setDeploySimulationMessage(null)
+    setDeploying(false)
+  }, [setPendingDeployAfterAuth])
 
   const handleTeardown = async () => {
     if (!live || tearing || !deploymentId) return
@@ -590,7 +619,7 @@ export function Sidebar() {
                 !selectedTemplate.deployable
               }
               title={deployDisabledReason}
-              onClick={handleDeploy}
+              onClick={() => handleDeploy()}
               className="w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
@@ -625,7 +654,12 @@ export function Sidebar() {
         requestMessage={deployRequestMessage?.body}
         technicalDetails={deployRequestMessage?.technicalDetails}
         requestActionLabel={deployRequestMessage?.actionLabel}
-        onRequestAction={() => navigate('/login')}
+        onRequestAction={
+          deployRequestMessage?.actionLabel
+            ? () => navigate('/login')
+            : undefined
+        }
+        onAuthDismiss={dismissAuthModal}
         simulationRecommended={deploySimulationMessage}
         onClose={() => {
           setDeployModalOpen(false)

@@ -18,6 +18,21 @@ export function mapAuthErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+export function mapSupabaseSignInError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const msg = raw.toLowerCase()
+  if (msg.includes('invalid login credentials') || msg.includes('invalid email or password')) {
+    return 'Email or password is incorrect.'
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'Confirm your email before signing in.'
+  }
+  if (msg.includes('too many requests')) {
+    return 'Too many attempts. Wait a moment and try again.'
+  }
+  return raw || 'Could not sign in. Try again.'
+}
+
 export function debugAuthError(error: unknown, context: string): void {
   if (error instanceof ApiError) {
     console.debug(`[auth:${context}] ${error.status} ${error.rawMessage}`)
