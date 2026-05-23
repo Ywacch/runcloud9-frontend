@@ -1,8 +1,10 @@
 import type { CanvasNode } from '../store/canvasStore'
 import type { MetricsBucket } from '../store/metricsStore'
 
-export const WARNING_CPU = 0.8
-export const WARNING_MEM = 0.8
+/** CPU utilization warning threshold; `cpuPercent` is on a 0–100 scale. */
+export const WARNING_CPU = 80
+/** Memory utilization warning threshold; `memPercent` is on a 0–100 scale. */
+export const WARNING_MEM = 80
 export const ERROR_RATE_THRESHOLD = 0.01
 
 /** @deprecated Use WARNING_CPU */

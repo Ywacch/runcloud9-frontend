@@ -530,7 +530,15 @@ export function BaseNode({ node }: BaseNodeProps) {
           align={node.position[0] > 0 ? 'left' : 'right'}
         />
       ) : null}
-      <HealthRim health={health} bounds={unitSpec} />
+      {!(hasReplicaStack && expanded) ? (
+        <HealthRim
+          health={health}
+          type={node.type}
+          spec={unitSpec}
+          replicas={visualReplicas}
+          mqPartitions={mqPartitions}
+        />
+      ) : null}
     </group>
   )
 }
