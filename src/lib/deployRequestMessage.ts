@@ -14,9 +14,8 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
 
     if (error.status === 401) {
       return {
-        title: 'Deployment request was not accepted',
-        body: 'Please sign in to deploy infrastructure.',
-        technicalDetails: raw,
+        title: 'Session expired',
+        body: 'Please sign in again to deploy infrastructure.',
         actionLabel: 'Sign in',
       }
     }
