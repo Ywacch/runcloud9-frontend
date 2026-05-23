@@ -13,6 +13,7 @@ import {
   type CanvasNode,
 } from '../store/canvasStore'
 import { useMetricsStore } from '../store/metricsStore'
+import { HealthRim } from './HealthRim'
 import { getLabelY, getNodeUnitSpec } from './nodeShapes/nodeBounds'
 import { NodeCollider } from './nodeShapes/NodeCollider'
 import { ReplicaStackVisual } from './nodeShapes/ReplicaStackVisual'
@@ -77,8 +78,8 @@ export function BaseNode({ node }: BaseNodeProps) {
     () =>
       new THREE.MeshStandardMaterial({
         color: face,
-        roughness: 0.8,
-        metalness: 0,
+        roughness: 0.65,
+        metalness: 0.12,
       }),
     [face],
   )
@@ -529,6 +530,7 @@ export function BaseNode({ node }: BaseNodeProps) {
           align={node.position[0] > 0 ? 'left' : 'right'}
         />
       ) : null}
+      <HealthRim health={health} bounds={unitSpec} />
     </group>
   )
 }
