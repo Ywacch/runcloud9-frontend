@@ -77,8 +77,8 @@ export function BaseNode({ node }: BaseNodeProps) {
     () =>
       new THREE.MeshStandardMaterial({
         color: face,
-        roughness: 0.8,
-        metalness: 0,
+        roughness: 0.65,
+        metalness: 0.12,
       }),
     [face],
   )

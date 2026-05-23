@@ -58,6 +58,8 @@ export function CanvasRoot() {
         />
         <ambientLight intensity={0.6} />
         <directionalLight position={[8, 12, 8]} intensity={1.2} castShadow={false} />
+        <directionalLight position={[-6, 6, -6]} intensity={0.35} color="#ffffff" />
+        <hemisphereLight args={['#ffffff', '#b0b8c8', 0.4]} />
         <GridFloor planeRef={planeRef} />
         <SceneGraph />
         <SpawnFromScreen />

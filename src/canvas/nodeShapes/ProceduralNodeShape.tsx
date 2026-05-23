@@ -2,11 +2,14 @@ import { Edges } from '@react-three/drei'
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import type { CanvasNode } from '../../store/canvasStore'
+import { useNodeLogo } from '../useNodeLogo'
 import { getNodeUnitSpec, getUnitCenterY, type NodeUnitSpec } from './nodeBounds'
 import { darkenHex, lightenHex } from './shapeUtils'
 
 const OUTLINE_THRESHOLD = 15
 const BODY_ROUGHNESS = 0.8
+const BODY_MATERIAL_ROUGHNESS = 0.65
+const BODY_MATERIAL_METALNESS = 0.12
 
 interface ProceduralNodeShapeProps {
   type: CanvasNode['type']
@@ -46,6 +49,8 @@ function HexCap({
   rotation,
   color,
   edgeColor,
+  nodeType,
+  withLogo = false,
 }: {
   radius: number
   thickness: number
@@ -53,11 +58,22 @@ function HexCap({
   rotation?: [number, number, number]
   color: string
   edgeColor: string
+  nodeType?: string
+  withLogo?: boolean
 }) {
+  const logoTexture = useNodeLogo(withLogo ? (nodeType ?? '') : 'compute')
   return (
     <mesh position={position} rotation={rotation}>
       <cylinderGeometry args={[radius, radius, thickness, 6]} />
-      <meshStandardMaterial color={color} roughness={BODY_ROUGHNESS} metalness={0} />
+      {logoTexture ? (
+        <meshStandardMaterial
+          map={logoTexture}
+          roughness={0.7}
+          metalness={0.05}
+        />
+      ) : (
+        <meshStandardMaterial color={color} roughness={BODY_ROUGHNESS} metalness={0} />
+      )}
       <Edges threshold={OUTLINE_THRESHOLD} color={edgeColor} />
     </mesh>
   )
@@ -73,12 +89,16 @@ function DatabaseUnit({
   bodyMaterial,
   edgeColor,
   accent,
+  nodeType,
+  withLogo = false,
 }: {
   yCenter: number
   height: number
   bodyMaterial: THREE.MeshStandardMaterial
   edgeColor: string
   accent: string
+  nodeType?: string
+  withLogo?: boolean
 }) {
   return (
     <group position={[0, yCenter, 0]}>
@@ -92,6 +112,8 @@ function DatabaseUnit({
         position={[0, height / 2 + 0.012, 0]}
         color={accent}
         edgeColor={edgeColor}
+        nodeType={nodeType}
+        withLogo={withLogo}
       />
     </group>
   )
@@ -105,6 +127,7 @@ function DatabaseStack({
   spec,
   singleStackSlot,
   stackUnitUseLocalOrigin,
+  nodeType,
 }: {
   face: string
   edgeColor: string
@@ -113,8 +136,10 @@ function DatabaseStack({
   spec: NodeUnitSpec
   singleStackSlot?: number
   stackUnitUseLocalOrigin?: boolean
+  nodeType?: string
 }) {
   const accent = useMemo(() => lightenHex(face, 0.22), [face])
+  const topIndex = replicas - 1
   if (singleStackSlot != null) {
     const y =
       stackUnitUseLocalOrigin ? 0 : getUnitCenterY(spec, singleStackSlot)
@@ -125,6 +150,8 @@ function DatabaseStack({
         bodyMaterial={bodyMaterial}
         edgeColor={edgeColor}
         accent={accent}
+        nodeType={nodeType}
+        withLogo={singleStackSlot === topIndex}
       />
     )
   }
@@ -138,6 +165,8 @@ function DatabaseStack({
           bodyMaterial={bodyMaterial}
           edgeColor={edgeColor}
           accent={accent}
+          nodeType={nodeType}
+          withLogo={i === topIndex}
         />
       ))}
     </group>
@@ -321,11 +350,13 @@ function LoadBalancerShape({
   edgeColor,
   bodyMaterial,
   spec,
+  nodeType,
 }: {
   face: string
   edgeColor: string
   bodyMaterial: THREE.MeshStandardMaterial
   spec: NodeUnitSpec
+  nodeType?: string
 }) {
   const accent = useMemo(() => lightenHex(face, 0.24), [face])
   const yCenter = getUnitCenterY(spec, 0)
@@ -341,6 +372,8 @@ function LoadBalancerShape({
         position={[0, spec.h / 2 + 0.014, 0]}
         color={accent}
         edgeColor={edgeColor}
+        nodeType={nodeType}
+        withLogo
       />
     </group>
   )
@@ -492,7 +525,8 @@ export function ProceduralNodeShape({
   // Keep the shared material consistent across calls so emissive (health glow,
   // walkthrough dimming) propagates to every unit in the stack.
   bodyMaterial.color.set(face)
-  bodyMaterial.roughness = BODY_ROUGHNESS
+  bodyMaterial.roughness = BODY_MATERIAL_ROUGHNESS
+  bodyMaterial.metalness = BODY_MATERIAL_METALNESS
 
   switch (type) {
     case 'database':
@@ -505,6 +539,7 @@ export function ProceduralNodeShape({
           spec={spec}
           singleStackSlot={slot}
           stackUnitUseLocalOrigin={stackUnitUseLocalOrigin}
+          nodeType={type}
         />
       )
     case 'cache':
@@ -536,6 +571,7 @@ export function ProceduralNodeShape({
           edgeColor={edgeColor}
           bodyMaterial={bodyMaterial}
           spec={spec}
+          nodeType={type}
         />
       )
     case 'worker':
