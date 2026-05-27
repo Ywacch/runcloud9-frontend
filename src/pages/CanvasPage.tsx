@@ -1,10 +1,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CanvasRoot } from '../canvas/CanvasRoot'
-import { useCanvasKeyboard } from '../hooks/useCanvasKeyboard'
-import { useDeploymentRehydrate } from '../hooks/useDeploymentRehydrate'
-import { useActiveDeploymentPrompt } from '../hooks/useActiveDeploymentPrompt'
-import { useLogSync } from '../hooks/useLogSync'
-import { useMetricsSync } from '../hooks/useMetricsSync'
+import {
+  isCanvasEditMode,
+  useActiveDeploymentPrompt,
+  useCanvasKeyboard,
+  useCanvasStore,
+  useDeploymentRehydrate,
+  useLogStore,
+  useLogSync,
+  useMetricsStore,
+  useMetricsSync,
+  useSimulationStore,
+  useTemplateRegistryStore,
+  useWalkthroughStore,
+  type CanvasNode,
+  CanvasRoot,
+} from '../editor-core'
+import {
+  CascadeToast,
+  CanvasErrorBoundary,
+  DesignToolStrip,
+  DeploymentPlayground,
+  EventTimeline,
+  InspectorPanel,
+  LiveOverlay,
+  LogPanel,
+  ProvisioningOverlay,
+  RejoinBanner,
+  RequestJourneyPanel,
+  SessionSummary,
+  Sidebar,
+  SimulationOverlay,
+  SystemTopBar,
+  WalkthroughOverlay,
+} from '../editor-ui'
 import { deleteDeployment, getDeployment } from '../lib/api'
 import {
   normalizeComponentProvisionState,
@@ -20,32 +48,6 @@ import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
-import {
-  isCanvasEditMode,
-  useCanvasStore,
-  type CanvasNode,
-} from '../store/canvasStore'
-import { useLogStore } from '../store/logStore'
-import { useMetricsStore } from '../store/metricsStore'
-import { useSimulationStore } from '../store/simulationStore'
-import { useTemplateRegistryStore } from '../store/templateRegistryStore'
-import { useWalkthroughStore } from '../store/walkthroughStore'
-import { DesignToolStrip } from '../ui/DesignToolStrip'
-import { InspectorPanel } from '../ui/InspectorPanel'
-import { DeploymentPlayground } from '../ui/DeploymentPlayground'
-import { LiveOverlay } from '../ui/LiveOverlay'
-import { SimulationOverlay } from '../ui/SimulationOverlay'
-import { LogPanel } from '../ui/LogPanel'
-import { CanvasErrorBoundary } from '../ui/CanvasErrorBoundary'
-import { SessionSummary } from '../ui/SessionSummary'
-import { Sidebar } from '../ui/Sidebar'
-import { SystemTopBar } from '../ui/SystemTopBar'
-import { EventTimeline } from '../ui/EventTimeline'
-import { CascadeToast } from '../ui/CascadeToast'
-import { ProvisioningOverlay } from '../ui/ProvisioningOverlay'
-import { RejoinBanner } from '../ui/RejoinBanner'
-import { RequestJourneyPanel } from '../ui/RequestJourneyPanel'
-import { WalkthroughOverlay } from '../ui/WalkthroughOverlay'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
