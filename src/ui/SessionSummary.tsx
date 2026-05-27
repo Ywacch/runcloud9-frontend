@@ -3,6 +3,7 @@ import {
   fmtInt,
   fmtMs,
   fmtPct,
+  fmtRate,
 } from '../lib/format'
 import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
 import { useEffect } from 'react'
@@ -52,6 +53,35 @@ export function SessionSummary() {
           <HighlightReel events={summary.eventsSummary} />
         ) : null}
 
+        {summary.steadyState ? (
+          <div className="mb-4 space-y-2 border-b border-[var(--c9-border)] pb-4">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/90">
+              Steady state (after 30s warmup)
+            </h3>
+            <p className="text-[10px] text-[var(--c9-muted)]">
+              Prefer these for cache A/B comparisons — not session peaks.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <SummaryCard
+                label="Steady p99"
+                value={fmtMs(summary.steadyState.steadyP99Ms)}
+              />
+              <SummaryCard
+                label="Steady RPS"
+                value={fmtInt(summary.steadyState.steadyRps)}
+              />
+              <SummaryCard
+                label="Steady DB query rate"
+                value={fmtRate(summary.steadyState.steadyDbQueryRate)}
+              />
+              <SummaryCard
+                label="Steady cache hit %"
+                value={fmtPct(summary.steadyState.steadyCacheHitRate)}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {summary.sessionSparklines ? (
           <div className="mb-4 space-y-3 border-b border-[var(--c9-border)] pb-4">
             <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
@@ -85,9 +115,30 @@ export function SessionSummary() {
               data={summary.sessionSparklines.cacheHitPct}
               markers={summary.sessionSparklines}
             />
+            <SparkRow
+              label="DB query rate"
+              color="#60a5fa"
+              data={summary.sessionSparklines.dbQueryRate}
+              markers={summary.sessionSparklines}
+            />
+            <SparkRow
+              label="Cache hits /s (app-server)"
+              color="#c084fc"
+              data={summary.sessionSparklines.cacheHitsPerSec}
+              markers={summary.sessionSparklines}
+            />
+            <SparkRow
+              label="Cache misses /s (app-server)"
+              color="#fb923c"
+              data={summary.sessionSparklines.cacheMissesPerSec}
+              markers={summary.sessionSparklines}
+            />
           </div>
         ) : null}
 
+        <p className="mb-2 text-[10px] text-[var(--c9-muted)]">
+          Legacy peaks below — max over the session; can mix cold start and throttle artifacts.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <SummaryCard label="Peak RPS" value={fmtInt(summary.peakRps)} />
           <SummaryCard label="Peak p99" value={fmtMs(summary.peakP99)} />

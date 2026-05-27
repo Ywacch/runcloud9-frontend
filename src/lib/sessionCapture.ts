@@ -7,6 +7,7 @@ import {
   normalizeSparklines,
   parsePeakFieldsFromMetricsSummary,
   parseSessionHistory,
+  parseSteadyState,
 } from './sessionHistoryFromApi'
 import { fmtMemMB, fmtPct } from './format'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
@@ -159,6 +160,7 @@ function mergeApiMetricsSummary(
   const dur = parsePeakFieldsFromMetricsSummary(apiMetricsSummary).durationSeconds
   const parsed = parseSessionHistory(apiMetricsSummary.session_history)
   const sessionSparklines = parsed ? normalizeSparklines(parsed) : undefined
+  const steadyState = parseSteadyState(apiMetricsSummary.steady_state)
   const eventsSummary = parseEventsSummary(apiMetricsSummary.events_summary)
 
   let duration = base.duration
@@ -182,6 +184,7 @@ function mergeApiMetricsSummary(
     ...scalars,
     duration,
     sessionSparklines,
+    steadyState: steadyState ?? undefined,
     eventsSummary: eventsSummary.length > 0 ? eventsSummary : undefined,
   }
 }

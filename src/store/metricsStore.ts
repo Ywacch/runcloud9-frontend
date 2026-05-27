@@ -88,16 +88,37 @@ export interface MetricsBucket {
   qps: number
 }
 
-/** Subset of backend `loadgen` for the live overlay. */
+import type { LoadgenIntervalBucket } from '../lib/metricsUiContract'
+
+/** Subset of backend `loadgen` for the live overlay (metrics-ui-contract). */
 export interface LiveLoadgenState {
   active: boolean
-  currentRps: number
+  /** Configured target RPS (`targetRps`; `currentRps` is a legacy alias on the wire). */
   targetRps: number
+  /** @deprecated Use targetRps — kept for older payloads. */
+  currentRps: number
+  /** Vegeta cumulative achieved RPS (`actualRps`). */
+  actualRps: number
+  intervalActualRps: number
+  intervalP99Ms: number
+  recentIntervals: LoadgenIntervalBucket[]
   totalRequests: number
   successRate: number
   durationSeconds: number
   elapsedSeconds: number
 }
+
+/** Buffered WS ticks for system teaching charts (~2s cadence). */
+export interface SystemMetricsSample {
+  t: number
+  appP99Ms: number
+  appRps: number
+  dbQueryRate: number
+  cacheHits: number
+  cacheMisses: number
+}
+
+const MAX_SYSTEM_SAMPLES = 90
 
 const MAX_EVENTS = 100
 
@@ -148,6 +169,8 @@ interface MetricsState {
   metrics: Record<string, MetricsBucket>
   history: Record<string, MetricsBucket[]>
   loadgen: LiveLoadgenState | null
+  /** Rolling server-side series from WS `components` (app-server + db). */
+  systemSeries: SystemMetricsSample[]
   /** Rolling timeline of WS events (capped). */
   events: WsEvent[]
   /** Latest template-scoped counters/gauges from backend (dot keys). */
@@ -159,6 +182,7 @@ interface MetricsState {
 
   updateMetrics: (nodeId: string, data: MetricsBucket) => void
   setLoadgen: (data: LiveLoadgenState | null) => void
+  pushSystemSample: (sample: SystemMetricsSample) => void
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
   dismissCascadeToast: () => void
@@ -172,6 +196,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   metrics: {},
   history: {},
   loadgen: null,
+  systemSeries: [],
   events: [],
   templateMetrics: {},
   cascadeToast: null,
@@ -188,6 +213,11 @@ export const useMetricsStore = create<MetricsState>((set) => ({
     }),
 
   setLoadgen: (loadgen) => set({ loadgen }),
+
+  pushSystemSample: (sample) =>
+    set((s) => ({
+      systemSeries: [...s.systemSeries.slice(-(MAX_SYSTEM_SAMPLES - 1)), sample],
+    })),
 
   pushEvents: (incoming) =>
     set((s) => {
@@ -213,6 +243,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       metrics: {},
       history: {},
       loadgen: null,
+      systemSeries: [],
       events: [],
       templateMetrics: {},
       cascadeToast: null,

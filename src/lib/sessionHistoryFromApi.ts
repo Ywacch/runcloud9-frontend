@@ -1,3 +1,6 @@
+export type { SteadyStateSummary } from './metricsUiContract'
+export { parseSteadyState } from './metricsUiContract'
+
 /**
  * Parses `metrics_summary` from GET /deployments/{id} after teardown (includes
  * `session_history` downsampled snapshots from the API).
@@ -8,6 +11,11 @@ export interface SessionSparklines {
   p99Ms: number[]
   errorRate: number[]
   cacheHitPct: number[]
+  /** App-server per-second cache hit rate (Prometheus ~30s window). */
+  cacheHitsPerSec: number[]
+  cacheMissesPerSec: number[]
+  /** DB query rate from `components.db`. */
+  dbQueryRate: number[]
   markers: Array<{ index: number; type: string; title: string }>
 }
 
@@ -24,14 +32,17 @@ interface RawComponent {
   requestRate?: unknown
   p99Latency?: unknown
   errorRate?: unknown
+  cacheHits?: unknown
+  cacheMisses?: unknown
   cacheHitsLast9m?: unknown
   cacheMissesLast9m?: unknown
+  dbQueryRate?: unknown
 }
 
 interface RawSnapshot {
   timestamp?: unknown
   components?: Record<string, RawComponent>
-  loadgen?: { currentRps?: unknown }
+  loadgen?: { currentRps?: unknown; targetRps?: unknown }
   events?: Array<{ type?: string; title?: string; description?: string }>
 }
 
@@ -54,6 +65,9 @@ export function parseSessionHistory(
   const p99Ms: number[] = []
   const errorRate: number[] = []
   const cacheHitPctSeries: number[] = []
+  const cacheHitsPerSec: number[] = []
+  const cacheMissesPerSec: number[] = []
+  const dbQueryRate: number[] = []
   const markers: SessionSparklines['markers'] = []
 
   raw.forEach((snap, index) => {
@@ -61,13 +75,17 @@ export function parseSessionHistory(
     const comp = s.components ?? {}
     const app = comp['app-server']
     const cache = comp['cache']
+    const db = comp['db']
     const lg = s.loadgen
     const rq = num(app?.requestRate)
-    const fromLg = num(lg?.currentRps)
+    const fromLg = num(lg?.targetRps ?? lg?.currentRps)
     rps.push(rq > 0 ? rq : fromLg)
     p99Ms.push(num(app?.p99Latency) * 1000)
     errorRate.push(num(app?.errorRate))
     cacheHitPctSeries.push(cacheHitPct(cache))
+    cacheHitsPerSec.push(num(app?.cacheHits))
+    cacheMissesPerSec.push(num(app?.cacheMisses))
+    dbQueryRate.push(num(db?.dbQueryRate))
 
     const ev = s.events
     if (Array.isArray(ev) && ev.length > 0) {
@@ -89,6 +107,9 @@ export function parseSessionHistory(
     p99Ms,
     errorRate,
     cacheHitPct: cacheHitPctSeries,
+    cacheHitsPerSec,
+    cacheMissesPerSec,
+    dbQueryRate,
     markers,
   }
 }
@@ -106,6 +127,9 @@ export function normalizeSparklines(s: SessionSparklines): SessionSparklines {
     p99Ms: padSeriesForChart(s.p99Ms),
     errorRate: padSeriesForChart(s.errorRate),
     cacheHitPct: padSeriesForChart(s.cacheHitPct),
+    cacheHitsPerSec: padSeriesForChart(s.cacheHitsPerSec),
+    cacheMissesPerSec: padSeriesForChart(s.cacheMissesPerSec),
+    dbQueryRate: padSeriesForChart(s.dbQueryRate),
     markers: s.markers,
   }
 }

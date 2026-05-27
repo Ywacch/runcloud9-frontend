@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { startLoadGen, stopLoadGen } from '../lib/api'
 import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import { fmtInt } from '../lib/format'
+import { LoadgenMetricsPanel } from './LoadgenMetricsPanel'
+import { SystemMetricsCharts } from './SystemMetricsCharts'
 import { useCanvasStore } from '../store/canvasStore'
 import { useAuthStore } from '../store/authStore'
 import { useMetricsStore } from '../store/metricsStore'
@@ -210,6 +212,8 @@ export function LiveOverlay() {
           </button>
         )}
       </div>
+      <LoadgenMetricsPanel />
+      <SystemMetricsCharts />
       {error ? (
         <p className="max-w-full rounded border border-red-700/50 bg-red-950/65 px-2 py-1 text-left text-xs font-medium text-red-100 backdrop-blur-sm">
           {error}

@@ -8,6 +8,10 @@ import {
 import { CLIENT_LOADGEN_ID } from '../lib/spawnClientNode'
 import { saveWsEventsJson } from '../lib/wsEventsPersist'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
+import {
+  parseLoadgenIntervals,
+  sampleFromWsPayload,
+} from '../lib/metricsUiContract'
 import { useCanvasStore, type CanvasNode } from '../store/canvasStore'
 import {
   useMetricsStore,
@@ -89,7 +93,12 @@ interface WsDeploymentMetrics {
   events?: WsEventPayload[]
   loadgen?: {
     active?: boolean
+    targetRps?: number
     currentRps?: number
+    actualRps?: number
+    intervalActualRps?: number
+    intervalP99Ms?: number
+    recentIntervals?: unknown
     totalRequests?: number
     successRate?: number
     /** Go LoadStats: elapsed run time (seconds) */
@@ -225,6 +234,12 @@ function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] {
   return out
 }
 
+function actualRpsFromLoadgen(lg: NonNullable<WsDeploymentMetrics['loadgen']>): number {
+  const actual = Number(lg.actualRps ?? 0)
+  if (actual > 0) return actual
+  return Number(lg.currentRps ?? lg.targetRps ?? 0)
+}
+
 function applyMessage(payload: WsDeploymentMetrics): void {
   const nodes = useCanvasStore.getState().nodes
   const updateMetrics = useMetricsStore.getState().updateMetrics
@@ -255,11 +270,16 @@ function applyMessage(payload: WsDeploymentMetrics): void {
 
   const lg = payload.loadgen
   if (lg) {
-    const rps = Number(lg.currentRps ?? 0)
+    const targetRps = Number(lg.targetRps ?? lg.currentRps ?? 0)
+    const actualRps = Number(lg.actualRps ?? lg.currentRps ?? 0)
     useMetricsStore.getState().setLoadgen({
       active: Boolean(lg.active),
-      currentRps: rps,
-      targetRps: rps,
+      targetRps,
+      currentRps: targetRps,
+      actualRps,
+      intervalActualRps: Number(lg.intervalActualRps ?? 0),
+      intervalP99Ms: Number(lg.intervalP99Ms ?? 0),
+      recentIntervals: parseLoadgenIntervals(lg.recentIntervals),
       totalRequests: Number(lg.totalRequests ?? 0),
       successRate: Number(lg.successRate ?? 0),
       durationSeconds: 0,
@@ -267,8 +287,13 @@ function applyMessage(payload: WsDeploymentMetrics): void {
     })
   }
 
+  const systemSample = sampleFromWsPayload(payload.timestamp, components)
+  if (systemSample) {
+    useMetricsStore.getState().pushSystemSample(systemSample)
+  }
+
   if (lg && nodes[CLIENT_LOADGEN_ID]) {
-    const rps = lg.active ? Number(lg.currentRps ?? 0) : 0
+    const rps = lg.active ? actualRpsFromLoadgen(lg) : 0
     const clientBucket: MetricsBucket = {
       ...idleClientLoadgenBucket(),
       requestRate: rps,

@@ -33,8 +33,10 @@ export function computeThroughputRps(
   lastInspector: Record<string, SimNodeInspector>,
   simRunning: boolean
 ): number {
-  if (mode === 'live' && loadgen?.active && (loadgen.currentRps ?? 0) > 0) {
-    return loadgen.currentRps
+  if (mode === 'live' && loadgen?.active) {
+    if (loadgen.actualRps > 0) return loadgen.actualRps
+    if (loadgen.targetRps > 0) return loadgen.targetRps
+    return loadgen.currentRps ?? 0
   }
   const clientBucket = metrics[CLIENT_LOADGEN_ID]
   if (clientBucket && (clientBucket.requestRate ?? 0) > 0) {

@@ -3,6 +3,7 @@ import { applyCacheStrategyNormalizationToNodes } from '../lib/cacheTopologyStra
 import { resetDesignStorytellingUi } from '../lib/resetStorytellingUi'
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
 import type { SessionSparklines } from '../lib/sessionHistoryFromApi'
+import type { SteadyStateSummary } from '../lib/metricsUiContract'
 
 /** Design-mode interaction: select/move + inspector, connect nodes, or delete by clicking. */
 export type DesignTool = 'select' | 'connect' | 'erase'
@@ -64,6 +65,8 @@ export interface SessionSummary {
   eventsRecorded?: number
   /** Downsampled series from API `metrics_summary.session_history` after teardown. */
   sessionSparklines?: SessionSparklines
+  /** Post-warmup medians from API `metrics_summary.steady_state` (prefer for A/B). */
+  steadyState?: SteadyStateSummary
   /** Flat highlight reel from API `metrics_summary.events_summary`. */
   eventsSummary?: SessionEventSummary[]
   componentSummaries: Record<
