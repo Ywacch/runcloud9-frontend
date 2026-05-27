@@ -34,6 +34,7 @@ export function LiveOverlay() {
   const [rps, setRps] = useState(templateDefaultRps)
   const [hasUserSetRps, setHasUserSetRps] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [showMetricsPanels, setShowMetricsPanels] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -211,9 +212,20 @@ export function LiveOverlay() {
             )}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setShowMetricsPanels((v) => !v)}
+          className="rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--c9-text)] transition-colors hover:bg-[var(--c9-surface)]"
+        >
+          {showMetricsPanels ? 'Hide metrics' : 'Show metrics'}
+        </button>
       </div>
-      <LoadgenMetricsPanel />
-      <SystemMetricsCharts />
+      {showMetricsPanels ? (
+        <>
+          <LoadgenMetricsPanel />
+          <SystemMetricsCharts />
+        </>
+      ) : null}
       {error ? (
         <p className="max-w-full rounded border border-red-700/50 bg-red-950/65 px-2 py-1 text-left text-xs font-medium text-red-100 backdrop-blur-sm">
           {error}
