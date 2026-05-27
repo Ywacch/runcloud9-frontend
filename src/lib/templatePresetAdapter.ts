@@ -1,5 +1,5 @@
 import type { TemplatePreset } from './api'
-import type { CanvasEdge, CanvasNode, CanvasSnapshot } from '../store/canvasStore'
+import type { CanvasEdge, CanvasNode, CanvasSnapshot } from '../editor-core/stores/canvasStore'
 
 const CANVAS_NODE_TYPES = new Set<CanvasNode['type']>([
   'load_balancer',

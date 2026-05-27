@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { C9Card, C9PrimaryButton, C9SectionTitle } from '../ui/c9Primitives'
+import { C9Card, C9PrimaryButton, C9SectionTitle } from '../editor-ui/c9Primitives'
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState('')

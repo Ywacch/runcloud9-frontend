@@ -4,7 +4,7 @@ import {
   findEdgeOnPath,
   nodeIdForBackendComponent,
 } from './walkthroughPath'
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
 const nodes: Record<string, CanvasNode> = {
   client: {

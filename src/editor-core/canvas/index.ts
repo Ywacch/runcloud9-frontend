@@ -1,2 +1,2 @@
-export { CanvasRoot } from '../../canvas/CanvasRoot'
-export { HealthRim } from '../../canvas/HealthRim'
+export { CanvasRoot } from './CanvasRoot'
+export { HealthRim } from './HealthRim'

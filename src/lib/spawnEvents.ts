@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
 export const SPAWN_AT_SCREEN = 'runcloud9:spawn-at-screen'
 export const RESET_CAMERA = 'runcloud9:reset-camera'

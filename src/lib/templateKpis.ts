@@ -1,10 +1,10 @@
 import type { TopologyFlags } from './componentRole'
-import type { CanvasNode } from '../store/canvasStore'
-import type { LiveLoadgenState, MetricsBucket } from '../store/metricsStore'
-import type { SimNodeInspector } from './simulation/types'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { LiveLoadgenState, MetricsBucket } from '../editor-core/stores/metricsStore'
+import type { SimNodeInspector } from '../editor-core/domain/simulation/types'
 import { fmtInt, fmtMs, fmtRate } from './format'
-import { readWriteFractions } from './simulation/workload'
-import { workloadProfileForTemplate } from './simulation/workloadProfiles'
+import { readWriteFractions } from '../editor-core/domain/simulation/workload'
+import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 
 export interface TemplateKpi {

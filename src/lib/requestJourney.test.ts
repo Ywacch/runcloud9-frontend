@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TopologyFlags } from './componentRole'
 import { getJourneys } from './requestJourney'
 import type { StorytellingSpec } from './storytellingTypes'
-import { workloadProfileForTemplate } from './simulation/workloadProfiles'
+import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
 
 const pullTopology: TopologyFlags = {
   hasMQ: false,

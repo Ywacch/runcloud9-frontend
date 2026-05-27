@@ -17,7 +17,7 @@ import {
 } from '../lib/deployPayload'
 import { persistLiveSession } from '../lib/liveSessionStorage'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
-import { useTemplateRegistryStore } from '../store/templateRegistryStore'
+import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { canvasToBackend } from '../lib/typeMapping'
 
 type LaunchResult = {

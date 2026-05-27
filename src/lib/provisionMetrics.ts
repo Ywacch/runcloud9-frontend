@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { canvasToBackend } from './typeMapping'
 
 export type NormalizedComponentProvisionState =

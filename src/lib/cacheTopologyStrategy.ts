@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
 const PROXY_STRATEGIES = ['write-through', 'write-behind', 'read-through'] as const
 const CACHE_ASIDE = 'cache-aside'

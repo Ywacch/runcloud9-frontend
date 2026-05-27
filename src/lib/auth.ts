@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore } from '../product/stores/authStore'
 
 /** Hydrate session from storage and subscribe to auth changes. */
 export function initAuth(): void {

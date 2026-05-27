@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
 /** Matches backend `cacheServiceHTTPPort` — HTTP sidecar on 8081 vs Redis wire on 6379. */
 const HTTP_CACHE_STRATEGIES = new Set([

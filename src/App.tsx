@@ -6,7 +6,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import SetPasswordPage from './pages/SetPasswordPage'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
-import NavHeader from './ui/NavHeader'
+import NavHeader from './editor-ui/NavHeader'
 
 const LoadtestPage = lazy(() => import('./pages/LoadtestPage'))
 

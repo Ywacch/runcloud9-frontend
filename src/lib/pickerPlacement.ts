@@ -1,5 +1,5 @@
 import { createCanvasNode } from './nodeFactory'
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
 const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
   compute: 5,

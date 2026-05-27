@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
 const X_SPACING = 3.5
 const Z_SPACING = 5.5

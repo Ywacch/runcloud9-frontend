@@ -1,5 +1,5 @@
 import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
-import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../store/canvasStore'
+import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stores/canvasStore'
 import type { DeploymentDesign } from './api'
 
 /**
