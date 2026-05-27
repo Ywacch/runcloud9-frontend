@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { matchesWhen } from './storytellingEngine'
 import type { StorytellingSpec } from './storytellingTypes'
 import { canvasToBackend } from './typeMapping'

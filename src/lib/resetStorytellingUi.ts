@@ -1,5 +1,5 @@
-import { useStorytellingStore } from '../store/storytellingStore'
-import { useWalkthroughStore } from '../store/walkthroughStore'
+import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
+import { useWalkthroughStore } from '../editor-core/stores/walkthroughStore'
 
 /** Stop walkthrough / journey UI and clear prediction state when the template or canvas context changes. */
 export function resetDesignStorytellingUi(options?: {

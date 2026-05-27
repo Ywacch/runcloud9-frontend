@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import { C9Card } from '../ui/c9Primitives'
-import { SignInForm } from '../ui/SignInForm'
+import { useAuthStore } from '../product/stores/authStore'
+import { C9Card } from '../editor-ui/c9Primitives'
+import { SignInForm } from '../editor-ui/SignInForm'
 
 export default function LoginPage() {
   const session = useAuthStore((s) => s.session)

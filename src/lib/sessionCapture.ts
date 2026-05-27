@@ -8,12 +8,12 @@ import {
   parsePeakFieldsFromMetricsSummary,
   parseSessionHistory,
   parseSteadyState,
-} from './sessionHistoryFromApi'
+} from '../editor-core/domain/sessionHistoryFromApi'
 import { fmtMemMB, fmtPct } from './format'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
-import { useCanvasStore, type SessionSummary } from '../store/canvasStore'
-import { useLogStore } from '../store/logStore'
-import { useMetricsStore, type MetricsBucket } from '../store/metricsStore'
+import { useCanvasStore, type SessionSummary } from '../editor-core/stores/canvasStore'
+import { useLogStore } from '../editor-core/stores/logStore'
+import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 
 export function isTerminalDeploymentStatus(
   status: string | null | undefined,

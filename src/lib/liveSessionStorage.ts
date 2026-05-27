@@ -1,4 +1,4 @@
-import type { CanvasSnapshot } from '../store/canvasStore'
+import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
 
 const LIVE_SESSION_KEY = 'runcloud9_live_session'
 

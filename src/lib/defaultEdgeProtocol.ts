@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
 /**
  * Default protocol when the user connects two canvas nodes.

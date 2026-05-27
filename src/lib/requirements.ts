@@ -1,7 +1,7 @@
-import type { CanvasNode } from '../store/canvasStore'
-import type { MetricsBucket } from '../store/metricsStore'
-import type { SimNodeInspector } from './simulation/types'
-import type { SystemAggregates } from './systemMetrics'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import type { SimNodeInspector } from '../editor-core/domain/simulation/types'
+import type { SystemAggregates } from '../editor-core/domain/systemMetrics'
 
 export type RequirementStatus = 'pass' | 'partial' | 'fail'
 

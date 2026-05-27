@@ -1,7 +1,7 @@
 import { idleClientLoadgenBucket } from './clientMetrics'
 import { defaultEdgeProtocol } from './defaultEdgeProtocol'
-import { useCanvasStore } from '../store/canvasStore'
-import { useMetricsStore } from '../store/metricsStore'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 
 export const CLIENT_LOADGEN_ID = 'client-loadgen'
 

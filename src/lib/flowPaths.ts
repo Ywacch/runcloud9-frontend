@@ -1,7 +1,7 @@
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
-import type { MetricsBucket } from '../store/metricsStore'
-import { classifyEdges, type EdgeSemantics } from './simulation/TopologyInference'
-import type { SimNodeInspector } from './simulation/types'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import { classifyEdges, type EdgeSemantics } from '../editor-core/domain/simulation/TopologyInference'
+import type { SimNodeInspector } from '../editor-core/domain/simulation/types'
 
 export interface FlowHop {
   nodeId: string

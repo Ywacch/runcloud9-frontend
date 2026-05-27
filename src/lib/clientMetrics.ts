@@ -1,4 +1,4 @@
-import type { MetricsBucket } from '../store/metricsStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 
 /** Placeholder bucket so metrics UI never sees a missing client row before WS loadgen data. */
 export function idleClientLoadgenBucket(): MetricsBucket {

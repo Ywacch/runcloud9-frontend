@@ -1,4 +1,4 @@
-import type { WsEvent } from '../store/metricsStore'
+import type { WsEvent } from '../editor-core/stores/metricsStore'
 
 const SEVERITY_RANK: Record<string, number> = {
   cascade: 0,

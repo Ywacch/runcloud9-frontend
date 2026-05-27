@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { WsEvent } from '../store/metricsStore'
+import type { WsEvent } from '../editor-core/stores/metricsStore'
 import {
   sortEventsBySeverityThenTime,
   sortEventsByTime,

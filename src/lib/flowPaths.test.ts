@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
-import type { MetricsBucket } from '../store/metricsStore'
-import type { SimNodeInspector } from './simulation/types'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import type { SimNodeInspector } from '../editor-core/domain/simulation/types'
 import { buildFlowPaths } from './flowPaths'
 
 function node(

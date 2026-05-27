@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../context/ThemeContext'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore } from '../../product/stores/authStore'
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)

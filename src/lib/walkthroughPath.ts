@@ -1,6 +1,6 @@
 import type { JourneyBackendComponent, JourneyStep } from './requestJourney'
 import { backendComponentToCanvasType } from './typeMapping'
-import type { CanvasEdge, CanvasNode } from '../store/canvasStore'
+import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
 export function nodeIdForBackendComponent(
   component: JourneyBackendComponent,

@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
 /** Canvas-only types are omitted from deploy payloads before mapping. */
 export const canvasToBackend: Record<CanvasNode['type'], string> = {

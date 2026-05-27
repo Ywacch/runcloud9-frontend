@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CanvasNode } from '../store/canvasStore'
-import type { MetricsBucket } from '../store/metricsStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { evaluateRequirements, letterFromPercent } from './requirements'
 
 const emptyCtx = {

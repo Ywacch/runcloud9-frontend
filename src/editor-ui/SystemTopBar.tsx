@@ -1,0 +1,347 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { getTopologyFlags } from '../lib/componentRole'
+import { readWriteFractions } from '../editor-core/domain/simulation/workload'
+import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
+import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
+import { getJourneys, journeyById } from '../lib/requestJourney'
+import { templateKpiRows } from '../lib/templateKpis'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { useLogStore } from '../editor-core/stores/logStore'
+import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
+import { useSimulationStore } from '../editor-core/stores/simulationStore'
+import { DataViewPanel } from './DataViewPanel'
+import { FlowPanel } from './FlowPanel'
+import { RequestJourneyPanel } from './RequestJourneyPanel'
+
+const INGRESS_HELP_LIVE =
+  'Requests per second entering the design: live load generator RPS. This is the workload hitting your system.'
+
+const INGRESS_HELP_SIM =
+  'Approximate ingress from the local simulation worker (client throughput), not packet capture or production telemetry.'
+
+/** Compact label-above-value column (Cloudcraft-style density). */
+function Stat({
+  label,
+  value,
+  valueClass,
+  wrap,
+  containerClassName,
+  onClick,
+  title,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+  wrap?: boolean
+  containerClassName?: string
+  /** When set, the whole stat is clickable (e.g. open request journey). */
+  onClick?: () => void
+  title?: string
+}) {
+  const inner = (
+    <>
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-200">
+        {label}
+      </span>
+      <span
+        className={`min-w-0 font-mono text-xs font-semibold text-zinc-50 ${valueClass ?? ''} ${
+          wrap
+            ? 'whitespace-normal break-words leading-snug'
+            : 'truncate tabular-nums'
+        }`}
+        title={wrap ? undefined : value}
+      >
+        {value}
+      </span>
+    </>
+  )
+  const cls = `flex min-w-0 flex-col gap-px ${containerClassName ?? ''}`
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        title={title}
+        onClick={onClick}
+        className={`${cls} cursor-pointer rounded border border-transparent text-left transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/5`}
+      >
+        {inner}
+      </button>
+    )
+  }
+  return <div className={cls}>{inner}</div>
+}
+
+export function SystemTopBar() {
+  const [flowOpen, setFlowOpen] = useState(false)
+  const [dataViewOpen, setDataViewOpen] = useState(false)
+  const [journeyUi, setJourneyUi] = useState<{
+    open: boolean
+    overview: boolean
+    id: string | null
+  }>({ open: false, overview: false, id: null })
+  const mode = useCanvasStore((s) => s.mode)
+  const setActiveTraceId = useLogStore((s) => s.setActiveTraceId)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const nodes = useCanvasStore((s) => s.nodes)
+  const metrics = useMetricsStore((s) => s.metrics)
+  const loadgen = useMetricsStore((s) => s.loadgen)
+  const templateMetrics = useMetricsStore((s) => s.templateMetrics)
+  const lastInspector = useSimulationStore((s) => s.lastInspector)
+  const simRunning = useSimulationStore((s) => s.running)
+  const storytelling = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
+
+  const mixLabel = useMemo(() => {
+    const p = workloadProfileForTemplate(snapshotTemplateId)
+    if (!p?.archetypes.length) return null
+    const { read, write } = readWriteFractions(p)
+    const r = Math.round(read * 100)
+    const w = Math.round(write * 100)
+    return `${p.readLabel ?? 'Reads'} ~${r}% · ${p.writeLabel ?? 'Writes'} ~${w}%`
+  }, [snapshotTemplateId])
+
+  const aggregates = useMemo(
+    () =>
+      mode === 'live' || mode === 'simulate'
+        ? computeSystemAggregates(
+            metrics,
+            nodes,
+            loadgen,
+            mode,
+            lastInspector,
+            simRunning
+          )
+        : null,
+    [metrics, nodes, loadgen, mode, lastInspector, simRunning]
+  )
+
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+
+  const kpiRows = useMemo(
+    () =>
+      mode === 'live' || mode === 'simulate'
+        ? templateKpiRows(
+            snapshotTemplateId,
+            metrics,
+            lastInspector,
+            nodes,
+            loadgen,
+            templateMetrics,
+            topology,
+          )
+        : [],
+    [
+      mode,
+      snapshotTemplateId,
+      metrics,
+      lastInspector,
+      nodes,
+      loadgen,
+      templateMetrics,
+      topology,
+    ],
+  )
+  const allJourneys = useMemo(
+    () => getJourneys(snapshotTemplateId, topology, storytelling),
+    [snapshotTemplateId, topology, storytelling],
+  )
+
+  const activeJourney = useMemo(() => {
+    if (!journeyUi.open || journeyUi.overview || !journeyUi.id) return null
+    return journeyById(snapshotTemplateId, journeyUi.id, topology, storytelling)
+  }, [journeyUi, snapshotTemplateId, topology, storytelling])
+
+  const openJourney = useCallback(
+    (id: string | null) => {
+      if (!id || allJourneys.length === 0) return
+      setJourneyUi({ open: true, overview: false, id })
+    },
+    [allJourneys.length]
+  )
+
+  const openJourneyOverview = useCallback(() => {
+    if (allJourneys.length === 0) return
+    setJourneyUi({ open: true, overview: true, id: null })
+  }, [allJourneys.length])
+
+  const closeJourney = useCallback(() => {
+    setJourneyUi({ open: false, overview: false, id: null })
+  }, [])
+
+  useEffect(() => {
+    if (mode !== 'live') {
+      setDataViewOpen(false)
+      setActiveTraceId(null)
+    }
+  }, [mode, setActiveTraceId])
+
+  if (mode !== 'live' && mode !== 'simulate') return null
+
+  const ingressHelp = mode === 'simulate' ? INGRESS_HELP_SIM : INGRESS_HELP_LIVE
+
+  const showWaiting = aggregates && !aggregates.hasComponentMetrics
+  const throughput = aggregates?.throughputRps ?? 0
+  const errPct = aggregates ? aggregates.systemErrorRate * 100 : 0
+  const errTone =
+    errPct >= 15
+      ? '!text-red-300'
+      : errPct >= 5
+        ? '!text-amber-200'
+        : '!text-zinc-100'
+
+  return (
+    <>
+      <div className="pointer-events-auto min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/80 shadow-md backdrop-blur-md">
+      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2 px-2.5 py-1.5">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-3 gap-y-1">
+          <span
+            className={`mb-px shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+              mode === 'live'
+                ? 'bg-cyan-500/20 text-cyan-300'
+                : 'bg-violet-500/20 text-violet-300'
+            }`}
+          >
+            {mode === 'live' ? 'Live' : 'Sim'}
+          </span>
+          {mode === 'simulate' ? (
+            <button
+              type="button"
+              onClick={() => setFlowOpen(true)}
+              className="mb-px shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-text)] hover:bg-[var(--c9-badge-bg)]/80"
+              title="Open request flow view"
+            >
+              Flow
+            </button>
+          ) : null}
+          {mode === 'live' ? (
+            <button
+              type="button"
+              onClick={() => setDataViewOpen(true)}
+              className="mb-px shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--c9-text)] hover:bg-[var(--c9-badge-bg)]/80"
+              title="Open interactive playground"
+            >
+              Playground
+            </button>
+          ) : null}
+          {showWaiting ? (
+            <span className="text-xs font-medium text-[var(--c9-muted)]">Waiting…</span>
+          ) : aggregates ? (
+            <>
+              <Stat label="p99" value={fmtMs(aggregates.systemP99Ms)} />
+              <Stat
+                label="Errors"
+                value={fmtPct(errPct)}
+                valueClass={errTone}
+              />
+            </>
+          ) : null}
+          {mixLabel ? (
+            <Stat
+              label="Load mix"
+              value={mixLabel}
+              wrap
+              valueClass="!text-amber-100"
+              containerClassName="min-w-0 flex-1 basis-full sm:basis-52"
+              title={
+                allJourneys.length > 0
+                  ? 'Click to see request journeys for this template'
+                  : 'Read/write mix for this template'
+              }
+              onClick={
+                allJourneys.length > 0 ? openJourneyOverview : undefined
+              }
+            />
+          ) : null}
+        </div>
+
+        <div
+          className="flex shrink-0 flex-col items-end gap-0 border-[var(--c9-border)] pl-2 sm:border-l sm:pl-3"
+          title={ingressHelp}
+        >
+          <span className="cursor-help text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)] underline decoration-dotted decoration-[var(--c9-muted)] underline-offset-2">
+            Traffic in
+          </span>
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-xl font-bold tracking-tight text-emerald-400 tabular-nums leading-none">
+              {showWaiting ? '—' : fmtRate(throughput)}
+            </span>
+            {!showWaiting ? (
+              loadgen?.active && loadgen.targetRps > 0 ? (
+                <span className="text-xs font-medium text-[var(--c9-muted)]">
+                  /{fmtRate(loadgen.targetRps)} rps
+                </span>
+              ) : (
+                <span className="text-xs font-medium text-[var(--c9-muted)]">rps</span>
+              )
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {kpiRows.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 border-t border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-2.5 py-1 backdrop-blur-sm">
+          {kpiRows.map((row) => {
+            const jid = null // Disabled: journey popups from KPI rows are not useful yet
+            const content = (
+              <>
+                <span className="truncate text-[var(--c9-muted)]">{row.label}</span>
+                <span className="shrink-0 font-mono font-medium text-[var(--c9-text)]">
+                  {row.value}
+                </span>
+              </>
+            )
+            if (jid) {
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  title={`${row.label} — click for request journey`}
+                  onClick={() => openJourney(jid)}
+                  className="inline-flex max-w-full cursor-pointer items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-left text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)] transition-all hover:ring-2 hover:ring-cyan-400/40"
+                >
+                  {content}
+                </button>
+              )
+            }
+            return (
+              <span
+                key={row.id}
+                className="inline-flex max-w-full items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)]"
+                title={row.label}
+              >
+                {content}
+              </span>
+            )
+          })}
+        </div>
+      ) : null}
+      </div>
+      <FlowPanel open={flowOpen} onClose={() => setFlowOpen(false)} />
+      <RequestJourneyPanel
+        open={journeyUi.open}
+        overview={journeyUi.overview}
+        journey={activeJourney}
+        allJourneys={allJourneys}
+        nodes={nodes}
+        metrics={metrics}
+        onClose={closeJourney}
+        onSelectJourney={(id) => {
+          if (id === '__overview__') {
+            setJourneyUi({ open: true, overview: true, id: null })
+          } else {
+            setJourneyUi({ open: true, overview: false, id })
+          }
+        }}
+      />
+      {mode === 'live' ? (
+        <DataViewPanel
+          open={dataViewOpen}
+          onClose={() => setDataViewOpen(false)}
+        />
+      ) : null}
+    </>
+  )
+}

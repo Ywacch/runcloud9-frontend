@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../store/canvasStore'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
 export const CPU_UTIL_HELP =
   'CPU utilization vs pod limit. Sustained high values mean pressure.'
