@@ -27,20 +27,20 @@ export function SystemMetricsCharts() {
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className={sparkWrap}>
           <p className="mb-1 text-[10px] text-[var(--c9-muted)]">App p99 (ms)</p>
-          <SparkLine data={p99} color="#f87171" showArea height={40} />
+          <SparkLine data={p99} color="var(--c9-error)" showArea height={40} />
         </div>
         <div className={sparkWrap}>
           <p className="mb-1 text-[10px] text-[var(--c9-muted)]">App RPS</p>
-          <SparkLine data={rps} color="#34d399" showArea height={40} />
+          <SparkLine data={rps} color="var(--c9-success)" showArea height={40} />
         </div>
         <div className={sparkWrap}>
           <p className="mb-1 text-[10px] text-[var(--c9-muted)]">DB query rate</p>
-          <SparkLine data={dbRate} color="#60a5fa" showArea height={40} />
+          <SparkLine data={dbRate} color="var(--c9-info)" showArea height={40} />
         </div>
         <div className={sparkWrap}>
           <p className="mb-1 text-[10px] text-[var(--c9-muted)]">Cache hits / misses (app)</p>
-          <SparkLine data={hits} color="#a78bfa" showArea height={40} />
-          <SparkLine data={misses} color="#fb923c" height={40} />
+          <SparkLine data={hits} color="var(--c9-accent-hover)" showArea height={40} />
+          <SparkLine data={misses} color="var(--c9-warning)" height={40} />
         </div>
       </div>
     </div>

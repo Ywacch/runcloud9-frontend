@@ -74,7 +74,12 @@ export function LoadgenMetricsPanel() {
           <p className="mb-1 text-[10px] text-[var(--c9-muted)]">
             Achieved RPS (5s buckets)
           </p>
-          <SparkLine data={intervalSpark} color="#34d399" showArea height={36} />
+          <SparkLine
+            data={intervalSpark}
+            color="var(--c9-success)"
+            showArea
+            height={36}
+          />
         </div>
       ) : null}
       {throttleHint ? (

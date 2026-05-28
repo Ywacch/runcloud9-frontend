@@ -655,7 +655,7 @@ function TypeSection({
             </MetricSectionHeading>
             <SparkLine
               data={rpsSeries}
-              color="#8A9BB0"
+              color="var(--c9-text-muted)"
               showArea
               showDot
             />
@@ -666,7 +666,7 @@ function TypeSection({
             </MetricSectionHeading>
             <SparkLine
               data={latencySeries}
-              color="#E74C3C"
+              color="var(--c9-error)"
               showArea
               showDot
             />
@@ -797,7 +797,7 @@ function TypeSection({
                 </div>
                 <SparkLine
                   data={hitRateSeries}
-                  color="#C0392B"
+                  color="var(--c9-error)"
                   showArea
                   showDot
                 />
@@ -866,7 +866,7 @@ function TypeSection({
             </MetricSectionHeading>
             <SparkLine
               data={queryRateSeries}
-              color="#5C6B7A"
+              color="var(--c9-text-disabled)"
               showArea
               showDot
             />
@@ -972,7 +972,7 @@ function TypeSection({
             </MetricSectionHeading>
             <SparkLine
               data={lbRpsSeries}
-              color="#4A90D9"
+              color="var(--c9-info)"
               showArea
               showDot
             />
@@ -1079,7 +1079,7 @@ function TypeSection({
             </div>
             <SparkLine
               data={prodSeries}
-              color="#A855F7"
+              color="var(--c9-accent)"
               showArea
               showDot
             />

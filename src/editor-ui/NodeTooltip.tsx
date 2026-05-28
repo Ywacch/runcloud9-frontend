@@ -84,7 +84,7 @@ export function NodeTooltip({
       style={{ pointerEvents: 'none' }}
     >
       <div
-        className={`pointer-events-none w-[178px] rounded-xl border border-indigo-300/18 bg-[#11152a]/95 px-2.5 py-2 text-[10px] text-zinc-200 shadow-xl backdrop-blur ${
+        className={`pointer-events-none w-[178px] rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-2.5 py-2 text-[10px] text-[var(--c9-text)] shadow-xl backdrop-blur ${
           align === 'right' ? 'origin-top-left' : 'origin-top-right -translate-x-full'
         }`}
       >

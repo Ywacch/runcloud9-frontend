@@ -93,43 +93,43 @@ export function SessionSummary() {
             </p>
             <SparkRow
               label="Ingress RPS (app-server)"
-              color="#34d399"
+              color="var(--c9-success)"
               data={summary.sessionSparklines.rps}
               markers={summary.sessionSparklines}
             />
             <SparkRow
               label="p99 latency (ms)"
-              color="#f87171"
+              color="var(--c9-error)"
               data={summary.sessionSparklines.p99Ms}
               markers={summary.sessionSparklines}
             />
             <SparkRow
               label="Error rate (/s)"
-              color="#fbbf24"
+              color="var(--c9-warning)"
               data={summary.sessionSparklines.errorRate}
               markers={summary.sessionSparklines}
             />
             <SparkRow
               label="Cache hit % (9m window)"
-              color="#a78bfa"
+              color="var(--c9-accent-hover)"
               data={summary.sessionSparklines.cacheHitPct}
               markers={summary.sessionSparklines}
             />
             <SparkRow
               label="DB query rate"
-              color="#60a5fa"
+              color="var(--c9-info)"
               data={summary.sessionSparklines.dbQueryRate}
               markers={summary.sessionSparklines}
             />
             <SparkRow
               label="Cache hits /s (app-server)"
-              color="#c084fc"
+              color="var(--c9-accent)"
               data={summary.sessionSparklines.cacheHitsPerSec}
               markers={summary.sessionSparklines}
             />
             <SparkRow
               label="Cache misses /s (app-server)"
-              color="#fb923c"
+              color="var(--c9-warning)"
               data={summary.sessionSparklines.cacheMissesPerSec}
               markers={summary.sessionSparklines}
             />

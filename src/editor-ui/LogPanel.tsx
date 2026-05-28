@@ -3,12 +3,12 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 
 const COMPONENT_COLORS: Record<string, string> = {
-  'app-server': '#8A9BB0',
-  db: '#5C6B7A',
-  cache: '#C0392B',
-  lb: '#4A90D9',
-  mq: '#E05E8A',
-  worker: '#A78BFA',
+  'app-server': 'var(--c9-text-muted)',
+  db: 'var(--c9-text-disabled)',
+  cache: 'var(--c9-error)',
+  lb: 'var(--c9-info)',
+  mq: 'var(--c9-accent)',
+  worker: 'var(--c9-accent-hover)',
 }
 
 function logLevelClass(level: string | undefined, msg: string): string {
@@ -89,7 +89,9 @@ export function LogPanel() {
                 </span>
                 <span
                   className="shrink-0 rounded px-1 text-[10px]"
-                  style={{ color: COMPONENT_COLORS[l.component] ?? '#888' }}
+                  style={{
+                    color: COMPONENT_COLORS[l.component] ?? 'var(--c9-text-disabled)',
+                  }}
                 >
                   {l.component}
                 </span>
