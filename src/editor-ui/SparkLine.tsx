@@ -32,14 +32,14 @@ function catmullRomPath(points: { x: number; y: number }[]): string {
 }
 
 function markerColor(t?: string): string {
-  if (t === 'cascade') return '#f87171'
-  if (t === 'threshold') return '#fbbf24'
-  return '#7dd3fc'
+  if (t === 'cascade') return 'var(--c9-error)'
+  if (t === 'threshold') return 'var(--c9-warning)'
+  return 'var(--c9-info)'
 }
 
 export function SparkLine({
   data,
-  color = '#8A9BB0',
+  color = 'var(--c9-text-muted)',
   width = 120,
   height = 32,
   showDot = false,

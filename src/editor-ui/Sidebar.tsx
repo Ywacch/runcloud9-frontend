@@ -56,12 +56,12 @@ function readSidebarCollapsed(): boolean {
 }
 
 const PALETTE: { type: CanvasNode['type']; title: string; face: string }[] = [
-  { type: 'load_balancer', title: 'Load Balancer', face: '#4A90D9' },
-  { type: 'compute', title: 'App Server', face: '#8A9BB0' },
-  { type: 'database', title: 'Database', face: '#5C6B7A' },
-  { type: 'cache', title: 'Cache', face: '#C0392B' },
-  { type: 'message_queue', title: 'Message Queue', face: '#E05E8A' },
-  { type: 'worker', title: 'Worker', face: '#A78BFA' },
+  { type: 'load_balancer', title: 'Load Balancer', face: 'var(--c9-info)' },
+  { type: 'compute', title: 'App Server', face: 'var(--c9-text-muted)' },
+  { type: 'database', title: 'Database', face: 'var(--c9-text-disabled)' },
+  { type: 'cache', title: 'Cache', face: 'var(--c9-error)' },
+  { type: 'message_queue', title: 'Message Queue', face: 'var(--c9-accent)' },
+  { type: 'worker', title: 'Worker', face: 'var(--c9-accent-hover)' },
 ]
 
 let emptyDragImage: HTMLCanvasElement | null = null

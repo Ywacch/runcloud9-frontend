@@ -60,15 +60,15 @@ const UsersIcon = (
 
 const TEMPLATE_META_BY_ID: Record<string, LocalTemplateMeta> = {
   'url-shortener': {
-    accent: '#4A90D9',
+    accent: 'var(--c9-info)',
     icon: LinkIcon,
   },
   ecommerce: {
-    accent: '#27AE60',
+    accent: 'var(--c9-success)',
     icon: CartIcon,
   },
   'social-feed': {
-    accent: '#9B59B6',
+    accent: 'var(--c9-accent)',
     icon: UsersIcon,
   },
 }
@@ -135,13 +135,13 @@ function MiniTopologyPreview({
     15 + ((v - min) / range) * 70
 
   const NODE_COLORS: Record<string, string> = {
-    load_balancer: '#4A90D9',
-    compute: '#8A9BB0',
-    database: '#5C6B7A',
-    cache: '#C0392B',
-    message_queue: '#E05E8A',
-    worker: '#A78BFA',
-    client: '#F39C12',
+    load_balancer: 'var(--c9-info)',
+    compute: 'var(--c9-text-muted)',
+    database: 'var(--c9-text-disabled)',
+    cache: 'var(--c9-error)',
+    message_queue: 'var(--c9-accent)',
+    worker: 'var(--c9-accent-hover)',
+    client: 'var(--c9-warning)',
   }
 
   return (
@@ -168,7 +168,7 @@ function MiniTopologyPreview({
           cx={padded(n.position[0], minX, rangeX)}
           cy={padded(n.position[2], minZ, rangeZ)}
           r="5"
-          fill={NODE_COLORS[n.type] ?? '#666'}
+          fill={NODE_COLORS[n.type] ?? 'var(--c9-text-disabled)'}
         />
       ))}
     </svg>
@@ -374,7 +374,7 @@ export function TemplateModal({
               row: {
                 ...t,
                 icon: meta?.icon ?? LinkIcon,
-                accent: meta?.accent ?? '#8A9BB0',
+                accent: meta?.accent ?? 'var(--c9-text-muted)',
                 snapshot: templatePresetToCanvasSnapshot(t.preset, t.id),
               },
             })
