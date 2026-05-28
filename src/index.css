@@ -16,25 +16,65 @@
 }
 
 :root {
-  --c9-accent: #4f46e5;
-  --c9-accent-hover: #4338ca;
-  --c9-bg: #fafafa;
-  --c9-surface: #f0f0ff;
-  --c9-border: rgba(79, 70, 229, 0.15);
-  --c9-text: #0d0d1a;
-  --c9-muted: #6b6896;
+  --c9-bg: #08070c;
+  --c9-bg-surface: #13111c;
+  --c9-bg-card: #1c1a27;
+  --c9-bg-subtle: #33323e;
+  --c9-border: #33323e;
+  --c9-border-strong: #545260;
+  --c9-border-inset: rgba(255, 255, 255, 0.08);
+  --c9-text: #f7f7f8;
+  --c9-text-heading: #ffffff;
+  --c9-text-muted: #a1a0ab;
+  --c9-text-disabled: #878593;
+  --c9-accent: #59497a;
+  --c9-accent-hover: #6b5b95;
+  --c9-accent-active: #4a3d5f;
+  --c9-accent-subtle: rgba(89, 73, 122, 0.12);
+  --c9-success: #22c55e;
+  --c9-warning: #f59e0b;
+  --c9-error: #ef4444;
+  --c9-info: #38bdf8;
+  --c9-shadow-card:
+    rgba(65, 78, 166, 0.1) 0px -12px 127px 0px,
+    rgba(65, 78, 166, 0.07) 0px -4px 46px 0px,
+    rgba(65, 78, 166, 0.04) 0px -1px 11px 0px;
+  --c9-shadow-modal: rgba(204, 204, 204, 0.5) 0px 0px 2px 2px;
+  --c9-shadow-focus: 0 0 0 3px rgba(89, 73, 122, 0.25);
+  --c9-surface: var(--c9-bg-surface);
+  --c9-muted: var(--c9-text-muted);
   --c9-badge-bg: #eef2ff;
   --c9-badge-text: #4338ca;
 }
 
 .dark {
-  --c9-accent: #6366f1;
-  --c9-accent-hover: #4f46e5;
-  --c9-bg: #0d0d1a;
-  --c9-surface: #12122a;
-  --c9-border: rgba(255, 255, 255, 0.08);
-  --c9-text: #f1f0ff;
-  --c9-muted: #8884b8;
+  --c9-bg: #08070c;
+  --c9-bg-surface: #13111c;
+  --c9-bg-card: #1c1a27;
+  --c9-bg-subtle: #33323e;
+  --c9-border: #33323e;
+  --c9-border-strong: #545260;
+  --c9-border-inset: rgba(255, 255, 255, 0.08);
+  --c9-text: #f7f7f8;
+  --c9-text-heading: #ffffff;
+  --c9-text-muted: #a1a0ab;
+  --c9-text-disabled: #878593;
+  --c9-accent: #59497a;
+  --c9-accent-hover: #6b5b95;
+  --c9-accent-active: #4a3d5f;
+  --c9-accent-subtle: rgba(89, 73, 122, 0.12);
+  --c9-success: #22c55e;
+  --c9-warning: #f59e0b;
+  --c9-error: #ef4444;
+  --c9-info: #38bdf8;
+  --c9-shadow-card:
+    rgba(65, 78, 166, 0.1) 0px -12px 127px 0px,
+    rgba(65, 78, 166, 0.07) 0px -4px 46px 0px,
+    rgba(65, 78, 166, 0.04) 0px -1px 11px 0px;
+  --c9-shadow-modal: rgba(204, 204, 204, 0.5) 0px 0px 2px 2px;
+  --c9-shadow-focus: 0 0 0 3px rgba(89, 73, 122, 0.25);
+  --c9-surface: var(--c9-bg-surface);
+  --c9-muted: var(--c9-text-muted);
   --c9-badge-bg: rgba(79, 70, 229, 0.15);
   --c9-badge-text: #818cf8;
 }
