@@ -4,14 +4,19 @@ import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuthStore } from '../../product/stores/authStore'
 
+const NAV_LINKS = [
+  { label: 'Features', href: '#features' },
+  { label: 'Docs', href: '#' },
+] as const
+
 export function Navbar() {
-  const [isScrolled, setIsScrolled] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const session = useAuthStore((s) => s.session)
 
   useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 20)
+    const onScroll = () => setScrolled(window.scrollY > 8)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -19,41 +24,53 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 w-full transition-all duration-200 ${
-        isScrolled
-          ? 'border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/90 backdrop-blur-md'
-          : 'bg-transparent'
+      className={`fixed inset-x-0 top-0 z-50 w-full transition-[background-color,border-color,backdrop-filter] duration-200 ${
+        scrolled
+          ? 'border-b border-c9-border bg-c9-bg/80 backdrop-blur-sm'
+          : 'border-b border-transparent bg-transparent'
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-6 md:px-10">
         <Link to="/" className="transition-opacity hover:opacity-90">
           <RunCloud9Logo theme={theme} />
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          <a
-            href="#features"
-            className="text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-          >
-            Features
-          </a>
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
+          {NAV_LINKS.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+            >
+              {item.label}
+            </a>
+          ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-3 md:flex">
           <button
             type="button"
             onClick={toggleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--c9-border)] text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
+            className="flex h-8 w-8 items-center justify-center rounded border border-c9-border text-c9-text-muted transition-colors hover:text-c9-text"
             aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" strokeWidth="1.8" />
+                <path
+                  d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
               </svg>
             ) : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <path
+                  d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
               </svg>
             )}
           </button>
@@ -61,21 +78,21 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => void supabase.auth.signOut()}
-              className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-all duration-200 hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
+              className="rounded border border-c9-border-strong px-4 py-1.5 text-sm text-c9-text-muted transition-colors hover:border-c9-accent hover:text-c9-text"
             >
-              Log Out
+              Log out
             </button>
           ) : (
             <Link
               to="/login"
-              className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-all duration-200 hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
+              className="px-3 py-1.5 text-sm text-c9-text-muted transition-colors hover:text-c9-text"
             >
-              Log In
+              Log in
             </Link>
           )}
           <Link
             to="/canvas"
-            className="rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+            className="rounded border border-c9-border-strong bg-c9-accent px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-c9-accent-hover"
           >
             Go to Canvas
           </Link>
@@ -84,10 +101,11 @@ export function Navbar() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex rounded-lg border border-[var(--c9-border)] px-3 py-2 text-[var(--c9-text)] md:hidden"
+          className="inline-flex rounded border border-c9-border px-3 py-2 text-c9-text md:hidden"
           aria-label="Toggle menu"
+          aria-expanded={open}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path
               d="M4 7h16M4 12h16M4 17h16"
               stroke="currentColor"
@@ -99,40 +117,44 @@ export function Navbar() {
       </div>
 
       {open ? (
-        <div className="border-t border-[var(--c9-border)] bg-[var(--c9-bg)] px-6 py-4 md:hidden">
+        <div className="border-t border-c9-border bg-c9-bg/95 px-6 py-4 backdrop-blur-sm md:hidden">
           <div className="flex flex-col gap-3">
-            <a
-              href="#features"
-              className="text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-            >
-              Features
-            </a>
+            {NAV_LINKS.map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+                onClick={() => setOpen(false)}
+              >
+                {item.label}
+              </a>
+            ))}
             <button
               type="button"
               onClick={toggleTheme}
-              className="mt-2 rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
+              className="rounded border border-c9-border px-4 py-2 text-left text-sm text-c9-text-muted"
             >
-              Toggle Theme
+              Toggle theme
             </button>
             {session ? (
               <button
                 type="button"
                 onClick={() => void supabase.auth.signOut()}
-                className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-center text-sm text-[var(--c9-muted)]"
+                className="rounded border border-c9-border-strong px-4 py-2 text-left text-sm text-c9-text-muted"
               >
-                Log Out
+                Log out
               </button>
             ) : (
               <Link
                 to="/login"
-                className="rounded-lg border border-[var(--c9-border)] px-4 py-2 text-center text-sm text-[var(--c9-muted)]"
+                className="px-3 py-1.5 text-sm text-c9-text-muted transition-colors hover:text-c9-text"
               >
-                Log In
+                Log in
               </Link>
             )}
             <Link
               to="/canvas"
-              className="rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-center text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+              className="rounded border border-c9-border-strong bg-c9-accent px-4 py-2 text-center text-sm font-medium text-white"
             >
               Go to Canvas
             </Link>
@@ -146,7 +168,9 @@ export function Navbar() {
 function RunCloud9Logo({ theme }: { theme: 'dark' | 'light' }) {
   const stroke = theme === 'dark' ? 'var(--color-c9-400)' : 'var(--color-c9-600)'
   const fill =
-    theme === 'dark' ? 'color-mix(in srgb, var(--color-c9-500) 16%, transparent)' : 'var(--color-c9-accent-muted)'
+    theme === 'dark'
+      ? 'color-mix(in srgb, var(--color-c9-500) 16%, transparent)'
+      : 'var(--color-c9-accent-muted)'
 
   return (
     <div className="flex items-center gap-2">
@@ -158,7 +182,7 @@ function RunCloud9Logo({ theme }: { theme: 'dark' | 'light' }) {
           strokeWidth="1.6"
         />
       </svg>
-      <span className="text-base font-semibold text-[var(--c9-text)]">RunCloud9</span>
+      <span className="font-sans text-base font-medium text-c9-text-heading">RunCloud9</span>
     </div>
   )
 }
