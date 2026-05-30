@@ -9,7 +9,9 @@ import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
 import { saveWsEventsJson } from '../../lib/wsEventsPersist'
 import { backendComponentToCanvasType } from '../../lib/typeMapping'
 import {
+  parseBackendReplicas,
   parseLoadgenIntervals,
+  parsePodReplicas,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
 import { useCanvasStore, type CanvasNode } from '../stores/canvasStore'
@@ -64,6 +66,9 @@ interface WsComponentMetrics {
   lbAlgorithm?: string
   lbBackends?: string[]
   perBackendRps?: Record<string, number>
+  replicas?: unknown[]
+  backendPods?: unknown[]
+  backendReplicas?: { desired?: number; ready?: number }
   lbConnectionLimit?: number
   redisMaxClients?: number
   mqMemoryUsed?: number
@@ -195,6 +200,9 @@ function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
         : {},
     lbAlgorithm: cm.lbAlgorithm ?? '',
     lbBackends: Array.isArray(cm.lbBackends) ? [...cm.lbBackends] : [],
+    podReplicas: [],
+    backendPods: [],
+    backendReplicas: null,
     podCount: 1,
     lastUpdated: Date.now(),
     qps: Math.round(requestRate),
@@ -258,7 +266,35 @@ function applyMessage(payload: WsDeploymentMetrics): void {
   for (const [backendKey, cm] of Object.entries(components)) {
     if (!cm) continue
     const ids = nodeIdsForBackendKey(nodes, backendKey)
-    const bucket = componentToBucket(cm)
+    let bucket = componentToBucket(cm)
+
+    if (backendKey === 'app-server') {
+      const pods = parsePodReplicas(cm.replicas)
+      if (pods.length > 0) {
+        bucket = {
+          ...bucket,
+          podReplicas: pods,
+          podCount: pods.length,
+        }
+      }
+    }
+
+    if (backendKey === 'lb') {
+      const pods = parsePodReplicas(cm.backendPods)
+      const backendReplicas = parseBackendReplicas(cm.backendReplicas)
+      bucket = {
+        ...bucket,
+        backendPods: pods,
+        backendReplicas,
+        podCount:
+          backendReplicas?.desired && backendReplicas.desired > 0
+            ? backendReplicas.desired
+            : pods.length > 0
+              ? pods.length
+              : bucket.podCount,
+      }
+    }
+
     const err = cm.errorRate ?? 0
     const degraded = err > 0.25
     const status = degraded ? 'degraded' : 'healthy'

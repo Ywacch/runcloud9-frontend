@@ -3,6 +3,11 @@ import {
   getAvailableCacheStrategies,
 } from '../lib/cacheTopologyStrategy'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
+import {
+  APP_SERVER_REPLICA_MAX,
+  APP_SERVER_REPLICA_MIN,
+  clampAppServerReplicas,
+} from '../lib/replicaConfig'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { getRelevantTemplateMetrics } from '../lib/templateMetricsFilter'
 import { canvasToBackend } from '../lib/typeMapping'
@@ -222,6 +227,9 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
         {node.type === 'compute' ? (
           <>
             <span className={badgeClass}>
+              Replicas: {clampAppServerReplicas(c.replicas ?? 1)}
+            </span>
+            <span className={badgeClass}>
               Resource profile: {String(c.instanceSize ?? 'small')}
             </span>
           </>
@@ -412,19 +420,32 @@ function TypeFields({
             <select
               id="lb-algo"
               className={fieldClass}
-              value={String(c.algorithm ?? 'round-robin')}
-              onChange={(e) => updateConfig({ algorithm: e.target.value })}
+              value={String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')}
+              onChange={(e) => {
+                const v = e.target.value
+                updateConfig({ algorithm: v, lbAlgorithm: v })
+              }}
             >
-              <option value="round-robin">round-robin</option>
-              <option value="weighted">weighted (use backend weights)</option>
-              <option value="least-connections">least-connections</option>
-              <option value="weighted-least-connections">
-                weighted-least-connections
-              </option>
-              <option value="ip-hash">ip-hash</option>
-              <option value="least-response-time">least-response-time</option>
-              <option value="random">random (seeded)</option>
-              <option value="least-bandwidth">least-bandwidth</option>
+              {simulationMode ? (
+                <>
+                  <option value="round-robin">round-robin</option>
+                  <option value="weighted">weighted (use backend weights)</option>
+                  <option value="least-connections">least-connections</option>
+                  <option value="weighted-least-connections">
+                    weighted-least-connections
+                  </option>
+                  <option value="ip-hash">ip-hash</option>
+                  <option value="least-response-time">least-response-time</option>
+                  <option value="random">random (seeded)</option>
+                  <option value="least-bandwidth">least-bandwidth</option>
+                </>
+              ) : (
+                <>
+                  <option value="round-robin">round-robin</option>
+                  <option value="least_conn">least_conn</option>
+                  <option value="ip_hash">ip_hash</option>
+                </>
+              )}
             </select>
           </div>
           {simulationMode ? (
@@ -506,8 +527,35 @@ function TypeFields({
 
     case 'compute': {
       const instanceSize = String(c.instanceSize ?? 'small')
+      const replicas = clampAppServerReplicas(c.replicas ?? 1)
       return (
         <>
+          <div>
+            <label className={labelClass} htmlFor="compute-replicas">
+              Replicas
+            </label>
+            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+              One app-server on the canvas; deploy scales Kubernetes pods (
+              {APP_SERVER_REPLICA_MIN}–{APP_SERVER_REPLICA_MAX}). Click an
+              existing app server on the grid to add another replica slot.
+            </p>
+            <input
+              id="compute-replicas"
+              type="number"
+              min={APP_SERVER_REPLICA_MIN}
+              max={APP_SERVER_REPLICA_MAX}
+              step={1}
+              className={fieldClass}
+              value={replicas}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                if (!Number.isFinite(n)) return
+                updateConfig({
+                  replicas: clampAppServerReplicas(n),
+                })
+              }}
+            />
+          </div>
           <div>
             <label className={labelClass} htmlFor="compute-size">
               Resource profile

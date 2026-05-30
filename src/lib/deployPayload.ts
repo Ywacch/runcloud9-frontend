@@ -1,6 +1,7 @@
 import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
 import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stores/canvasStore'
 import type { DeploymentDesign } from './api'
+import { clampAppServerReplicas, lbAlgorithmForDeploy } from './replicaConfig'
 
 /**
  * Backend topology validation and env derivation typically read `strategy` on cache
@@ -17,8 +18,14 @@ export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
   delete config.storageSize
   delete config.storageGB
   delete config.maxConnections
-  // Launch default: keep single replica semantics in deploy payload.
-  config.replicas = '1'
+  if (n.type === 'compute') {
+    config.replicas = clampAppServerReplicas(config.replicas ?? 1)
+  }
+  if (n.type === 'load_balancer') {
+    const algo = lbAlgorithmForDeploy(config.algorithm ?? config.lbAlgorithm)
+    config.lbAlgorithm = algo
+    config.algorithm = algo
+  }
   if (n.type === 'cache') {
     const strat = String(
       config.cacheStrategy ?? config.strategy ?? 'cache-aside',

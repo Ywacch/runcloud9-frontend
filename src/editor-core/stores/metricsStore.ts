@@ -79,6 +79,12 @@ export interface MetricsBucket {
   perBackendRps: Record<string, number>
   lbAlgorithm: string
   lbBackends: string[]
+  /** Live per-pod metrics (`app-server.replicas` on compute). */
+  podReplicas: PodReplicaMetrics[]
+  /** Live backend pods (`lb.backendPods`). */
+  backendPods: PodReplicaMetrics[]
+  /** K8s deployment replica status from LB tick. */
+  backendReplicas: BackendReplicaStatus | null
 
   // Meta
   podCount: number
@@ -88,7 +94,11 @@ export interface MetricsBucket {
   qps: number
 }
 
-import type { LoadgenIntervalBucket } from '../domain/metricsUiContract'
+import type {
+  BackendReplicaStatus,
+  LoadgenIntervalBucket,
+  PodReplicaMetrics,
+} from '../domain/metricsUiContract'
 
 /** Subset of backend `loadgen` for the live overlay (metrics-ui-contract). */
 export interface LiveLoadgenState {

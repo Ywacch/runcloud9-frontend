@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   parseLoadgenIntervals,
+  parsePodReplicas,
   parseSteadyState,
   sampleFromWsPayload,
 } from './metricsUiContract'
@@ -32,6 +33,22 @@ describe('metricsUiContract', () => {
     const out = parseLoadgenIntervals(rows)
     expect(out).toHaveLength(12)
     expect(out[0].actualRps).toBe(4)
+  })
+
+  it('parsePodReplicas converts p99 seconds to ms', () => {
+    const pods = parsePodReplicas([
+      {
+        name: 'app-server-abc-xyz',
+        ready: true,
+        requestRate: 12.5,
+        p99Latency: 0.02,
+        cpuUsage: 0.05,
+        errorRate: 0.01,
+      },
+    ])
+    expect(pods).toHaveLength(1)
+    expect(pods[0].p99LatencyMs).toBeCloseTo(20)
+    expect(pods[0].requestRate).toBe(12.5)
   })
 
   it('sampleFromWsPayload converts app-server seconds to ms', () => {
