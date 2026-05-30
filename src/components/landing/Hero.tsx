@@ -2,58 +2,85 @@ import { Link } from 'react-router-dom'
 import canvasHero from '../../assets/canvas1.PNG'
 import { ScreenshotFrame } from './ScreenshotFrame'
 
+const GRAIN_BG =
+  "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
+
 export function Hero() {
   return (
-    <section className="dot-grid relative flex min-h-screen items-center overflow-hidden bg-[var(--c9-bg)] pt-16">
-      <div className="pointer-events-none absolute right-1/4 top-1/4 h-96 w-96 rounded-full bg-indigo-600/10 blur-3xl dark:bg-indigo-500/10" />
+    <section
+      className="relative flex min-h-screen items-center overflow-hidden pt-14"
+      style={{ background: '#08070C' }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          background:
+            'radial-gradient(ellipse 70% 80% at 75% 50%, rgba(89,73,122,0.28) 0%, rgba(89,73,122,0.10) 45%, transparent 70%)',
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.03]"
+        style={{ backgroundImage: GRAIN_BG }}
+        aria-hidden
+      />
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-6 py-24 lg:grid-cols-2">
-        <div>
-          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-[var(--c9-badge-bg)] px-3 py-1 text-xs font-medium text-[var(--c9-badge-text)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--c9-accent)]" />
-            Kubernetes-Native Deployment Engine
+      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] grid-cols-1 items-center gap-16 px-6 py-16 lg:grid-cols-2 lg:gap-16 lg:px-10 lg:py-24">
+        <div className="flex flex-col justify-center gap-6">
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-c9-accent/30 bg-c9-accent-subtle px-3 py-1 text-xs font-medium text-c9-accent">
+            <span className="h-1.5 w-1.5 rounded-full bg-c9-accent" aria-hidden />
+            Systems architecture lab
           </span>
 
-          <h1 className="mb-6 text-4xl font-semibold tracking-tight text-[var(--c9-text)] md:text-5xl lg:text-6xl lg:leading-[1.1]">
-            Design, Deploy,
-            <br />
-            Observe;
-            <br />
-            <span className="text-[var(--c9-accent)]">All in One Canvas.</span>
+          <h1 className="font-serif text-4xl font-medium leading-tight text-c9-text-heading md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
+            Design and deploy live architecture on a canvas.
           </h1>
 
-          <p className="mb-10 max-w-md text-lg leading-relaxed text-[var(--c9-muted)]">
-            RunCloud9 lets you drop real components (load balancers, databases,
-            caches, message queues, etc) onto a canvas and deploy them onto live
-            Kubernetes infrastructure. Then hit them with traffic, introduce chaos,
-            and spend 9 minutes watching a real system breathe.
+          <p className="max-w-md text-lg leading-relaxed text-c9-text-muted">
+            Place load balancers, app servers, databases, caches, and queues on
+            the canvas. One deploy spins up a live stack. Metrics display for
+            each node while traffic runs for 9 minutes.
           </p>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             <Link
               to="/canvas"
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--c9-accent)] px-6 py-3 font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+              className="rounded bg-c9-accent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-c9-accent-hover active:scale-[0.98]"
             >
-              Start Building
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M5 12h14M13 6l6 6-6 6"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              Start Building →
             </Link>
+            <a
+              href="#features"
+              className="rounded border border-c9-border-strong px-6 py-2.5 text-sm text-c9-text transition-colors hover:border-c9-accent hover:text-c9-accent active:scale-[0.98]"
+            >
+              See how it works
+            </a>
           </div>
-
         </div>
 
-        <div className="relative -rotate-1 transition-transform duration-500 hover:rotate-0">
-          <ScreenshotFrame screenshotSrc={canvasHero} />
-          <div className="absolute -bottom-4 -left-4 flex items-center gap-2 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-3 py-2 shadow-lg">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-            <span className="text-xs text-[var(--c9-muted)]">3 pods healthy</span>
+        <div className="relative flex w-full items-center justify-center">
+          <div className="relative mx-auto w-full max-w-lg">
+            <div
+              className="absolute inset-4 z-0 rounded-xl blur-2xl"
+              style={{ background: 'rgba(89, 73, 122, 0.12)' }}
+              aria-hidden
+            />
+            <div
+              className="relative z-10"
+              style={{ filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.5))' }}
+            >
+              <ScreenshotFrame screenshotSrc={canvasHero} />
+            </div>
+            <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-lg border border-c9-border bg-c9-bg-surface px-3 py-2">
+              <span
+                className="h-2 w-2 animate-pulse rounded-full bg-emerald-400"
+                aria-hidden
+              />
+              <span className="text-xs text-c9-text-muted">3 pods healthy</span>
+            </div>
           </div>
         </div>
       </div>

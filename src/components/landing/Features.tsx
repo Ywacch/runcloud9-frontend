@@ -1,156 +1,173 @@
-import { type ReactNode } from 'react'
 import canvasDesign from '../../assets/canvas2.PNG'
-import canvasLive from '../../assets/canvas3.png'
+import canvasDeploy from '../../assets/canvas1.PNG'
+import canvasObserve from '../../assets/canvas3.png'
 import { ScreenshotFrame } from './ScreenshotFrame'
 
-type FeatureItem = {
-  id: number
-  tag: string
-  headline: string
-  body: string
-  align: 'left' | 'right'
-  badgeClassName: string
-  icon: ReactNode
-}
-
-const FEATURES: FeatureItem[] = [
-  {
-    id: 1,
-    tag: 'Visual Topology Canvas',
-    headline: 'Design your architecture, see your drawings in action',
-    body: 'RunCloud9 provides an interactive environment to design an architecture, deploy it, and watch it perform under real load. Configure your components, click deploy, and see a live system spin up on Kubernetes. Then trigger traffic and chaos events. Observe how latency, caching, and connection pools react to sudden traffic spikes. Experience system behavior firsthand.',
-    align: 'right',
-    badgeClassName:
-      'bg-[var(--c9-badge-bg)] text-[var(--c9-badge-text)] border-indigo-500/20',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"
-          fill="currentColor"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 2,
-    tag: 'Real-Time Observation',
-    headline: 'Watch your decisions play out, live.',
-    body: 'Every change you make on the canvas reflects in real time. Bottlenecks surface, request traces light up, node health shifts as load moves through your system.',
-    align: 'left',
-    badgeClassName: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-400',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M3 12h3l2-5 4 10 2-5h7"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-]
-
-const LIVE_SECTION_POINTS: {
+type FeatureBlockConfig = {
+  category: string
+  categoryClass: string
   title: string
   body: string
-  comingSoon?: boolean
-}[] = [
+  bullets: string[]
+  screenshotSrc: string
+  visualFirst: boolean
+}
+
+const FEATURE_BLOCKS: FeatureBlockConfig[] = [
   {
-    title: 'Build real architectures in minutes',
-    body: 'Start from scratch or pick a template. Drop components onto the canvas, configure how each one behaves, and deploy a live system with a few clicks.',
+    category: 'Design',
+    categoryClass: 'text-c9-success',
+    title: 'Lay out the system',
+    body: 'Add components to the canvas. Configure & connect components, and deploy from the same view.',
+    bullets: [
+      'Six component types: load balancer, app server, database, cache, message queue, worker',
+      'Draw connections on the canvas to model how traffic should flow',
+      'Horizontal scaling via replicas; vertical via CPU and memory',
+    ],
+    screenshotSrc: canvasDesign,
+    visualFirst: true,
   },
   {
-    title: 'See what your decisions actually cost',
-    body: 'Trigger traffic, introduce failures, and watch latency, throughput, and service health respond in real time. Learn by breaking things safely.',
+    category: 'Deploy',
+    categoryClass: 'text-c9-info',
+    title: 'Deploy the full diagram',
+    body: 'One click provisions the components in your drawing as live services with namespace isolation and resource quotas. The session runs nine minutes, then teardown reclaims the environment.',
+    bullets: [
+      'Deploy the full diagram with one click from the canvas',
+      'Templates include seeded database rows for realistic reads',
+      'Teardown runs when the session clock ends',
+    ],
+    screenshotSrc: canvasDeploy,
+    visualFirst: false,
   },
   {
-    title: 'Collaborate and share',
-    body: 'Review architectures together, compare approaches, and build a shared understanding of how your systems work.',
-    comingSoon: true,
+    category: 'Observe',
+    categoryClass: 'text-c9-warning',
+    title: 'Read metrics on the diagram',
+    body: 'Prometheus metrics stream to the nodes on your canvas. You see p99 latency, cache hit rate, database query rate, and errors on the component that produced them. Trigger chaos scenarios during a live session and watch the same metrics move on the nodes that fail.',
+    bullets: [
+      'Per-component CPU, memory, and request rate',
+      'Cache flush and pod kill scenarios you trigger from the live session',
+      'Cache hit and miss counters',
+      'Threshold events with topology suggestions',
+    ],
+    screenshotSrc: canvasObserve,
+    visualFirst: true,
   },
 ]
+
+function FeatureVisual({ screenshotSrc }: { screenshotSrc: string }) {
+  return (
+    <div className="relative w-full">
+      <div
+        className="absolute inset-4 z-0 rounded-xl blur-2xl"
+        style={{ background: 'rgba(89, 73, 122, 0.12)' }}
+        aria-hidden
+      />
+      <div
+        className="relative z-10"
+        style={{ filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.5))' }}
+      >
+        <ScreenshotFrame screenshotSrc={screenshotSrc} className="w-full" />
+      </div>
+    </div>
+  )
+}
+
+function FeatureCopy({
+  category,
+  categoryClass,
+  title,
+  body,
+  bullets,
+}: Pick<FeatureBlockConfig, 'category' | 'categoryClass' | 'title' | 'body' | 'bullets'>) {
+  return (
+    <div>
+      <p
+        className={`text-xs font-medium uppercase tracking-widest ${categoryClass}`}
+      >
+        {category}
+      </p>
+      <h3 className="mt-3 whitespace-pre-line font-serif text-3xl font-medium leading-snug text-c9-text-heading lg:text-4xl">
+        {title}
+      </h3>
+      <p className="mt-4 max-w-md text-base leading-relaxed text-c9-text-muted">
+        {body}
+      </p>
+      <ul className="mt-6 flex flex-col gap-3">
+        {bullets.map((bullet) => (
+          <li key={bullet} className="flex items-start gap-3">
+            <span
+              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-c9-accent"
+              aria-hidden
+            />
+            <span className="text-sm leading-relaxed text-c9-text">{bullet}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 export function Features() {
   return (
-    <section id="features">
-      {FEATURES.map((feature, i) => {
-        if (feature.id === 2) {
-          return (
-            <div key={feature.id} className="bg-[var(--c9-surface)] py-24">
-              <div className="mx-auto max-w-7xl px-6">
-                <span
-                  className={`mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${feature.badgeClassName}`}
-                >
-                  {feature.icon}
-                  {feature.tag}
-                </span>
-                <h3 className="mb-4 text-3xl font-semibold leading-tight text-[var(--c9-text)]">
-                  {feature.headline}
-                </h3>
-                <p className="mb-8 max-w-3xl leading-relaxed text-[var(--c9-muted)]">
-                  {feature.body}
-                </p>
+    <section
+      id="features"
+      className="py-32"
+      style={{ background: '#08070C' }}
+    >
+      <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
+        <header className="mb-20 text-center">
+          <p className="text-xs font-medium uppercase tracking-widest text-c9-accent">
+            What you can do
+          </p>
+          <h2 className="mt-3 font-serif text-4xl font-medium text-c9-text-heading lg:text-5xl">
+            Live infrastructure from your canvas diagram.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-lg leading-relaxed text-c9-text-muted">
+            You deploy what you placed on the canvas, run traffic for nine
+            minutes, trigger chaos scenarios, and read metrics on each node.
+          </p>
+        </header>
 
-                <div className="rounded-2xl border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3 shadow-xl shadow-black/10">
-                  <ScreenshotFrame className="w-full" screenshotSrc={canvasLive} />
-                </div>
-
-                <div className="mt-8 grid gap-6 md:grid-cols-3">
-                  {LIVE_SECTION_POINTS.map((point) => (
-                    <article
-                      key={point.title}
-                      className="rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-5"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <h4 className="text-xl font-semibold text-[var(--c9-text)]">
-                          {point.title}
-                        </h4>
-                        {point.comingSoon ? (
-                          <span className="shrink-0 rounded-full border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-badge-text)]">
-                            Coming soon
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-2 text-sm leading-relaxed text-[var(--c9-muted)]">
-                        {point.body}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        const sectionBg = i % 2 === 0 ? 'bg-[var(--c9-bg)]' : 'bg-[var(--c9-surface)]'
-        const visualOrderClass = feature.align === 'left' ? 'lg:order-2' : ''
-        const textOrderClass = feature.align === 'left' ? 'lg:order-1' : ''
-        return (
-          <div key={feature.id} className={`py-24 ${sectionBg}`}>
-            <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-6 lg:grid-cols-2">
-              <div className={textOrderClass}>
-                <span
-                  className={`mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${feature.badgeClassName}`}
-                >
-                  {feature.icon}
-                  {feature.tag}
-                </span>
-                <h3 className="mb-4 text-3xl font-semibold leading-tight text-[var(--c9-text)]">
-                  {feature.headline}
-                </h3>
-                <p className="leading-relaxed text-[var(--c9-muted)]">
-                  {feature.body}
-                </p>
-              </div>
-              <div className={visualOrderClass}>
-                <ScreenshotFrame className="w-full" screenshotSrc={canvasDesign} />
-              </div>
-            </div>
-          </div>
-        )
-      })}
+        <div className="flex flex-col">
+          {FEATURE_BLOCKS.map((block) => (
+            <article
+              key={block.category}
+              className="grid grid-cols-1 items-center gap-16 py-20 lg:grid-cols-2"
+              style={{ borderTop: '1px solid var(--c9-border)' }}
+            >
+              {block.visualFirst ? (
+                <>
+                  <FeatureVisual screenshotSrc={block.screenshotSrc} />
+                  <FeatureCopy
+                    category={block.category}
+                    categoryClass={block.categoryClass}
+                    title={block.title}
+                    body={block.body}
+                    bullets={block.bullets}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="lg:order-1">
+                    <FeatureCopy
+                      category={block.category}
+                      categoryClass={block.categoryClass}
+                      title={block.title}
+                      body={block.body}
+                      bullets={block.bullets}
+                    />
+                  </div>
+                  <div className="lg:order-2">
+                    <FeatureVisual screenshotSrc={block.screenshotSrc} />
+                  </div>
+                </>
+              )}
+            </article>
+          ))}
+        </div>
+      </div>
     </section>
   )
 }
