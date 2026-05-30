@@ -16,6 +16,23 @@ export interface SteadyStateSummary {
   snapshotCount: number
 }
 
+/** Per-pod row from `app-server.replicas[]` or `lb.backendPods[]`. */
+export interface PodReplicaMetrics {
+  name: string
+  ready: boolean
+  requestRate: number
+  /** Milliseconds (WS sends seconds). */
+  p99LatencyMs: number
+  /** CPU cores in use. */
+  cpuUsage: number
+  errorRate: number
+}
+
+export interface BackendReplicaStatus {
+  desired: number
+  ready: number
+}
+
 function num(v: unknown): number {
   if (typeof v === 'number' && Number.isFinite(v)) return v
   if (typeof v === 'string' && v.trim() !== '') {
@@ -38,6 +55,35 @@ export function parseLoadgenIntervals(raw: unknown): LoadgenIntervalBucket[] {
     })
   }
   return out.slice(-12)
+}
+
+export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
+  if (!Array.isArray(raw)) return []
+  const out: PodReplicaMetrics[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    const name = typeof r.name === 'string' ? r.name.trim() : ''
+    if (!name) continue
+    out.push({
+      name,
+      ready: Boolean(r.ready),
+      requestRate: num(r.requestRate),
+      p99LatencyMs: num(r.p99Latency) * 1000,
+      cpuUsage: num(r.cpuUsage),
+      errorRate: num(r.errorRate),
+    })
+  }
+  return out
+}
+
+export function parseBackendReplicas(raw: unknown): BackendReplicaStatus | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const desired = Math.round(num(r.desired))
+  const ready = Math.round(num(r.ready))
+  if (desired <= 0 && ready <= 0) return null
+  return { desired, ready }
 }
 
 export function parseSteadyState(raw: unknown): SteadyStateSummary | null {

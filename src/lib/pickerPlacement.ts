@@ -1,8 +1,9 @@
 import { createCanvasNode } from './nodeFactory'
+import { APP_SERVER_REPLICA_MAX } from './replicaConfig'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
 const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
-  compute: 5,
+  compute: APP_SERVER_REPLICA_MAX,
   worker: 10,
   cache: 20,
   database: 10,

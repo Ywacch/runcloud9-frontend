@@ -10,6 +10,7 @@ import {
   fmtRate,
 } from '../lib/format'
 import type { ReplicaMetrics, SimNodeInspector } from '../editor-core/domain/simulation/types'
+import { replicaBreakdownFromPods } from '../lib/replicaMetricsDisplay'
 import {
   useCanvasStore,
   type CanvasEdge,
@@ -158,7 +159,15 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   const simRunning = useSimulationStore((s) => s.running)
   const simPaused = useSimulationStore((s) => s.paused)
   const lastTickWallClockMs = useSimulationStore((s) => s.lastTickWallClockMs)
-  const replicaBreakdown: ReplicaMetrics[] = simDetail?.replicaBreakdown ?? []
+  const simReplicaBreakdown: ReplicaMetrics[] = simDetail?.replicaBreakdown ?? []
+  const liveReplicaBreakdown =
+    mode === 'live' && m && m.podReplicas.length > 1
+      ? replicaBreakdownFromPods(m.podReplicas, m.cpuLimit)
+      : []
+  const replicaBreakdown =
+    mode === 'simulate' && simReplicaBreakdown.length > 1
+      ? simReplicaBreakdown
+      : liveReplicaBreakdown
   const hasReplicaTabs = replicaBreakdown.length > 1
   const [activeReplicaTab, setActiveReplicaTab] = useState(0)
 
@@ -884,12 +893,13 @@ function TypeSection({
         .filter((b): b is CanvasNode => Boolean(b))
       const algo =
         m.lbAlgorithm?.trim() ||
-        String(node.config.algorithm ?? 'round-robin')
+        String(node.config.lbAlgorithm ?? node.config.algorithm ?? 'round-robin')
       const backendLabels =
         m.lbBackends?.length ? m.lbBackends : backends.map((b) => b.label)
       const perBe = Object.entries(m.perBackendRps).sort(([a], [b]) =>
         a.localeCompare(b)
       )
+      const backendPods = m.backendPods ?? []
       const connLimit = m.lbConnectionLimit
       const active = m.activeConnections
       const connPct =
@@ -898,6 +908,12 @@ function TypeSection({
       return (
         <div className="space-y-2">
           <MetricTile label="Algorithm" value={algo} />
+          {m.backendReplicas ? (
+            <MetricTile
+              label="App-server replicas"
+              value={`${fmtInt(m.backendReplicas.ready)} / ${fmtInt(m.backendReplicas.desired)} ready`}
+            />
+          ) : null}
           <MetricTile
             label="Requests routed"
             value={`${fmtInt(m.requestRate)} rps`}
@@ -943,7 +959,38 @@ function TypeSection({
               ))}
             </div>
           </div>
-          {perBe.length > 0 ? (
+          {backendPods.length > 0 ? (
+            <div>
+              <MetricSectionHeading help={lbRateHelp}>
+                Per-pod backends
+              </MetricSectionHeading>
+              <ul className="space-y-1.5 text-xs text-gray-300">
+                {backendPods.map((pod) => (
+                  <li
+                    key={pod.name}
+                    className="rounded border border-gray-700/50 bg-gray-900/40 px-2 py-1.5 font-mono"
+                  >
+                    <div className="flex justify-between gap-2">
+                      <span
+                        className="min-w-0 truncate text-gray-400"
+                        title={pod.name}
+                      >
+                        {truncatePodName(pod.name)}
+                        {!pod.ready ? (
+                          <span className="ml-1 text-amber-400">· not ready</span>
+                        ) : null}
+                      </span>
+                      <span>{fmtRate(pod.requestRate)}/s</span>
+                    </div>
+                    <div className="mt-0.5 flex justify-between gap-2 text-[10px] text-gray-500">
+                      <span>p99 {fmtMs(pod.p99LatencyMs)}</span>
+                      <span>err {fmtErrorRate(pod.errorRate)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : perBe.length > 0 ? (
             <div>
               <MetricSectionHeading help={lbRateHelp}>
                 RPS by backend (pods)
