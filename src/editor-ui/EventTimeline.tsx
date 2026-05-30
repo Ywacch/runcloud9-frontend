@@ -21,7 +21,9 @@ function formatTime(iso: string): string {
   })
 }
 
-function pillClass(type: string): string {
+function pillClass(type: string, source: string): string {
+  if (source === 'chaos')
+    return 'bg-violet-950/80 text-violet-100 ring-violet-700/50'
   if (type === 'cascade') return 'bg-red-950/80 text-red-100 ring-red-800/50'
   if (type === 'threshold')
     return 'bg-amber-950/80 text-amber-100 ring-amber-800/50'
@@ -138,7 +140,7 @@ export function EventTimeline() {
                 title={e.description || e.title}
                 onClick={() => onPillClick(e)}
                 disabled={!pillInteractive(e)}
-                className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type)} ${
+                className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type, e.source)} ${
                   pillInteractive(e) ? 'cursor-pointer' : ''
                 }`}
               >

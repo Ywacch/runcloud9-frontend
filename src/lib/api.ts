@@ -1,4 +1,5 @@
 import { getAccessToken } from './auth'
+import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
 import type { StorytellingSpec } from './storytellingTypes'
 
 /**
@@ -253,6 +254,25 @@ export async function stopLoadGen(id: string): Promise<void> {
     const message = await readApiErrorMessage(res)
     throw new ApiError(res.status, message)
   }
+}
+
+export async function triggerChaos(
+  deploymentId: string,
+  body: ChaosRequest,
+): Promise<ChaosAppliedResponse> {
+  const res = await fetch(
+    `${API_BASE}/${encodeURIComponent(deploymentId)}/chaos`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(authHeader() ?? {}) },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
+  return res.json() as Promise<ChaosAppliedResponse>
 }
 
 /**

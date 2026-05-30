@@ -18,6 +18,8 @@ const RIM_CONFIG: Record<
   error: { color: '#ef4444', pulseSpeed: 2.2 },
 }
 
+const CHAOS_RIM_CONFIG = { color: '#a78bfa', pulseSpeed: 1.6 }
+
 function useRimMaterial(config: (typeof RIM_CONFIG)[keyof typeof RIM_CONFIG] | null) {
   const material = useMemo(() => {
     if (!config) return null
@@ -235,14 +237,20 @@ export function HealthRim({
   spec,
   replicas = 1,
   mqPartitions = 1,
+  chaosActive = false,
 }: {
   health: HealthState
   type: CanvasNode['type']
   spec: NodeUnitSpec
   replicas?: number
   mqPartitions?: number
+  chaosActive?: boolean
 }) {
-  const config = health === 'idle' ? null : RIM_CONFIG[health]
+  const config = chaosActive
+    ? CHAOS_RIM_CONFIG
+    : health === 'idle'
+      ? null
+      : RIM_CONFIG[health]
   const material = useRimMaterial(config)
 
   if (!config || !material) return null
