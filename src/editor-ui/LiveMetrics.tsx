@@ -10,7 +10,11 @@ import {
   fmtRate,
 } from '../lib/format'
 import type { ReplicaMetrics, SimNodeInspector } from '../editor-core/domain/simulation/types'
-import { replicaBreakdownFromPods } from '../lib/replicaMetricsDisplay'
+import {
+  replicaBreakdownFromPods,
+  replicaRowFromSimulation,
+  type ReplicaInspectorRow,
+} from '../lib/replicaMetricsDisplay'
 import {
   useCanvasStore,
   type CanvasEdge,
@@ -160,15 +164,16 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   const simPaused = useSimulationStore((s) => s.paused)
   const lastTickWallClockMs = useSimulationStore((s) => s.lastTickWallClockMs)
   const simReplicaBreakdown: ReplicaMetrics[] = simDetail?.replicaBreakdown ?? []
-  const liveReplicaBreakdown =
-    mode === 'live' && m && m.podReplicas.length > 1
-      ? replicaBreakdownFromPods(m.podReplicas, m.cpuLimit)
+  const liveReplicaRows: ReplicaInspectorRow[] =
+    mode === 'live' && m && m.podReplicas.length > 0
+      ? replicaBreakdownFromPods(m.podReplicas, m.cpuLimit, m.memoryLimit)
       : []
-  const replicaBreakdown =
-    mode === 'simulate' && simReplicaBreakdown.length > 1
-      ? simReplicaBreakdown
-      : liveReplicaBreakdown
-  const hasReplicaTabs = replicaBreakdown.length > 1
+  const replicaRows: ReplicaInspectorRow[] =
+    mode === 'simulate' && simReplicaBreakdown.length > 0
+      ? simReplicaBreakdown.map(replicaRowFromSimulation)
+      : liveReplicaRows
+  const showPerReplicaPanel =
+    node.type === 'compute' && replicaRows.length > 0
   const [activeReplicaTab, setActiveReplicaTab] = useState(0)
 
   const simInspectorCallout = useMemo(() => {
@@ -211,24 +216,53 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
       <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
         Live metrics
       </h3>
-      {node.type !== 'client' ? <CommonSection m={m} /> : null}
-      {hasReplicaTabs ? (
-        <ReplicaTabsSection
-          breakdown={replicaBreakdown}
+      {showPerReplicaPanel ? (
+        <ReplicaMetricsPanel
+          rows={replicaRows}
           activeTab={activeReplicaTab}
           setActiveTab={setActiveReplicaTab}
+          mode={mode}
         />
       ) : null}
-      <TypeSection
-        node={node}
-        m={m}
-        history={history}
-        edges={edges}
-        nodes={nodes}
-        liveSessionEndsAt={liveSessionEndsAt}
-        snapshotTemplateId={snapshotTemplateId}
-        templateMetrics={templateMetrics}
-      />
+      {showPerReplicaPanel ? (
+        <div className="space-y-3 border-t border-[var(--c9-border)] pt-3">
+          <div>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
+              All replicas (aggregate)
+            </h4>
+            <p className="mt-0.5 text-[10px] leading-snug text-[var(--c9-muted)]">
+              Combined cluster metrics from Prometheus — compare to the selected
+              pod above.
+            </p>
+          </div>
+          {node.type !== 'client' ? <CommonSection m={m} /> : null}
+          <TypeSection
+            node={node}
+            m={m}
+            history={history}
+            edges={edges}
+            nodes={nodes}
+            liveSessionEndsAt={liveSessionEndsAt}
+            snapshotTemplateId={snapshotTemplateId}
+            templateMetrics={templateMetrics}
+            aggregateOnly={showPerReplicaPanel}
+          />
+        </div>
+      ) : (
+        <>
+          {node.type !== 'client' ? <CommonSection m={m} /> : null}
+          <TypeSection
+            node={node}
+            m={m}
+            history={history}
+            edges={edges}
+            nodes={nodes}
+            liveSessionEndsAt={liveSessionEndsAt}
+            snapshotTemplateId={snapshotTemplateId}
+            templateMetrics={templateMetrics}
+          />
+        </>
+      )}
       {simInspectorCallout ? (
         <div className="space-y-2 border-t border-violet-900/40 pt-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-400/90">
@@ -244,65 +278,130 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   )
 }
 
-function ReplicaTabsSection({
-  breakdown,
+function ReplicaMetricsPanel({
+  rows,
   activeTab,
   setActiveTab,
+  mode,
 }: {
-  breakdown: ReplicaMetrics[]
+  rows: ReplicaInspectorRow[]
   activeTab: number
   setActiveTab: (idx: number) => void
+  mode: string
 }) {
-  const safeIdx = Math.min(activeTab, breakdown.length - 1)
-  const r = breakdown[safeIdx]
+  const safeIdx = Math.min(activeTab, rows.length - 1)
+  const r = rows[safeIdx]
   if (!r) return null
+
+  const memValue =
+    r.memoryBytes > 0
+      ? `${fmtBytes(r.memoryBytes)}${
+          r.memPercent > 0 ? ` · ${fmtPct(r.memPercent)}` : ''
+        }`
+      : mode === 'live'
+        ? '—'
+        : r.memoryGb > 0
+          ? `${r.memoryGb.toFixed(2)} GB`
+          : '—'
+
   return (
-    <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-800/30 p-2.5">
-      <div className="flex flex-wrap gap-1">
-        {breakdown.map((rep, idx) => (
-          <button
-            key={rep.label}
-            type="button"
-            onClick={() => setActiveTab(idx)}
-            className={`rounded px-2 py-0.5 text-[10px] font-mono ${
-              idx === safeIdx
-                ? 'bg-violet-600/70 text-white'
-                : 'bg-gray-800 text-gray-300'
-            }`}
-          >
-            {rep.label}
-          </button>
-        ))}
+    <div className="space-y-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/40 p-3">
+      <div>
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-text)]">
+          Per-replica
+        </h4>
+        <p className="mt-0.5 text-[10px] leading-snug text-[var(--c9-muted)]">
+          Metrics below apply to the selected pod only.
+        </p>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <MetricTile label="QPS" value={`${fmtRate(r.qps)}/s`} />
-        <MetricTile label="CPU" value={fmtPct(r.cpuPercent)} />
-        <MetricTile label="Latency" value={fmtMs(r.latencyMs)} />
-        <MetricTile label="Error Rate" value={fmtErrorRate(r.errorRate)} />
-      </div>
+
+      {rows.length > 1 ? (
+        <div className="border-b border-[var(--c9-border)]">
+          <div className="flex flex-wrap gap-0.5">
+            {rows.map((rep, idx) => (
+              <button
+                key={rep.podName || rep.label}
+                type="button"
+                onClick={() => setActiveTab(idx)}
+                className={`rounded-t-md border border-b-0 px-2.5 py-1 font-mono text-[10px] transition-colors ${
+                  idx === safeIdx
+                    ? 'border-[var(--c9-border)] bg-[var(--c9-bg)] text-[var(--c9-text)]'
+                    : 'border-transparent text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                }`}
+              >
+                {rep.label}
+                {!rep.ready ? (
+                  <span className="ml-1 text-amber-400/90">·</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-1">
-        <div className="text-[10px] uppercase tracking-wider text-gray-500">
-          Utilization
+        <p
+          className="truncate font-mono text-[10px] text-[var(--c9-muted)]"
+          title={r.podName}
+        >
+          {r.podName}
+        </p>
+        {!r.ready ? (
+          <p className="text-[10px] text-amber-400/90">Pod not ready</p>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <MetricTile
+          label="Throughput"
+          value={`${fmtRate(r.qps)}/s`}
+          help={THROUGHPUT_HELP}
+        />
+        <MetricTile
+          label="CPU"
+          value={fmtPct(r.cpuPercent)}
+          help={CPU_UTIL_HELP}
+        />
+        <MetricTile
+          label="Memory"
+          value={memValue}
+          help={
+            r.memoryBytes > 0
+              ? MEM_UTIL_HELP
+              : 'Per-pod memory is not in the live metrics payload yet; use aggregate memory below.'
+          }
+        />
+        <MetricTile
+          label="Latency (p99)"
+          value={fmtMs(r.latencyMs)}
+          help={LATENCY_HELP}
+        />
+      </div>
+
+      <MetricTile label="Error rate" value={fmtErrorRate(r.errorRate)} />
+
+      <div className="space-y-1">
+        <div className="text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
+          CPU utilization
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-2 min-w-0 flex-1 rounded-full bg-gray-800">
+          <div className="h-2 min-w-0 flex-1 rounded-full bg-[var(--c9-bg)]">
             <div
               className={`h-full rounded-full ${
-                r.utilizationPct > 1 ? 'bg-red-500'
-                  : r.utilizationPct > 0.8 ? 'bg-amber-500'
-                  : 'bg-sky-500'
+                r.cpuPercent > 90
+                  ? 'bg-red-500'
+                  : r.cpuPercent > 70
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
               }`}
-              style={{ width: `${Math.min(100, r.utilizationPct * 100)}%` }}
+              style={{ width: `${Math.min(100, r.cpuPercent)}%` }}
             />
           </div>
-          <span className="shrink-0 font-mono text-[10px] text-gray-300">
-            {fmtPct(Math.min(100, r.utilizationPct * 100))}
+          <span className="shrink-0 font-mono text-[10px] text-[var(--c9-text)]">
+            {fmtPct(r.cpuPercent)}
           </span>
         </div>
       </div>
-      {r.memoryGb > 0 ? (
-        <MetricTile label="Memory" value={`${r.memoryGb.toFixed(2)} GB`} />
-      ) : null}
     </div>
   )
 }
@@ -605,6 +704,7 @@ function TypeSection({
   liveSessionEndsAt,
   snapshotTemplateId,
   templateMetrics,
+  aggregateOnly = false,
 }: {
   node: CanvasNode
   m: MetricsBucket
@@ -614,6 +714,8 @@ function TypeSection({
   liveSessionEndsAt: number | null
   snapshotTemplateId: string | null
   templateMetrics: Record<string, number>
+  /** When true, section headings note cluster-wide rollups (per-replica panel above). */
+  aggregateOnly?: boolean
 }) {
   const nodeId = node.id
   const nodeType = node.type
@@ -644,15 +746,22 @@ function TypeSection({
             />
           ) : null}
           <div>
-            <MetricSectionHeading help={THROUGHPUT_HELP}>Requests</MetricSectionHeading>
+            <MetricSectionHeading help={THROUGHPUT_HELP}>
+              {aggregateOnly ? 'Requests (cluster)' : 'Requests'}
+            </MetricSectionHeading>
             <div className="grid grid-cols-3 gap-2">
               <MetricTile label="Total" value={fmtInt(m.totalRequests)} />
               <MetricTile label="Avg RPS" value={fmtInt(avgRps)} />
               <MetricTile label="Current RPS" value={fmtInt(m.requestRate)} />
             </div>
           </div>
-          <MetricTile label="Error Rate" value={fmtErrorRate(m.errorRate)} />
-          <MetricSectionHeading help={LATENCY_HELP}>Latency</MetricSectionHeading>
+          <MetricTile
+            label={aggregateOnly ? 'Error rate (cluster)' : 'Error Rate'}
+            value={fmtErrorRate(m.errorRate)}
+          />
+          <MetricSectionHeading help={LATENCY_HELP}>
+            {aggregateOnly ? 'Latency (cluster)' : 'Latency'}
+          </MetricSectionHeading>
           <div className="grid grid-cols-3 gap-2">
             <MetricTile label="p50" value={fmtMs(m.p50Latency)} />
             <MetricTile label="p95" value={fmtMs(m.p95Latency)} />
@@ -660,7 +769,7 @@ function TypeSection({
           </div>
           <div className={sparkWrap}>
             <MetricSectionHeading help={THROUGHPUT_HELP}>
-              Throughput (30s)
+              {aggregateOnly ? 'Cluster throughput (30s)' : 'Throughput (30s)'}
             </MetricSectionHeading>
             <SparkLine
               data={rpsSeries}
@@ -671,7 +780,7 @@ function TypeSection({
           </div>
           <div className={sparkWrap}>
             <MetricSectionHeading help={LATENCY_P99_SPARK_HELP}>
-              p99 Latency (30s)
+              {aggregateOnly ? 'Cluster p99 latency (30s)' : 'p99 Latency (30s)'}
             </MetricSectionHeading>
             <SparkLine
               data={latencySeries}

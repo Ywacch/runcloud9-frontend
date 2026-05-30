@@ -26,6 +26,8 @@ export interface PodReplicaMetrics {
   /** CPU cores in use. */
   cpuUsage: number
   errorRate: number
+  /** Optional per-pod memory (bytes); omitted in v1 contract until backend adds it. */
+  memoryBytes: number
 }
 
 export interface BackendReplicaStatus {
@@ -72,6 +74,7 @@ export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
       p99LatencyMs: num(r.p99Latency) * 1000,
       cpuUsage: num(r.cpuUsage),
       errorRate: num(r.errorRate),
+      memoryBytes: num(r.memoryBytes ?? r.memoryUsage),
     })
   }
   return out
