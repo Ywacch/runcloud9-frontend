@@ -49,6 +49,7 @@ describe('metricsUiContract', () => {
     expect(pods).toHaveLength(1)
     expect(pods[0].p99LatencyMs).toBeCloseTo(20)
     expect(pods[0].requestRate).toBe(12.5)
+    expect(pods[0].memoryBytes).toBe(0)
   })
 
   it('sampleFromWsPayload converts app-server seconds to ms', () => {
