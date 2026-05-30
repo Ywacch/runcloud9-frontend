@@ -1,3 +1,4 @@
+export * from './chaosStore'
 export * from './canvasStore'
 export * from './logStore'
 export * from './metricsStore'

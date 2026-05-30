@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDrag } from '@use-gesture/react'
 import * as THREE from 'three'
+import { chaosTargetForNode } from '../../lib/chaos'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import { computeHealthState } from '../domain/healthThresholds'
 import { NODE_VISUAL } from '../../lib/nodeVisual'
@@ -12,6 +13,7 @@ import {
   useCanvasStore,
   type CanvasNode,
 } from '../stores/canvasStore'
+import { useChaosStore } from '../stores/chaosStore'
 import { useMetricsStore } from '../stores/metricsStore'
 import { HealthRim } from './HealthRim'
 import { getLabelY, getNodeUnitSpec } from './nodeShapes/nodeBounds'
@@ -58,6 +60,11 @@ export function BaseNode({ node }: BaseNodeProps) {
   const setConnectHoverTargetId = useCanvasStore((s) => s.setConnectHoverTargetId)
   const nodeStatus = useCanvasStore((s) => s.nodes[node.id]?.status ?? node.status)
   const metrics = useMetricsStore((s) => s.metrics[node.id])
+  const chaosTarget = chaosTargetForNode(node.type)
+  const chaosActive = useChaosStore((s) => {
+    if (!chaosTarget || !s.active) return false
+    return s.active.targetComponent === chaosTarget
+  })
   const nodesById = useCanvasStore((s) => s.nodes)
   const edgesById = useCanvasStore((s) => s.edges)
   const [hovered, setHovered] = useState(false)
@@ -537,6 +544,7 @@ export function BaseNode({ node }: BaseNodeProps) {
           spec={unitSpec}
           replicas={visualReplicas}
           mqPartitions={mqPartitions}
+          chaosActive={chaosActive}
         />
       ) : null}
     </group>

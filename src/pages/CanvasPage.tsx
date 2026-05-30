@@ -18,6 +18,7 @@ import {
 import {
   CascadeToast,
   CanvasErrorBoundary,
+  ChaosOverlayTicker,
   DesignToolStrip,
   DeploymentPlayground,
   EventTimeline,
@@ -474,7 +475,12 @@ export default function CanvasPage() {
             onStartWalkthrough={handleDesignStartWalkthrough}
           />
         ) : null}
-        {mode === 'live' ? <CascadeToast /> : null}
+        {mode === 'live' ? (
+          <>
+            <ChaosOverlayTicker />
+            <CascadeToast />
+          </>
+        ) : null}
         {terminationMessage ? (
           <div className="pointer-events-none absolute bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-3 py-2 text-xs text-[var(--c9-text)] shadow-lg">
             {terminationMessage}

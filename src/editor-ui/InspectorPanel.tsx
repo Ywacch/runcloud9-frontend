@@ -21,6 +21,7 @@ import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { CacheBrowser } from './CacheBrowser'
 import { ComponentLogPanel } from './ComponentLogPanel'
 import { DataBrowser } from './DataBrowser'
+import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
 import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 
@@ -166,6 +167,7 @@ export function InspectorPanel() {
                 {liveTab === 'metrics' ? (
                   <>
                     <TemplateMetricsSnippet templateMetrics={relevantTemplateMetrics} />
+                    <ChaosActions node={node} />
                     <LiveMetrics node={node} />
                   </>
                 ) : null}

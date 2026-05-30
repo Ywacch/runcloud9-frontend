@@ -1,4 +1,5 @@
 export { CascadeToast } from './CascadeToast'
+export { ChaosOverlayTicker } from './ChaosOverlayTicker'
 export { CanvasErrorBoundary } from './CanvasErrorBoundary'
 export { DesignToolStrip } from './DesignToolStrip'
 export { DeploymentPlayground } from './DeploymentPlayground'

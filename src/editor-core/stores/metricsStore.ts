@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { loadWsEventsJson } from '../../lib/wsEventsPersist'
+import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
 
 /** Event from backend metrics stream (threshold, cascade, loadgen actions). */
@@ -249,6 +250,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
 
   clearMetrics: () => {
     useCanvasStore.getState().setNarrativeHighlightNodeIds([])
+    useChaosStore.getState().clear()
     return set({
       metrics: {},
       history: {},

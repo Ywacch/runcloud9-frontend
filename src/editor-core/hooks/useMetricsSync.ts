@@ -7,6 +7,7 @@ import {
 } from '../../lib/sessionCapture'
 import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
 import { saveWsEventsJson } from '../../lib/wsEventsPersist'
+import { chaosOverlayFromWsEvent } from '../../lib/chaos'
 import { backendComponentToCanvasType } from '../../lib/typeMapping'
 import {
   parseBackendReplicas,
@@ -14,6 +15,7 @@ import {
   parsePodReplicas,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
+import { useChaosStore } from '../stores/chaosStore'
 import { useCanvasStore, type CanvasNode } from '../stores/canvasStore'
 import {
   useMetricsStore,
@@ -260,7 +262,28 @@ function applyMessage(payload: WsDeploymentMetrics): void {
   }
 
   const ev = normalizeWsEvents(payload.events)
-  if (ev.length) pushEvents(ev)
+  if (ev.length) {
+    pushEvents(ev)
+    const chaosState = useChaosStore.getState()
+    const active = chaosState.active
+    for (const e of ev) {
+      const overlay = chaosOverlayFromWsEvent(e)
+      if (!overlay) continue
+      if (
+        active &&
+        active.targetComponent === overlay.targetComponent &&
+        active.scenario === overlay.scenario
+      ) {
+        continue
+      }
+      chaosState.register(
+        overlay.scenario,
+        overlay.targetComponent,
+        overlay.startedAt,
+      )
+      break
+    }
+  }
 
   const components = payload.components ?? {}
   for (const [backendKey, cm] of Object.entries(components)) {
