@@ -1,9 +1,11 @@
-import { useId, useMemo } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
+import { formatChartTick } from '../lib/chartAxis'
 
 export interface SparkLineSeries {
   data: number[]
   color: string
   showArea?: boolean
+  label?: string
 }
 
 export interface SparkLineProps {
@@ -20,6 +22,10 @@ export interface SparkLineProps {
   yMin?: number
   yMax?: number
   strokeWidth?: number
+  /** Hover crosshair + value readout (default on for grid charts). */
+  interactive?: boolean
+  formatValue?: (value: number) => string
+  pointCaption?: (index: number, total: number) => string
   /** Normalized 0–1 positions along the X axis (e.g. event tick marks). */
   eventMarkers?: Array<{ xRatio: number; type?: string }>
   className?: string
@@ -51,9 +57,7 @@ function markerColor(t?: string): string {
   return 'var(--c9-info)'
 }
 
-function buildSeries(
-  props: SparkLineProps,
-): SparkLineSeries[] {
+function buildSeries(props: SparkLineProps): SparkLineSeries[] {
   if (props.series?.length) return props.series
   if (props.data?.length) {
     return [
@@ -80,24 +84,37 @@ export function SparkLine({
   yMin,
   yMax,
   strokeWidth,
+  interactive,
+  formatValue,
+  pointCaption,
   eventMarkers,
   className,
 }: SparkLineProps) {
   const gradId = useId().replace(/:/g, '')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const [hoverXRatio, setHoverXRatio] = useState(0)
+
   const resolvedSeries = useMemo(
     () => buildSeries({ data, color, series, showArea }),
     [data, color, series, showArea],
   )
   const isChart = height >= 56 || showGrid
   const lineStroke = strokeWidth ?? (isChart ? 2 : 1.5)
+  const isInteractive = interactive ?? isChart
+  const fmt = formatValue ?? ((v: number) => formatChartTick(v))
 
-  const { paths, lastPoints, gridY } = useMemo(() => {
+  const { paths, lastPoints, gridY, pointCount, hoverRows } = useMemo(() => {
     const allValues = resolvedSeries.flatMap((s) => s.data).filter((n) => Number.isFinite(n))
     if (allValues.length < 2) {
       return {
         paths: [] as Array<{ linePath: string; areaPath: string; color: string }>,
         lastPoints: [] as Array<{ x: number; y: number; color: string }>,
         gridY: [] as number[],
+        pointCount: 0,
+        hoverRows: [] as Array<
+          Array<{ label: string; value: number; color: string; yRatio: number; cy: number }>
+        >,
       }
     }
 
@@ -127,6 +144,8 @@ export function SparkLine({
       }
     }
 
+    const pointCount = Math.max(...resolvedSeries.map((s) => s.data.length))
+
     const paths = resolvedSeries.map((s) => {
       const values = s.data.filter((n) => Number.isFinite(n))
       const points = values.map((v, i) => ({
@@ -154,6 +173,28 @@ export function SparkLine({
       return last ? { ...last, color: s.color } : null
     })
 
+    const hoverRows: Array<
+      Array<{ label: string; value: number; color: string; yRatio: number; cy: number }>
+    > = []
+    for (let i = 0; i < pointCount; i++) {
+      const row: Array<{ label: string; value: number; color: string; yRatio: number; cy: number }> =
+        []
+      resolvedSeries.forEach((s, si) => {
+        const v = s.data[i]
+        if (!Number.isFinite(v)) return
+        const y = scaleY(v)
+        const yRatio = (y - padY) / innerH
+        row.push({
+          label: s.label ?? (resolvedSeries.length > 1 ? `Series ${si + 1}` : 'Value'),
+          value: v,
+          color: s.color,
+          yRatio: Math.max(0, Math.min(1, yRatio)),
+          cy: y,
+        })
+      })
+      hoverRows.push(row)
+    }
+
     return {
       paths,
       lastPoints: lastPoints.filter(Boolean) as Array<{
@@ -162,6 +203,8 @@ export function SparkLine({
         color: string
       }>,
       gridY,
+      pointCount,
+      hoverRows,
     }
   }, [
     resolvedSeries,
@@ -175,6 +218,24 @@ export function SparkLine({
     isChart,
   ])
 
+  const handlePointer = useCallback(
+    (clientX: number) => {
+      const el = containerRef.current
+      if (!el || pointCount < 2) return
+      const rect = el.getBoundingClientRect()
+      if (rect.width <= 0) return
+      const xRatio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+      const idx = Math.round(xRatio * (pointCount - 1))
+      setHoverIndex(idx)
+      setHoverXRatio(idx / Math.max(1, pointCount - 1))
+    },
+    [pointCount],
+  )
+
+  const clearHover = useCallback(() => {
+    setHoverIndex(null)
+  }, [])
+
   const hasData = resolvedSeries.some((s) => s.data.filter(Number.isFinite).length >= 2)
   if (!hasData || paths.length === 0 || !paths.some((p) => p.linePath)) {
     return null
@@ -184,93 +245,179 @@ export function SparkLine({
     className ??
     (height >= 100 ? 'h-[120px]' : height >= 56 ? 'h-16' : 'h-8')
 
+  const activeRow = hoverIndex != null ? hoverRows[hoverIndex] : null
+  const caption =
+    hoverIndex != null && pointCaption
+      ? pointCaption(hoverIndex, pointCount)
+      : hoverIndex != null
+        ? `#${hoverIndex + 1} / ${pointCount}`
+        : null
+
+  const tooltipLeftPct = hoverXRatio * 100
+  const tooltipOnRight = hoverXRatio > 0.55
+
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className={`w-full max-w-full ${heightClass}`}
-      preserveAspectRatio="none"
-      aria-hidden
+    <div
+      ref={containerRef}
+      className={`relative w-full ${heightClass}${isInteractive ? ' cursor-crosshair' : ''}`}
+      onMouseMove={(e) => isInteractive && handlePointer(e.clientX)}
+      onMouseLeave={clearHover}
+      onTouchMove={(e) => {
+        if (!isInteractive || e.touches.length === 0) return
+        handlePointer(e.touches[0].clientX)
+      }}
+      onTouchEnd={clearHover}
     >
-      <defs>
-        {paths.map((p, i) =>
-          p.areaPath ? (
-            <linearGradient
-              key={`g-${i}`}
-              id={`${gradId}-${i}`}
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
-            >
-              <stop offset="0%" stopColor={p.color} stopOpacity={0.22} />
-              <stop offset="85%" stopColor={p.color} stopOpacity={0.04} />
-              <stop offset="100%" stopColor={p.color} stopOpacity={0} />
-            </linearGradient>
-          ) : null,
-        )}
-      </defs>
-      {gridY.map((y, i) => (
-        <line
-          key={`grid-${i}`}
-          x1={0}
-          x2={width}
-          y1={y}
-          y2={y}
-          stroke="var(--c9-border)"
-          strokeOpacity={0.55}
-          strokeWidth={1}
-          strokeDasharray="3 5"
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-      {paths.map((p, i) =>
-        p.areaPath ? (
-          <path key={`a-${i}`} d={p.areaPath} fill={`url(#${gradId}-${i})`} stroke="none" />
-        ) : null,
-      )}
-      {paths.map((p, i) =>
-        p.linePath ? (
-          <path
-            key={`l-${i}`}
-            d={p.linePath}
-            fill="none"
-            stroke={p.color}
-            strokeWidth={lineStroke}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-full w-full max-w-full"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <defs>
+          {paths.map((p, i) =>
+            p.areaPath ? (
+              <linearGradient
+                key={`g-${i}`}
+                id={`${gradId}-${i}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={p.color} stopOpacity={0.22} />
+                <stop offset="85%" stopColor={p.color} stopOpacity={0.04} />
+                <stop offset="100%" stopColor={p.color} stopOpacity={0} />
+              </linearGradient>
+            ) : null,
+          )}
+        </defs>
+        {gridY.map((y, i) => (
+          <line
+            key={`grid-${i}`}
+            x1={0}
+            x2={width}
+            y1={y}
+            y2={y}
+            stroke="var(--c9-border)"
+            strokeOpacity={0.55}
+            strokeWidth={1}
+            strokeDasharray="3 5"
             vectorEffect="non-scaling-stroke"
           />
-        ) : null,
-      )}
-      {showDot
-        ? lastPoints.map((pt, i) => (
-            <circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={isChart ? 3.5 : 3} fill={pt.color}>
-              <animate
-                attributeName="opacity"
-                values="0.45;1;0.45"
-                dur="2.4s"
-                repeatCount="indefinite"
-              />
-            </circle>
-          ))
-        : null}
-      {eventMarkers?.map((m, i) => {
-        const padX = isChart ? 8 : 4
-        const innerW = width - 2 * padX
-        const x = padX + Math.max(0, Math.min(1, m.xRatio)) * innerW
-        return (
+        ))}
+        {paths.map((p, i) =>
+          p.areaPath ? (
+            <path key={`a-${i}`} d={p.areaPath} fill={`url(#${gradId}-${i})`} stroke="none" />
+          ) : null,
+        )}
+        {paths.map((p, i) =>
+          p.linePath ? (
+            <path
+              key={`l-${i}`}
+              d={p.linePath}
+              fill="none"
+              stroke={p.color}
+              strokeWidth={lineStroke}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null,
+        )}
+        {isInteractive && hoverIndex != null ? (
           <line
-            key={`m-${i}`}
-            x1={x}
-            x2={x}
-            y1={height - 2}
-            y2={height - (isChart ? 10 : 6)}
-            stroke={markerColor(m.type)}
-            strokeWidth={2}
-            strokeLinecap="round"
+            x1={hoverXRatio * width}
+            x2={hoverXRatio * width}
+            y1={0}
+            y2={height}
+            stroke="var(--c9-text-muted)"
+            strokeOpacity={0.45}
+            strokeWidth={1}
+            strokeDasharray="2 3"
+            vectorEffect="non-scaling-stroke"
           />
-        )
-      })}
-    </svg>
+        ) : null}
+        {isInteractive && activeRow
+          ? activeRow.map((pt, i) => (
+              <circle
+                key={`h-${i}`}
+                cx={hoverXRatio * width}
+                cy={pt.cy}
+                r={isChart ? 4 : 3}
+                fill={pt.color}
+                stroke="var(--c9-bg-card)"
+                strokeWidth={1.5}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))
+          : null}
+        {showDot
+          ? lastPoints.map((pt, i) => (
+              <circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={isChart ? 3.5 : 3} fill={pt.color}>
+                <animate
+                  attributeName="opacity"
+                  values="0.45;1;0.45"
+                  dur="2.4s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+            ))
+          : null}
+        {eventMarkers?.map((m, i) => {
+          const padX = isChart ? 8 : 4
+          const innerW = width - 2 * padX
+          const x = padX + Math.max(0, Math.min(1, m.xRatio)) * innerW
+          return (
+            <line
+              key={`m-${i}`}
+              x1={x}
+              x2={x}
+              y1={height - 2}
+              y2={height - (isChart ? 10 : 6)}
+              stroke={markerColor(m.type)}
+              strokeWidth={2}
+              strokeLinecap="round"
+            />
+          )
+        })}
+      </svg>
+      {isInteractive && activeRow && hoverIndex != null ? (
+        <div
+          className="pointer-events-none absolute z-20 min-w-[7rem] rounded-md border border-[var(--c9-border-strong)] bg-[var(--c9-bg-card)]/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          style={{
+            top: 4,
+            left: tooltipOnRight ? undefined : `${tooltipLeftPct}%`,
+            right: tooltipOnRight ? `${100 - tooltipLeftPct}%` : undefined,
+            transform: tooltipOnRight ? 'translateX(8px)' : 'translateX(-8px) translateX(-100%)',
+          }}
+        >
+          {caption ? (
+            <p className="mb-1 text-[9px] uppercase tracking-wider text-[var(--c9-text-disabled)]">
+              {caption}
+            </p>
+          ) : null}
+          <div className="space-y-0.5">
+            {activeRow.map((pt) => (
+              <div
+                key={pt.label}
+                className="flex items-center justify-between gap-3 text-[10px]"
+              >
+                <span className="inline-flex items-center gap-1 text-[var(--c9-text-muted)]">
+                  <span
+                    className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: pt.color }}
+                  />
+                  {pt.label}
+                </span>
+                <span className="font-mono font-semibold text-[var(--c9-text)]">
+                  {fmt(pt.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }

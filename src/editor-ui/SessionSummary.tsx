@@ -261,6 +261,7 @@ function SparkRow({
       series={[{ data, color, showArea: true }]}
       compact
       eventMarkers={eventMarkers}
+      pointCaption={(i, total) => `Sample ${i + 1} / ${total}`}
     />
   )
 }
