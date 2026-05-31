@@ -35,6 +35,7 @@ export function idleClientLoadgenBucket(): MetricsBucket {
     cacheMissesLast9m: 0,
     dbQueryRate: 0,
     dbQueryLatency: 0,
+    dbQuerySource: '',
     dbActiveConnections: 0,
     maxConnections: 0,
     storageEngine: '',

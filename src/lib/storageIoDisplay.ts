@@ -1,4 +1,7 @@
 import type { StorageIoMetrics } from '../editor-core/domain/metricsUiContract'
+import { fmtRate } from './format'
+
+export type DbQuerySource = 'app' | 'none' | ''
 
 export function hasStorageMetrics(m: {
   storageEngine?: string
@@ -12,7 +15,8 @@ export function hasStorageMetrics(m: {
       (io.source ?? '').trim() ||
       io.bytesLimit > 0 ||
       io.readRate > 0 ||
-      io.writeRate > 0,
+      io.writeRate > 0 ||
+      io.bytesUsed > 0,
   )
 }
 
@@ -40,4 +44,91 @@ export function storageUtilBarClass(pct: number): string {
 export function storageUnitLabel(unit: string): string {
   const u = unit.trim()
   return u || 'ops/s'
+}
+
+/** Tile label: prefer wire `readLabel`, else engine-specific default. */
+export function storageReadTileLabel(
+  io: StorageIoMetrics,
+  engine: string,
+): string {
+  if (io.readLabel?.trim()) return io.readLabel.trim()
+  const key = engine.trim().toLowerCase()
+  if (key === 'postgresql') return 'Rows scanned/s'
+  if (key === 'redis') return 'GET commands/s'
+  const unit = storageUnitLabel(io.unit)
+  return `Read (${unit})`
+}
+
+export function storageWriteTileLabel(
+  io: StorageIoMetrics,
+  engine: string,
+): string {
+  if (io.writeLabel?.trim()) return io.writeLabel.trim()
+  const key = engine.trim().toLowerCase()
+  if (key === 'postgresql') return 'Rows written/s'
+  if (key === 'redis') return 'SET commands/s'
+  const unit = storageUnitLabel(io.unit)
+  return `Write (${unit})`
+}
+
+export function dbLoadSectionTitle(engine: string): string {
+  const label = storageEngineLabel(engine)
+  return `DB Load · ${label}`
+}
+
+export function cacheEngineSectionTitle(engine: string): string {
+  const label = storageEngineLabel(engine)
+  return `Cache engine · ${label} (commands/s)`
+}
+
+/** Subheader: Role · source · scope */
+export function storageScopeLine(
+  role: string,
+  io: StorageIoMetrics,
+  defaultScope?: string,
+): string {
+  const parts: string[] = []
+  if (role.trim()) parts.push(`Role: ${role.trim()}`)
+  if (io.source.trim()) parts.push(io.source.trim())
+  const scope = (io.scope ?? defaultScope ?? '').trim()
+  if (scope) parts.push(scope)
+  return parts.join(' · ')
+}
+
+export function parseDbQuerySource(raw: unknown): DbQuerySource {
+  if (raw === 'app' || raw === 'none') return raw
+  return ''
+}
+
+/**
+ * Display value for Queries/s (app-server instrumentation only).
+ * Handles idle, missing app metrics, and future dbQuerySource.
+ */
+export function formatDbQueriesPerSec(
+  dbQueryRate: number,
+  dbQuerySource: DbQuerySource,
+  storageReadRate: number,
+  loadgenActive: boolean,
+): string {
+  if (dbQuerySource === 'none') return 'No app queries'
+  if (
+    dbQuerySource !== 'app' &&
+    dbQueryRate > 0 &&
+    dbQueryRate <= 10 &&
+    storageReadRate < 1
+  ) {
+    return 'No app queries'
+  }
+  if (dbQueryRate === 0 && !loadgenActive) return '—'
+  if (dbQueryRate === 0) return `${fmtRate(0)}/s`
+  return `${fmtRate(dbQueryRate)}/s`
+}
+
+/** Teaching hint when row scans far exceed app query count. */
+export function shouldShowHighScanRatioHint(
+  dbQueryRate: number,
+  readRate: number,
+  threshold = 10,
+): boolean {
+  return dbQueryRate > 0 && readRate / dbQueryRate > threshold
 }

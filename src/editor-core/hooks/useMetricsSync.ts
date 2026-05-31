@@ -16,6 +16,7 @@ import {
   parseStorageIo,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
+import { parseDbQuerySource } from '../../lib/storageIoDisplay'
 import { useChaosStore } from '../stores/chaosStore'
 import { useCanvasStore, type CanvasNode } from '../stores/canvasStore'
 import {
@@ -51,6 +52,7 @@ interface WsComponentMetrics {
   cacheHitsLast9m?: number
   cacheMissesLast9m?: number
   dbQueryRate?: number
+  dbQuerySource?: string
   dbActiveConnections?: number
   maxConnections?: number
   /** Go backend: seconds */
@@ -187,6 +189,7 @@ function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     cacheMissesLast9m: Math.round(cm.cacheMissesLast9m ?? 0),
     dbQueryRate: cm.dbQueryRate ?? 0,
     dbQueryLatency: dbLatSec,
+    dbQuerySource: parseDbQuerySource(cm.dbQuerySource),
     dbActiveConnections: Math.round(cm.dbActiveConnections ?? 0),
     maxConnections: Math.round(cm.maxConnections ?? 0),
     storageEngine: cm.storageEngine ?? '',
