@@ -14,7 +14,7 @@ import {
 } from '../lib/storageIoDisplay'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
-import { SparkLine } from './SparkLine'
+import { MetricChart } from './MetricChart'
 
 /** RED — app SQL load on Postgres (app-server instrumentation). */
 export function DbActivitySection({
@@ -77,25 +77,21 @@ export function DbActivitySection({
           style={{ width: `${Math.min(100, connPercent)}%` }}
         />
       </div>
-      <div className="rounded-lg border border-gray-700/30 bg-gray-800/30 p-2">
-        <MetricSectionHeading help={dbRateHelp}>Queries/s (30s)</MetricSectionHeading>
-        <SparkLine
-          data={queryRateSeries}
-          color="var(--c9-text-disabled)"
-          showArea
-          showDot
-        />
-      </div>
+      <MetricChart
+        title="Queries/s"
+        unit="30s window"
+        series={[{ data: queryRateSeries, color: '#6366f1', showArea: true }]}
+        compact
+        className="rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none"
+      />
       {latencySeries.some((v) => v > 0) ? (
-        <div className="rounded-lg border border-gray-700/30 bg-gray-800/30 p-2">
-          <MetricSectionHeading help={dbRateHelp}>Query latency (30s)</MetricSectionHeading>
-          <SparkLine
-            data={latencySeries}
-            color="var(--c9-warning)"
-            showArea
-            showDot
-          />
-        </div>
+        <MetricChart
+          title="Query latency"
+          unit="30s · ms"
+          series={[{ data: latencySeries, color: 'var(--c9-warning)', showArea: true }]}
+          compact
+          className="rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none"
+        />
       ) : null}
       <p className="text-[9px] leading-snug text-gray-600">
         Queries/s counts app SQL operations — not worker fanout scans or exporter traffic.
