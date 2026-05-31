@@ -62,6 +62,8 @@ export interface MetricsBucket {
   dbQueryRate: number
   /** App-reported query latency (seconds on WS). */
   dbQueryLatency: number
+  /** `"app"` = trust dbQueryRate; `"none"` = no app instrumentation. */
+  dbQuerySource: '' | 'app' | 'none'
   dbActiveConnections: number
   /** Postgres max_connections when known (from metrics). */
   maxConnections: number

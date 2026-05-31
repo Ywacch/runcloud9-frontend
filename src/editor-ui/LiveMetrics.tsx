@@ -34,7 +34,12 @@ import {
 } from '../lib/metricHelp'
 import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
 import { SparkLine } from './SparkLine'
-import { StorageIoSection } from './StorageIoSection'
+import {
+  CacheEngineSection,
+  DbActivitySection,
+  DbLoadSection,
+  InspectorSection,
+} from './StorageIoSection'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
 
@@ -160,6 +165,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
+  const loadgenActive = useMetricsStore((s) => Boolean(s.loadgen?.active))
   const simDetail = useSimulationStore((s) => s.lastInspector[nodeId])
   const simRunning = useSimulationStore((s) => s.running)
   const simPaused = useSimulationStore((s) => s.paused)
@@ -246,6 +252,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
             liveSessionEndsAt={liveSessionEndsAt}
             snapshotTemplateId={snapshotTemplateId}
             templateMetrics={templateMetrics}
+            loadgenActive={loadgenActive}
             aggregateOnly={showPerReplicaPanel}
           />
         </div>
@@ -261,6 +268,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
             liveSessionEndsAt={liveSessionEndsAt}
             snapshotTemplateId={snapshotTemplateId}
             templateMetrics={templateMetrics}
+            loadgenActive={loadgenActive}
           />
         </>
       )}
@@ -705,6 +713,7 @@ function TypeSection({
   liveSessionEndsAt,
   snapshotTemplateId,
   templateMetrics,
+  loadgenActive = false,
   aggregateOnly = false,
 }: {
   node: CanvasNode
@@ -715,6 +724,7 @@ function TypeSection({
   liveSessionEndsAt: number | null
   snapshotTemplateId: string | null
   templateMetrics: Record<string, number>
+  loadgenActive?: boolean
   /** When true, section headings note cluster-wide rollups (per-replica panel above). */
   aggregateOnly?: boolean
 }) {
@@ -878,25 +888,25 @@ function TypeSection({
               </p>
             </>
           ) : (
-            <>
+            <InspectorSection title="Cache (app)">
               <MetricTile label="Hit Rate (30s)" value={hitRateLabel} />
               <div>
                 <MetricSectionHeading help={cacheRateHelp}>
-                  Current rate (30s)
+                  Hits / misses (30s)
                 </MetricSectionHeading>
                 <div className="grid grid-cols-2 gap-2">
                   <MetricTile
-                    label="Hits"
+                    label="Hits/s"
                     value={`${fmtRate(m.cacheHits)}/s`}
                   />
                   <MetricTile
-                    label="Misses"
+                    label="Misses/s"
                     value={`${fmtRate(m.cacheMisses)}/s`}
                   />
                 </div>
               </div>
               <div>
-                <div className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+                <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
                   Last 9 min
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -921,85 +931,48 @@ function TypeSection({
                   showDot
                 />
               </div>
-            </>
+              <p className="text-[9px] leading-snug text-gray-600">
+                App logical cache on the redirect path — not Redis keyspace counters.
+              </p>
+            </InspectorSection>
           )}
-          <StorageIoSection m={m} />
-          <div>
-            <MetricSectionHeading
-              help={cacheRateHelp}
-              className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-gray-500"
-            >
-              Keyspace counters
-            </MetricSectionHeading>
+          <InspectorSection title="Keyspace (Redis)">
             <div className="grid grid-cols-2 gap-2">
               <MetricTile
-                label="Hits"
-                value={`${fmtRate(m.redisKeyspaceHits || m.cacheHits)}/s`}
+                label="Hits/s"
+                value={`${fmtRate(m.redisKeyspaceHits)}/s`}
+                help={cacheRateHelp}
               />
               <MetricTile
-                label="Misses"
-                value={`${fmtRate(m.redisKeyspaceMisses || m.cacheMisses)}/s`}
+                label="Misses/s"
+                value={`${fmtRate(m.redisKeyspaceMisses)}/s`}
+                help={cacheRateHelp}
               />
             </div>
-          </div>
+            <p className="text-[9px] leading-snug text-gray-600">
+              Redis protocol-level counters — may differ from app hit/miss rates above.
+            </p>
+          </InspectorSection>
+          <CacheEngineSection m={m} />
         </div>
       )
     }
 
     case 'database': {
       const dbRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'database')
-      const maxConn =
-        m.maxConnections > 0
-          ? m.maxConnections
-          : Number(node.config.maxConnections ?? 100)
-      const connPercent =
-        maxConn > 0 ? (m.dbActiveConnections / maxConn) * 100 : 0
-      const queryRateSeries = history.map((h) => h.dbQueryRate)
+      const maxConnFallback = Number(node.config.maxConnections ?? 100)
       return (
-        <div className="space-y-2">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <MetricTile
-              label="Query Rate"
-              value={`${fmtRate(m.dbQueryRate)}/s`}
-              help={dbRateHelp}
-            />
-            <MetricTile
-              label="Connections"
-              value={`${fmtInt(m.dbActiveConnections)} / ${fmtInt(maxConn)}`}
-            />
-          </div>
-          <div className="h-2 rounded-full bg-gray-800">
-            <div
-              className={`h-full rounded-full ${
-                connPercent > 85
-                  ? 'bg-red-500'
-                  : connPercent > 60
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-              }`}
-              style={{ width: `${Math.min(100, connPercent)}%` }}
-            />
-          </div>
-          <div className={sparkWrap}>
-            <MetricSectionHeading help={dbRateHelp}>
-              Query rate (30s)
-            </MetricSectionHeading>
-            <SparkLine
-              data={queryRateSeries}
-              color="var(--c9-text-disabled)"
-              showArea
-              showDot
-            />
-          </div>
-          <StorageIoSection
+        <div className="space-y-3">
+          <DbActivitySection
+            m={{ ...m, maxConnections: m.maxConnections > 0 ? m.maxConnections : maxConnFallback }}
+            history={history}
+            loadgenActive={loadgenActive}
+            dbRateHelp={dbRateHelp}
+          />
+          <DbLoadSection
             m={m}
-            queryLatencyMs={
-              m.dbQueryLatency > 0
-                ? m.dbQueryLatency * 1000
-                : m.avgLatency > 0
-                  ? m.avgLatency
-                  : undefined
-            }
+            dbQueryRate={m.dbQueryRate}
+            templateMetrics={templateMetrics}
           />
         </div>
       )

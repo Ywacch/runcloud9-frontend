@@ -59,6 +59,7 @@ export function simulationStateToMetricsBucket(
     cacheMissesLast9m: opts.cacheMissesLast9m ?? opts.cacheMisses ?? 0,
     dbQueryRate: nodeType === 'database' ? state.throughputQps : 0,
     dbQueryLatency: 0,
+    dbQuerySource: '',
     dbActiveConnections: state.currentConnections,
     maxConnections: 0,
     storageEngine: '',

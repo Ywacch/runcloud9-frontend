@@ -40,6 +40,10 @@ export interface StorageIoMetrics {
   readRate: number
   writeRate: number
   unit: string
+  readLabel?: string
+  writeLabel?: string
+  scope?: string
+  footnote?: string
   /** Reserved — not populated until Phase 2.5; use `dbQueryLatency` on db. */
   readLatency: number
   writeLatency: number
@@ -50,6 +54,12 @@ export interface StorageIoMetrics {
   source: string
 }
 
+function str(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  const s = v.trim()
+  return s || undefined
+}
+
 export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
@@ -57,6 +67,10 @@ export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
     readRate: num(r.readRate),
     writeRate: num(r.writeRate),
     unit: typeof r.unit === 'string' ? r.unit.trim() : '',
+    readLabel: str(r.readLabel),
+    writeLabel: str(r.writeLabel),
+    scope: str(r.scope),
+    footnote: str(r.footnote),
     readLatency: num(r.readLatency),
     writeLatency: num(r.writeLatency),
     bytesUsed: num(r.bytesUsed),
