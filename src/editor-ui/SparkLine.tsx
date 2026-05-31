@@ -142,7 +142,7 @@ export function SparkLine({
       return { linePath, areaPath, color: s.color }
     })
 
-    const lastPoints = resolvedSeries.map((s, idx) => {
+    const lastPoints = resolvedSeries.map((s) => {
       const values = s.data.filter((n) => Number.isFinite(n))
       const points = values.map((v, i) => ({
         x:
