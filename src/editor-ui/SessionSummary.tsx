@@ -136,6 +136,40 @@ export function SessionSummary() {
           </div>
         ) : null}
 
+        {summary.storagePeaks ? (
+          <div className="mb-4 space-y-2 border-b border-[var(--c9-border)] pb-4">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
+              Storage I/O peaks
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              <SummaryCard
+                label="Peak read rate"
+                value={fmtRate(summary.storagePeaks.readRate)}
+              />
+              <SummaryCard
+                label="Peak write rate"
+                value={fmtRate(summary.storagePeaks.writeRate)}
+              />
+              <SummaryCard
+                label="Peak read latency"
+                value={fmtMs(summary.storagePeaks.readLatencyMs)}
+              />
+              <SummaryCard
+                label="Peak write latency"
+                value={fmtMs(summary.storagePeaks.writeLatencyMs)}
+              />
+              <SummaryCard
+                label="Peak utilization"
+                value={fmtPct(summary.storagePeaks.utilizationPct)}
+              />
+              <SummaryCard
+                label="Peak store errors"
+                value={fmtRate(summary.storagePeaks.errorRate)}
+              />
+            </div>
+          </div>
+        ) : null}
+
         <p className="mb-2 text-[10px] text-[var(--c9-muted)]">
           Legacy peaks below — max over the session; can mix cold start and throttle artifacts.
         </p>

@@ -134,6 +134,15 @@ export function normalizeSparklines(s: SessionSparklines): SessionSparklines {
   }
 }
 
+export interface StoragePeakSummary {
+  readRate: number
+  writeRate: number
+  readLatencyMs: number
+  writeLatencyMs: number
+  utilizationPct: number
+  errorRate: number
+}
+
 /** Extract numeric peak fields stored in metrics_summary JSONB. */
 export function parsePeakFieldsFromMetricsSummary(
   summary: Record<string, unknown> | undefined
@@ -144,6 +153,7 @@ export function parsePeakFieldsFromMetricsSummary(
   cacheHitRate: number
   errorRate: number
   durationSeconds: number
+  storagePeaks: StoragePeakSummary
 }> {
   if (!summary) return {}
   const out: Partial<{
@@ -153,6 +163,7 @@ export function parsePeakFieldsFromMetricsSummary(
     cacheHitRate: number
     errorRate: number
     durationSeconds: number
+    storagePeaks: StoragePeakSummary
   }> = {}
   if ('peak_rps' in summary) out.peakRps = num(summary.peak_rps)
   if ('peak_p99_ms' in summary) out.peakP99 = num(summary.peak_p99_ms)
@@ -162,6 +173,21 @@ export function parsePeakFieldsFromMetricsSummary(
   if ('error_rate' in summary) out.errorRate = num(summary.error_rate)
   if ('actual_duration_seconds' in summary)
     out.durationSeconds = Math.round(num(summary.actual_duration_seconds))
+
+  const hasStorage =
+    'storage_read_rate' in summary ||
+    'storage_write_rate' in summary ||
+    'storage_utilization_pct' in summary
+  if (hasStorage) {
+    out.storagePeaks = {
+      readRate: num(summary.storage_read_rate),
+      writeRate: num(summary.storage_write_rate),
+      readLatencyMs: num(summary.storage_read_latency_ms),
+      writeLatencyMs: num(summary.storage_write_latency_ms),
+      utilizationPct: num(summary.storage_utilization_pct),
+      errorRate: num(summary.storage_error_rate),
+    }
+  }
   return out
 }
 

@@ -35,6 +35,37 @@ export interface BackendReplicaStatus {
   ready: number
 }
 
+/** Engine-native store signals from WS `storageIo` (metrics-ui-contract). */
+export interface StorageIoMetrics {
+  readRate: number
+  writeRate: number
+  unit: string
+  /** Reserved — not populated until Phase 2.5; use `dbQueryLatency` on db. */
+  readLatency: number
+  writeLatency: number
+  bytesUsed: number
+  bytesLimit: number
+  /** Store failures per second (not HTTP 5xx). */
+  errorRate: number
+  source: string
+}
+
+export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  return {
+    readRate: num(r.readRate),
+    writeRate: num(r.writeRate),
+    unit: typeof r.unit === 'string' ? r.unit.trim() : '',
+    readLatency: num(r.readLatency),
+    writeLatency: num(r.writeLatency),
+    bytesUsed: num(r.bytesUsed),
+    bytesLimit: num(r.bytesLimit),
+    errorRate: num(r.errorRate),
+    source: typeof r.source === 'string' ? r.source.trim() : '',
+  }
+}
+
 function num(v: unknown): number {
   if (typeof v === 'number' && Number.isFinite(v)) return v
   if (typeof v === 'string' && v.trim() !== '') {

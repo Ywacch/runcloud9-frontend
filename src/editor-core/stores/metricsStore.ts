@@ -60,9 +60,17 @@ export interface MetricsBucket {
 
   // DB-specific
   dbQueryRate: number
+  /** App-reported query latency (seconds on WS). */
+  dbQueryLatency: number
   dbActiveConnections: number
   /** Postgres max_connections when known (from metrics). */
   maxConnections: number
+
+  /** Persistence engine from design (WS); e.g. postgresql, redis. */
+  storageEngine: string
+  storageRole: string
+  /** Engine-native I/O when component is a store (`db`, cache-as-store). */
+  storageIo: StorageIoMetrics | null
 
   // MQ / worker / LB (live deploy)
   activeConnections: number
@@ -99,6 +107,7 @@ import type {
   BackendReplicaStatus,
   LoadgenIntervalBucket,
   PodReplicaMetrics,
+  StorageIoMetrics,
 } from '../domain/metricsUiContract'
 
 /** Subset of backend `loadgen` for the live overlay (metrics-ui-contract). */

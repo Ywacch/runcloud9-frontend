@@ -13,6 +13,7 @@ import {
   parseBackendReplicas,
   parseLoadgenIntervals,
   parsePodReplicas,
+  parseStorageIo,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
 import { useChaosStore } from '../stores/chaosStore'
@@ -77,6 +78,9 @@ interface WsComponentMetrics {
   mqMemoryLimit?: number
   mqSaturationRatio?: number
   workerSaturation?: number
+  storageEngine?: string
+  storageRole?: string
+  storageIo?: unknown
 }
 
 interface WsEventPayload {
@@ -182,8 +186,12 @@ function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     cacheHitsLast9m: Math.round(cm.cacheHitsLast9m ?? 0),
     cacheMissesLast9m: Math.round(cm.cacheMissesLast9m ?? 0),
     dbQueryRate: cm.dbQueryRate ?? 0,
+    dbQueryLatency: dbLatSec,
     dbActiveConnections: Math.round(cm.dbActiveConnections ?? 0),
     maxConnections: Math.round(cm.maxConnections ?? 0),
+    storageEngine: cm.storageEngine ?? '',
+    storageRole: cm.storageRole ?? '',
+    storageIo: parseStorageIo(cm.storageIo),
     activeConnections: cm.activeConnections ?? 0,
     lbConnectionLimit: cm.lbConnectionLimit ?? 0,
     queueDepth: cm.queueDepth ?? 0,
