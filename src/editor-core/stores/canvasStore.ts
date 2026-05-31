@@ -2,7 +2,10 @@ import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../../lib/cacheTopologyStrategy'
 import { resetDesignStorytellingUi } from '../../lib/resetStorytellingUi'
 import type { SessionEventSummary } from '../../lib/eventsSummaryFromApi'
-import type { SessionSparklines } from '../domain/sessionHistoryFromApi'
+import type {
+  SessionSparklines,
+  StoragePeakSummary,
+} from '../domain/sessionHistoryFromApi'
 import type { SteadyStateSummary } from '../domain/metricsUiContract'
 
 /** Design-mode interaction: select/move + inspector, connect nodes, or delete by clicking. */
@@ -69,6 +72,8 @@ export interface SessionSummary {
   steadyState?: SteadyStateSummary
   /** Flat highlight reel from API `metrics_summary.events_summary`. */
   eventsSummary?: SessionEventSummary[]
+  /** Teardown peaks from `metrics_summary` storage I/O fields when present. */
+  storagePeaks?: StoragePeakSummary
   componentSummaries: Record<
     string,
     {

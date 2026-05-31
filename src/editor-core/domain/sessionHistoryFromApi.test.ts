@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   mergePeakScalars,
+  parsePeakFieldsFromMetricsSummary,
   parseSessionHistory,
 } from './sessionHistoryFromApi'
 
@@ -59,5 +60,26 @@ describe('mergePeakScalars', () => {
     expect(merged.totalRequests).toBe(0)
     expect(merged.cacheHitRate).toBe(0)
     expect(merged.errorRate).toBe(0)
+  })
+})
+
+describe('parsePeakFieldsFromMetricsSummary', () => {
+  it('reads storage peak fields when present', () => {
+    const p = parsePeakFieldsFromMetricsSummary({
+      storage_read_rate: 500,
+      storage_write_rate: 12,
+      storage_read_latency_ms: 3,
+      storage_write_latency_ms: 8,
+      storage_utilization_pct: 72,
+      storage_error_rate: 0.05,
+    })
+    expect(p.storagePeaks).toEqual({
+      readRate: 500,
+      writeRate: 12,
+      readLatencyMs: 3,
+      writeLatencyMs: 8,
+      utilizationPct: 72,
+      errorRate: 0.05,
+    })
   })
 })

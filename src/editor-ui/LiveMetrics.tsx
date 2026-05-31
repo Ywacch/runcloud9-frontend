@@ -34,6 +34,7 @@ import {
 } from '../lib/metricHelp'
 import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
 import { SparkLine } from './SparkLine'
+import { StorageIoSection } from './StorageIoSection'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
 
@@ -922,6 +923,7 @@ function TypeSection({
               </div>
             </>
           )}
+          <StorageIoSection m={m} />
           <div>
             <MetricSectionHeading
               help={cacheRateHelp}
@@ -989,6 +991,16 @@ function TypeSection({
               showDot
             />
           </div>
+          <StorageIoSection
+            m={m}
+            queryLatencyMs={
+              m.dbQueryLatency > 0
+                ? m.dbQueryLatency * 1000
+                : m.avgLatency > 0
+                  ? m.avgLatency
+                  : undefined
+            }
+          />
         </div>
       )
     }

@@ -168,6 +168,7 @@ function mergeApiMetricsSummary(
     duration = `${Math.floor(dur / 60)}m ${dur % 60}s`
   }
 
+  const peaks = parsePeakFieldsFromMetricsSummary(apiMetricsSummary)
   const scalars = mergePeakScalars(
     {
       peakRps: base.peakRps,
@@ -186,6 +187,7 @@ function mergeApiMetricsSummary(
     sessionSparklines,
     steadyState: steadyState ?? undefined,
     eventsSummary: eventsSummary.length > 0 ? eventsSummary : undefined,
+    storagePeaks: peaks.storagePeaks,
   }
 }
 

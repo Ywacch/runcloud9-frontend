@@ -3,6 +3,7 @@ import {
   parseLoadgenIntervals,
   parsePodReplicas,
   parseSteadyState,
+  parseStorageIo,
   sampleFromWsPayload,
 } from './metricsUiContract'
 
@@ -50,6 +51,31 @@ describe('metricsUiContract', () => {
     expect(pods[0].p99LatencyMs).toBeCloseTo(20)
     expect(pods[0].requestRate).toBe(12.5)
     expect(pods[0].memoryBytes).toBe(0)
+  })
+
+  it('parseStorageIo maps WS storageIo object', () => {
+    const io = parseStorageIo({
+      readRate: 1200,
+      writeRate: 45,
+      unit: 'rows/s',
+      readLatency: 0.002,
+      writeLatency: 0.008,
+      bytesUsed: 1_073_741_824,
+      bytesLimit: 4_294_967_296,
+      errorRate: 0.1,
+      source: 'postgres_exporter',
+    })
+    expect(io).toEqual({
+      readRate: 1200,
+      writeRate: 45,
+      unit: 'rows/s',
+      readLatency: 0.002,
+      writeLatency: 0.008,
+      bytesUsed: 1_073_741_824,
+      bytesLimit: 4_294_967_296,
+      errorRate: 0.1,
+      source: 'postgres_exporter',
+    })
   })
 
   it('sampleFromWsPayload converts app-server seconds to ms', () => {
