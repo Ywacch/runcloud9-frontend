@@ -4,6 +4,7 @@ import {
   formatChartTick,
   yAxisTicks,
 } from '../lib/chartAxis'
+import { fmtMs, fmtPct, fmtRate } from '../lib/format'
 import { SparkLine, type SparkLineSeries } from './SparkLine'
 
 export interface MetricChartSeries {
@@ -24,6 +25,9 @@ export interface MetricChartProps {
   showDot?: boolean
   eventMarkers?: Array<{ xRatio: number; type?: string }>
   className?: string
+  /** Seconds between samples (~2s on live WS). Used for hover caption. */
+  sampleIntervalSec?: number
+  pointCaption?: (index: number, total: number) => string
 }
 
 export function MetricChart({
@@ -35,6 +39,8 @@ export function MetricChart({
   showDot = true,
   eventMarkers,
   className,
+  sampleIntervalSec = 2,
+  pointCaption: pointCaptionProp,
 }: MetricChartProps) {
   const chartHeight = height ?? (compact ? 72 : 128)
   const hasData = series.some((s) => s.data.filter(Number.isFinite).length >= 2)
@@ -42,12 +48,34 @@ export function MetricChart({
 
   const domain = computeYDomain(flattenSeriesValues(series))
   const ticks = yAxisTicks(domain.min, domain.max, compact ? 3 : 4)
-  const sparkSeries: SparkLineSeries[] = series.map((s) => ({
+  const sparkSeries: SparkLineSeries[] = series.map((s, i) => ({
     data: s.data,
     color: s.color,
     showArea: s.showArea ?? true,
+    label: s.label ?? (series.length === 1 ? title : `Series ${i + 1}`),
   }))
   const legend = series.filter((s) => s.label)
+
+  const formatValue = (v: number): string => {
+    const u = (unit ?? '').toLowerCase()
+    if (u.includes('ms')) return fmtMs(v)
+    if (u.includes('%')) return fmtPct(v)
+    if (u.includes('rps') || u.includes('/s') || u.includes('queries')) {
+      return `${fmtRate(v)}/s`
+    }
+    return formatChartTick(v, unit)
+  }
+
+  const pointCaption =
+    pointCaptionProp ??
+    ((index: number, total: number): string => {
+      const secsAgo = (total - 1 - index) * sampleIntervalSec
+      if (secsAgo <= 0) return 'Latest'
+      if (secsAgo < 60) return `${secsAgo}s ago`
+      const m = Math.floor(secsAgo / 60)
+      const s = secsAgo % 60
+      return s > 0 ? `${m}m ${s}s ago` : `${m}m ago`
+    })
 
   return (
     <div
@@ -109,6 +137,9 @@ export function MetricChart({
             yMax={domain.max}
             showDot={showDot}
             eventMarkers={eventMarkers}
+            interactive
+            formatValue={formatValue}
+            pointCaption={pointCaption}
           />
         </div>
       </div>
