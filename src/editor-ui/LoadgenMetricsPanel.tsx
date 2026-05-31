@@ -1,7 +1,7 @@
 import { fmtMs, fmtRate } from '../lib/format'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
-import { SparkLine } from './SparkLine'
+import { MetricChart } from './MetricChart'
 
 function appServerObservedRps(
   metrics: ReturnType<typeof useMetricsStore.getState>['metrics'],
@@ -70,15 +70,12 @@ export function LoadgenMetricsPanel() {
         </div>
       </div>
       {intervalSpark.length >= 2 ? (
-        <div className="mt-2 rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/40 p-1.5">
-          <p className="mb-1 text-[10px] text-[var(--c9-muted)]">
-            Achieved RPS (5s buckets)
-          </p>
-          <SparkLine
-            data={intervalSpark}
-            color="var(--c9-success)"
-            showArea
-            height={36}
+        <div className="mt-2">
+          <MetricChart
+            title="Achieved RPS"
+            unit="5s buckets"
+            series={[{ data: intervalSpark, color: '#6366f1', showArea: true }]}
+            compact
           />
         </div>
       ) : null}

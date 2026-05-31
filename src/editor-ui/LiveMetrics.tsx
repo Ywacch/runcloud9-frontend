@@ -26,14 +26,13 @@ import {
   CPU_ALLOC_HELP,
   CPU_UTIL_HELP,
   LATENCY_HELP,
-  LATENCY_P99_SPARK_HELP,
   MEM_ALLOC_HELP,
   MEM_UTIL_HELP,
   THROUGHPUT_HELP,
   withPodRateDisclaimer,
 } from '../lib/metricHelp'
 import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
-import { SparkLine } from './SparkLine'
+import { MetricChart } from './MetricChart'
 import {
   CacheEngineSection,
   DbActivitySection,
@@ -70,8 +69,8 @@ function MetricTile({
   )
 }
 
-const sparkWrap =
-  'rounded-lg border border-gray-700/30 bg-gray-800/30 p-2'
+const inspectorChartClass =
+  'rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none'
 
 function linkedCacheNode(
   nodeId: string,
@@ -778,28 +777,20 @@ function TypeSection({
             <MetricTile label="p95" value={fmtMs(m.p95Latency)} />
             <MetricTile label="p99" value={fmtMs(m.p99Latency)} />
           </div>
-          <div className={sparkWrap}>
-            <MetricSectionHeading help={THROUGHPUT_HELP}>
-              {aggregateOnly ? 'Cluster throughput (30s)' : 'Throughput (30s)'}
-            </MetricSectionHeading>
-            <SparkLine
-              data={rpsSeries}
-              color="var(--c9-text-muted)"
-              showArea
-              showDot
-            />
-          </div>
-          <div className={sparkWrap}>
-            <MetricSectionHeading help={LATENCY_P99_SPARK_HELP}>
-              {aggregateOnly ? 'Cluster p99 latency (30s)' : 'p99 Latency (30s)'}
-            </MetricSectionHeading>
-            <SparkLine
-              data={latencySeries}
-              color="var(--c9-error)"
-              showArea
-              showDot
-            />
-          </div>
+          <MetricChart
+            title={aggregateOnly ? 'Cluster throughput' : 'Throughput'}
+            unit="30s · RPS"
+            series={[{ data: rpsSeries, color: '#6366f1', showArea: true }]}
+            compact
+            className={inspectorChartClass}
+          />
+          <MetricChart
+            title={aggregateOnly ? 'Cluster p99 latency' : 'p99 latency'}
+            unit="30s · ms"
+            series={[{ data: latencySeries, color: 'var(--c9-error)', showArea: true }]}
+            compact
+            className={inspectorChartClass}
+          />
         </div>
       )
     }
@@ -920,17 +911,13 @@ function TypeSection({
                   style={{ width: `${Math.min(100, hitRatePct)}%` }}
                 />
               </div>
-              <div className={sparkWrap}>
-                <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-                  Hit rate (30s)
-                </div>
-                <SparkLine
-                  data={hitRateSeries}
-                  color="var(--c9-error)"
-                  showArea
-                  showDot
-                />
-              </div>
+              <MetricChart
+                title="Hit rate"
+                unit="30s · %"
+                series={[{ data: hitRateSeries, color: 'var(--c9-error)', showArea: true }]}
+                compact
+                className={inspectorChartClass}
+              />
               <p className="text-[9px] leading-snug text-gray-600">
                 App logical cache on the redirect path — not Redis keyspace counters.
               </p>
@@ -1107,17 +1094,13 @@ function TypeSection({
               </ul>
             </div>
           ) : null}
-          <div className={sparkWrap}>
-            <MetricSectionHeading help={lbRateHelp}>
-              Throughput (30s)
-            </MetricSectionHeading>
-            <SparkLine
-              data={lbRpsSeries}
-              color="var(--c9-info)"
-              showArea
-              showDot
-            />
-          </div>
+          <MetricChart
+            title="Throughput"
+            unit="30s · RPS"
+            series={[{ data: lbRpsSeries, color: 'var(--c9-info)', showArea: true }]}
+            compact
+            className={inspectorChartClass}
+          />
         </div>
       )
     }
@@ -1214,17 +1197,13 @@ function TypeSection({
               </div>
             </div>
           ) : null}
-          <div className={sparkWrap}>
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-              Produce rate (30s)
-            </div>
-            <SparkLine
-              data={prodSeries}
-              color="var(--c9-accent)"
-              showArea
-              showDot
-            />
-          </div>
+          <MetricChart
+            title="Produce rate"
+            unit="30s · msg/s"
+            series={[{ data: prodSeries, color: '#a78bfa', showArea: true }]}
+            compact
+            className={inspectorChartClass}
+          />
         </div>
       )
     }

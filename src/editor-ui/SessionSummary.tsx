@@ -10,7 +10,7 @@ import { useEffect } from 'react'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
 import { HighlightReel } from './HighlightReel'
-import { SparkLine } from './SparkLine'
+import { MetricChart } from './MetricChart'
 
 function markerRatios(
   markers: SessionSparklines['markers'],
@@ -91,48 +91,57 @@ export function SessionSummary() {
               Downsampled from stored <code className="text-[var(--c9-text)]">session_history</code>
               . Ticks: cascade · threshold · other.
             </p>
-            <SparkRow
-              label="Ingress RPS (app-server)"
-              color="var(--c9-success)"
-              data={summary.sessionSparklines.rps}
-              markers={summary.sessionSparklines}
-            />
-            <SparkRow
-              label="p99 latency (ms)"
-              color="var(--c9-error)"
-              data={summary.sessionSparklines.p99Ms}
-              markers={summary.sessionSparklines}
-            />
-            <SparkRow
-              label="Error rate (/s)"
-              color="var(--c9-warning)"
-              data={summary.sessionSparklines.errorRate}
-              markers={summary.sessionSparklines}
-            />
-            <SparkRow
-              label="Cache hit % (9m window)"
-              color="var(--c9-accent-hover)"
-              data={summary.sessionSparklines.cacheHitPct}
-              markers={summary.sessionSparklines}
-            />
-            <SparkRow
-              label="DB query rate"
-              color="var(--c9-info)"
-              data={summary.sessionSparklines.dbQueryRate}
-              markers={summary.sessionSparklines}
-            />
-            <SparkRow
-              label="Cache hits /s (app-server)"
-              color="var(--c9-accent)"
-              data={summary.sessionSparklines.cacheHitsPerSec}
-              markers={summary.sessionSparklines}
-            />
-            <SparkRow
-              label="Cache misses /s (app-server)"
-              color="var(--c9-warning)"
-              data={summary.sessionSparklines.cacheMissesPerSec}
-              markers={summary.sessionSparklines}
-            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SparkRow
+                label="Ingress RPS"
+                unit="app-server"
+                color="#6366f1"
+                data={summary.sessionSparklines.rps}
+                markers={summary.sessionSparklines}
+              />
+              <SparkRow
+                label="p99 latency"
+                unit="ms"
+                color="var(--c9-error)"
+                data={summary.sessionSparklines.p99Ms}
+                markers={summary.sessionSparklines}
+              />
+              <SparkRow
+                label="Error rate"
+                unit="/s"
+                color="var(--c9-warning)"
+                data={summary.sessionSparklines.errorRate}
+                markers={summary.sessionSparklines}
+              />
+              <SparkRow
+                label="Cache hit rate"
+                unit="9m window · %"
+                color="var(--c9-accent-hover)"
+                data={summary.sessionSparklines.cacheHitPct}
+                markers={summary.sessionSparklines}
+              />
+              <SparkRow
+                label="DB query rate"
+                unit="queries/s"
+                color="var(--c9-info)"
+                data={summary.sessionSparklines.dbQueryRate}
+                markers={summary.sessionSparklines}
+              />
+              <SparkRow
+                label="Cache hits"
+                unit="app-server /s"
+                color="#22d3ee"
+                data={summary.sessionSparklines.cacheHitsPerSec}
+                markers={summary.sessionSparklines}
+              />
+              <SparkRow
+                label="Cache misses"
+                unit="app-server /s"
+                color="var(--c9-warning)"
+                data={summary.sessionSparklines.cacheMissesPerSec}
+                markers={summary.sessionSparklines}
+              />
+            </div>
           </div>
         ) : null}
 
@@ -233,31 +242,26 @@ export function SessionSummary() {
 
 function SparkRow({
   label,
+  unit,
   color,
   data,
   markers,
 }: {
   label: string
+  unit?: string
   color: string
   data: number[]
   markers: SessionSparklines
 }) {
   const eventMarkers = markerRatios(markers.markers, data.length)
   return (
-    <div>
-      <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
-        {label}
-      </div>
-      <SparkLine
-        data={data}
-        color={color}
-        width={320}
-        height={40}
-        showArea
-        showDot
-        eventMarkers={eventMarkers}
-      />
-    </div>
+    <MetricChart
+      title={label}
+      unit={unit}
+      series={[{ data, color, showArea: true }]}
+      compact
+      eventMarkers={eventMarkers}
+    />
   )
 }
 
