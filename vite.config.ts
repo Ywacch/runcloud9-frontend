@@ -59,7 +59,7 @@ export default defineConfig(({ mode }) => {
         : []),
     ],
     build: {
-      // Landing stays small; /canvas async chunk bundles three.js + R3F (~1.2 MB minified).
+      // Landing stays small; /canvas async chunk bundles Pixi (~500 KB+ minified).
       chunkSizeWarningLimit: 1300,
       sourcemap: sentryUpload ? 'hidden' : false,
     },

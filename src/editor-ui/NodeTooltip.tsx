@@ -1,4 +1,3 @@
-import { Html } from '@react-three/drei'
 import { useMemo } from 'react'
 import {
   fmtCpuMilliCores,
@@ -74,20 +73,12 @@ export function NodeTooltip({
       : health === 'error'
         ? 'text-red-300'
         : 'text-cyan-300'
-  const x = align === 'right' ? 0.92 : -0.92
-
   return (
-    <Html
-      position={[x, 1.35, 0]}
-      center={false}
-      zIndexRange={[25, 12]}
-      style={{ pointerEvents: 'none' }}
+    <div
+      className={`pointer-events-none w-[178px] rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-2.5 py-2 text-[10px] text-[var(--c9-text)] shadow-xl backdrop-blur ${
+        align === 'right' ? 'origin-top-left' : 'origin-top-right -translate-x-full'
+      }`}
     >
-      <div
-        className={`pointer-events-none w-[178px] rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-2.5 py-2 text-[10px] text-[var(--c9-text)] shadow-xl backdrop-blur ${
-          align === 'right' ? 'origin-top-left' : 'origin-top-right -translate-x-full'
-        }`}
-      >
         <p className="truncate text-center text-[13px] font-semibold text-violet-300">
           {node.label}
         </p>
@@ -137,7 +128,6 @@ export function NodeTooltip({
             </span>
           </div>
         </div>
-      </div>
-    </Html>
+    </div>
   )
 }
