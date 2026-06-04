@@ -6,6 +6,7 @@ import { createViewport } from './engine/viewport'
 import { GridLayer } from './layers/GridLayer'
 import { ConnectionLayer } from './layers/ConnectionLayer'
 import { ConnectionPreview } from './layers/ConnectionPreview'
+import { TrafficLayer } from './layers/TrafficLayer'
 import { ComponentLayer } from './layers/ComponentLayer'
 import { screenToIso } from './constants'
 import { isoToNode } from './utils/positionAdapter'
@@ -121,6 +122,9 @@ export default function CanvasApp() {
       const connectionPreview = new ConnectionPreview(viewport)
       viewport.addChild(connectionPreview)
 
+      const trafficLayer = new TrafficLayer()
+      viewport.addChild(trafficLayer)
+
       const initial = useCanvasStore.getState()
       let prevNodeKey = nodeTopologyKey(initial.nodes)
       let prevNodeCount = Object.keys(initial.nodes).length
@@ -163,6 +167,7 @@ export default function CanvasApp() {
           delete (window as unknown as { __c9Canvas?: object }).__c9Canvas
         }
         unsubStore()
+        trafficLayer.destroy()
         connectionPreview.destroy()
         componentLayer.destroy()
         connectionLayer.destroy()
