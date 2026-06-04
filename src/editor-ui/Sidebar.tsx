@@ -27,6 +27,7 @@ import {
   CLIENT_LOADGEN_ID,
 } from '../lib/spawnClientNode'
 import { autoArrangeByDependencyLayers } from '../lib/autoArrange'
+import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useAuthStore } from '../product/stores/authStore'
@@ -239,6 +240,7 @@ export function Sidebar() {
     for (const [id, pos] of Object.entries(nextPositions)) {
       st.updateNodePosition(id, pos)
     }
+    requestCanvasFit()
     setBanner('Auto-arranged by dependency depth.')
   }
 
