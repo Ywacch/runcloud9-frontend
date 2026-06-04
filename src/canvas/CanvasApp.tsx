@@ -4,6 +4,8 @@ import type { Viewport } from 'pixi-viewport'
 import { createApp, destroyApp } from './engine/app'
 import { createViewport } from './engine/viewport'
 import { GridLayer } from './layers/GridLayer'
+import { ConnectionLayer } from './layers/ConnectionLayer'
+import { ConnectionPreview } from './layers/ConnectionPreview'
 import { ComponentLayer } from './layers/ComponentLayer'
 import { screenToIso } from './constants'
 import { isoToNode } from './utils/positionAdapter'
@@ -16,7 +18,7 @@ import {
   nodeTopologyKey,
   shouldFitViewportToNodes,
 } from './utils/viewportFit'
-import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
+import { useCanvasStore, type CanvasNode, isCanvasEditMode } from '../editor-core/stores/canvasStore'
 import { createCanvasNode } from '../lib/nodeFactory'
 
 const PALETTE_TYPES = new Set<CanvasNode['type']>([
@@ -86,23 +88,38 @@ export default function CanvasApp() {
 
       viewport.on('pointerdown', (e: FederatedPointerEvent) => {
         const state = useCanvasStore.getState()
-        if (!state.placingNodeType) return
-        if (state.movementLocked) return
-        if (state.mode === 'live') return
-        const world = viewport.toWorld(e.global.x, e.global.y)
-        const iso = screenToIso(world.x, world.y)
-        const col = Math.round(iso.col)
-        const row = Math.round(iso.row)
-        const pos = isoToNode(col, row)
-        state.addNode(createCanvasNode(state.placingNodeType, pos, state.nodes))
-        state.setPlacingNodeType(null)
+        if (state.placingNodeType) {
+          if (state.movementLocked) return
+          if (state.mode === 'live') return
+          const world = viewport.toWorld(e.global.x, e.global.y)
+          const iso = screenToIso(world.x, world.y)
+          const col = Math.round(iso.col)
+          const row = Math.round(iso.row)
+          const pos = isoToNode(col, row)
+          state.addNode(createCanvasNode(state.placingNodeType, pos, state.nodes))
+          state.setPlacingNodeType(null)
+          return
+        }
+        if (
+          state.designTool === 'connect' &&
+          state.pendingSourceId &&
+          isCanvasEditMode(state.mode)
+        ) {
+          state.setPendingSource(null)
+        }
       })
 
       const grid = new GridLayer(viewport)
       viewport.addChild(grid)
 
+      const connectionLayer = new ConnectionLayer()
+      viewport.addChild(connectionLayer)
+
       const componentLayer = new ComponentLayer(viewport)
       viewport.addChild(componentLayer)
+
+      const connectionPreview = new ConnectionPreview(viewport)
+      viewport.addChild(connectionPreview)
 
       const initial = useCanvasStore.getState()
       let prevNodeKey = nodeTopologyKey(initial.nodes)
@@ -146,7 +163,9 @@ export default function CanvasApp() {
           delete (window as unknown as { __c9Canvas?: object }).__c9Canvas
         }
         unsubStore()
+        connectionPreview.destroy()
         componentLayer.destroy()
+        connectionLayer.destroy()
         grid.destroy()
         viewport.destroy()
         viewportRef.current = null

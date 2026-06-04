@@ -1,6 +1,7 @@
 import {
   Container,
   Graphics,
+  Rectangle,
   Text,
   TextStyle,
   type FederatedPointerEvent,
@@ -9,7 +10,12 @@ import type { Viewport } from 'pixi-viewport'
 import { TILE_W, TILE_H, isoToScreen, screenToIso } from '../constants'
 import { COMPONENT_COLORS } from '../config/componentColors'
 import { nodeToIso, isoToNode } from '../utils/positionAdapter'
-import { useCanvasStore, type CanvasNode } from '../../editor-core/stores/canvasStore'
+import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
+import {
+  isCanvasEditMode,
+  useCanvasStore,
+  type CanvasNode,
+} from '../../editor-core/stores/canvasStore'
 
 export class ComponentContainer extends Container {
   private readonly nodeId: string
@@ -28,6 +34,7 @@ export class ComponentContainer extends Container {
     this.nodeId = node.id
     this.viewport = viewport
     this.eventMode = 'static'
+    this.interactiveChildren = false
     this.cursor = 'pointer'
     this.sortableChildren = false
     this.label = node.id
@@ -35,8 +42,15 @@ export class ComponentContainer extends Container {
     this._prevType = node.type
     this._prevReplicas = replicas
     this._syncPosition(node.position)
+    this._updateHitArea(node.type)
     this._build(node)
     this._wireEvents()
+  }
+
+  private _updateHitArea(type: CanvasNode['type']): void {
+    const sH = COMPONENT_COLORS[type].sideHeight
+    const h = TILE_H + sH + 36
+    this.hitArea = new Rectangle(-TILE_W / 2 - 8, -8, TILE_W + 16, h)
   }
 
   private _syncPosition(pos: [number, number, number]): void {
@@ -125,6 +139,7 @@ export class ComponentContainer extends Container {
         fontFamily: 'Inter, system-ui, sans-serif',
       }),
     })
+    this.labelText.eventMode = 'none'
     this.labelText.anchor.set(0.5, 0)
     this.labelText.position.set(0, TILE_H + sH + 8)
     this.addChild(this.labelText)
@@ -166,13 +181,87 @@ export class ComponentContainer extends Container {
 
   private _wireEvents(): void {
     this.on('pointerdown', this._onPointerDown)
+    this.on('pointerover', this._onPointerOver)
+    this.on('pointerout', this._onPointerOut)
   }
 
   private _onPointerDown = (e: FederatedPointerEvent): void => {
     e.stopPropagation()
-    useCanvasStore.getState().selectNode(this.nodeId)
-    if (useCanvasStore.getState().movementLocked) return
-    if (useCanvasStore.getState().mode === 'live') return
+    const state = useCanvasStore.getState()
+    const node = state.nodes[this.nodeId]
+    if (!node) return
+
+    if (state.mode === 'live') {
+      state.selectNode(this.nodeId)
+      return
+    }
+
+    if (!isCanvasEditMode(state.mode)) return
+
+    const tool = state.designTool
+    this.cursor = tool === 'connect' ? 'crosshair' : tool === 'erase' ? 'cell' : 'pointer'
+
+    if (tool === 'erase') {
+      if (node.type !== 'client') state.removeNode(this.nodeId)
+      return
+    }
+
+    if (tool === 'connect') {
+      this._handleConnect(state, node)
+      return
+    }
+
+    state.setPendingSource(null)
+    state.selectNode(this.nodeId)
+    if (state.movementLocked) return
+    this._beginDrag(e)
+  }
+
+  private _handleConnect(
+    state: ReturnType<typeof useCanvasStore.getState>,
+    node: CanvasNode,
+  ): void {
+    const pending = state.pendingSourceId
+    if (pending === null) {
+      state.setPendingSource(this.nodeId)
+      state.selectNode(this.nodeId)
+      return
+    }
+    if (pending === this.nodeId) {
+      state.setPendingSource(null)
+      return
+    }
+    const sourceNode = state.nodes[pending]
+    if (!sourceNode) {
+      state.setPendingSource(null)
+      return
+    }
+    state.addEdge({
+      id: crypto.randomUUID(),
+      sourceId: pending,
+      targetId: this.nodeId,
+      protocol: defaultEdgeProtocol(sourceNode.type, node.type),
+      animated: false,
+    })
+    state.setPendingSource(null)
+    state.selectNode(this.nodeId)
+  }
+
+  private _onPointerOver = (): void => {
+    const state = useCanvasStore.getState()
+    if (!isCanvasEditMode(state.mode) || state.designTool !== 'connect') return
+    if (state.pendingSourceId && state.pendingSourceId !== this.nodeId) {
+      state.setConnectHoverTargetId(this.nodeId)
+    }
+  }
+
+  private _onPointerOut = (): void => {
+    if (useCanvasStore.getState().connectHoverTargetId === this.nodeId) {
+      useCanvasStore.getState().setConnectHoverTargetId(null)
+    }
+  }
+
+  private _beginDrag(e: FederatedPointerEvent): void {
     this.isDragging = true
     const world = this.viewport.toWorld(e.global.x, e.global.y)
     const iso = screenToIso(world.x, world.y)
@@ -217,6 +306,7 @@ export class ComponentContainer extends Container {
       this._build(node)
       this._prevType = node.type
       this._prevReplicas = replicas
+      this._updateHitArea(node.type)
     } else {
       if (this.labelText.text !== node.label) this.labelText.text = node.label
       this._updateStatusDot(node.status)
@@ -259,6 +349,8 @@ export class ComponentContainer extends Container {
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
     this.off('pointerdown', this._onPointerDown)
+    this.off('pointerover', this._onPointerOver)
+    this.off('pointerout', this._onPointerOut)
     this.viewport.off('pointermove', this._onDragMove)
     this.viewport.off('pointerup', this._onDragEnd)
     this.viewport.off('pointerupoutside', this._onDragEnd)
