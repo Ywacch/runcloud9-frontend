@@ -17,10 +17,10 @@ export function fitViewportToNodes(
   for (const node of list) {
     const { col, row } = nodeToIso(node.position)
     const s = isoToScreen(col, row)
-    minX = Math.min(minX, s.x - TILE_W / 2)
-    minY = Math.min(minY, s.y - 20)
-    maxX = Math.max(maxX, s.x + TILE_W / 2)
-    maxY = Math.max(maxY, s.y + TILE_H + 80)
+    minX = Math.min(minX, s.x)
+    minY = Math.min(minY, s.y - TILE_H / 2 - 20)
+    maxX = Math.max(maxX, s.x + TILE_W)
+    maxY = Math.max(maxY, s.y + TILE_H / 2 + 80)
   }
 
   const boundsW = Math.max(maxX - minX, TILE_W)
