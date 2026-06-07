@@ -7,7 +7,7 @@ import {
   type FederatedPointerEvent,
 } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
-import { TILE_W, TILE_H, isoToScreen, screenToIso } from '../constants'
+import { TILE_W, TILE_H, isoToScreen, screenToIso, tileTopFacePoly } from '../constants'
 import { COMPONENT_COLORS } from '../config/componentColors'
 import { nodeToIso, isoToNode } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
@@ -50,7 +50,7 @@ export class ComponentContainer extends Container {
   private _updateHitArea(type: CanvasNode['type']): void {
     const sH = COMPONENT_COLORS[type].sideHeight
     const h = TILE_H + sH + 36
-    this.hitArea = new Rectangle(-TILE_W / 2 - 8, -8, TILE_W + 16, h)
+    this.hitArea = new Rectangle(-8, -TILE_H / 2 - 8, TILE_W + 16, h)
   }
 
   private _syncPosition(pos: [number, number, number]): void {
@@ -77,35 +77,26 @@ export class ComponentContainer extends Container {
       const g = new Graphics()
 
       if (i === 0) {
+        g.poly(tileTopFacePoly(ox, oy)).fill({ color: colors.top })
         g.poly([
           ox,
           oy,
           ox + TILE_W / 2,
           oy + TILE_H / 2,
-          ox,
-          oy + TILE_H,
-          ox - TILE_W / 2,
-          oy + TILE_H / 2,
-        ]).fill({ color: colors.top })
-        g.poly([
-          ox - TILE_W / 2,
-          oy + TILE_H / 2,
-          ox,
-          oy + TILE_H,
-          ox,
-          oy + TILE_H + sH,
-          ox - TILE_W / 2,
+          ox + TILE_W / 2,
           oy + TILE_H / 2 + sH,
+          ox,
+          oy + sH,
         ]).fill({ color: colors.left })
         g.poly([
-          ox,
-          oy + TILE_H,
+          ox + TILE_W,
+          oy,
           ox + TILE_W / 2,
           oy + TILE_H / 2,
           ox + TILE_W / 2,
           oy + TILE_H / 2 + sH,
-          ox,
-          oy + TILE_H + sH,
+          ox + TILE_W,
+          oy + sH,
         ]).fill({ color: colors.right })
       } else {
         const darken = (hex: number) => {
@@ -114,16 +105,7 @@ export class ComponentContainer extends Container {
           const b = Math.floor((hex & 0xff) * 0.72)
           return (r << 16) | (gr << 8) | b
         }
-        g.poly([
-          ox,
-          oy,
-          ox + TILE_W / 2,
-          oy + TILE_H / 2,
-          ox,
-          oy + TILE_H,
-          ox - TILE_W / 2,
-          oy + TILE_H / 2,
-        ])
+        g.poly(tileTopFacePoly(ox, oy))
           .fill({ color: darken(colors.top) })
           .stroke({ color: 0x000000, width: 0.5, alpha: 0.3 })
       }
@@ -141,7 +123,7 @@ export class ComponentContainer extends Container {
     })
     this.labelText.eventMode = 'none'
     this.labelText.anchor.set(0.5, 0)
-    this.labelText.position.set(0, TILE_H + sH + 8)
+    this.labelText.position.set(TILE_W / 2, TILE_H / 2 + sH + 8)
     this.addChild(this.labelText)
 
     if (replicas > 1) {
@@ -156,12 +138,15 @@ export class ComponentContainer extends Container {
       })
       this.replicaBadge.anchor.set(0, 1)
       const topLayerOffset = (cappedLayers - 1) * 7
-      this.replicaBadge.position.set(TILE_W / 2 + topLayerOffset + 4, -topLayerOffset - 4)
+      this.replicaBadge.position.set(
+        TILE_W + topLayerOffset + 4,
+        -topLayerOffset - TILE_H / 2 - 4,
+      )
       this.addChild(this.replicaBadge)
     }
 
     this.statusDot = new Graphics()
-    this.statusDot.position.set(TILE_W / 2 + 4, TILE_H / 2 - 6)
+    this.statusDot.position.set(TILE_W - 10, -TILE_H / 2 + 4)
     this._updateStatusDot(node.status)
     this.addChild(this.statusDot)
   }
@@ -329,19 +314,8 @@ export class ComponentContainer extends Container {
       this.selectionOverlay.destroy()
     }
     const g = new Graphics()
-    const diamond = [
-      0,
-      0,
-      TILE_W / 2,
-      TILE_H / 2,
-      0,
-      TILE_H,
-      -TILE_W / 2,
-      TILE_H / 2,
-    ] as number[]
-
-    g.poly(diamond).stroke({ color: 0xa78bfa, width: 8, alpha: 0.22, alignment: 0.5 })
-    g.poly(diamond).stroke({ color: 0xc4b5fd, width: 2.5, alignment: 0.5 })
+    g.poly(tileTopFacePoly()).stroke({ color: 0xa78bfa, width: 8, alpha: 0.22, alignment: 0.5 })
+    g.poly(tileTopFacePoly()).stroke({ color: 0xc4b5fd, width: 2.5, alignment: 0.5 })
 
     this.selectionOverlay = g
     this.addChild(g)
