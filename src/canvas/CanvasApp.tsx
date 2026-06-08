@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { type FederatedPointerEvent } from 'pixi.js'
+import { Assets, type FederatedPointerEvent } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
 import { createApp, destroyApp } from './engine/app'
 import { createViewport } from './engine/viewport'
@@ -51,6 +51,11 @@ export default function CanvasApp() {
 
     const init = async () => {
       const app = await createApp(canvas, host)
+      if (disposed) {
+        destroyApp()
+        return
+      }
+      await Assets.load('/spritesheets/components.json')
       if (disposed) {
         destroyApp()
         return

@@ -1,9 +1,12 @@
 import {
+  ColorMatrixFilter,
   Container,
   Graphics,
   Rectangle,
+  Sprite,
   Text,
   TextStyle,
+  Texture,
   type FederatedPointerEvent,
 } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
@@ -16,6 +19,38 @@ import {
   useCanvasStore,
   type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
+
+const ASSET_MAP: Record<string, string> = {
+  'cache:redis': 'redis-cache',
+  cache: 'redis-cache',
+  database: 'database',
+  'load-balancer': 'lb',
+  load_balancer: 'lb',
+  'app-server': 'server',
+  compute: 'server',
+  worker: 'worker',
+  'message-queue': 'MQ',
+  message_queue: 'MQ',
+}
+
+/** Pivot on texture — sprite base on tile footprint bottom-center (TILE_W/2, TILE_H/2). */
+const ANCHOR_MAP: Record<string, { x: number; y: number }> = {
+  'redis-cache': { x: 0.5, y: 1.0 },
+  database: { x: 0.5, y: 0.98 },
+  lb: { x: 0.5, y: 1.0 },
+  server: { x: 0.5, y: 1.0 },
+  worker: { x: 0.5, y: 1.0 },
+  MQ: { x: 0.5, y: 0.98 },
+}
+
+function getAssetKey(node: CanvasNode): string | null {
+  const engine =
+    node.type === 'cache'
+      ? node.config?.cacheEngine ?? node.config?.engine
+      : node.config?.engine
+  const engineKey = `${node.type}:${engine}`
+  return ASSET_MAP[engineKey] ?? ASSET_MAP[node.type] ?? null
+}
 
 export class ComponentContainer extends Container {
   private readonly nodeId: string
@@ -60,6 +95,37 @@ export class ComponentContainer extends Container {
     this.zIndex = col + row
   }
 
+  private _drawIsoPlatform(
+    ox: number,
+    oy: number,
+    colors: (typeof COMPONENT_COLORS)[CanvasNode['type']],
+    sH: number,
+  ): void {
+    const g = new Graphics()
+    g.poly(tileTopFacePoly(ox, oy)).fill({ color: colors.top })
+    g.poly([
+      ox,
+      oy,
+      ox + TILE_W / 2,
+      oy + TILE_H / 2,
+      ox + TILE_W / 2,
+      oy + TILE_H / 2 + sH,
+      ox,
+      oy + sH,
+    ]).fill({ color: colors.left })
+    g.poly([
+      ox + TILE_W,
+      oy,
+      ox + TILE_W / 2,
+      oy + TILE_H / 2,
+      ox + TILE_W / 2,
+      oy + TILE_H / 2 + sH,
+      ox + TILE_W,
+      oy + sH,
+    ]).fill({ color: colors.right })
+    this.addChild(g)
+  }
+
   private _build(node: CanvasNode): void {
     this.removeChildren()
     this.selectionOverlay = null
@@ -68,49 +134,55 @@ export class ComponentContainer extends Container {
     const colors = COMPONENT_COLORS[node.type]
     const replicas = typeof node.config.replicas === 'number' ? node.config.replicas : 1
     const sH = colors.sideHeight
+    const assetKey = getAssetKey(node)
 
     const cappedLayers = Math.min(replicas, 3)
+    const seatX = TILE_W / 2
 
-    for (let i = cappedLayers - 1; i >= 0; i--) {
-      const ox = i * 7
-      const oy = -i * 7
-      const g = new Graphics()
+    if (assetKey) {
+      const texture = Texture.from(assetKey)
+      const anchor = ANCHOR_MAP[assetKey] ?? { x: 0.5, y: 1.0 }
+      const scale = Math.min(
+        TILE_W / texture.width,
+        (TILE_H + sH) / texture.height,
+      )
 
-      if (i === 0) {
-        g.poly(tileTopFacePoly(ox, oy)).fill({ color: colors.top })
-        g.poly([
-          ox,
-          oy,
-          ox + TILE_W / 2,
-          oy + TILE_H / 2,
-          ox + TILE_W / 2,
-          oy + TILE_H / 2 + sH,
-          ox,
-          oy + sH,
-        ]).fill({ color: colors.left })
-        g.poly([
-          ox + TILE_W,
-          oy,
-          ox + TILE_W / 2,
-          oy + TILE_H / 2,
-          ox + TILE_W / 2,
-          oy + TILE_H / 2 + sH,
-          ox + TILE_W,
-          oy + sH,
-        ]).fill({ color: colors.right })
-      } else {
-        const darken = (hex: number) => {
-          const r = Math.floor(((hex >> 16) & 0xff) * 0.72)
-          const gr = Math.floor(((hex >> 8) & 0xff) * 0.72)
-          const b = Math.floor((hex & 0xff) * 0.72)
-          return (r << 16) | (gr << 8) | b
+      for (let i = cappedLayers - 1; i >= 0; i--) {
+        const ox = i * 7
+        const oy = -i * 7
+
+        const sprite = new Sprite(texture)
+        sprite.anchor.set(anchor.x, anchor.y)
+        sprite.scale.set(scale)
+        sprite.position.set(seatX + ox, TILE_H / 2 + oy)
+        if (i > 0) {
+          const matrix = new ColorMatrixFilter()
+          matrix.brightness(0.72, false)
+          sprite.filters = [matrix]
         }
-        g.poly(tileTopFacePoly(ox, oy))
-          .fill({ color: darken(colors.top) })
-          .stroke({ color: 0x000000, width: 0.5, alpha: 0.3 })
+        this.addChild(sprite)
       }
+    } else {
+      for (let i = cappedLayers - 1; i >= 0; i--) {
+        const ox = i * 7
+        const oy = -i * 7
 
-      this.addChild(g)
+        if (i === 0) {
+          this._drawIsoPlatform(ox, oy, colors, sH)
+        } else {
+          const g = new Graphics()
+          const darken = (hex: number) => {
+            const r = Math.floor(((hex >> 16) & 0xff) * 0.72)
+            const gr = Math.floor(((hex >> 8) & 0xff) * 0.72)
+            const b = Math.floor((hex & 0xff) * 0.72)
+            return (r << 16) | (gr << 8) | b
+          }
+          g.poly(tileTopFacePoly(ox, oy))
+            .fill({ color: darken(colors.top) })
+            .stroke({ color: 0x000000, width: 0.5, alpha: 0.3 })
+          this.addChild(g)
+        }
+      }
     }
 
     this.labelText = new Text({
