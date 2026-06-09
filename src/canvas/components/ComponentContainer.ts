@@ -78,6 +78,9 @@ export class ComponentContainer extends Container {
   private walkthroughOverlay: Graphics | null = null
   private walkthroughRole: WalkthroughNodeRole = 'off'
   private walkthroughTickerFn: ((ticker: Ticker) => void) | null = null
+  private narrativeHighlighted = false
+  private narrativeOverlay: Graphics | null = null
+  private narrativeTickerFn: ((ticker: Ticker) => void) | null = null
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
@@ -497,7 +500,59 @@ export class ComponentContainer extends Container {
     }
     this._syncPosition(node.position)
     this.setWalkthroughVisual(this.walkthroughRole)
+    this.setNarrativeHighlight(this.narrativeHighlighted)
     if (this.selectionOverlay) this.setSelected(true)
+  }
+
+  setNarrativeHighlight(highlighted: boolean): void {
+    if (highlighted === this.narrativeHighlighted && this.narrativeOverlay) return
+    this.narrativeHighlighted = highlighted
+    this._stopNarrativePulse()
+
+    if (this.narrativeOverlay) {
+      this.removeChild(this.narrativeOverlay)
+      this.narrativeOverlay.destroy()
+      this.narrativeOverlay = null
+    }
+
+    if (!highlighted) return
+
+    this.narrativeOverlay = new Graphics()
+    this.narrativeOverlay.eventMode = 'none'
+    this.addChild(this.narrativeOverlay)
+    this._drawNarrativeOverlay(1)
+    this._startNarrativePulse()
+  }
+
+  private _drawNarrativeOverlay(pulse = 1): void {
+    if (!this.narrativeOverlay) return
+    const { x, y, w, h } = this._walkthroughBounds()
+    const g = this.narrativeOverlay
+    g.clear()
+
+    const glow = 0.35 + pulse * 0.4
+    g.roundRect(x, y, w, h, 6).stroke({ color: 0xc4b5fd, width: 3, alpha: glow })
+    g.roundRect(x - 2, y - 2, w + 4, h + 4, 8).stroke({
+      color: 0xa78bfa,
+      width: 6,
+      alpha: 0.1 + pulse * 0.14,
+    })
+  }
+
+  private _startNarrativePulse(): void {
+    if (this.narrativeTickerFn) return
+    this.narrativeTickerFn = () => {
+      if (!this.narrativeHighlighted) return
+      const pulse = 0.45 + Math.sin(Date.now() * 0.004) * 0.15
+      this._drawNarrativeOverlay(pulse)
+    }
+    getApp().ticker.add(this.narrativeTickerFn)
+  }
+
+  private _stopNarrativePulse(): void {
+    if (!this.narrativeTickerFn) return
+    getApp().ticker.remove(this.narrativeTickerFn)
+    this.narrativeTickerFn = null
   }
 
   setWalkthroughVisual(role: WalkthroughNodeRole): void {
@@ -593,6 +648,7 @@ export class ComponentContainer extends Container {
           this._build(node)
           this._updateHitArea()
           this.setWalkthroughVisual(this.walkthroughRole)
+          this.setNarrativeHighlight(this.narrativeHighlighted)
         }
       }
       return
@@ -613,6 +669,7 @@ export class ComponentContainer extends Container {
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
     this._stopWalkthroughPulse()
+    this._stopNarrativePulse()
     this.off('pointerdown', this._onPointerDown)
     this.off('pointertap', this._onPointerTap)
     this.off('pointerover', this._onPointerOver)

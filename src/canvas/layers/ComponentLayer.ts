@@ -7,6 +7,10 @@ import {
   walkthroughNodeRole,
   walkthroughStoreKey,
 } from '../utils/walkthroughVisual'
+import {
+  isNarrativeHighlighted,
+  narrativeStoreKey,
+} from '../utils/narrativeVisual'
 
 function selectionKey(selectedIds: string[]): string {
   return selectedIds.slice().sort().join('|')
@@ -29,13 +33,16 @@ export class ComponentLayer extends Container {
     let prevNodes = initialNodes
     let prevSelectedKey = selectionKey(useCanvasStore.getState().selectedIds)
     let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
+    let prevNarrativeKey = narrativeStoreKey(useCanvasStore.getState())
     this._syncWalkthrough(useCanvasStore.getState())
+    this._syncNarrative(useCanvasStore.getState())
 
     this.unsubscribe = useCanvasStore.subscribe((state) => {
       if (state.nodes !== prevNodes) {
         prevNodes = state.nodes
         this._syncNodes(state.nodes)
         this._syncWalkthrough(state)
+        this._syncNarrative(state)
       }
       const selectedKey = selectionKey(state.selectedIds)
       if (selectedKey !== prevSelectedKey) {
@@ -47,7 +54,18 @@ export class ComponentLayer extends Container {
         prevWalkthroughKey = wtKey
         this._syncWalkthrough(state)
       }
+      const narrativeKey = narrativeStoreKey(state)
+      if (narrativeKey !== prevNarrativeKey) {
+        prevNarrativeKey = narrativeKey
+        this._syncNarrative(state)
+      }
     })
+  }
+
+  private _syncNarrative(state: ReturnType<typeof useCanvasStore.getState>): void {
+    for (const [id, container] of this.containers) {
+      container.setNarrativeHighlight(isNarrativeHighlighted(id, state))
+    }
   }
 
   private _syncWalkthrough(state: ReturnType<typeof useCanvasStore.getState>): void {
@@ -68,6 +86,9 @@ export class ComponentLayer extends Container {
         this.containers.set(id, c)
         this.addChild(c)
         c.setWalkthroughVisual(walkthroughNodeRole(id, useCanvasStore.getState()))
+        c.setNarrativeHighlight(
+          isNarrativeHighlighted(id, useCanvasStore.getState()),
+        )
         if (useCanvasStore.getState().selectedIds.includes(id)) {
           c.setSelected(true)
         }
