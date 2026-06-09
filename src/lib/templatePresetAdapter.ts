@@ -1,5 +1,6 @@
 import type { TemplatePreset } from './api'
 import type { CanvasEdge, CanvasNode, CanvasSnapshot } from '../editor-core/stores/canvasStore'
+import { autoArrangeByDependencyLayers } from './autoArrange'
 
 const CANVAS_NODE_TYPES = new Set<CanvasNode['type']>([
   'load_balancer',
@@ -54,6 +55,14 @@ export function templatePresetToCanvasSnapshot(
       protocol: toCanvasProtocol(e.protocol),
       animated: false,
     })
+  }
+
+  if (nodes.length > 0) {
+    const arranged = autoArrangeByDependencyLayers(nodes, edges)
+    for (const node of nodes) {
+      const pos = arranged[node.id]
+      if (pos) node.position = pos
+    }
   }
 
   return {

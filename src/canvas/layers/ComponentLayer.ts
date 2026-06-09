@@ -3,6 +3,14 @@ import type { Viewport } from 'pixi-viewport'
 import { ComponentContainer } from '../components/ComponentContainer'
 import { requestCanvasFit } from '../utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../../editor-core/stores/canvasStore'
+import {
+  walkthroughNodeRole,
+  walkthroughStoreKey,
+} from '../utils/walkthroughVisual'
+
+function selectionKey(selectedIds: string[]): string {
+  return selectedIds.slice().sort().join('|')
+}
 
 export class ComponentLayer extends Container {
   private readonly viewport: Viewport
@@ -16,21 +24,36 @@ export class ComponentLayer extends Container {
 
     const initialNodes = useCanvasStore.getState().nodes
     this._syncNodes(initialNodes)
-    this._syncSelection(useCanvasStore.getState().selectedId)
+    this._syncMultiSelection(useCanvasStore.getState().selectedIds)
 
     let prevNodes = initialNodes
-    let prevSelectedId = useCanvasStore.getState().selectedId
+    let prevSelectedKey = selectionKey(useCanvasStore.getState().selectedIds)
+    let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
+    this._syncWalkthrough(useCanvasStore.getState())
+
     this.unsubscribe = useCanvasStore.subscribe((state) => {
       if (state.nodes !== prevNodes) {
         prevNodes = state.nodes
         this._syncNodes(state.nodes)
+        this._syncWalkthrough(state)
       }
-      if (state.selectedId !== prevSelectedId) {
-        const oldId = prevSelectedId
-        prevSelectedId = state.selectedId
-        this._syncSelection(state.selectedId, oldId)
+      const selectedKey = selectionKey(state.selectedIds)
+      if (selectedKey !== prevSelectedKey) {
+        prevSelectedKey = selectedKey
+        this._syncMultiSelection(state.selectedIds)
+      }
+      const wtKey = walkthroughStoreKey(state)
+      if (wtKey !== prevWalkthroughKey) {
+        prevWalkthroughKey = wtKey
+        this._syncWalkthrough(state)
       }
     })
+  }
+
+  private _syncWalkthrough(state: ReturnType<typeof useCanvasStore.getState>): void {
+    for (const [id, container] of this.containers) {
+      container.setWalkthroughVisual(walkthroughNodeRole(id, state))
+    }
   }
 
   private _syncNodes(nodes: Record<string, CanvasNode>): void {
@@ -44,7 +67,8 @@ export class ComponentLayer extends Container {
         const c = new ComponentContainer(node, this.viewport)
         this.containers.set(id, c)
         this.addChild(c)
-        if (useCanvasStore.getState().selectedId === id) {
+        c.setWalkthroughVisual(walkthroughNodeRole(id, useCanvasStore.getState()))
+        if (useCanvasStore.getState().selectedIds.includes(id)) {
           c.setSelected(true)
         }
       } else {
@@ -65,15 +89,10 @@ export class ComponentLayer extends Container {
     }
   }
 
-  private _syncSelection(
-    selectedId: string | null,
-    prevSelectedId?: string | null,
-  ): void {
-    if (prevSelectedId) {
-      this.containers.get(prevSelectedId)?.setSelected(false)
-    }
-    if (selectedId) {
-      this.containers.get(selectedId)?.setSelected(true)
+  private _syncMultiSelection(selectedIds: string[]): void {
+    const selected = new Set(selectedIds)
+    for (const [id, container] of this.containers) {
+      container.setSelected(selected.has(id))
     }
   }
 

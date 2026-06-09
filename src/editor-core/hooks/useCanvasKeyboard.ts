@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { dispatchResetCamera } from '../../lib/spawnEvents'
-import { useCanvasStore } from '../stores/canvasStore'
+import { requestCanvasFit } from '../../canvas/utils/canvasFitBridge'
+import { canMutateCanvasTopology, useCanvasStore } from '../stores/canvasStore'
 
 export function useCanvasKeyboard(): void {
   useEffect(() => {
@@ -13,15 +13,20 @@ export function useCanvasKeyboard(): void {
         return
       }
 
+      const state = useCanvasStore.getState()
       const {
-        mode,
         selectedId,
-        removeNode,
+        selectedIds,
+        removeSelectedNodes,
         selectNode,
+        selectAllNodes,
+        undo,
+        redo,
         setPendingSource,
         setPlacingNodeType,
         setDesignTool,
-      } = useCanvasStore.getState()
+      } = state
+      const canEditTopology = canMutateCanvasTopology(state)
 
       if (e.key === 'Escape') {
         selectNode(null)
@@ -49,14 +54,39 @@ export function useCanvasKeyboard(): void {
 
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
-        dispatchResetCamera()
+        requestCanvasFit()
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        if (!canEditTopology) return
+        e.preventDefault()
+        selectAllNodes()
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        if (!canEditTopology) return
+        e.preventDefault()
+        undo()
+        return
+      }
+
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === 'y' || e.key === 'Y' || (e.key === 'z' && e.shiftKey))
+      ) {
+        if (!canEditTopology) return
+        e.preventDefault()
+        redo()
         return
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (mode === 'live' || !selectedId) return
+        if (!canEditTopology) return
+        if (selectedIds.length === 0 && !selectedId) return
         e.preventDefault()
-        removeNode(selectedId)
+        removeSelectedNodes()
       }
     }
 

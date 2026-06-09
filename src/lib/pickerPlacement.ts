@@ -1,12 +1,13 @@
 import { createCanvasNode } from './nodeFactory'
+import { recordCanvasHistory } from './canvasHistory'
 import { APP_SERVER_REPLICA_MAX } from './replicaConfig'
-import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  useCanvasStore,
+  type CanvasNode,
+} from '../editor-core/stores/canvasStore'
 
 const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
   compute: APP_SERVER_REPLICA_MAX,
-  worker: 10,
-  cache: 20,
-  database: 10,
 }
 
 /**
@@ -29,9 +30,9 @@ function distXZ(
 }
 
 /**
- * Places a new node from the picker, unless the user dropped the same
- * component type close enough to an existing node of that type, in which case
- * we increment that node's replica count instead of spawning a duplicate.
+ * Places a new node from the picker. For app servers (`compute`), dropping the
+ * same type close enough to an existing node increments replicas instead of
+ * spawning a duplicate. All other component types always create a new node.
  */
 export function placeFromPicker(params: {
   nodeType: CanvasNode['type']
@@ -63,23 +64,16 @@ export function placeFromPicker(params: {
   }
 
   if (existing && canScaleByReplica(nodeType)) {
-    const maxReplicas = REPLICA_LIMITS[nodeType] ?? 20
-    const current = Number(
-      nodeType === 'database'
-        ? (existing.config.readReplicas ?? 0)
-        : (existing.config.replicas ?? 1)
-    )
+    const maxReplicas = REPLICA_LIMITS[nodeType] ?? APP_SERVER_REPLICA_MAX
+    const current = Number(existing.config.replicas ?? 1)
     const safeCurrent = Number.isFinite(current)
-      ? (nodeType === 'database'
-        ? Math.max(0, Math.floor(current))
-        : Math.max(1, Math.floor(current)))
-      : (nodeType === 'database' ? 0 : 1)
+      ? Math.max(1, Math.floor(current))
+      : 1
     const next = Math.min(maxReplicas, safeCurrent + 1)
     if (next !== safeCurrent) {
-      updateNodeConfig(
-        existing.id,
-        nodeType === 'database' ? { readReplicas: next } : { replicas: next }
-      )
+      const st = useCanvasStore.getState()
+      recordCanvasHistory(st.nodes, st.edges)
+      updateNodeConfig(existing.id, { replicas: next })
     }
     selectNode(existing.id)
     return existing.id

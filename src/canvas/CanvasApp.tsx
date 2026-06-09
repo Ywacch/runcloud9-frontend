@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { type FederatedPointerEvent } from 'pixi.js'
+import { Assets, type FederatedPointerEvent } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
 import { createApp, destroyApp } from './engine/app'
 import { createViewport } from './engine/viewport'
@@ -9,7 +9,7 @@ import { ConnectionPreview } from './layers/ConnectionPreview'
 import { TrafficLayer } from './layers/TrafficLayer'
 import { ComponentLayer } from './layers/ComponentLayer'
 import { screenToIso } from './constants'
-import { isoToNode } from './utils/positionAdapter'
+import { isoToNode, clampIsoCell } from './utils/positionAdapter'
 import {
   registerCanvasFitScheduler,
   unregisterCanvasFitScheduler,
@@ -20,7 +20,25 @@ import {
   shouldFitViewportToNodes,
 } from './utils/viewportFit'
 import { useCanvasStore, type CanvasNode, isCanvasEditMode } from '../editor-core/stores/canvasStore'
-import { createCanvasNode } from '../lib/nodeFactory'
+import { placeFromPicker } from '../lib/pickerPlacement'
+import { SPAWN_AT_SCREEN, type SpawnAtScreenDetail } from '../lib/spawnEvents'
+import { USE_SPRITE_COMPONENTS } from './config/renderMode'
+
+function placePickerNode(
+  nodeType: CanvasNode['type'],
+  position: [number, number, number],
+): void {
+  const state = useCanvasStore.getState()
+  placeFromPicker({
+    nodeType,
+    position,
+    nodes: state.nodes,
+    addNode: state.addNode,
+    updateNodeConfig: state.updateNodeConfig,
+    selectNode: state.selectNode,
+  })
+  state.setPlacingNodeType(null)
+}
 
 const PALETTE_TYPES = new Set<CanvasNode['type']>([
   'load_balancer',
@@ -33,6 +51,22 @@ const PALETTE_TYPES = new Set<CanvasNode['type']>([
 
 function isPaletteNodeType(raw: string): raw is CanvasNode['type'] {
   return PALETTE_TYPES.has(raw as CanvasNode['type'])
+}
+
+function placeAtScreenCoords(
+  viewport: Viewport,
+  canvas: HTMLCanvasElement,
+  clientX: number,
+  clientY: number,
+  nodeType: CanvasNode['type'],
+): void {
+  const rect = canvas.getBoundingClientRect()
+  const canvasX = clientX - rect.left
+  const canvasY = clientY - rect.top
+  const world = viewport.toWorld(canvasX, canvasY)
+  const iso = screenToIso(world.x, world.y)
+  const { col, row } = clampIsoCell(iso.col, iso.row)
+  placePickerNode(nodeType, isoToNode(col, row))
 }
 
 export default function CanvasApp() {
@@ -54,6 +88,13 @@ export default function CanvasApp() {
       if (disposed) {
         destroyApp()
         return
+      }
+      if (USE_SPRITE_COMPONENTS) {
+        await Assets.load('/spritesheets/components.json')
+        if (disposed) {
+          destroyApp()
+          return
+        }
       }
       const viewport = createViewport(app)
       viewportRef.current = viewport
@@ -94,11 +135,9 @@ export default function CanvasApp() {
           if (state.mode === 'live') return
           const world = viewport.toWorld(e.global.x, e.global.y)
           const iso = screenToIso(world.x, world.y)
-          const col = Math.round(iso.col)
-          const row = Math.round(iso.row)
+          const { col, row } = clampIsoCell(iso.col, iso.row)
           const pos = isoToNode(col, row)
-          state.addNode(createCanvasNode(state.placingNodeType, pos, state.nodes))
-          state.setPlacingNodeType(null)
+          placePickerNode(state.placingNodeType, pos)
           return
         }
         if (
@@ -113,11 +152,11 @@ export default function CanvasApp() {
       const grid = new GridLayer(viewport)
       viewport.addChild(grid)
 
-      const connectionLayer = new ConnectionLayer()
-      viewport.addChild(connectionLayer)
-
       const componentLayer = new ComponentLayer(viewport)
       viewport.addChild(componentLayer)
+
+      const connectionLayer = new ConnectionLayer()
+      viewport.addChild(connectionLayer)
 
       const connectionPreview = new ConnectionPreview(viewport)
       viewport.addChild(connectionPreview)
@@ -133,6 +172,14 @@ export default function CanvasApp() {
       if (prevNodeCount > 0) {
         scheduleFit()
       }
+
+      const onSpawnAtScreen = (event: Event) => {
+        const detail = (event as CustomEvent<SpawnAtScreenDetail>).detail
+        if (!detail || !isPaletteNodeType(detail.nodeType)) return
+        if (useCanvasStore.getState().mode === 'live') return
+        placeAtScreenCoords(viewport, canvas, detail.clientX, detail.clientY, detail.nodeType)
+      }
+      window.addEventListener(SPAWN_AT_SCREEN, onSpawnAtScreen)
 
       const unsubStore = useCanvasStore.subscribe((state) => {
         const nextKey = nodeTopologyKey(state.nodes)
@@ -162,6 +209,7 @@ export default function CanvasApp() {
       })
 
       teardown = () => {
+        window.removeEventListener(SPAWN_AT_SCREEN, onSpawnAtScreen)
         unregisterCanvasFitScheduler()
         if (import.meta.env.DEV) {
           delete (window as unknown as { __c9Canvas?: object }).__c9Canvas
@@ -169,8 +217,8 @@ export default function CanvasApp() {
         unsubStore()
         trafficLayer.destroy()
         connectionPreview.destroy()
-        componentLayer.destroy()
         connectionLayer.destroy()
+        componentLayer.destroy()
         grid.destroy()
         viewport.destroy()
         viewportRef.current = null
@@ -202,16 +250,7 @@ export default function CanvasApp() {
         if (!type || !isPaletteNodeType(type)) return
         if (!viewportRef.current || !canvasRef.current) return
         if (useCanvasStore.getState().mode === 'live') return
-        const rect = canvasRef.current.getBoundingClientRect()
-        const canvasX = e.clientX - rect.left
-        const canvasY = e.clientY - rect.top
-        const world = viewportRef.current.toWorld(canvasX, canvasY)
-        const iso = screenToIso(world.x, world.y)
-        const col = Math.round(iso.col)
-        const row = Math.round(iso.row)
-        const pos = isoToNode(col, row)
-        const state = useCanvasStore.getState()
-        state.addNode(createCanvasNode(type, pos, state.nodes))
+        placeAtScreenCoords(viewportRef.current, canvasRef.current, e.clientX, e.clientY, type)
       }}
     >
       <canvas

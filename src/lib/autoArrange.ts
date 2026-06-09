@@ -1,7 +1,8 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
+import { fitStorePositionsToGrid } from '../canvas/utils/positionAdapter'
 
-const X_SPACING = 3.5
-const Z_SPACING = 5.5
+const COL_STEP = 6 // x per layer → iso col step of 3
+const ROW_STEP = 8 // z per sibling → iso row step of 4
 const UPSTREAM_TYPES: Partial<Record<CanvasNode['type'], CanvasNode['type']>> = {
   worker: 'message_queue',
 }
@@ -9,7 +10,7 @@ const UPSTREAM_TYPES: Partial<Record<CanvasNode['type'], CanvasNode['type']>> = 
 function centerSpread(index: number, count: number): number {
   if (count <= 1) return 0
   const mid = (count - 1) / 2
-  return (index - mid) * Z_SPACING
+  return Math.round((index - mid) * ROW_STEP)
 }
 
 function computeDependencyLayers(nodes: CanvasNode[], edges: CanvasEdge[]): Map<string, number> {
@@ -120,9 +121,11 @@ export function autoArrangeByDependencyLayers(
     })
     for (let i = 0; i < bucket.length; i++) {
       const n = bucket[i]
-      positions[n.id] = [layer * X_SPACING, n.position[1], centerSpread(i, bucket.length)]
+      positions[n.id] = [layer * COL_STEP, n.position[1], centerSpread(i, bucket.length)]
     }
   }
+
+  fitStorePositionsToGrid(positions)
 
   return positions
 }

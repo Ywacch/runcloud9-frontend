@@ -38,6 +38,7 @@ function clamp(n: number, min: number, max: number): number {
 export function InspectorPanel() {
   const mode = useCanvasStore((s) => s.mode)
   const selectedId = useCanvasStore((s) => s.selectedId)
+  const selectedIds = useCanvasStore((s) => s.selectedIds)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const selectNode = useCanvasStore((s) => s.selectNode)
@@ -53,7 +54,9 @@ export function InspectorPanel() {
   const storytelling = templateInfo?.storytelling
   const cacheKeyPatterns = templateInfo?.introspection?.cache?.keyPatterns
 
-  const node = selectedId ? (nodes[selectedId] ?? null) : null
+  const inspectorNodeId =
+    selectedIds.length === 1 ? selectedIds[0] : selectedId
+  const node = inspectorNodeId ? (nodes[inspectorNodeId] ?? null) : null
   const roleLabel = useMemo(() => {
     if (!node) return ''
     return resolveRole(
