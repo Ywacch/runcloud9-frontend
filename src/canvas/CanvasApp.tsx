@@ -9,7 +9,7 @@ import { ConnectionPreview } from './layers/ConnectionPreview'
 import { TrafficLayer } from './layers/TrafficLayer'
 import { ComponentLayer } from './layers/ComponentLayer'
 import { screenToIso } from './constants'
-import { isoToNode } from './utils/positionAdapter'
+import { isoToNode, clampIsoCell } from './utils/positionAdapter'
 import {
   registerCanvasFitScheduler,
   unregisterCanvasFitScheduler,
@@ -99,8 +99,7 @@ export default function CanvasApp() {
           if (state.mode === 'live') return
           const world = viewport.toWorld(e.global.x, e.global.y)
           const iso = screenToIso(world.x, world.y)
-          const col = Math.round(iso.col)
-          const row = Math.round(iso.row)
+          const { col, row } = clampIsoCell(iso.col, iso.row)
           const pos = isoToNode(col, row)
           state.addNode(createCanvasNode(state.placingNodeType, pos, state.nodes))
           state.setPlacingNodeType(null)
@@ -118,11 +117,11 @@ export default function CanvasApp() {
       const grid = new GridLayer(viewport)
       viewport.addChild(grid)
 
-      const connectionLayer = new ConnectionLayer()
-      viewport.addChild(connectionLayer)
-
       const componentLayer = new ComponentLayer(viewport)
       viewport.addChild(componentLayer)
+
+      const connectionLayer = new ConnectionLayer()
+      viewport.addChild(connectionLayer)
 
       const connectionPreview = new ConnectionPreview(viewport)
       viewport.addChild(connectionPreview)
@@ -174,8 +173,8 @@ export default function CanvasApp() {
         unsubStore()
         trafficLayer.destroy()
         connectionPreview.destroy()
-        componentLayer.destroy()
         connectionLayer.destroy()
+        componentLayer.destroy()
         grid.destroy()
         viewport.destroy()
         viewportRef.current = null
@@ -212,8 +211,7 @@ export default function CanvasApp() {
         const canvasY = e.clientY - rect.top
         const world = viewportRef.current.toWorld(canvasX, canvasY)
         const iso = screenToIso(world.x, world.y)
-        const col = Math.round(iso.col)
-        const row = Math.round(iso.row)
+        const { col, row } = clampIsoCell(iso.col, iso.row)
         const pos = isoToNode(col, row)
         const state = useCanvasStore.getState()
         state.addNode(createCanvasNode(type, pos, state.nodes))

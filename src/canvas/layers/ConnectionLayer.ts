@@ -5,7 +5,8 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
-import { getConnectionPoint } from '../utils/connectionPoint'
+import { getConnectionPoint, type ConnectionPort } from '../utils/connectionPoint'
+import { getIsoManhattanWaypoints } from '../utils/connectionRoute'
 
 export class ConnectionLayer extends Container {
   private readonly unsubscribe: () => void
@@ -64,39 +65,53 @@ export class ConnectionLayer extends Container {
     }
   }
 
+  private drawPath(
+    g: Graphics,
+    waypoints: { x: number; y: number }[],
+    stroke: { color: number; alpha: number; width: number },
+  ): void {
+    if (waypoints.length < 2) return
+    g.moveTo(waypoints[0].x, waypoints[0].y)
+    for (let i = 1; i < waypoints.length; i++) {
+      g.lineTo(waypoints[i].x, waypoints[i].y)
+    }
+    g.stroke(stroke)
+  }
+
   private drawEdge(
     g: Graphics,
-    sp: { x: number; y: number },
-    tp: { x: number; y: number },
+    sp: ConnectionPort,
+    tp: ConnectionPort,
     edge: CanvasEdge,
     eraseMode: boolean,
   ): void {
-    const color = edge.animated ? 0x9b8cff : 0x6366f1
-    const alpha = edge.animated ? 0.85 : 0.45
+    const color = edge.animated ? 0x00aeef : 0x8892b0
+    const alpha = edge.animated ? 1.0 : 0.7
     const width = edge.animated ? 2 : 1.5
 
-    g.moveTo(sp.x, sp.y)
-    g.lineTo(tp.x, tp.y)
-    g.stroke({ color, alpha, width })
+    const waypoints = getIsoManhattanWaypoints(sp, tp)
 
-    const angle = Math.atan2(tp.y - sp.y, tp.x - sp.x)
-    const len = 10
-    const spread = Math.PI / 6
+    this.drawPath(g, waypoints, { color, alpha, width })
 
-    g.poly([
-      tp.x,
-      tp.y,
-      tp.x - len * Math.cos(angle - spread),
-      tp.y - len * Math.sin(angle - spread),
-      tp.x - len * Math.cos(angle + spread),
-      tp.y - len * Math.sin(angle + spread),
-    ])
-    g.fill({ color, alpha: Math.min(alpha + 0.15, 1) })
+    if (waypoints.length >= 2) {
+      const p1 = waypoints[waypoints.length - 2]
+      const p2 = waypoints[waypoints.length - 1]
+      const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x)
+      const len = 8
+      const spread = Math.PI / 6
+      g.poly([
+        p2.x,
+        p2.y,
+        p2.x - len * Math.cos(angle - spread),
+        p2.y - len * Math.sin(angle - spread),
+        p2.x - len * Math.cos(angle + spread),
+        p2.y - len * Math.sin(angle + spread),
+      ])
+      g.fill({ color, alpha: 1 })
+    }
 
     if (eraseMode) {
-      g.moveTo(sp.x, sp.y)
-      g.lineTo(tp.x, tp.y)
-      g.stroke({ width: 14, alpha: 0.001, color: 0xffffff })
+      this.drawPath(g, waypoints, { width: 14, alpha: 0.001, color: 0xffffff })
       g.eventMode = 'static'
       g.cursor = 'pointer'
       g.on('pointerdown', (e: FederatedPointerEvent) => {

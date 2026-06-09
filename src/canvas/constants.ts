@@ -42,8 +42,3 @@ export function tileTopFacePoly(offsetX = 0, offsetY = 0): number[] {
     oy + TILE_H / 2,
   ]
 }
-
-/** Default edge attachment — bottom center of the top face. */
-export function tileConnectionOffset(): { x: number; y: number } {
-  return { x: TILE_W / 2, y: TILE_H / 2 }
-}

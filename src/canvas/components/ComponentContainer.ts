@@ -12,7 +12,8 @@ import {
 import type { Viewport } from 'pixi-viewport'
 import { TILE_W, TILE_H, isoToScreen, screenToIso, tileTopFacePoly } from '../constants'
 import { COMPONENT_COLORS } from '../config/componentColors'
-import { nodeToIso, isoToNode } from '../utils/positionAdapter'
+import { DEFAULT_SPRITE_LAYOUT, SPRITE_LAYOUT } from '../config/spriteLayout'
+import { nodeToIso, isoToNode, clampIsoCell } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import {
   isCanvasEditMode,
@@ -31,16 +32,6 @@ const ASSET_MAP: Record<string, string> = {
   worker: 'worker',
   'message-queue': 'MQ',
   message_queue: 'MQ',
-}
-
-/** Pivot on texture — sprite base on tile footprint bottom-center (TILE_W/2, TILE_H/2). */
-const ANCHOR_MAP: Record<string, { x: number; y: number }> = {
-  'redis-cache': { x: 0.5, y: 1.0 },
-  database: { x: 0.5, y: 0.98 },
-  lb: { x: 0.5, y: 1.0 },
-  server: { x: 0.5, y: 1.0 },
-  worker: { x: 0.5, y: 1.0 },
-  MQ: { x: 0.5, y: 0.98 },
 }
 
 function getAssetKey(node: CanvasNode): string | null {
@@ -137,24 +128,22 @@ export class ComponentContainer extends Container {
     const assetKey = getAssetKey(node)
 
     const cappedLayers = Math.min(replicas, 3)
-    const seatX = TILE_W / 2
 
     if (assetKey) {
       const texture = Texture.from(assetKey)
-      const anchor = ANCHOR_MAP[assetKey] ?? { x: 0.5, y: 1.0 }
-      const scale = Math.min(
-        TILE_W / texture.width,
-        (TILE_H + sH) / texture.height,
-      )
+      const layout = SPRITE_LAYOUT[assetKey] ?? DEFAULT_SPRITE_LAYOUT
 
       for (let i = cappedLayers - 1; i >= 0; i--) {
-        const ox = i * 7
-        const oy = -i * 7
+        const replicaOffsetX = i * 7
+        const replicaOffsetY = -i * 7
 
         const sprite = new Sprite(texture)
-        sprite.anchor.set(anchor.x, anchor.y)
-        sprite.scale.set(scale)
-        sprite.position.set(seatX + ox, TILE_H / 2 + oy)
+        sprite.anchor.set(layout.anchor.x, layout.anchor.y)
+        sprite.scale.set(layout.scale)
+        sprite.position.set(
+          TILE_W / 2 + layout.offsetX + replicaOffsetX,
+          TILE_H / 2 + layout.offsetY + replicaOffsetY,
+        )
         if (i > 0) {
           const matrix = new ColorMatrixFilter()
           matrix.brightness(0.72, false)
@@ -188,9 +177,16 @@ export class ComponentContainer extends Container {
     this.labelText = new Text({
       text: node.label,
       style: new TextStyle({
-        fontSize: 11,
-        fill: 0xe2e8f0,
+        fontSize: 12,
+        fontWeight: '600',
+        fill: 0xffffff,
         fontFamily: 'Inter, system-ui, sans-serif',
+        dropShadow: {
+          color: 0x000000,
+          alpha: 0.8,
+          blur: 2,
+          distance: 1,
+        },
       }),
     })
     this.labelText.eventMode = 'none'
@@ -218,7 +214,7 @@ export class ComponentContainer extends Container {
     }
 
     this.statusDot = new Graphics()
-    this.statusDot.position.set(TILE_W - 10, -TILE_H / 2 + 4)
+    this.statusDot.position.set(TILE_W + 2, -TILE_H / 2 - sH / 2)
     this._updateStatusDot(node.status)
     this.addChild(this.statusDot)
   }
@@ -333,8 +329,7 @@ export class ComponentContainer extends Container {
     if (!this.isDragging) return
     const world = this.viewport.toWorld(e.global.x, e.global.y)
     const iso = screenToIso(world.x, world.y)
-    const col = Math.round(iso.col)
-    const row = Math.round(iso.row)
+    const { col, row } = clampIsoCell(iso.col, iso.row)
     const snapped = isoToScreen(col, row)
     this.position.set(snapped.x, snapped.y)
     this.zIndex = col + row
@@ -349,8 +344,7 @@ export class ComponentContainer extends Container {
     this.viewport.off('pointerupoutside', this._onDragEnd)
     const world = this.viewport.toWorld(e.global.x, e.global.y)
     const iso = screenToIso(world.x, world.y)
-    const col = Math.round(iso.col)
-    const row = Math.round(iso.row)
+    const { col, row } = clampIsoCell(iso.col, iso.row)
     if (col !== this.dragStartIso.col || row !== this.dragStartIso.row) {
       useCanvasStore.getState().updateNodePosition(this.nodeId, isoToNode(col, row))
     }
@@ -386,8 +380,17 @@ export class ComponentContainer extends Container {
       this.selectionOverlay.destroy()
     }
     const g = new Graphics()
-    g.poly(tileTopFacePoly()).stroke({ color: 0xa78bfa, width: 8, alpha: 0.22, alignment: 0.5 })
-    g.poly(tileTopFacePoly()).stroke({ color: 0xc4b5fd, width: 2.5, alignment: 0.5 })
+    const colors = COMPONENT_COLORS[this._prevType]
+    const sH = colors?.sideHeight ?? 30
+    const pad = 8
+    g.roundRect(
+      -pad,
+      -TILE_H / 2 - sH - pad,
+      TILE_W + pad * 2,
+      TILE_H + sH + 30 + pad * 2,
+      6,
+    )
+    g.stroke({ color: 0x00aeef, width: 2, alpha: 0.8 })
 
     this.selectionOverlay = g
     this.addChild(g)
