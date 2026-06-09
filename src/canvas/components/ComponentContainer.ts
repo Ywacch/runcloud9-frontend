@@ -472,6 +472,9 @@ export class ComponentContainer extends Container {
 
   private _onPointerOver = (): void => {
     const state = useCanvasStore.getState()
+    if (isMetricsViewportMode(state.mode) && !this.isDragging) {
+      state.setHoveredNodeId(this.nodeId)
+    }
     if (!isCanvasEditMode(state.mode) || state.designTool !== 'connect') return
     if (state.pendingSourceId && state.pendingSourceId !== this.nodeId) {
       state.setConnectHoverTargetId(this.nodeId)
@@ -479,12 +482,17 @@ export class ComponentContainer extends Container {
   }
 
   private _onPointerOut = (): void => {
-    if (useCanvasStore.getState().connectHoverTargetId === this.nodeId) {
-      useCanvasStore.getState().setConnectHoverTargetId(null)
+    const state = useCanvasStore.getState()
+    if (state.hoveredNodeId === this.nodeId) {
+      state.setHoveredNodeId(null)
+    }
+    if (state.connectHoverTargetId === this.nodeId) {
+      state.setConnectHoverTargetId(null)
     }
   }
 
   private _beginDrag(e: FederatedPointerEvent): void {
+    useCanvasStore.getState().setHoveredNodeId(null)
     this.isDragging = true
     this._draggedToNewCell = false
     const world = this.viewport.toWorld(e.global.x, e.global.y)

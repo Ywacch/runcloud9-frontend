@@ -15,6 +15,11 @@ import {
   unregisterCanvasFitScheduler,
 } from './utils/canvasFitBridge'
 import {
+  registerCanvasViewport,
+  unregisterCanvasViewport,
+} from './utils/canvasViewportBridge'
+import { CanvasNodeTooltipOverlay } from './CanvasNodeTooltipOverlay'
+import {
   fitViewportToNodes,
   nodeTopologyKey,
   shouldFitViewportToNodes,
@@ -113,6 +118,7 @@ export default function CanvasApp() {
       }
 
       registerCanvasFitScheduler(scheduleFit)
+      registerCanvasViewport(viewport)
 
       if (import.meta.env.DEV) {
         ;(window as unknown as { __c9Canvas?: object }).__c9Canvas = {
@@ -211,6 +217,7 @@ export default function CanvasApp() {
       teardown = () => {
         window.removeEventListener(SPAWN_AT_SCREEN, onSpawnAtScreen)
         unregisterCanvasFitScheduler()
+        unregisterCanvasViewport()
         if (import.meta.env.DEV) {
           delete (window as unknown as { __c9Canvas?: object }).__c9Canvas
         }
@@ -257,6 +264,7 @@ export default function CanvasApp() {
         ref={canvasRef}
         style={{ display: 'block', width: '100%', height: '100%' }}
       />
+      <CanvasNodeTooltipOverlay />
     </div>
   )
 }
