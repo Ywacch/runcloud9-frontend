@@ -21,6 +21,7 @@ import {
 } from './utils/viewportFit'
 import { useCanvasStore, type CanvasNode, isCanvasEditMode } from '../editor-core/stores/canvasStore'
 import { placeFromPicker } from '../lib/pickerPlacement'
+import { SPAWN_AT_SCREEN, type SpawnAtScreenDetail } from '../lib/spawnEvents'
 import { USE_SPRITE_COMPONENTS } from './config/renderMode'
 
 function placePickerNode(
@@ -50,6 +51,22 @@ const PALETTE_TYPES = new Set<CanvasNode['type']>([
 
 function isPaletteNodeType(raw: string): raw is CanvasNode['type'] {
   return PALETTE_TYPES.has(raw as CanvasNode['type'])
+}
+
+function placeAtScreenCoords(
+  viewport: Viewport,
+  canvas: HTMLCanvasElement,
+  clientX: number,
+  clientY: number,
+  nodeType: CanvasNode['type'],
+): void {
+  const rect = canvas.getBoundingClientRect()
+  const canvasX = clientX - rect.left
+  const canvasY = clientY - rect.top
+  const world = viewport.toWorld(canvasX, canvasY)
+  const iso = screenToIso(world.x, world.y)
+  const { col, row } = clampIsoCell(iso.col, iso.row)
+  placePickerNode(nodeType, isoToNode(col, row))
 }
 
 export default function CanvasApp() {
@@ -156,6 +173,14 @@ export default function CanvasApp() {
         scheduleFit()
       }
 
+      const onSpawnAtScreen = (event: Event) => {
+        const detail = (event as CustomEvent<SpawnAtScreenDetail>).detail
+        if (!detail || !isPaletteNodeType(detail.nodeType)) return
+        if (useCanvasStore.getState().mode === 'live') return
+        placeAtScreenCoords(viewport, canvas, detail.clientX, detail.clientY, detail.nodeType)
+      }
+      window.addEventListener(SPAWN_AT_SCREEN, onSpawnAtScreen)
+
       const unsubStore = useCanvasStore.subscribe((state) => {
         const nextKey = nodeTopologyKey(state.nodes)
         const nextCount = Object.keys(state.nodes).length
@@ -184,6 +209,7 @@ export default function CanvasApp() {
       })
 
       teardown = () => {
+        window.removeEventListener(SPAWN_AT_SCREEN, onSpawnAtScreen)
         unregisterCanvasFitScheduler()
         if (import.meta.env.DEV) {
           delete (window as unknown as { __c9Canvas?: object }).__c9Canvas
@@ -224,14 +250,7 @@ export default function CanvasApp() {
         if (!type || !isPaletteNodeType(type)) return
         if (!viewportRef.current || !canvasRef.current) return
         if (useCanvasStore.getState().mode === 'live') return
-        const rect = canvasRef.current.getBoundingClientRect()
-        const canvasX = e.clientX - rect.left
-        const canvasY = e.clientY - rect.top
-        const world = viewportRef.current.toWorld(canvasX, canvasY)
-        const iso = screenToIso(world.x, world.y)
-        const { col, row } = clampIsoCell(iso.col, iso.row)
-        const pos = isoToNode(col, row)
-        placePickerNode(type, pos)
+        placeAtScreenCoords(viewportRef.current, canvasRef.current, e.clientX, e.clientY, type)
       }}
     >
       <canvas
