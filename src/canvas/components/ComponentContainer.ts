@@ -13,7 +13,10 @@ import { COMPONENT_COLORS } from '../config/componentColors'
 import {
   addCollapsedReplicaStack,
   addProceduralSlab,
+  collapsedStackSilhouette,
   collapsedStackTopY,
+  inflatePoly,
+  isoBoxSilhouette,
 } from './proceduralComponent'
 import { nodeToIso, isoToNode, clampIsoCell } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
@@ -28,6 +31,11 @@ import {
   walkthroughNodeAlpha,
   type WalkthroughNodeRole,
 } from '../utils/walkthroughVisual'
+import {
+  healthRimAlpha,
+  healthRimStyle,
+  type HealthVisualState,
+} from '../utils/healthVisual'
 
 const REPLICA_STACK_TYPES = new Set<CanvasNode['type']>([
   'compute',
@@ -81,6 +89,9 @@ export class ComponentContainer extends Container {
   private narrativeHighlighted = false
   private narrativeOverlay: Graphics | null = null
   private narrativeTickerFn: ((ticker: Ticker) => void) | null = null
+  private healthVisual: HealthVisualState = 'off'
+  private healthOverlay: Graphics | null = null
+  private healthTickerFn: ((ticker: Ticker) => void) | null = null
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
@@ -129,6 +140,29 @@ export class ComponentContainer extends Container {
     }
 
     return { x: left, y: top, w: right - left, h: bottom - top }
+  }
+
+  /**
+   * Iso silhouette polygon(s) of the drawn slabs — the health rim traces the
+   * actual box outline rather than a 2D bounding rect. One hexagon for a single
+   * box or collapsed stack; one per tile in the expanded fan.
+   */
+  private _healthRimPolys(): number[][] {
+    const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
+    const layers = this._prevVisualReplicas
+
+    if (this._prevExpanded && layers > 1) {
+      const polys: number[][] = []
+      for (let i = 0; i < layers; i++) {
+        const o = expandedSlotOffset(i)
+        polys.push(isoBoxSilhouette(o.x, o.y, o.y, sH))
+      }
+      return polys
+    }
+    if (layers > 1) {
+      return [collapsedStackSilhouette(this._prevType, layers)]
+    }
+    return [isoBoxSilhouette(0, 0, 0, sH)]
   }
 
   private _updateHitArea(): void {
@@ -501,7 +535,65 @@ export class ComponentContainer extends Container {
     this._syncPosition(node.position)
     this.setWalkthroughVisual(this.walkthroughRole)
     this.setNarrativeHighlight(this.narrativeHighlighted)
+    this.setHealthVisual(this.healthVisual)
     if (this.selectionOverlay) this.setSelected(true)
+  }
+
+  setHealthVisual(state: HealthVisualState): void {
+    const style = healthRimStyle(state)
+    if (state === this.healthVisual && !!style === !!this.healthOverlay) return
+    this.healthVisual = state
+    this._stopHealthPulse()
+
+    if (this.healthOverlay) {
+      this.removeChild(this.healthOverlay)
+      this.healthOverlay.destroy()
+      this.healthOverlay = null
+    }
+
+    if (!style) return
+
+    this.healthOverlay = new Graphics()
+    this.healthOverlay.eventMode = 'none'
+    this.addChild(this.healthOverlay)
+    this._drawHealthOverlay(style, Date.now() / 1000)
+    if (style.pulseSpeed > 0) this._startHealthPulse(style)
+  }
+
+  private _drawHealthOverlay(style: NonNullable<ReturnType<typeof healthRimStyle>>, elapsedSec: number): void {
+    if (!this.healthOverlay) return
+    const alpha = healthRimAlpha(style, elapsedSec)
+    const g = this.healthOverlay
+    g.clear()
+    for (const poly of this._healthRimPolys()) {
+      g.poly(inflatePoly(poly, 4)).stroke({
+        color: style.color,
+        width: 2.5,
+        alpha,
+        join: 'round',
+      })
+      g.poly(inflatePoly(poly, 6)).stroke({
+        color: style.color,
+        width: 5,
+        alpha: alpha * 0.25,
+        join: 'round',
+      })
+    }
+  }
+
+  private _startHealthPulse(style: NonNullable<ReturnType<typeof healthRimStyle>>): void {
+    if (this.healthTickerFn) return
+    this.healthTickerFn = () => {
+      if (!this.healthOverlay) return
+      this._drawHealthOverlay(style, Date.now() / 1000)
+    }
+    getApp().ticker.add(this.healthTickerFn)
+  }
+
+  private _stopHealthPulse(): void {
+    if (!this.healthTickerFn) return
+    getApp().ticker.remove(this.healthTickerFn)
+    this.healthTickerFn = null
   }
 
   setNarrativeHighlight(highlighted: boolean): void {
@@ -649,6 +741,7 @@ export class ComponentContainer extends Container {
           this._updateHitArea()
           this.setWalkthroughVisual(this.walkthroughRole)
           this.setNarrativeHighlight(this.narrativeHighlighted)
+          this.setHealthVisual(this.healthVisual)
         }
       }
       return
@@ -670,6 +763,7 @@ export class ComponentContainer extends Container {
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
     this._stopWalkthroughPulse()
     this._stopNarrativePulse()
+    this._stopHealthPulse()
     this.off('pointerdown', this._onPointerDown)
     this.off('pointertap', this._onPointerTap)
     this.off('pointerover', this._onPointerOver)

@@ -3,6 +3,8 @@ import type { Viewport } from 'pixi-viewport'
 import { ComponentContainer } from '../components/ComponentContainer'
 import { requestCanvasFit } from '../utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../../editor-core/stores/metricsStore'
+import { useChaosStore } from '../../editor-core/stores/chaosStore'
 import {
   walkthroughNodeRole,
   walkthroughStoreKey,
@@ -11,6 +13,10 @@ import {
   isNarrativeHighlighted,
   narrativeStoreKey,
 } from '../utils/narrativeVisual'
+import {
+  isChaosActiveForNode,
+  resolveHealthVisual,
+} from '../utils/healthVisual'
 
 function selectionKey(selectedIds: string[]): string {
   return selectedIds.slice().sort().join('|')
@@ -19,7 +25,9 @@ function selectionKey(selectedIds: string[]): string {
 export class ComponentLayer extends Container {
   private readonly viewport: Viewport
   private readonly containers = new Map<string, ComponentContainer>()
-  private readonly unsubscribe: () => void
+  private readonly unsubscribeCanvas: () => void
+  private readonly unsubscribeMetrics: () => void
+  private readonly unsubscribeChaos: () => void
 
   constructor(viewport: Viewport) {
     super()
@@ -34,15 +42,21 @@ export class ComponentLayer extends Container {
     let prevSelectedKey = selectionKey(useCanvasStore.getState().selectedIds)
     let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
     let prevNarrativeKey = narrativeStoreKey(useCanvasStore.getState())
+    let prevMode = useCanvasStore.getState().mode
     this._syncWalkthrough(useCanvasStore.getState())
     this._syncNarrative(useCanvasStore.getState())
+    this._syncHealth()
 
-    this.unsubscribe = useCanvasStore.subscribe((state) => {
+    this.unsubscribeCanvas = useCanvasStore.subscribe((state) => {
       if (state.nodes !== prevNodes) {
         prevNodes = state.nodes
         this._syncNodes(state.nodes)
         this._syncWalkthrough(state)
         this._syncNarrative(state)
+        this._syncHealth()
+      } else if (state.mode !== prevMode) {
+        prevMode = state.mode
+        this._syncHealth()
       }
       const selectedKey = selectionKey(state.selectedIds)
       if (selectedKey !== prevSelectedKey) {
@@ -60,6 +74,29 @@ export class ComponentLayer extends Container {
         this._syncNarrative(state)
       }
     })
+
+    this.unsubscribeMetrics = useMetricsStore.subscribe((state, prev) => {
+      if (state.metrics !== prev.metrics) this._syncHealth()
+    })
+
+    this.unsubscribeChaos = useChaosStore.subscribe(() => {
+      this._syncHealth()
+    })
+  }
+
+  private _syncHealth(): void {
+    const canvas = useCanvasStore.getState()
+    const metrics = useMetricsStore.getState().metrics
+    const isTargetActive = useChaosStore.getState().isTargetActive
+
+    for (const [id, container] of this.containers) {
+      const node = canvas.nodes[id]
+      if (!node) continue
+      const chaosActive = isChaosActiveForNode(node, isTargetActive)
+      container.setHealthVisual(
+        resolveHealthVisual(node, metrics[id], canvas.mode, chaosActive),
+      )
+    }
   }
 
   private _syncNarrative(state: ReturnType<typeof useCanvasStore.getState>): void {
@@ -85,11 +122,20 @@ export class ComponentLayer extends Container {
         const c = new ComponentContainer(node, this.viewport)
         this.containers.set(id, c)
         this.addChild(c)
-        c.setWalkthroughVisual(walkthroughNodeRole(id, useCanvasStore.getState()))
-        c.setNarrativeHighlight(
-          isNarrativeHighlighted(id, useCanvasStore.getState()),
+        const canvas = useCanvasStore.getState()
+        c.setWalkthroughVisual(walkthroughNodeRole(id, canvas))
+        c.setNarrativeHighlight(isNarrativeHighlighted(id, canvas))
+        const metrics = useMetricsStore.getState().metrics
+        const isTargetActive = useChaosStore.getState().isTargetActive
+        c.setHealthVisual(
+          resolveHealthVisual(
+            node,
+            metrics[id],
+            canvas.mode,
+            isChaosActiveForNode(node, isTargetActive),
+          ),
         )
-        if (useCanvasStore.getState().selectedIds.includes(id)) {
+        if (canvas.selectedIds.includes(id)) {
           c.setSelected(true)
         }
       } else {
@@ -118,7 +164,9 @@ export class ComponentLayer extends Container {
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
-    this.unsubscribe()
+    this.unsubscribeCanvas()
+    this.unsubscribeMetrics()
+    this.unsubscribeChaos()
     if (options) {
       super.destroy(options)
     } else {
