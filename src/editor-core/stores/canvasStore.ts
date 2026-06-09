@@ -136,6 +136,8 @@ interface CanvasState {
   walkthroughHighlightedEdgeIds: string[]
   /** Walkthrough: nodes on the journey path (others are dimmed). */
   walkthroughParticipatingNodeIds: string[]
+  /** Live/sim: node under the pointer (metrics tooltip). */
+  hoveredNodeId: string | null
 
   addNode: (node: CanvasNode) => void
   updateNodePosition: (id: string, pos: [number, number, number]) => void
@@ -148,6 +150,7 @@ interface CanvasState {
   removeEdge: (id: string) => void
   setPendingSource: (id: string | null) => void
   setConnectHoverTargetId: (id: string | null) => void
+  setHoveredNodeId: (id: string | null) => void
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
@@ -225,6 +228,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   walkthroughVisitedNodeIds: [],
   walkthroughHighlightedEdgeIds: [],
   walkthroughParticipatingNodeIds: [],
+  hoveredNodeId: null,
 
   addNode: (node) =>
     set((s) => {
@@ -283,6 +287,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         selectedId: s.selectedId === id ? null : s.selectedId,
         selectedIds: s.selectedIds.filter((sid) => sid !== id),
         pendingSourceId: s.pendingSourceId === id ? null : s.pendingSourceId,
+        hoveredNodeId: s.hoveredNodeId === id ? null : s.hoveredNodeId,
       }
     }),
 
@@ -351,6 +356,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setConnectHoverTargetId: (connectHoverTargetId) => set({ connectHoverTargetId }),
 
+  setHoveredNodeId: (hoveredNodeId) => set({ hoveredNodeId }),
+
   setEdgeAnimated: (id, animated) =>
     set((s) => {
       const e = s.edges[id]
@@ -377,6 +384,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setMode: (next) =>
     set({
       mode: next,
+      hoveredNodeId: null,
       ...(next === 'live' || next === 'simulate'
         ? {
             pendingSourceId: null,
@@ -434,6 +442,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughVisitedNodeIds: [],
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
+      hoveredNodeId: null,
     }),
 
   setAllEdgesAnimated: (animated) =>
@@ -495,6 +504,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughVisitedNodeIds: [],
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
+      hoveredNodeId: null,
     })
     resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
   },
@@ -522,6 +532,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughVisitedNodeIds: [],
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
+      hoveredNodeId: null,
     })
     resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
   },
@@ -549,6 +560,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughVisitedNodeIds: [],
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
+      hoveredNodeId: null,
     })
     resetDesignStorytellingUi({ syncPredictions: true })
   },
@@ -576,6 +588,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughVisitedNodeIds: [],
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
+      hoveredNodeId: null,
     })
   },
 }))

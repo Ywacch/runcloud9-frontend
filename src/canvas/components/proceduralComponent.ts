@@ -85,6 +85,60 @@ export function collapsedStackTopY(
   return collapsedSlabOy(layers - 1) - TILE_H / 2
 }
 
+/**
+ * Hexagonal screen-space silhouette of an iso box (or vertical stack of them).
+ * `topOy` is the anchor of the rear/top box, `bottomOy` of the front/base box;
+ * pass the same value for a single box. Stacked boxes share x, so the union
+ * outline is just "top diamond of the top box + bottom V of the base box".
+ */
+export function isoBoxSilhouette(
+  ox: number,
+  topOy: number,
+  bottomOy: number,
+  sH: number,
+): number[] {
+  return [
+    ox, topOy,
+    ox + TILE_W / 2, topOy - TILE_H / 2,
+    ox + TILE_W, topOy,
+    ox + TILE_W, bottomOy + sH,
+    ox + TILE_W / 2, bottomOy + TILE_H / 2 + sH,
+    ox, bottomOy + sH,
+  ]
+}
+
+/** Silhouette of the collapsed replica stack drawn by addCollapsedReplicaStack. */
+export function collapsedStackSilhouette(
+  type: CanvasNode['type'],
+  layers: number,
+): number[] {
+  const sH = COMPONENT_COLORS[type].sideHeight
+  const topOy = layers > 1 ? collapsedSlabOy(layers - 1) : 0
+  return isoBoxSilhouette(0, topOy, 0, sH)
+}
+
+/** Push each vertex radially out from the centroid (uniform visual pad). */
+export function inflatePoly(points: number[], amount: number): number[] {
+  const n = points.length / 2
+  let cx = 0
+  let cy = 0
+  for (let i = 0; i < points.length; i += 2) {
+    cx += points[i]
+    cy += points[i + 1]
+  }
+  cx /= n
+  cy /= n
+
+  const out: number[] = []
+  for (let i = 0; i < points.length; i += 2) {
+    const dx = points[i] - cx
+    const dy = points[i + 1] - cy
+    const len = Math.hypot(dx, dy) || 1
+    out.push(points[i] + (dx / len) * amount, points[i + 1] + (dy / len) * amount)
+  }
+  return out
+}
+
 function drawTypeGlyph(
   g: Graphics,
   type: CanvasNode['type'],

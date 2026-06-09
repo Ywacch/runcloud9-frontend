@@ -115,3 +115,8 @@ export function positionOnPath(route: PathRoute, t: number): Point2D {
 
   return route.waypoints[route.waypoints.length - 1]
 }
+
+/** Midpoint along the routed polyline (for protocol labels). */
+export function midpointAlongWaypoints(waypoints: Point2D[]): Point2D {
+  return positionOnPath(buildPathRoute(waypoints), 0.5)
+}

@@ -3,10 +3,24 @@ import type { Viewport } from 'pixi-viewport'
 import { ComponentContainer } from '../components/ComponentContainer'
 import { requestCanvasFit } from '../utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../../editor-core/stores/metricsStore'
+import { useChaosStore } from '../../editor-core/stores/chaosStore'
 import {
   walkthroughNodeRole,
   walkthroughStoreKey,
 } from '../utils/walkthroughVisual'
+import {
+  isNarrativeHighlighted,
+  narrativeStoreKey,
+} from '../utils/narrativeVisual'
+import {
+  isChaosActiveForNode,
+  resolveHealthVisual,
+} from '../utils/healthVisual'
+import {
+  connectNodeRole,
+  connectStoreKey,
+} from '../utils/connectVisual'
 
 function selectionKey(selectedIds: string[]): string {
   return selectedIds.slice().sort().join('|')
@@ -15,7 +29,9 @@ function selectionKey(selectedIds: string[]): string {
 export class ComponentLayer extends Container {
   private readonly viewport: Viewport
   private readonly containers = new Map<string, ComponentContainer>()
-  private readonly unsubscribe: () => void
+  private readonly unsubscribeCanvas: () => void
+  private readonly unsubscribeMetrics: () => void
+  private readonly unsubscribeChaos: () => void
 
   constructor(viewport: Viewport) {
     super()
@@ -29,13 +45,24 @@ export class ComponentLayer extends Container {
     let prevNodes = initialNodes
     let prevSelectedKey = selectionKey(useCanvasStore.getState().selectedIds)
     let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
+    let prevNarrativeKey = narrativeStoreKey(useCanvasStore.getState())
+    let prevMode = useCanvasStore.getState().mode
+    let prevConnectKey = connectStoreKey(useCanvasStore.getState())
     this._syncWalkthrough(useCanvasStore.getState())
+    this._syncNarrative(useCanvasStore.getState())
+    this._syncHealth()
+    this._syncConnect(useCanvasStore.getState())
 
-    this.unsubscribe = useCanvasStore.subscribe((state) => {
+    this.unsubscribeCanvas = useCanvasStore.subscribe((state) => {
       if (state.nodes !== prevNodes) {
         prevNodes = state.nodes
         this._syncNodes(state.nodes)
         this._syncWalkthrough(state)
+        this._syncNarrative(state)
+        this._syncHealth()
+      } else if (state.mode !== prevMode) {
+        prevMode = state.mode
+        this._syncHealth()
       }
       const selectedKey = selectionKey(state.selectedIds)
       if (selectedKey !== prevSelectedKey) {
@@ -47,12 +74,57 @@ export class ComponentLayer extends Container {
         prevWalkthroughKey = wtKey
         this._syncWalkthrough(state)
       }
+      const narrativeKey = narrativeStoreKey(state)
+      if (narrativeKey !== prevNarrativeKey) {
+        prevNarrativeKey = narrativeKey
+        this._syncNarrative(state)
+      }
+      const connectKey = connectStoreKey(state)
+      if (connectKey !== prevConnectKey) {
+        prevConnectKey = connectKey
+        this._syncConnect(state)
+      }
     })
+
+    this.unsubscribeMetrics = useMetricsStore.subscribe((state, prev) => {
+      if (state.metrics !== prev.metrics) this._syncHealth()
+    })
+
+    this.unsubscribeChaos = useChaosStore.subscribe(() => {
+      this._syncHealth()
+    })
+  }
+
+  private _syncHealth(): void {
+    const canvas = useCanvasStore.getState()
+    const metrics = useMetricsStore.getState().metrics
+    const isTargetActive = useChaosStore.getState().isTargetActive
+
+    for (const [id, container] of this.containers) {
+      const node = canvas.nodes[id]
+      if (!node) continue
+      const chaosActive = isChaosActiveForNode(node, isTargetActive)
+      container.setHealthVisual(
+        resolveHealthVisual(node, metrics[id], canvas.mode, chaosActive),
+      )
+    }
+  }
+
+  private _syncNarrative(state: ReturnType<typeof useCanvasStore.getState>): void {
+    for (const [id, container] of this.containers) {
+      container.setNarrativeHighlight(isNarrativeHighlighted(id, state))
+    }
   }
 
   private _syncWalkthrough(state: ReturnType<typeof useCanvasStore.getState>): void {
     for (const [id, container] of this.containers) {
       container.setWalkthroughVisual(walkthroughNodeRole(id, state))
+    }
+  }
+
+  private _syncConnect(state: ReturnType<typeof useCanvasStore.getState>): void {
+    for (const [id, container] of this.containers) {
+      container.setConnectVisual(connectNodeRole(id, state))
     }
   }
 
@@ -67,10 +139,23 @@ export class ComponentLayer extends Container {
         const c = new ComponentContainer(node, this.viewport)
         this.containers.set(id, c)
         this.addChild(c)
-        c.setWalkthroughVisual(walkthroughNodeRole(id, useCanvasStore.getState()))
-        if (useCanvasStore.getState().selectedIds.includes(id)) {
+        const canvas = useCanvasStore.getState()
+        c.setWalkthroughVisual(walkthroughNodeRole(id, canvas))
+        c.setNarrativeHighlight(isNarrativeHighlighted(id, canvas))
+        const metrics = useMetricsStore.getState().metrics
+        const isTargetActive = useChaosStore.getState().isTargetActive
+        c.setHealthVisual(
+          resolveHealthVisual(
+            node,
+            metrics[id],
+            canvas.mode,
+            isChaosActiveForNode(node, isTargetActive),
+          ),
+        )
+        if (canvas.selectedIds.includes(id)) {
           c.setSelected(true)
         }
+        c.setConnectVisual(connectNodeRole(id, canvas))
       } else {
         existing.syncNode(node)
       }
@@ -97,7 +182,9 @@ export class ComponentLayer extends Container {
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
-    this.unsubscribe()
+    this.unsubscribeCanvas()
+    this.unsubscribeMetrics()
+    this.unsubscribeChaos()
     if (options) {
       super.destroy(options)
     } else {

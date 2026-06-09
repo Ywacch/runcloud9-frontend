@@ -13,7 +13,10 @@ import { COMPONENT_COLORS } from '../config/componentColors'
 import {
   addCollapsedReplicaStack,
   addProceduralSlab,
+  collapsedStackSilhouette,
   collapsedStackTopY,
+  inflatePoly,
+  isoBoxSilhouette,
 } from './proceduralComponent'
 import { nodeToIso, isoToNode, clampIsoCell } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
@@ -28,6 +31,12 @@ import {
   walkthroughNodeAlpha,
   type WalkthroughNodeRole,
 } from '../utils/walkthroughVisual'
+import {
+  healthRimAlpha,
+  healthRimStyle,
+  type HealthVisualState,
+} from '../utils/healthVisual'
+import { type ConnectNodeRole } from '../utils/connectVisual'
 
 const REPLICA_STACK_TYPES = new Set<CanvasNode['type']>([
   'compute',
@@ -78,6 +87,15 @@ export class ComponentContainer extends Container {
   private walkthroughOverlay: Graphics | null = null
   private walkthroughRole: WalkthroughNodeRole = 'off'
   private walkthroughTickerFn: ((ticker: Ticker) => void) | null = null
+  private narrativeHighlighted = false
+  private narrativeOverlay: Graphics | null = null
+  private narrativeTickerFn: ((ticker: Ticker) => void) | null = null
+  private healthVisual: HealthVisualState = 'off'
+  private healthOverlay: Graphics | null = null
+  private healthTickerFn: ((ticker: Ticker) => void) | null = null
+  private connectRole: ConnectNodeRole = 'off'
+  private connectOverlay: Graphics | null = null
+  private connectTickerFn: ((ticker: Ticker) => void) | null = null
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
@@ -126,6 +144,29 @@ export class ComponentContainer extends Container {
     }
 
     return { x: left, y: top, w: right - left, h: bottom - top }
+  }
+
+  /**
+   * Iso silhouette polygon(s) of the drawn slabs — the health rim traces the
+   * actual box outline rather than a 2D bounding rect. One hexagon for a single
+   * box or collapsed stack; one per tile in the expanded fan.
+   */
+  private _healthRimPolys(): number[][] {
+    const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
+    const layers = this._prevVisualReplicas
+
+    if (this._prevExpanded && layers > 1) {
+      const polys: number[][] = []
+      for (let i = 0; i < layers; i++) {
+        const o = expandedSlotOffset(i)
+        polys.push(isoBoxSilhouette(o.x, o.y, o.y, sH))
+      }
+      return polys
+    }
+    if (layers > 1) {
+      return [collapsedStackSilhouette(this._prevType, layers)]
+    }
+    return [isoBoxSilhouette(0, 0, 0, sH)]
   }
 
   private _updateHitArea(): void {
@@ -431,6 +472,9 @@ export class ComponentContainer extends Container {
 
   private _onPointerOver = (): void => {
     const state = useCanvasStore.getState()
+    if (isMetricsViewportMode(state.mode) && !this.isDragging) {
+      state.setHoveredNodeId(this.nodeId)
+    }
     if (!isCanvasEditMode(state.mode) || state.designTool !== 'connect') return
     if (state.pendingSourceId && state.pendingSourceId !== this.nodeId) {
       state.setConnectHoverTargetId(this.nodeId)
@@ -438,12 +482,17 @@ export class ComponentContainer extends Container {
   }
 
   private _onPointerOut = (): void => {
-    if (useCanvasStore.getState().connectHoverTargetId === this.nodeId) {
-      useCanvasStore.getState().setConnectHoverTargetId(null)
+    const state = useCanvasStore.getState()
+    if (state.hoveredNodeId === this.nodeId) {
+      state.setHoveredNodeId(null)
+    }
+    if (state.connectHoverTargetId === this.nodeId) {
+      state.setConnectHoverTargetId(null)
     }
   }
 
   private _beginDrag(e: FederatedPointerEvent): void {
+    useCanvasStore.getState().setHoveredNodeId(null)
     this.isDragging = true
     this._draggedToNewCell = false
     const world = this.viewport.toWorld(e.global.x, e.global.y)
@@ -497,7 +546,192 @@ export class ComponentContainer extends Container {
     }
     this._syncPosition(node.position)
     this.setWalkthroughVisual(this.walkthroughRole)
+    this.setNarrativeHighlight(this.narrativeHighlighted)
+    this.setHealthVisual(this.healthVisual)
+    this.setConnectVisual(this.connectRole)
     if (this.selectionOverlay) this.setSelected(true)
+  }
+
+  setConnectVisual(role: ConnectNodeRole): void {
+    if (role === this.connectRole && (role === 'off' ? !this.connectOverlay : !!this.connectOverlay)) {
+      return
+    }
+    this.connectRole = role
+    this._stopConnectPulse()
+
+    if (this.connectOverlay) {
+      this.removeChild(this.connectOverlay)
+      this.connectOverlay.destroy()
+      this.connectOverlay = null
+    }
+
+    if (role === 'off') return
+
+    this.connectOverlay = new Graphics()
+    this.connectOverlay.eventMode = 'none'
+    this.addChild(this.connectOverlay)
+    this._drawConnectOverlay(role, Date.now() / 1000)
+    if (role === 'pendingSource') this._startConnectPulse()
+  }
+
+  private _drawConnectOverlay(role: Exclude<ConnectNodeRole, 'off'>, elapsedSec: number): void {
+    if (!this.connectOverlay) return
+    const g = this.connectOverlay
+    g.clear()
+
+    const color = 0x4a90d9
+    const alpha =
+      role === 'pendingSource'
+        ? 0.42 + Math.sin(elapsedSec * 3) * 0.28
+        : 0.55
+
+    for (const poly of this._healthRimPolys()) {
+      if (role === 'pendingSource') {
+        g.poly(inflatePoly(poly, 6)).stroke({
+          color,
+          width: 3,
+          alpha,
+          join: 'round',
+        })
+        continue
+      }
+
+      g.poly(inflatePoly(poly, 5)).stroke({
+        color,
+        width: 2.5,
+        alpha,
+        join: 'round',
+      })
+      g.poly(inflatePoly(poly, 8)).stroke({
+        color,
+        width: 4,
+        alpha: 0.15,
+        join: 'round',
+      })
+    }
+  }
+
+  private _startConnectPulse(): void {
+    if (this.connectTickerFn) return
+    this.connectTickerFn = () => {
+      if (this.connectRole !== 'pendingSource' || !this.connectOverlay) return
+      this._drawConnectOverlay('pendingSource', Date.now() / 1000)
+    }
+    getApp().ticker.add(this.connectTickerFn)
+  }
+
+  private _stopConnectPulse(): void {
+    if (!this.connectTickerFn) return
+    getApp().ticker.remove(this.connectTickerFn)
+    this.connectTickerFn = null
+  }
+
+  setHealthVisual(state: HealthVisualState): void {
+    const style = healthRimStyle(state)
+    if (state === this.healthVisual && !!style === !!this.healthOverlay) return
+    this.healthVisual = state
+    this._stopHealthPulse()
+
+    if (this.healthOverlay) {
+      this.removeChild(this.healthOverlay)
+      this.healthOverlay.destroy()
+      this.healthOverlay = null
+    }
+
+    if (!style) return
+
+    this.healthOverlay = new Graphics()
+    this.healthOverlay.eventMode = 'none'
+    this.addChild(this.healthOverlay)
+    this._drawHealthOverlay(style, Date.now() / 1000)
+    if (style.pulseSpeed > 0) this._startHealthPulse(style)
+  }
+
+  private _drawHealthOverlay(style: NonNullable<ReturnType<typeof healthRimStyle>>, elapsedSec: number): void {
+    if (!this.healthOverlay) return
+    const alpha = healthRimAlpha(style, elapsedSec)
+    const g = this.healthOverlay
+    g.clear()
+    for (const poly of this._healthRimPolys()) {
+      g.poly(inflatePoly(poly, 4)).stroke({
+        color: style.color,
+        width: 2.5,
+        alpha,
+        join: 'round',
+      })
+      g.poly(inflatePoly(poly, 6)).stroke({
+        color: style.color,
+        width: 5,
+        alpha: alpha * 0.25,
+        join: 'round',
+      })
+    }
+  }
+
+  private _startHealthPulse(style: NonNullable<ReturnType<typeof healthRimStyle>>): void {
+    if (this.healthTickerFn) return
+    this.healthTickerFn = () => {
+      if (!this.healthOverlay) return
+      this._drawHealthOverlay(style, Date.now() / 1000)
+    }
+    getApp().ticker.add(this.healthTickerFn)
+  }
+
+  private _stopHealthPulse(): void {
+    if (!this.healthTickerFn) return
+    getApp().ticker.remove(this.healthTickerFn)
+    this.healthTickerFn = null
+  }
+
+  setNarrativeHighlight(highlighted: boolean): void {
+    if (highlighted === this.narrativeHighlighted && this.narrativeOverlay) return
+    this.narrativeHighlighted = highlighted
+    this._stopNarrativePulse()
+
+    if (this.narrativeOverlay) {
+      this.removeChild(this.narrativeOverlay)
+      this.narrativeOverlay.destroy()
+      this.narrativeOverlay = null
+    }
+
+    if (!highlighted) return
+
+    this.narrativeOverlay = new Graphics()
+    this.narrativeOverlay.eventMode = 'none'
+    this.addChild(this.narrativeOverlay)
+    this._drawNarrativeOverlay(1)
+    this._startNarrativePulse()
+  }
+
+  private _drawNarrativeOverlay(pulse = 1): void {
+    if (!this.narrativeOverlay) return
+    const { x, y, w, h } = this._walkthroughBounds()
+    const g = this.narrativeOverlay
+    g.clear()
+
+    const glow = 0.35 + pulse * 0.4
+    g.roundRect(x, y, w, h, 6).stroke({ color: 0xc4b5fd, width: 3, alpha: glow })
+    g.roundRect(x - 2, y - 2, w + 4, h + 4, 8).stroke({
+      color: 0xa78bfa,
+      width: 6,
+      alpha: 0.1 + pulse * 0.14,
+    })
+  }
+
+  private _startNarrativePulse(): void {
+    if (this.narrativeTickerFn) return
+    this.narrativeTickerFn = () => {
+      if (!this.narrativeHighlighted) return
+      const pulse = 0.45 + Math.sin(Date.now() * 0.004) * 0.15
+      this._drawNarrativeOverlay(pulse)
+    }
+    getApp().ticker.add(this.narrativeTickerFn)
+  }
+
+  private _stopNarrativePulse(): void {
+    if (!this.narrativeTickerFn) return
+    getApp().ticker.remove(this.narrativeTickerFn)
+    this.narrativeTickerFn = null
   }
 
   setWalkthroughVisual(role: WalkthroughNodeRole): void {
@@ -593,6 +827,9 @@ export class ComponentContainer extends Container {
           this._build(node)
           this._updateHitArea()
           this.setWalkthroughVisual(this.walkthroughRole)
+          this.setNarrativeHighlight(this.narrativeHighlighted)
+          this.setHealthVisual(this.healthVisual)
+          this.setConnectVisual(this.connectRole)
         }
       }
       return
@@ -613,6 +850,9 @@ export class ComponentContainer extends Container {
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
     this._stopWalkthroughPulse()
+    this._stopNarrativePulse()
+    this._stopHealthPulse()
+    this._stopConnectPulse()
     this.off('pointerdown', this._onPointerDown)
     this.off('pointertap', this._onPointerTap)
     this.off('pointerover', this._onPointerOver)
