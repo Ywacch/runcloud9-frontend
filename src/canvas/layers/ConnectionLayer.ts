@@ -3,7 +3,6 @@ import {
   isCanvasEditMode,
   useCanvasStore,
   type CanvasEdge,
-  type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
 import { getConnectionPoint, type ConnectionPort } from '../utils/connectionPoint'
 import { getIsoManhattanWaypoints } from '../utils/connectionRoute'
