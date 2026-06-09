@@ -17,6 +17,10 @@ import {
   isChaosActiveForNode,
   resolveHealthVisual,
 } from '../utils/healthVisual'
+import {
+  connectNodeRole,
+  connectStoreKey,
+} from '../utils/connectVisual'
 
 function selectionKey(selectedIds: string[]): string {
   return selectedIds.slice().sort().join('|')
@@ -43,9 +47,11 @@ export class ComponentLayer extends Container {
     let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
     let prevNarrativeKey = narrativeStoreKey(useCanvasStore.getState())
     let prevMode = useCanvasStore.getState().mode
+    let prevConnectKey = connectStoreKey(useCanvasStore.getState())
     this._syncWalkthrough(useCanvasStore.getState())
     this._syncNarrative(useCanvasStore.getState())
     this._syncHealth()
+    this._syncConnect(useCanvasStore.getState())
 
     this.unsubscribeCanvas = useCanvasStore.subscribe((state) => {
       if (state.nodes !== prevNodes) {
@@ -72,6 +78,11 @@ export class ComponentLayer extends Container {
       if (narrativeKey !== prevNarrativeKey) {
         prevNarrativeKey = narrativeKey
         this._syncNarrative(state)
+      }
+      const connectKey = connectStoreKey(state)
+      if (connectKey !== prevConnectKey) {
+        prevConnectKey = connectKey
+        this._syncConnect(state)
       }
     })
 
@@ -111,6 +122,12 @@ export class ComponentLayer extends Container {
     }
   }
 
+  private _syncConnect(state: ReturnType<typeof useCanvasStore.getState>): void {
+    for (const [id, container] of this.containers) {
+      container.setConnectVisual(connectNodeRole(id, state))
+    }
+  }
+
   private _syncNodes(nodes: Record<string, CanvasNode>): void {
     let added = 0
     let removed = 0
@@ -138,6 +155,7 @@ export class ComponentLayer extends Container {
         if (canvas.selectedIds.includes(id)) {
           c.setSelected(true)
         }
+        c.setConnectVisual(connectNodeRole(id, canvas))
       } else {
         existing.syncNode(node)
       }

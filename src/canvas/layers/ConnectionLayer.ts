@@ -1,13 +1,21 @@
-import { Container, Graphics, type FederatedPointerEvent } from 'pixi.js'
+import { Container, Graphics, Text, TextStyle, type FederatedPointerEvent } from 'pixi.js'
+import { getCacheTopologyEdgeIssues } from '../../lib/cacheTopologyStrategy'
 import {
   isCanvasEditMode,
   useCanvasStore,
   type CanvasEdge,
 } from '../../editor-core/stores/canvasStore'
 import { getConnectionPoint, type ConnectionPort } from '../utils/connectionPoint'
-import { getIsoManhattanWaypoints } from '../utils/connectionRoute'
 import {
-  walkthroughEdgeStyle,
+  protocolBadgeFill,
+  protocolLabel,
+  resolveConnectionEdgeStyle,
+} from '../utils/connectionEdgeStyle'
+import {
+  getIsoManhattanWaypoints,
+  midpointAlongWaypoints,
+} from '../utils/connectionRoute'
+import {
   walkthroughStoreKey,
 } from '../utils/walkthroughVisual'
 
@@ -53,6 +61,7 @@ export class ConnectionLayer extends Container {
 
     const eraseMode =
       isCanvasEditMode(state.mode) && state.designTool === 'erase'
+    const topologyIssues = getCacheTopologyEdgeIssues(state.nodes, state.edges)
 
     for (const edge of Object.values(state.edges)) {
       const src = state.nodes[edge.sourceId]
@@ -61,9 +70,24 @@ export class ConnectionLayer extends Container {
 
       const sp = getConnectionPoint(src)
       const tp = getConnectionPoint(tgt)
+      const waypoints = getIsoManhattanWaypoints(sp, tp)
+      const topologyIssue = topologyIssues[edge.id]
+
+      const edgeContainer = new Container()
       const g = new Graphics()
-      this.drawEdge(g, sp, tp, edge, eraseMode, state)
-      this.addChild(g)
+      this.drawEdge(
+        g,
+        sp,
+        tp,
+        waypoints,
+        edge,
+        eraseMode,
+        state,
+        topologyIssue,
+      )
+      edgeContainer.addChild(g)
+      this.drawProtocolLabel(edgeContainer, edge, waypoints, topologyIssue)
+      this.addChild(edgeContainer)
     }
   }
 
@@ -84,12 +108,20 @@ export class ConnectionLayer extends Container {
     g: Graphics,
     sp: ConnectionPort,
     tp: ConnectionPort,
+    waypoints: { x: number; y: number }[],
     edge: CanvasEdge,
     eraseMode: boolean,
     state: ReturnType<typeof useCanvasStore.getState>,
+    topologyIssue?: string,
   ): void {
-    const style = walkthroughEdgeStyle(edge.id, edge.sourceId, edge.targetId, edge, state)
-    const waypoints = getIsoManhattanWaypoints(sp, tp)
+    const style = resolveConnectionEdgeStyle(
+      edge.id,
+      edge.sourceId,
+      edge.targetId,
+      edge,
+      state,
+      topologyIssue,
+    )
 
     g.circle(sp.x, sp.y, 3).fill({ color: style.color, alpha: Math.min(style.alpha + 0.2, 1) })
     g.circle(tp.x, tp.y, 3).fill({ color: style.color, alpha: Math.min(style.alpha + 0.2, 1) })
@@ -129,6 +161,44 @@ export class ConnectionLayer extends Container {
     } else {
       g.eventMode = 'none'
     }
+  }
+
+  private drawProtocolLabel(
+    parent: Container,
+    edge: CanvasEdge,
+    waypoints: { x: number; y: number }[],
+    topologyIssue?: string,
+  ): void {
+    if (waypoints.length < 2) return
+
+    const midpoint = midpointAlongWaypoints(waypoints)
+    const labelContainer = new Container()
+    labelContainer.eventMode = 'none'
+    labelContainer.position.set(midpoint.x, midpoint.y)
+
+    const text = new Text({
+      text: `${protocolLabel(edge.protocol)}${topologyIssue ? ' !' : ''}`,
+      style: new TextStyle({
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: 10,
+        fill: 0xffffff,
+      }),
+    })
+    text.anchor.set(0.5)
+
+    const padX = 6
+    const padY = 2
+    const w = text.width + padX * 2
+    const h = text.height + padY * 2
+    const bg = new Graphics()
+    bg.roundRect(-w / 2, -h / 2, w, h, 3).fill({
+      color: protocolBadgeFill(topologyIssue),
+    })
+    bg.eventMode = 'none'
+
+    labelContainer.addChild(bg)
+    labelContainer.addChild(text)
+    parent.addChild(labelContainer)
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {

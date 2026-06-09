@@ -36,6 +36,7 @@ import {
   healthRimStyle,
   type HealthVisualState,
 } from '../utils/healthVisual'
+import { type ConnectNodeRole } from '../utils/connectVisual'
 
 const REPLICA_STACK_TYPES = new Set<CanvasNode['type']>([
   'compute',
@@ -92,6 +93,9 @@ export class ComponentContainer extends Container {
   private healthVisual: HealthVisualState = 'off'
   private healthOverlay: Graphics | null = null
   private healthTickerFn: ((ticker: Ticker) => void) | null = null
+  private connectRole: ConnectNodeRole = 'off'
+  private connectOverlay: Graphics | null = null
+  private connectTickerFn: ((ticker: Ticker) => void) | null = null
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
@@ -536,7 +540,82 @@ export class ComponentContainer extends Container {
     this.setWalkthroughVisual(this.walkthroughRole)
     this.setNarrativeHighlight(this.narrativeHighlighted)
     this.setHealthVisual(this.healthVisual)
+    this.setConnectVisual(this.connectRole)
     if (this.selectionOverlay) this.setSelected(true)
+  }
+
+  setConnectVisual(role: ConnectNodeRole): void {
+    if (role === this.connectRole && (role === 'off' ? !this.connectOverlay : !!this.connectOverlay)) {
+      return
+    }
+    this.connectRole = role
+    this._stopConnectPulse()
+
+    if (this.connectOverlay) {
+      this.removeChild(this.connectOverlay)
+      this.connectOverlay.destroy()
+      this.connectOverlay = null
+    }
+
+    if (role === 'off') return
+
+    this.connectOverlay = new Graphics()
+    this.connectOverlay.eventMode = 'none'
+    this.addChild(this.connectOverlay)
+    this._drawConnectOverlay(role, Date.now() / 1000)
+    if (role === 'pendingSource') this._startConnectPulse()
+  }
+
+  private _drawConnectOverlay(role: Exclude<ConnectNodeRole, 'off'>, elapsedSec: number): void {
+    if (!this.connectOverlay) return
+    const g = this.connectOverlay
+    g.clear()
+
+    const color = 0x4a90d9
+    const alpha =
+      role === 'pendingSource'
+        ? 0.42 + Math.sin(elapsedSec * 3) * 0.28
+        : 0.55
+
+    for (const poly of this._healthRimPolys()) {
+      if (role === 'pendingSource') {
+        g.poly(inflatePoly(poly, 6)).stroke({
+          color,
+          width: 3,
+          alpha,
+          join: 'round',
+        })
+        continue
+      }
+
+      g.poly(inflatePoly(poly, 5)).stroke({
+        color,
+        width: 2.5,
+        alpha,
+        join: 'round',
+      })
+      g.poly(inflatePoly(poly, 8)).stroke({
+        color,
+        width: 4,
+        alpha: 0.15,
+        join: 'round',
+      })
+    }
+  }
+
+  private _startConnectPulse(): void {
+    if (this.connectTickerFn) return
+    this.connectTickerFn = () => {
+      if (this.connectRole !== 'pendingSource' || !this.connectOverlay) return
+      this._drawConnectOverlay('pendingSource', Date.now() / 1000)
+    }
+    getApp().ticker.add(this.connectTickerFn)
+  }
+
+  private _stopConnectPulse(): void {
+    if (!this.connectTickerFn) return
+    getApp().ticker.remove(this.connectTickerFn)
+    this.connectTickerFn = null
   }
 
   setHealthVisual(state: HealthVisualState): void {
@@ -742,6 +821,7 @@ export class ComponentContainer extends Container {
           this.setWalkthroughVisual(this.walkthroughRole)
           this.setNarrativeHighlight(this.narrativeHighlighted)
           this.setHealthVisual(this.healthVisual)
+          this.setConnectVisual(this.connectRole)
         }
       }
       return
@@ -764,6 +844,7 @@ export class ComponentContainer extends Container {
     this._stopWalkthroughPulse()
     this._stopNarrativePulse()
     this._stopHealthPulse()
+    this._stopConnectPulse()
     this.off('pointerdown', this._onPointerDown)
     this.off('pointertap', this._onPointerTap)
     this.off('pointerover', this._onPointerOver)
