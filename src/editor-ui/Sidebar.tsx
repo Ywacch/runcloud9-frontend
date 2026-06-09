@@ -27,6 +27,10 @@ import {
   CLIENT_LOADGEN_ID,
 } from '../lib/spawnClientNode'
 import { autoArrangeByDependencyLayers } from '../lib/autoArrange'
+import {
+  recordCanvasHistory,
+  withoutCanvasHistoryRecording,
+} from '../lib/canvasHistory'
 import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
@@ -237,9 +241,12 @@ export function Sidebar() {
     if (nodeList.length === 0) return
     const edgeList = Object.values(st.edges)
     const nextPositions = autoArrangeByDependencyLayers(nodeList, edgeList)
-    for (const [id, pos] of Object.entries(nextPositions)) {
-      st.updateNodePosition(id, pos)
-    }
+    recordCanvasHistory(st.nodes, st.edges)
+    withoutCanvasHistoryRecording(() => {
+      for (const [id, pos] of Object.entries(nextPositions)) {
+        st.updateNodePosition(id, pos)
+      }
+    })
     requestCanvasFit()
     setBanner('Auto-arranged by dependency depth.')
   }

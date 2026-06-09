@@ -1,6 +1,10 @@
 import { createCanvasNode } from './nodeFactory'
+import { recordCanvasHistory } from './canvasHistory'
 import { APP_SERVER_REPLICA_MAX } from './replicaConfig'
-import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  useCanvasStore,
+  type CanvasNode,
+} from '../editor-core/stores/canvasStore'
 
 const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
   compute: APP_SERVER_REPLICA_MAX,
@@ -76,9 +80,11 @@ export function placeFromPicker(params: {
       : (nodeType === 'database' ? 0 : 1)
     const next = Math.min(maxReplicas, safeCurrent + 1)
     if (next !== safeCurrent) {
+      const st = useCanvasStore.getState()
+      recordCanvasHistory(st.nodes, st.edges)
       updateNodeConfig(
         existing.id,
-        nodeType === 'database' ? { readReplicas: next } : { replicas: next }
+        nodeType === 'database' ? { readReplicas: next } : { replicas: next },
       )
     }
     selectNode(existing.id)

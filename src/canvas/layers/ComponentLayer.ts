@@ -8,6 +8,10 @@ import {
   walkthroughStoreKey,
 } from '../utils/walkthroughVisual'
 
+function selectionKey(selectedIds: string[]): string {
+  return selectedIds.slice().sort().join('|')
+}
+
 export class ComponentLayer extends Container {
   private readonly viewport: Viewport
   private readonly containers = new Map<string, ComponentContainer>()
@@ -20,10 +24,10 @@ export class ComponentLayer extends Container {
 
     const initialNodes = useCanvasStore.getState().nodes
     this._syncNodes(initialNodes)
-    this._syncSelection(useCanvasStore.getState().selectedId)
+    this._syncMultiSelection(useCanvasStore.getState().selectedIds)
 
     let prevNodes = initialNodes
-    let prevSelectedId = useCanvasStore.getState().selectedId
+    let prevSelectedKey = selectionKey(useCanvasStore.getState().selectedIds)
     let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
     this._syncWalkthrough(useCanvasStore.getState())
 
@@ -33,10 +37,10 @@ export class ComponentLayer extends Container {
         this._syncNodes(state.nodes)
         this._syncWalkthrough(state)
       }
-      if (state.selectedId !== prevSelectedId) {
-        const oldId = prevSelectedId
-        prevSelectedId = state.selectedId
-        this._syncSelection(state.selectedId, oldId)
+      const selectedKey = selectionKey(state.selectedIds)
+      if (selectedKey !== prevSelectedKey) {
+        prevSelectedKey = selectedKey
+        this._syncMultiSelection(state.selectedIds)
       }
       const wtKey = walkthroughStoreKey(state)
       if (wtKey !== prevWalkthroughKey) {
@@ -64,7 +68,7 @@ export class ComponentLayer extends Container {
         this.containers.set(id, c)
         this.addChild(c)
         c.setWalkthroughVisual(walkthroughNodeRole(id, useCanvasStore.getState()))
-        if (useCanvasStore.getState().selectedId === id) {
+        if (useCanvasStore.getState().selectedIds.includes(id)) {
           c.setSelected(true)
         }
       } else {
@@ -85,15 +89,10 @@ export class ComponentLayer extends Container {
     }
   }
 
-  private _syncSelection(
-    selectedId: string | null,
-    prevSelectedId?: string | null,
-  ): void {
-    if (prevSelectedId) {
-      this.containers.get(prevSelectedId)?.setSelected(false)
-    }
-    if (selectedId) {
-      this.containers.get(selectedId)?.setSelected(true)
+  private _syncMultiSelection(selectedIds: string[]): void {
+    const selected = new Set(selectedIds)
+    for (const [id, container] of this.containers) {
+      container.setSelected(selected.has(id))
     }
   }
 

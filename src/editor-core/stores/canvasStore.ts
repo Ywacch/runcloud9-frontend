@@ -1,5 +1,12 @@
 import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../../lib/cacheTopologyStrategy'
+import {
+  clearCanvasHistory,
+  popRedoSnapshot,
+  popUndoSnapshot,
+  recordCanvasHistory,
+  withoutCanvasHistoryRecording,
+} from '../../lib/canvasHistory'
 import { resetDesignStorytellingUi } from '../../lib/resetStorytellingUi'
 import type { SessionEventSummary } from '../../lib/eventsSummaryFromApi'
 import type {
@@ -16,6 +23,16 @@ export type CanvasMode = 'design' | 'live' | 'simulate'
 /** True when the user can move nodes, connect, erase, and place components (not live or simulation view). */
 export function isCanvasEditMode(mode: CanvasMode): boolean {
   return mode === 'design' || mode === 'simulate'
+}
+
+/** True when topology edits are allowed (blocks live deploy and in-flight provisioning). */
+export function canMutateCanvasTopology(state: {
+  mode: CanvasMode
+  deploymentId: string | null
+}): boolean {
+  if (state.mode === 'live') return false
+  if (state.deploymentId) return false
+  return state.mode === 'design' || state.mode === 'simulate'
 }
 
 /** Live deploy or local simulation — show metrics, particles, inspector read-only. */
@@ -94,6 +111,8 @@ interface CanvasState {
   /** If true, node dragging is disabled in all modes. */
   movementLocked: boolean
   selectedId: string | null
+  /** Multi-select; single-click sets one id, Ctrl+A selects all. */
+  selectedIds: string[]
   pendingSourceId: string | null
   deploymentId: string | null
   /** Active tool in design mode (hotkeys 1 / 5 / 0). */
@@ -124,6 +143,7 @@ interface CanvasState {
   updateNodeLabel: (id: string, label: string) => void
   updateNodeStatus: (id: string, status: CanvasNode['status']) => void
   removeNode: (id: string) => void
+  removeSelectedNodes: () => void
   addEdge: (edge: CanvasEdge) => void
   removeEdge: (id: string) => void
   setPendingSource: (id: string | null) => void
@@ -131,6 +151,7 @@ interface CanvasState {
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
+  selectAllNodes: () => void
   setMode: (mode: CanvasMode) => void
   setDeploymentId: (id: string | null) => void
   setPlacingNodeType: (type: CanvasNode['type'] | null) => void
@@ -157,6 +178,31 @@ interface CanvasState {
   /** Start from a chosen template id with an empty canvas in design mode. */
   startFromTemplate: (templateId: string) => void
   clearCanvas: () => void
+  undo: () => void
+  redo: () => void
+}
+
+function positionsEqual(
+  a: [number, number, number],
+  b: [number, number, number],
+): boolean {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+}
+
+function restoreTopology(
+  set: (partial: Partial<CanvasState>) => void,
+  snapshot: { nodes: Record<string, CanvasNode>; edges: Record<string, CanvasEdge> },
+): void {
+  withoutCanvasHistoryRecording(() => {
+    set({
+      nodes: snapshot.nodes,
+      edges: snapshot.edges,
+      selectedId: null,
+      selectedIds: [],
+      pendingSourceId: null,
+      connectHoverTargetId: null,
+    })
+  })
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -165,6 +211,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   edges: {},
   movementLocked: false,
   selectedId: null,
+  selectedIds: [],
   pendingSourceId: null,
   deploymentId: null,
   designTool: 'select',
@@ -179,12 +226,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   walkthroughHighlightedEdgeIds: [],
   walkthroughParticipatingNodeIds: [],
 
-  addNode: (node) => set((s) => ({ nodes: { ...s.nodes, [node.id]: node } })),
+  addNode: (node) =>
+    set((s) => {
+      recordCanvasHistory(s.nodes, s.edges)
+      return { nodes: { ...s.nodes, [node.id]: node } }
+    }),
 
   updateNodePosition: (id, pos) =>
     set((s) => {
       const n = s.nodes[id]
-      if (!n) return s
+      if (!n || positionsEqual(n.position, pos)) return s
+      recordCanvasHistory(s.nodes, s.edges)
       return { nodes: { ...s.nodes, [id]: { ...n, position: pos } } }
     }),
 
@@ -216,6 +268,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   removeNode: (id) =>
     set((s) => {
+      if (!s.nodes[id]) return s
+      recordCanvasHistory(s.nodes, s.edges)
       const { [id]: _removed, ...nodes } = s.nodes
       const edges = { ...s.edges }
       for (const eid of Object.keys(edges)) {
@@ -227,7 +281,43 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         nodes: nodesNorm,
         edges,
         selectedId: s.selectedId === id ? null : s.selectedId,
+        selectedIds: s.selectedIds.filter((sid) => sid !== id),
         pendingSourceId: s.pendingSourceId === id ? null : s.pendingSourceId,
+      }
+    }),
+
+  removeSelectedNodes: () =>
+    set((s) => {
+      if (!canMutateCanvasTopology(s)) return s
+      const ids =
+        s.selectedIds.length > 0
+          ? s.selectedIds
+          : s.selectedId
+            ? [s.selectedId]
+            : []
+      if (ids.length === 0) return s
+
+      recordCanvasHistory(s.nodes, s.edges)
+      const idSet = new Set(ids)
+      const nodes = { ...s.nodes }
+      for (const id of ids) {
+        delete nodes[id]
+      }
+      const edges = { ...s.edges }
+      for (const eid of Object.keys(edges)) {
+        const e = edges[eid]
+        if (idSet.has(e.sourceId) || idSet.has(e.targetId)) delete edges[eid]
+      }
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(nodes, edges)
+      return {
+        nodes: nodesNorm,
+        edges,
+        selectedId: null,
+        selectedIds: [],
+        pendingSourceId:
+          s.pendingSourceId && idSet.has(s.pendingSourceId)
+            ? null
+            : s.pendingSourceId,
       }
     }),
 
@@ -237,6 +327,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         (e) => e.sourceId === edge.sourceId && e.targetId === edge.targetId
       )
       if (dup) return s
+      recordCanvasHistory(s.nodes, s.edges)
       const edges = { ...s.edges, [edge.id]: edge }
       const nodesNorm = applyCacheStrategyNormalizationToNodes(s.nodes, edges)
       return {
@@ -248,6 +339,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   removeEdge: (id) =>
     set((s) => {
+      if (!s.edges[id]) return s
+      recordCanvasHistory(s.nodes, s.edges)
       const { [id]: _removed, ...edges } = s.edges
       const nodesNorm = applyCacheStrategyNormalizationToNodes(s.nodes, edges)
       return { edges, nodes: nodesNorm }
@@ -267,7 +360,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setMovementLocked: (movementLocked) => set({ movementLocked }),
 
-  selectNode: (selectedId) => set({ selectedId }),
+  selectNode: (selectedId) =>
+    set({
+      selectedId,
+      selectedIds: selectedId ? [selectedId] : [],
+    }),
+
+  selectAllNodes: () =>
+    set((s) => {
+      if (!canMutateCanvasTopology(s)) return s
+      const selectedIds = Object.keys(s.nodes)
+      if (selectedIds.length === 0) return s
+      return { selectedIds, selectedId: null }
+    }),
 
   setMode: (next) =>
     set({
@@ -351,12 +456,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
   },
 
+  undo: () => {
+    const s = get()
+    if (!canMutateCanvasTopology(s)) return
+    const entry = popUndoSnapshot(s.nodes, s.edges)
+    if (!entry) return
+    restoreTopology(set, entry)
+  },
+
+  redo: () => {
+    const s = get()
+    if (!canMutateCanvasTopology(s)) return
+    const entry = popRedoSnapshot(s.nodes, s.edges)
+    if (!entry) return
+    restoreTopology(set, entry)
+  },
+
   loadJSON: (snapshot) => {
+    clearCanvasHistory()
     resetDesignStorytellingUi()
     set({
       nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
       selectedId: null,
+      selectedIds: [],
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,
@@ -377,11 +500,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   loadTemplateSnapshot: (snapshot, targetMode) => {
+    clearCanvasHistory()
     resetDesignStorytellingUi()
     set({
       nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
       selectedId: null,
+      selectedIds: [],
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,
@@ -402,11 +527,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   startFromTemplate: (templateId) => {
+    clearCanvasHistory()
     resetDesignStorytellingUi()
     set({
       nodes: {},
       edges: {},
       selectedId: null,
+      selectedIds: [],
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,
@@ -427,12 +554,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   clearCanvas: () => {
+    clearCanvasHistory()
     resetDesignStorytellingUi()
     set({
       mode: 'design',
       nodes: {},
       edges: {},
       selectedId: null,
+      selectedIds: [],
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,

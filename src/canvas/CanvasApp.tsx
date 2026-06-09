@@ -20,7 +20,23 @@ import {
   shouldFitViewportToNodes,
 } from './utils/viewportFit'
 import { useCanvasStore, type CanvasNode, isCanvasEditMode } from '../editor-core/stores/canvasStore'
-import { createCanvasNode } from '../lib/nodeFactory'
+import { placeFromPicker } from '../lib/pickerPlacement'
+
+function placePickerNode(
+  nodeType: CanvasNode['type'],
+  position: [number, number, number],
+): void {
+  const state = useCanvasStore.getState()
+  placeFromPicker({
+    nodeType,
+    position,
+    nodes: state.nodes,
+    addNode: state.addNode,
+    updateNodeConfig: state.updateNodeConfig,
+    selectNode: state.selectNode,
+  })
+  state.setPlacingNodeType(null)
+}
 
 const PALETTE_TYPES = new Set<CanvasNode['type']>([
   'load_balancer',
@@ -101,8 +117,7 @@ export default function CanvasApp() {
           const iso = screenToIso(world.x, world.y)
           const { col, row } = clampIsoCell(iso.col, iso.row)
           const pos = isoToNode(col, row)
-          state.addNode(createCanvasNode(state.placingNodeType, pos, state.nodes))
-          state.setPlacingNodeType(null)
+          placePickerNode(state.placingNodeType, pos)
           return
         }
         if (
@@ -213,8 +228,7 @@ export default function CanvasApp() {
         const iso = screenToIso(world.x, world.y)
         const { col, row } = clampIsoCell(iso.col, iso.row)
         const pos = isoToNode(col, row)
-        const state = useCanvasStore.getState()
-        state.addNode(createCanvasNode(type, pos, state.nodes))
+        placePickerNode(type, pos)
       }}
     >
       <canvas
