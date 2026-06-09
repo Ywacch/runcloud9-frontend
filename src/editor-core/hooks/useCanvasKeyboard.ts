@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { dispatchResetCamera } from '../../lib/spawnEvents'
+import { requestCanvasFit } from '../../canvas/utils/canvasFitBridge'
 import { useCanvasStore } from '../stores/canvasStore'
 
 export function useCanvasKeyboard(): void {
@@ -49,7 +49,7 @@ export function useCanvasKeyboard(): void {
 
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
-        dispatchResetCamera()
+        requestCanvasFit()
         return
       }
 
