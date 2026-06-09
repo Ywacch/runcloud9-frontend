@@ -21,6 +21,7 @@ import {
 } from './utils/viewportFit'
 import { useCanvasStore, type CanvasNode, isCanvasEditMode } from '../editor-core/stores/canvasStore'
 import { placeFromPicker } from '../lib/pickerPlacement'
+import { USE_SPRITE_COMPONENTS } from './config/renderMode'
 
 function placePickerNode(
   nodeType: CanvasNode['type'],
@@ -71,10 +72,12 @@ export default function CanvasApp() {
         destroyApp()
         return
       }
-      await Assets.load('/spritesheets/components.json')
-      if (disposed) {
-        destroyApp()
-        return
+      if (USE_SPRITE_COMPONENTS) {
+        await Assets.load('/spritesheets/components.json')
+        if (disposed) {
+          destroyApp()
+          return
+        }
       }
       const viewport = createViewport(app)
       viewportRef.current = viewport

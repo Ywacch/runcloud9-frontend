@@ -1,23 +1,25 @@
 import {
-  ColorMatrixFilter,
   Container,
   Graphics,
   Rectangle,
-  Sprite,
   Text,
   TextStyle,
-  Texture,
   type FederatedPointerEvent,
   type Ticker,
 } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
-import { TILE_W, TILE_H, isoToScreen, screenToIso, tileTopFacePoly } from '../constants'
+import { TILE_W, TILE_H, isoToScreen, screenToIso } from '../constants'
 import { COMPONENT_COLORS } from '../config/componentColors'
-import { DEFAULT_SPRITE_LAYOUT, SPRITE_LAYOUT } from '../config/spriteLayout'
+import {
+  addCollapsedReplicaStack,
+  addProceduralSlab,
+  collapsedStackTopY,
+} from './proceduralComponent'
 import { nodeToIso, isoToNode, clampIsoCell } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import {
   isCanvasEditMode,
+  isMetricsViewportMode,
   useCanvasStore,
   type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
@@ -27,32 +29,50 @@ import {
   type WalkthroughNodeRole,
 } from '../utils/walkthroughVisual'
 
-const ASSET_MAP: Record<string, string> = {
-  'cache:redis': 'redis-cache',
-  cache: 'redis-cache',
-  database: 'database',
-  'load-balancer': 'lb',
-  load_balancer: 'lb',
-  'app-server': 'server',
-  compute: 'server',
-  worker: 'worker',
-  'message-queue': 'MQ',
-  message_queue: 'MQ',
+const REPLICA_STACK_TYPES = new Set<CanvasNode['type']>([
+  'compute',
+  'worker',
+  'cache',
+  'database',
+])
+
+/** Capped visible replica count (databases show primary + read replicas). */
+function visualReplicaCount(node: CanvasNode): number {
+  if (node.type === 'database') {
+    const raw = Math.floor(Number(node.config.readReplicas ?? 0))
+    const safe = Number.isFinite(raw) ? Math.max(0, raw) : 0
+    return Math.min(3, safe + 1)
+  }
+  const raw = Math.floor(Number(node.config.replicas ?? 1))
+  const safe = Number.isFinite(raw) ? Math.max(1, raw) : 1
+  return Math.min(3, safe)
 }
 
-function getAssetKey(node: CanvasNode): string | null {
-  const engine =
-    node.type === 'cache'
-      ? node.config?.cacheEngine ?? node.config?.engine
-      : node.config?.engine
-  const engineKey = `${node.type}:${engine}`
-  return ASSET_MAP[engineKey] ?? ASSET_MAP[node.type] ?? null
+function nodeHasReplicaStack(node: CanvasNode): boolean {
+  return REPLICA_STACK_TYPES.has(node.type) && visualReplicaCount(node) > 1
+}
+
+/**
+ * Screen-space offset for an exploded replica slot.
+ * Primary stays at origin; replicas fan along iso row axis (alternating sides)
+ * with enough spread so full-height slabs don't overlap.
+ */
+function expandedSlotOffset(idx: number): { x: number; y: number } {
+  if (idx === 0) return { x: 0, y: 0 }
+  const step = Math.ceil(idx / 2)
+  const dir = idx % 2 === 1 ? -1 : 1
+  const spread = 1.3
+  return {
+    x: dir * step * spread * (TILE_W / 2),
+    y: dir * step * spread * (TILE_H / 2),
+  }
 }
 
 export class ComponentContainer extends Container {
   private readonly nodeId: string
   private readonly viewport: Viewport
   private isDragging = false
+  private _draggedToNewCell = false
   private dragStartIso = { col: 0, row: 0 }
   private selectionOverlay: Graphics | null = null
   private walkthroughOverlay: Graphics | null = null
@@ -61,8 +81,10 @@ export class ComponentContainer extends Container {
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
+  private expanded = false
   private _prevType: CanvasNode['type']
-  private _prevReplicas: number
+  private _prevVisualReplicas: number
+  private _prevExpanded = false
 
   constructor(node: CanvasNode, viewport: Viewport) {
     super()
@@ -73,19 +95,43 @@ export class ComponentContainer extends Container {
     this.cursor = 'pointer'
     this.sortableChildren = false
     this.label = node.id
-    const replicas = typeof node.config.replicas === 'number' ? node.config.replicas : 1
     this._prevType = node.type
-    this._prevReplicas = replicas
+    this._prevVisualReplicas = visualReplicaCount(node)
     this._syncPosition(node.position)
-    this._updateHitArea(node.type)
     this._build(node)
+    this._updateHitArea()
     this._wireEvents()
   }
 
-  private _updateHitArea(type: CanvasNode['type']): void {
-    const sH = COMPONENT_COLORS[type].sideHeight
-    const h = TILE_H + sH + 36
-    this.hitArea = new Rectangle(-8, -TILE_H / 2 - 8, TILE_W + 16, h)
+  /** Bounding box encompassing every drawn slab (collapsed cake or exploded slots). */
+  private _componentBounds(): { x: number; y: number; w: number; h: number } {
+    const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
+    const layers = this._prevVisualReplicas
+
+    let left = 0
+    let top = -TILE_H / 2 - sH
+    let right = TILE_W
+    let bottom = TILE_H / 2 + sH + 30
+
+    if (this._prevExpanded && layers > 1) {
+      for (let i = 0; i < layers; i++) {
+        const o = expandedSlotOffset(i)
+        left = Math.min(left, o.x)
+        top = Math.min(top, o.y - TILE_H / 2 - sH)
+        right = Math.max(right, o.x + TILE_W)
+        bottom = Math.max(bottom, o.y + TILE_H / 2 + sH + 30)
+      }
+    } else if (layers > 1) {
+      top = collapsedStackTopY(this._prevType, layers)
+    }
+
+    return { x: left, y: top, w: right - left, h: bottom - top }
+  }
+
+  private _updateHitArea(): void {
+    const b = this._componentBounds()
+    const pad = 8
+    this.hitArea = new Rectangle(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2)
   }
 
   private _syncPosition(pos: [number, number, number]): void {
@@ -95,94 +141,135 @@ export class ComponentContainer extends Container {
     this.zIndex = col + row
   }
 
-  private _drawIsoPlatform(
-    ox: number,
-    oy: number,
-    colors: (typeof COMPONENT_COLORS)[CanvasNode['type']],
-    sH: number,
-  ): void {
-    const g = new Graphics()
-    g.poly(tileTopFacePoly(ox, oy)).fill({ color: colors.top })
-    g.poly([
-      ox,
-      oy,
-      ox + TILE_W / 2,
-      oy + TILE_H / 2,
-      ox + TILE_W / 2,
-      oy + TILE_H / 2 + sH,
-      ox,
-      oy + sH,
-    ]).fill({ color: colors.left })
-    g.poly([
-      ox + TILE_W,
-      oy,
-      ox + TILE_W / 2,
-      oy + TILE_H / 2,
-      ox + TILE_W / 2,
-      oy + TILE_H / 2 + sH,
-      ox + TILE_W,
-      oy + sH,
-    ]).fill({ color: colors.right })
-    this.addChild(g)
-  }
-
   private _build(node: CanvasNode): void {
     this.removeChildren()
     this.selectionOverlay = null
     this.replicaBadge = null
 
     const colors = COMPONENT_COLORS[node.type]
-    const replicas = typeof node.config.replicas === 'number' ? node.config.replicas : 1
     const sH = colors.sideHeight
-    const assetKey = getAssetKey(node)
+    const layers = visualReplicaCount(node)
+    const hasStack = nodeHasReplicaStack(node)
 
-    const cappedLayers = Math.min(replicas, 3)
+    this._prevType = node.type
+    this._prevVisualReplicas = layers
+    this._prevExpanded = hasStack && this.expanded
 
-    if (assetKey) {
-      const texture = Texture.from(assetKey)
-      const layout = SPRITE_LAYOUT[assetKey] ?? DEFAULT_SPRITE_LAYOUT
-
-      for (let i = cappedLayers - 1; i >= 0; i--) {
-        const replicaOffsetX = i * 7
-        const replicaOffsetY = -i * 7
-
-        const sprite = new Sprite(texture)
-        sprite.anchor.set(layout.anchor.x, layout.anchor.y)
-        sprite.scale.set(layout.scale)
-        sprite.position.set(
-          TILE_W / 2 + layout.offsetX + replicaOffsetX,
-          TILE_H / 2 + layout.offsetY + replicaOffsetY,
-        )
-        if (i > 0) {
-          const matrix = new ColorMatrixFilter()
-          matrix.brightness(0.72, false)
-          sprite.filters = [matrix]
-        }
-        this.addChild(sprite)
-      }
+    if (hasStack && this.expanded) {
+      this._drawExpandedStack(node, sH, layers)
+    } else if (hasStack) {
+      this._drawCollapsedStack(node, layers)
     } else {
-      for (let i = cappedLayers - 1; i >= 0; i--) {
-        const ox = i * 7
-        const oy = -i * 7
-
-        if (i === 0) {
-          this._drawIsoPlatform(ox, oy, colors, sH)
-        } else {
-          const g = new Graphics()
-          const darken = (hex: number) => {
-            const r = Math.floor(((hex >> 16) & 0xff) * 0.72)
-            const gr = Math.floor(((hex >> 8) & 0xff) * 0.72)
-            const b = Math.floor((hex & 0xff) * 0.72)
-            return (r << 16) | (gr << 8) | b
-          }
-          g.poly(tileTopFacePoly(ox, oy))
-            .fill({ color: darken(colors.top) })
-            .stroke({ color: 0x000000, width: 0.5, alpha: 0.3 })
-          this.addChild(g)
-        }
-      }
+      this._drawSingle(node)
     }
 
+    this._buildLabel(node, hasStack, layers)
+
+    this.statusDot = new Graphics()
+    const statusOff = this.expanded && hasStack ? expandedSlotOffset(0) : { x: 0, y: 0 }
+    this.statusDot.position.set(TILE_W + 2 + statusOff.x, -TILE_H / 2 + statusOff.y)
+    this._updateStatusDot(node.status)
+    this.addChild(this.statusDot)
+  }
+
+  private _drawSingle(node: CanvasNode): void {
+    addProceduralSlab(this, node, 0, 0)
+  }
+
+  /** Vertical "cake": full base + thin caps (see proceduralComponent). */
+  private _drawCollapsedStack(node: CanvasNode, layers: number): void {
+    addCollapsedReplicaStack(this, node, layers)
+  }
+
+  /** Exploded view: full-height procedural tiles fanned with labels + leaders. */
+  private _drawExpandedStack(
+    node: CanvasNode,
+    _sH: number,
+    layers: number,
+  ): void {
+    const slots = Array.from({ length: layers }, (_, idx) => ({
+      idx,
+      off: expandedSlotOffset(idx),
+    }))
+    const primary = expandedSlotOffset(0)
+    const sH = COMPONENT_COLORS[node.type].sideHeight
+
+    for (const s of slots) {
+      if (s.idx === 0) continue
+      const g = new Graphics()
+      g.eventMode = 'none'
+      const sx = s.off.x + TILE_W / 2
+      const sy = s.off.y + TILE_H / 2 + sH / 2
+      const px = primary.x + TILE_W / 2
+      const py = primary.y + TILE_H / 2 + sH / 2
+      const segs = 8
+      for (let i = 0; i < segs; i += 2) {
+        const t0 = i / segs
+        const t1 = Math.min((i + 1) / segs, 1)
+        g.moveTo(sx + (px - sx) * t0, sy + (py - sy) * t0)
+          .lineTo(sx + (px - sx) * t1, sy + (py - sy) * t1)
+          .stroke({ color: 0x9ca3af, width: 1, alpha: 0.45 })
+      }
+      this.addChild(g)
+    }
+
+    for (const s of [...slots].sort((a, b) => a.off.y - b.off.y)) {
+      const factor = s.idx === 0 ? 1 : 1 - s.idx * 0.08
+      addProceduralSlab(this, node, s.off.x, s.off.y, {
+        factor,
+        outline: true,
+        showGlyph: true,
+      })
+    }
+
+    for (const s of slots) {
+      const text =
+        s.idx === 0
+          ? '\u02c4 collapse\nprimary'
+          : node.type === 'database'
+            ? `read ${s.idx}`
+            : `replica ${s.idx}`
+      this._addSlotLabel(
+        s.off.x + TILE_W / 2,
+        s.off.y + TILE_H / 2 + sH + 4,
+        text,
+      )
+    }
+  }
+
+  private _addSlotLabel(x: number, y: number, text: string): void {
+    const label = new Text({
+      text,
+      style: new TextStyle({
+        fontSize: 9,
+        fill: 0xe4e4e7,
+        align: 'center',
+        lineHeight: 11,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      }),
+    })
+    label.eventMode = 'none'
+    label.anchor.set(0.5, 0)
+    label.position.set(x, y)
+    const bg = new Graphics()
+    bg.eventMode = 'none'
+    bg.roundRect(
+      x - label.width / 2 - 3,
+      y - 2,
+      label.width + 6,
+      label.height + 4,
+      3,
+    ).fill({ color: 0x000000, alpha: 0.6 })
+    this.addChild(bg)
+    this.addChild(label)
+  }
+
+  private _buildLabel(
+    node: CanvasNode,
+    hasStack: boolean,
+    layers: number,
+  ): void {
+    const bounds = this._componentBounds()
     this.labelText = new Text({
       text: node.label,
       style: new TextStyle({
@@ -190,22 +277,21 @@ export class ComponentContainer extends Container {
         fontWeight: '600',
         fill: 0xffffff,
         fontFamily: 'Inter, system-ui, sans-serif',
-        dropShadow: {
-          color: 0x000000,
-          alpha: 0.8,
-          blur: 2,
-          distance: 1,
-        },
+        dropShadow: { color: 0x000000, alpha: 0.8, blur: 2, distance: 1 },
       }),
     })
     this.labelText.eventMode = 'none'
-    this.labelText.anchor.set(0.5, 0)
-    this.labelText.position.set(TILE_W / 2, TILE_H / 2 + sH + 8)
+    this.labelText.anchor.set(0.5, 1)
+    this.labelText.position.set(TILE_W / 2, bounds.y - 6)
     this.addChild(this.labelText)
 
-    if (replicas > 1) {
+    if (hasStack) {
+      const count =
+        node.type === 'database'
+          ? `+${layers - 1} read`
+          : `×${layers}`
       this.replicaBadge = new Text({
-        text: `×${replicas}`,
+        text: count,
         style: new TextStyle({
           fontSize: 10,
           fill: 0xfbbf24,
@@ -213,19 +299,29 @@ export class ComponentContainer extends Container {
           fontFamily: 'Inter, system-ui, sans-serif',
         }),
       })
+      this.replicaBadge.eventMode = 'none'
       this.replicaBadge.anchor.set(0, 1)
-      const topLayerOffset = (cappedLayers - 1) * 7
       this.replicaBadge.position.set(
-        TILE_W + topLayerOffset + 4,
-        -topLayerOffset - TILE_H / 2 - 4,
+        TILE_W / 2 + this.labelText.width / 2 + 4,
+        bounds.y - 6,
       )
       this.addChild(this.replicaBadge)
-    }
 
-    this.statusDot = new Graphics()
-    this.statusDot.position.set(TILE_W + 2, -TILE_H / 2 - sH / 2)
-    this._updateStatusDot(node.status)
-    this.addChild(this.statusDot)
+      if (!this.expanded) {
+        const hint = new Text({
+          text: '\u02c4 expand',
+          style: new TextStyle({
+            fontSize: 8,
+            fill: 0xa1a1aa,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          }),
+        })
+        hint.eventMode = 'none'
+        hint.anchor.set(0.5, 1)
+        hint.position.set(TILE_W / 2, bounds.y + 8)
+        this.addChild(hint)
+      }
+    }
   }
 
   private _updateStatusDot(status: CanvasNode['status']): void {
@@ -243,8 +339,32 @@ export class ComponentContainer extends Container {
 
   private _wireEvents(): void {
     this.on('pointerdown', this._onPointerDown)
+    this.on('pointertap', this._onPointerTap)
     this.on('pointerover', this._onPointerOver)
     this.on('pointerout', this._onPointerOut)
+  }
+
+  private _canToggleExpand(): boolean {
+    const state = useCanvasStore.getState()
+    const node = state.nodes[this.nodeId]
+    if (!node || !nodeHasReplicaStack(node)) return false
+    if (isMetricsViewportMode(state.mode)) return true
+    return isCanvasEditMode(state.mode) && state.designTool === 'select'
+  }
+
+  private _onPointerTap = (): void => {
+    if (this._draggedToNewCell) {
+      this._draggedToNewCell = false
+      return
+    }
+    if (!this._canToggleExpand()) return
+    const node = useCanvasStore.getState().nodes[this.nodeId]
+    if (!node) return
+    this.expanded = !this.expanded
+    this._build(node)
+    this._updateHitArea()
+    this.setWalkthroughVisual(this.walkthroughRole)
+    if (this.selectionOverlay) this.setSelected(true)
   }
 
   private _onPointerDown = (e: FederatedPointerEvent): void => {
@@ -325,6 +445,7 @@ export class ComponentContainer extends Container {
 
   private _beginDrag(e: FederatedPointerEvent): void {
     this.isDragging = true
+    this._draggedToNewCell = false
     const world = this.viewport.toWorld(e.global.x, e.global.y)
     const iso = screenToIso(world.x, world.y)
     this.dragStartIso = { col: Math.round(iso.col), row: Math.round(iso.row) }
@@ -355,18 +476,21 @@ export class ComponentContainer extends Container {
     const iso = screenToIso(world.x, world.y)
     const { col, row } = clampIsoCell(iso.col, iso.row)
     if (col !== this.dragStartIso.col || row !== this.dragStartIso.row) {
+      this._draggedToNewCell = true
       useCanvasStore.getState().updateNodePosition(this.nodeId, isoToNode(col, row))
     }
   }
 
   syncNode(node: CanvasNode): void {
-    const replicas = typeof node.config.replicas === 'number' ? node.config.replicas : 1
-    const needsRebuild = node.type !== this._prevType || replicas !== this._prevReplicas
+    const layers = visualReplicaCount(node)
+    const effExpanded = this.expanded && nodeHasReplicaStack(node)
+    const needsRebuild =
+      node.type !== this._prevType ||
+      layers !== this._prevVisualReplicas ||
+      effExpanded !== this._prevExpanded
     if (needsRebuild) {
       this._build(node)
-      this._prevType = node.type
-      this._prevReplicas = replicas
-      this._updateHitArea(node.type)
+      this._updateHitArea()
     } else {
       if (this.labelText.text !== node.label) this.labelText.text = node.label
       this._updateStatusDot(node.status)
@@ -408,14 +532,14 @@ export class ComponentContainer extends Container {
     h: number
     pad: number
   } {
-    const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
     const pad = 8
+    const b = this._componentBounds()
     return {
       pad,
-      x: -pad,
-      y: -TILE_H / 2 - sH - pad,
-      w: TILE_W + pad * 2,
-      h: TILE_H + sH + 30 + pad * 2,
+      x: b.x - pad,
+      y: b.y - pad,
+      w: b.w + pad * 2,
+      h: b.h + pad * 2,
     }
   }
 
@@ -462,6 +586,15 @@ export class ComponentContainer extends Container {
         this.selectionOverlay.destroy()
         this.selectionOverlay = null
       }
+      if (this.expanded) {
+        this.expanded = false
+        const node = useCanvasStore.getState().nodes[this.nodeId]
+        if (node) {
+          this._build(node)
+          this._updateHitArea()
+          this.setWalkthroughVisual(this.walkthroughRole)
+        }
+      }
       return
     }
     if (this.selectionOverlay) {
@@ -469,16 +602,9 @@ export class ComponentContainer extends Container {
       this.selectionOverlay.destroy()
     }
     const g = new Graphics()
-    const colors = COMPONENT_COLORS[this._prevType]
-    const sH = colors?.sideHeight ?? 30
-    const pad = 8
-    g.roundRect(
-      -pad,
-      -TILE_H / 2 - sH - pad,
-      TILE_W + pad * 2,
-      TILE_H + sH + 30 + pad * 2,
-      6,
-    )
+    const pad = 10
+    const b = this._componentBounds()
+    g.roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 8)
     g.stroke({ color: 0x00aeef, width: 2, alpha: 0.8 })
 
     this.selectionOverlay = g
@@ -488,6 +614,7 @@ export class ComponentContainer extends Container {
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
     this._stopWalkthroughPulse()
     this.off('pointerdown', this._onPointerDown)
+    this.off('pointertap', this._onPointerTap)
     this.off('pointerover', this._onPointerOver)
     this.off('pointerout', this._onPointerOut)
     this.viewport.off('pointermove', this._onDragMove)
