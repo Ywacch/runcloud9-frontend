@@ -7,6 +7,10 @@ import {
 } from '../../editor-core/stores/canvasStore'
 import { getConnectionPoint, type ConnectionPort } from '../utils/connectionPoint'
 import { getIsoManhattanWaypoints } from '../utils/connectionRoute'
+import {
+  walkthroughEdgeStyle,
+  walkthroughStoreKey,
+} from '../utils/walkthroughVisual'
 
 export class ConnectionLayer extends Container {
   private readonly unsubscribe: () => void
@@ -19,48 +23,47 @@ export class ConnectionLayer extends Container {
       nodes: useCanvasStore.getState().nodes,
       designTool: useCanvasStore.getState().designTool,
       mode: useCanvasStore.getState().mode,
+      walkthroughKey: walkthroughStoreKey(useCanvasStore.getState()),
     }
 
     this.unsubscribe = useCanvasStore.subscribe((state) => {
+      const walkthroughKey = walkthroughStoreKey(state)
       if (
         state.edges !== prev.edges ||
         state.nodes !== prev.nodes ||
         state.designTool !== prev.designTool ||
-        state.mode !== prev.mode
+        state.mode !== prev.mode ||
+        walkthroughKey !== prev.walkthroughKey
       ) {
         prev = {
           edges: state.edges,
           nodes: state.nodes,
           designTool: state.designTool,
           mode: state.mode,
+          walkthroughKey,
         }
-        this.redraw(state.nodes, state.edges, state.designTool)
+        this.redraw(state)
       }
     })
 
-    const initial = useCanvasStore.getState()
-    this.redraw(initial.nodes, initial.edges, initial.designTool)
+    this.redraw(useCanvasStore.getState())
   }
 
-  private redraw(
-    nodes: Record<string, CanvasNode>,
-    edges: Record<string, CanvasEdge>,
-    designTool: ReturnType<typeof useCanvasStore.getState>['designTool'],
-  ): void {
+  private redraw(state: ReturnType<typeof useCanvasStore.getState>): void {
     this.removeChildren()
 
     const eraseMode =
-      isCanvasEditMode(useCanvasStore.getState().mode) && designTool === 'erase'
+      isCanvasEditMode(state.mode) && state.designTool === 'erase'
 
-    for (const edge of Object.values(edges)) {
-      const src = nodes[edge.sourceId]
-      const tgt = nodes[edge.targetId]
+    for (const edge of Object.values(state.edges)) {
+      const src = state.nodes[edge.sourceId]
+      const tgt = state.nodes[edge.targetId]
       if (!src || !tgt) continue
 
       const sp = getConnectionPoint(src)
       const tp = getConnectionPoint(tgt)
       const g = new Graphics()
-      this.drawEdge(g, sp, tp, edge, eraseMode)
+      this.drawEdge(g, sp, tp, edge, eraseMode, state)
       this.addChild(g)
     }
   }
@@ -84,14 +87,19 @@ export class ConnectionLayer extends Container {
     tp: ConnectionPort,
     edge: CanvasEdge,
     eraseMode: boolean,
+    state: ReturnType<typeof useCanvasStore.getState>,
   ): void {
-    const color = edge.animated ? 0x00aeef : 0x8892b0
-    const alpha = edge.animated ? 1.0 : 0.7
-    const width = edge.animated ? 2 : 1.5
-
+    const style = walkthroughEdgeStyle(edge.id, edge.sourceId, edge.targetId, edge, state)
     const waypoints = getIsoManhattanWaypoints(sp, tp)
 
-    this.drawPath(g, waypoints, { color, alpha, width })
+    g.circle(sp.x, sp.y, 3).fill({ color: style.color, alpha: Math.min(style.alpha + 0.2, 1) })
+    g.circle(tp.x, tp.y, 3).fill({ color: style.color, alpha: Math.min(style.alpha + 0.2, 1) })
+
+    this.drawPath(g, waypoints, {
+      color: style.color,
+      alpha: style.alpha,
+      width: style.width,
+    })
 
     if (waypoints.length >= 2) {
       const p1 = waypoints[waypoints.length - 2]
@@ -107,7 +115,7 @@ export class ConnectionLayer extends Container {
         p2.x - len * Math.cos(angle + spread),
         p2.y - len * Math.sin(angle + spread),
       ])
-      g.fill({ color, alpha: 1 })
+      g.fill({ color: style.color, alpha: Math.min(style.alpha + 0.15, 1) })
     }
 
     if (eraseMode) {

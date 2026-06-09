@@ -3,6 +3,10 @@ import type { Viewport } from 'pixi-viewport'
 import { ComponentContainer } from '../components/ComponentContainer'
 import { requestCanvasFit } from '../utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../../editor-core/stores/canvasStore'
+import {
+  walkthroughNodeRole,
+  walkthroughStoreKey,
+} from '../utils/walkthroughVisual'
 
 export class ComponentLayer extends Container {
   private readonly viewport: Viewport
@@ -20,17 +24,32 @@ export class ComponentLayer extends Container {
 
     let prevNodes = initialNodes
     let prevSelectedId = useCanvasStore.getState().selectedId
+    let prevWalkthroughKey = walkthroughStoreKey(useCanvasStore.getState())
+    this._syncWalkthrough(useCanvasStore.getState())
+
     this.unsubscribe = useCanvasStore.subscribe((state) => {
       if (state.nodes !== prevNodes) {
         prevNodes = state.nodes
         this._syncNodes(state.nodes)
+        this._syncWalkthrough(state)
       }
       if (state.selectedId !== prevSelectedId) {
         const oldId = prevSelectedId
         prevSelectedId = state.selectedId
         this._syncSelection(state.selectedId, oldId)
       }
+      const wtKey = walkthroughStoreKey(state)
+      if (wtKey !== prevWalkthroughKey) {
+        prevWalkthroughKey = wtKey
+        this._syncWalkthrough(state)
+      }
     })
+  }
+
+  private _syncWalkthrough(state: ReturnType<typeof useCanvasStore.getState>): void {
+    for (const [id, container] of this.containers) {
+      container.setWalkthroughVisual(walkthroughNodeRole(id, state))
+    }
   }
 
   private _syncNodes(nodes: Record<string, CanvasNode>): void {
@@ -44,6 +63,7 @@ export class ComponentLayer extends Container {
         const c = new ComponentContainer(node, this.viewport)
         this.containers.set(id, c)
         this.addChild(c)
+        c.setWalkthroughVisual(walkthroughNodeRole(id, useCanvasStore.getState()))
         if (useCanvasStore.getState().selectedId === id) {
           c.setSelected(true)
         }

@@ -8,6 +8,7 @@ import {
   TextStyle,
   Texture,
   type FederatedPointerEvent,
+  type Ticker,
 } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
 import { TILE_W, TILE_H, isoToScreen, screenToIso, tileTopFacePoly } from '../constants'
@@ -20,6 +21,11 @@ import {
   useCanvasStore,
   type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
+import { getApp } from '../engine/app'
+import {
+  walkthroughNodeAlpha,
+  type WalkthroughNodeRole,
+} from '../utils/walkthroughVisual'
 
 const ASSET_MAP: Record<string, string> = {
   'cache:redis': 'redis-cache',
@@ -49,6 +55,9 @@ export class ComponentContainer extends Container {
   private isDragging = false
   private dragStartIso = { col: 0, row: 0 }
   private selectionOverlay: Graphics | null = null
+  private walkthroughOverlay: Graphics | null = null
+  private walkthroughRole: WalkthroughNodeRole = 'off'
+  private walkthroughTickerFn: ((ticker: Ticker) => void) | null = null
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
@@ -363,7 +372,87 @@ export class ComponentContainer extends Container {
       this._updateStatusDot(node.status)
     }
     this._syncPosition(node.position)
+    this.setWalkthroughVisual(this.walkthroughRole)
     if (this.selectionOverlay) this.setSelected(true)
+  }
+
+  setWalkthroughVisual(role: WalkthroughNodeRole): void {
+    this.walkthroughRole = role
+    this.alpha = walkthroughNodeAlpha(role)
+    this._stopWalkthroughPulse()
+
+    if (this.walkthroughOverlay) {
+      this.removeChild(this.walkthroughOverlay)
+      this.walkthroughOverlay.destroy()
+      this.walkthroughOverlay = null
+    }
+
+    if (role === 'off' || role === 'participating' || role === 'hidden') return
+
+    this.walkthroughOverlay = new Graphics()
+    this.walkthroughOverlay.eventMode = 'none'
+    this.addChild(this.walkthroughOverlay)
+
+    if (role === 'active') {
+      this._drawWalkthroughOverlay('active', 1)
+      this._startWalkthroughPulse()
+    } else {
+      this._drawWalkthroughOverlay(role)
+    }
+  }
+
+  private _walkthroughBounds(): {
+    x: number
+    y: number
+    w: number
+    h: number
+    pad: number
+  } {
+    const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
+    const pad = 8
+    return {
+      pad,
+      x: -pad,
+      y: -TILE_H / 2 - sH - pad,
+      w: TILE_W + pad * 2,
+      h: TILE_H + sH + 30 + pad * 2,
+    }
+  }
+
+  private _drawWalkthroughOverlay(role: 'active' | 'visited', pulse = 1): void {
+    if (!this.walkthroughOverlay) return
+    const { x, y, w, h } = this._walkthroughBounds()
+    const g = this.walkthroughOverlay
+    g.clear()
+
+    if (role === 'active') {
+      const glow = 0.35 + pulse * 0.4
+      g.roundRect(x, y, w, h, 6).stroke({ color: 0x22d3ee, width: 3, alpha: glow })
+      g.roundRect(x - 2, y - 2, w + 4, h + 4, 8).stroke({
+        color: 0x22d3ee,
+        width: 6,
+        alpha: 0.08 + pulse * 0.12,
+      })
+      return
+    }
+
+    g.roundRect(x, y, w, h, 6).stroke({ color: 0x22d3ee, width: 2, alpha: 0.35 })
+  }
+
+  private _startWalkthroughPulse(): void {
+    if (this.walkthroughTickerFn) return
+    this.walkthroughTickerFn = () => {
+      if (this.walkthroughRole !== 'active') return
+      const pulse = 0.45 + Math.sin(Date.now() * 0.004) * 0.15
+      this._drawWalkthroughOverlay('active', pulse)
+    }
+    getApp().ticker.add(this.walkthroughTickerFn)
+  }
+
+  private _stopWalkthroughPulse(): void {
+    if (!this.walkthroughTickerFn) return
+    getApp().ticker.remove(this.walkthroughTickerFn)
+    this.walkthroughTickerFn = null
   }
 
   setSelected(selected: boolean): void {
@@ -397,6 +486,7 @@ export class ComponentContainer extends Container {
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
+    this._stopWalkthroughPulse()
     this.off('pointerdown', this._onPointerDown)
     this.off('pointerover', this._onPointerOver)
     this.off('pointerout', this._onPointerOut)
