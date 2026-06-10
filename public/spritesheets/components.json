@@ -1,143 +1,143 @@
 {
   "frames": {
-    "redis-cache": {
+    "cache_base": {
       "frame": {
-        "x": 0,
-        "y": 0,
-        "w": 220,
-        "h": 128
+        "x": 994,
+        "y": 2,
+        "w": 260,
+        "h": 174
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 2,
+        "y": 5,
+        "w": 260,
+        "h": 174
+      },
+      "sourceSize": {
+        "w": 264,
+        "h": 184
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "server_base": {
+      "frame": {
+        "x": 258,
+        "y": 2,
+        "w": 260,
+        "h": 214
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 2,
+        "y": 5,
+        "w": 260,
+        "h": 214
+      },
+      "sourceSize": {
+        "w": 264,
+        "h": 224
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "database_base": {
+      "frame": {
+        "x": 520,
+        "y": 2,
+        "w": 228,
+        "h": 188
       },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": {
         "x": 18,
-        "y": 0,
-        "w": 220,
-        "h": 128
+        "y": 14,
+        "w": 228,
+        "h": 188
       },
       "sourceSize": {
-        "w": 256,
-        "h": 192
+        "w": 264,
+        "h": 208
       },
       "pivot": {
         "x": 0.5,
         "y": 0.5
       }
     },
-    "MQ": {
+    "worker_base": {
       "frame": {
-        "x": 220,
-        "y": 0,
-        "w": 206,
-        "h": 175
+        "x": 1256,
+        "y": 2,
+        "w": 204,
+        "h": 152
       },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": {
-        "x": 25,
-        "y": 42,
-        "w": 206,
-        "h": 175
+        "x": 30,
+        "y": 14,
+        "w": 204,
+        "h": 152
       },
       "sourceSize": {
-        "w": 256,
-        "h": 256
+        "w": 264,
+        "h": 172
       },
       "pivot": {
         "x": 0.5,
         "y": 0.5
       }
     },
-    "database": {
+    "loadbalancer_base": {
       "frame": {
-        "x": 0,
-        "y": 128,
-        "w": 200,
-        "h": 194
+        "x": 2,
+        "y": 2,
+        "w": 254,
+        "h": 244
       },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": {
-        "x": 28,
-        "y": 31,
-        "w": 200,
-        "h": 194
+        "x": 1,
+        "y": 1,
+        "w": 254,
+        "h": 244
       },
       "sourceSize": {
         "w": 256,
-        "h": 256
+        "h": 275
       },
       "pivot": {
         "x": 0.5,
         "y": 0.5
       }
     },
-    "lb": {
+    "queue_base": {
       "frame": {
-        "x": 426,
-        "y": 0,
-        "w": 121,
-        "h": 195
-      },
-      "rotated": true,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 71,
-        "y": 36,
-        "w": 121,
-        "h": 195
-      },
-      "sourceSize": {
-        "w": 256,
-        "h": 256
-      },
-      "pivot": {
-        "x": 0.5,
-        "y": 0.5
-      }
-    },
-    "server": {
-      "frame": {
-        "x": 621,
-        "y": 0,
-        "w": 180,
-        "h": 158
+        "x": 750,
+        "y": 2,
+        "w": 242,
+        "h": 186
       },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": {
-        "x": 38,
-        "y": 49,
-        "w": 180,
-        "h": 158
+        "x": 19,
+        "y": 17,
+        "w": 242,
+        "h": 186
       },
       "sourceSize": {
-        "w": 256,
-        "h": 256
-      },
-      "pivot": {
-        "x": 0.5,
-        "y": 0.5
-      }
-    },
-    "worker": {
-      "frame": {
-        "x": 426,
-        "y": 121,
-        "w": 128,
-        "h": 148
-      },
-      "rotated": true,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 64,
-        "y": 54,
-        "w": 128,
-        "h": 148
-      },
-      "sourceSize": {
-        "w": 256,
-        "h": 256
+        "w": 264,
+        "h": 208
       },
       "pivot": {
         "x": 0.5,
@@ -146,14 +146,14 @@
     }
   },
   "meta": {
-    "app": "http://free-tex-packer.com",
-    "version": "0.6.7",
+    "app": "cloud9-frontend scripts/build-sprite-atlas.mjs",
+    "version": "1.0",
     "image": "components.png",
     "format": "RGBA8888",
     "size": {
-      "w": 801,
-      "h": 322
+      "w": 1462,
+      "h": 248
     },
-    "scale": 1
+    "scale": "1"
   }
 }
