@@ -18,6 +18,12 @@ import {
   inflatePoly,
   isoBoxSilhouette,
 } from './proceduralComponent'
+import { expandedSlotOffset } from './replicaSlots'
+import { USE_SPRITE_COMPONENTS } from '../config/renderMode'
+import { DEFAULT_SPRITE_LAYOUT, SPRITE_LAYOUT } from '../config/spriteLayout'
+import { isAtlasReady } from '../sprites/atlasState'
+import { spriteFrameForType } from '../sprites/spriteFrames'
+import { SpriteComponent } from '../sprites/SpriteComponent'
 import { nodeToIso, isoToNode, clampIsoCell } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import {
@@ -61,22 +67,6 @@ function nodeHasReplicaStack(node: CanvasNode): boolean {
   return REPLICA_STACK_TYPES.has(node.type) && visualReplicaCount(node) > 1
 }
 
-/**
- * Screen-space offset for an exploded replica slot.
- * Primary stays at origin; replicas fan along iso row axis (alternating sides)
- * with enough spread so full-height slabs don't overlap.
- */
-function expandedSlotOffset(idx: number): { x: number; y: number } {
-  if (idx === 0) return { x: 0, y: 0 }
-  const step = Math.ceil(idx / 2)
-  const dir = idx % 2 === 1 ? -1 : 1
-  const spread = 1.3
-  return {
-    x: dir * step * spread * (TILE_W / 2),
-    y: dir * step * spread * (TILE_H / 2),
-  }
-}
-
 export class ComponentContainer extends Container {
   private readonly nodeId: string
   private readonly viewport: Viewport
@@ -99,6 +89,7 @@ export class ComponentContainer extends Container {
   private statusDot!: Graphics
   private labelText!: Text
   private replicaBadge: Text | null = null
+  private spriteBody: SpriteComponent | null = null
   private expanded = false
   private _prevType: CanvasNode['type']
   private _prevVisualReplicas: number
@@ -196,12 +187,20 @@ export class ComponentContainer extends Container {
     this._prevVisualReplicas = layers
     this._prevExpanded = hasStack && this.expanded
 
-    if (hasStack && this.expanded) {
-      this._drawExpandedStack(node, sH, layers)
-    } else if (hasStack) {
-      this._drawCollapsedStack(node, layers)
+    if (this._useSpriteBody(node)) {
+      this._mountSpriteBody(node, layers, hasStack)
     } else {
-      this._drawSingle(node)
+      if (this.spriteBody) {
+        this.spriteBody.destroy()
+        this.spriteBody = null
+      }
+      if (hasStack && this.expanded) {
+        this._drawExpandedStack(node, sH, layers)
+      } else if (hasStack) {
+        this._drawCollapsedStack(node, layers)
+      } else {
+        this._drawSingle(node)
+      }
     }
 
     this._buildLabel(node, hasStack, layers)
@@ -215,6 +214,59 @@ export class ComponentContainer extends Container {
 
   private _drawSingle(node: CanvasNode): void {
     addProceduralSlab(this, node, 0, 0)
+  }
+
+  /** Sprite rendering only when the flag is on, the atlas loaded, and the type has a frame. */
+  private _useSpriteBody(node: CanvasNode): boolean {
+    return (
+      USE_SPRITE_COMPONENTS &&
+      isAtlasReady() &&
+      spriteFrameForType(node.type) !== null
+    )
+  }
+
+  /** Body drop below the tile diamond for slot-label placement in sprite mode. */
+  private _spriteBodyDrop(node: CanvasNode): number {
+    const spec = spriteFrameForType(node.type)
+    if (!spec) return COMPONENT_COLORS[node.type].sideHeight
+    return (SPRITE_LAYOUT[spec.frame] ?? DEFAULT_SPRITE_LAYOUT).offsetY
+  }
+
+  /**
+   * Mount (or re-mount after removeChildren) the persistent SpriteComponent so
+   * expand/collapse can tween instead of rebuilding sprites from scratch.
+   */
+  private _mountSpriteBody(
+    node: CanvasNode,
+    layers: number,
+    hasStack: boolean,
+  ): void {
+    if (!this.spriteBody) this.spriteBody = new SpriteComponent()
+    this.addChild(this.spriteBody)
+    const expanded = hasStack && this.expanded
+    this.spriteBody.update({
+      nodeType: node.type,
+      replicaCount: layers,
+      expanded,
+    })
+
+    if (expanded) {
+      const drop = this._spriteBodyDrop(node)
+      for (let idx = 0; idx < layers; idx++) {
+        const off = expandedSlotOffset(idx)
+        const text =
+          idx === 0
+            ? '\u02c4 collapse\nprimary'
+            : node.type === 'database'
+              ? `read ${idx}`
+              : `replica ${idx}`
+        this._addSlotLabel(
+          off.x + TILE_W / 2,
+          off.y + TILE_H / 2 + drop + 4,
+          text,
+        )
+      }
+    }
   }
 
   /** Vertical "cake": full base + thin caps (see proceduralComponent). */

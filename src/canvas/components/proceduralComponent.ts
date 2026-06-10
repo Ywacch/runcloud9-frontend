@@ -1,6 +1,7 @@
 import { Container, Graphics } from 'pixi.js'
 import { TILE_W, TILE_H, tileTopFacePoly } from '../constants'
 import { COMPONENT_COLORS } from '../config/componentColors'
+import { collapsedSlabOy } from './replicaSlots'
 import type { CanvasNode } from '../../editor-core/stores/canvasStore'
 
 const EDGE = 0x2a2a2a
@@ -59,19 +60,6 @@ function drawIsoBody(
     width: outline ? 1 : 0.75,
     alpha: outline ? 0.45 : 0.35,
   })
-}
-
-/**
- * Vertical screen-space rise between stacked replica boxes. Deliberately smaller
- * than any body's `sideHeight` so each lower box's top face peeks out as a
- * "shelf" above the one in front of it (Cloudcraft-style stacked servers),
- * instead of leaving a gap that reads as a floating slab.
- */
-const STACK_STEP = 16
-
-/** Top-face `oy` of replica box `i` (i=0 is the front/base box at oy=0). */
-function collapsedSlabOy(i: number): number {
-  return -i * STACK_STEP
 }
 
 export function collapsedStackTopY(

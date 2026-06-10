@@ -28,6 +28,8 @@ import { useCanvasStore, type CanvasNode, isCanvasEditMode } from '../editor-cor
 import { placeFromPicker } from '../lib/pickerPlacement'
 import { SPAWN_AT_SCREEN, type SpawnAtScreenDetail } from '../lib/spawnEvents'
 import { USE_SPRITE_COMPONENTS } from './config/renderMode'
+import { markAtlasReady } from './sprites/atlasState'
+import { EXPECTED_ATLAS_FRAMES } from './sprites/spriteFrames'
 
 function placePickerNode(
   nodeType: CanvasNode['type'],
@@ -95,7 +97,26 @@ export default function CanvasApp() {
         return
       }
       if (USE_SPRITE_COMPONENTS) {
-        await Assets.load('/spritesheets/components.json')
+        try {
+          const sheet = (await Assets.load('/spritesheets/components.json')) as {
+            textures?: Record<string, unknown>
+          }
+          const missing = EXPECTED_ATLAS_FRAMES.filter(
+            (frame) => !sheet?.textures?.[frame],
+          )
+          if (missing.length > 0) {
+            console.warn(
+              `Sprite atlas is missing frames [${missing.join(', ')}]; falling back to procedural rendering.`,
+            )
+          } else {
+            markAtlasReady()
+          }
+        } catch (err) {
+          console.warn(
+            'Sprite atlas failed to load; falling back to procedural rendering.',
+            err,
+          )
+        }
         if (disposed) {
           destroyApp()
           return
