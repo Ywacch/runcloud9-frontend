@@ -1,3 +1,5 @@
+import { TILE_H, TILE_W } from '../constants'
+
 export interface SpriteLayout {
   /** Uniform scale factor applied to the sprite (atlas is rasterized at 2x). */
   scale: number
@@ -10,6 +12,12 @@ export interface SpriteLayout {
    */
   offsetX: number
   offsetY: number
+  /**
+   * Drawn body size in screen px (trimmed atlas frame × scale). Used for
+   * selection overlay / hit bounds when the sprite path is active.
+   */
+  bodyWidth?: number
+  bodyHeight?: number
 }
 
 /** Keyed by atlas frame name (public/spritesheets/components.json). */
@@ -18,7 +26,14 @@ export const SPRITE_LAYOUT: Record<string, SpriteLayout> = {
   server_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 41 },
   database_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 33 },
   worker_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 18 },
-  loadbalancer_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 53 },
+  loadbalancer_base: {
+    scale: 0.28,
+    anchor: { x: 0.5, y: 1 },
+    offsetX: 0,
+    offsetY: 30,
+    bodyWidth: 64,
+    bodyHeight: 101,
+  },
   queue_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 18 },
 }
 
@@ -27,4 +42,22 @@ export const DEFAULT_SPRITE_LAYOUT: SpriteLayout = {
   anchor: { x: 0.5, y: 1 },
   offsetX: 0,
   offsetY: 30,
+}
+
+/** Screen-space AABB for sprite selection/hit bounds (tile anchor at 0,0). */
+export function spriteBodyBounds(layout: SpriteLayout): {
+  x: number
+  y: number
+  w: number
+  h: number
+} | null {
+  if (!layout.bodyWidth || !layout.bodyHeight) return null
+  const seatX = TILE_W / 2 + layout.offsetX
+  const seatY = TILE_H / 2 + layout.offsetY
+  return {
+    x: seatX - layout.bodyWidth / 2,
+    y: seatY - layout.bodyHeight,
+    w: layout.bodyWidth,
+    h: layout.bodyHeight,
+  }
 }
