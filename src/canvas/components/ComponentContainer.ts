@@ -118,12 +118,7 @@ export class ComponentContainer extends Container {
 
   /** Bounding box encompassing every drawn slab (collapsed cake or exploded slots). */
   private _componentBounds(): { x: number; y: number; w: number; h: number } {
-    if (
-      USE_SPRITE_COMPONENTS &&
-      isAtlasReady() &&
-      this._prevVisualReplicas <= 1 &&
-      !this._prevExpanded
-    ) {
+    if (USE_SPRITE_COMPONENTS && isAtlasReady() && !this._prevExpanded) {
       const spec = spriteFrameForType(this._prevType)
       if (spec) {
         const layout = SPRITE_LAYOUT[spec.frame] ?? DEFAULT_SPRITE_LAYOUT
@@ -173,6 +168,9 @@ export class ComponentContainer extends Container {
       return polys
     }
     if (layers > 1) {
+      if (USE_SPRITE_COMPONENTS && isAtlasReady() && spriteFrameForType(this._prevType)) {
+        return [isoBoxSilhouette(0, 0, 0, sH)]
+      }
       return [collapsedStackSilhouette(this._prevType, layers)]
     }
     return [isoBoxSilhouette(0, 0, 0, sH)]

@@ -22,8 +22,22 @@ export interface SpriteLayout {
 
 /** Keyed by atlas frame name (public/spritesheets/components.json). */
 export const SPRITE_LAYOUT: Record<string, SpriteLayout> = {
-  cache_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 21 },
-  server_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 41 },
+  cache_base: {
+    scale: 0.5,
+    anchor: { x: 0.5, y: 1 },
+    offsetX: 0,
+    offsetY: 21,
+    bodyWidth: 128,
+    bodyHeight: 87,
+  },
+  server_base: {
+    scale: 0.5,
+    anchor: { x: 0.5, y: 1 },
+    offsetX: 0,
+    offsetY: 41,
+    bodyWidth: 128,
+    bodyHeight: 107,
+  },
   database_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 33 },
   worker_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 18 },
   loadbalancer_base: {

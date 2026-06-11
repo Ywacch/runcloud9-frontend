@@ -1,10 +1,6 @@
 import { Container, Graphics, Sprite, Texture, type Ticker } from 'pixi.js'
 import { TILE_W, TILE_H } from '../constants'
-import {
-  clusteredRowOffset,
-  collapsedSlabOy,
-  expandedSlotOffset,
-} from '../components/replicaSlots'
+import { expandedSlotOffset } from '../components/replicaSlots'
 import {
   DEFAULT_SPRITE_LAYOUT,
   SPRITE_LAYOUT,
@@ -45,8 +41,8 @@ function darken(hex: number, factor: number): number {
  * Sprite-based body renderer for one canvas component. Mounted inside
  * ComponentContainer (which keeps ownership of interactions, labels, badge,
  * status dot, and overlays). Renders N tinted atlas sprites laid out by the
- * component's replica strategy, and tweens between collapsed and fanned-out
- * slots on the shared PixiJS ticker.
+ * component's replica strategy. Collapsed multi-replica nodes draw one sprite
+ * (count shown via the ×N badge); expand fans out to one sprite per replica.
  *
  * Plain PixiJS class — no React hooks; no store access at all (props in).
  */
@@ -64,27 +60,32 @@ export class SpriteComponent extends Container {
     this.sortableChildren = true
   }
 
-  /** Local-space offsets (relative to the tile anchor) for each replica slot. */
-  private _slotOffsets(
+  private _totalReplicaCount(
     spec: SpriteFrameSpec,
-    count: number,
+    replicaCount: number,
+  ): number {
+    if (spec.strategy === 'singleton') return 1
+    return Math.max(1, Math.floor(replicaCount))
+  }
+
+  /** Collapsed multi-replica → 1 sprite; expanded → one per replica. */
+  private _visibleTileCount(
+    spec: SpriteFrameSpec,
+    replicaCount: number,
     expanded: boolean,
-  ): { x: number; y: number }[] {
-    if (spec.strategy === 'singleton' || count <= 1) {
-      return [{ x: 0, y: 0 }]
-    }
+  ): number {
+    const total = this._totalReplicaCount(spec, replicaCount)
+    if (total <= 1 || !expanded) return 1
+    return total
+  }
+
+  /** Local-space offsets (relative to the tile anchor) for each visible tile. */
+  private _slotOffsets(visibleCount: number, expanded: boolean): { x: number; y: number }[] {
+    if (visibleCount <= 1) return [{ x: 0, y: 0 }]
     if (expanded) {
-      return Array.from({ length: count }, (_, i) => expandedSlotOffset(i))
+      return Array.from({ length: visibleCount }, (_, i) => expandedSlotOffset(i))
     }
-    if (spec.strategy === 'row') {
-      return Array.from({ length: count }, (_, i) =>
-        clusteredRowOffset(i, count),
-      )
-    }
-    return Array.from({ length: count }, (_, i) => ({
-      x: 0,
-      y: collapsedSlabOy(i),
-    }))
+    return [{ x: 0, y: 0 }]
   }
 
   private _layout(): SpriteLayout {
@@ -101,12 +102,87 @@ export class SpriteComponent extends Container {
     }
   }
 
-  private _tileTint(spec: SpriteFrameSpec, idx: number, count: number, expanded: boolean): number {
-    if (expanded) {
-      return idx === 0 ? spec.tint : darken(spec.tint, 1 - idx * 0.08)
+  private _tileTint(spec: SpriteFrameSpec, idx: number, expanded: boolean): number {
+    if (!expanded || idx === 0) return spec.tint
+    return darken(spec.tint, 1 - idx * 0.08)
+  }
+
+  private _addTile(
+    spec: SpriteFrameSpec,
+    idx: number,
+    off: { x: number; y: number },
+    expanded: boolean,
+  ): Sprite {
+    const layout = this._layout()
+    const sprite = new Sprite(Texture.from(spec.frame))
+    sprite.eventMode = 'none'
+    sprite.anchor.set(layout.anchor.x, layout.anchor.y)
+    sprite.scale.set(layout.scale)
+    sprite.tint = this._tileTint(spec, idx, expanded)
+    const seat = this._seatPosition(off)
+    sprite.position.set(seat.x, seat.y)
+    sprite.zIndex = expanded ? idx : 0
+    this.tiles.push(sprite)
+    this.addChild(sprite)
+    return sprite
+  }
+
+  private _rebuildTiles(
+    spec: SpriteFrameSpec,
+    visibleCount: number,
+    expanded: boolean,
+    /** When true, every tile starts at the primary seat (expand animation). */
+    seatAtOrigin = false,
+  ): void {
+    this._clear()
+    const offsets = seatAtOrigin
+      ? Array.from({ length: visibleCount }, () => ({ x: 0, y: 0 }))
+      : this._slotOffsets(visibleCount, expanded)
+    for (let i = 0; i < visibleCount; i++) {
+      this._addTile(spec, i, offsets[i], expanded)
     }
-    // Collapsed stack: top tier brightest, lower shelves darker for depth.
-    return darken(spec.tint, 1 - (count - 1 - idx) * 0.12)
+    this._syncLeaders(visibleCount, expanded)
+  }
+
+  /** Per-tile target offset for expand (fan-out) or collapse (all to origin). */
+  private _tweenTargetOffset(
+    tileIndex: number,
+    visibleCount: number,
+    expanded: boolean,
+  ): { x: number; y: number } {
+    if (!expanded) return { x: 0, y: 0 }
+    return expandedSlotOffset(tileIndex)
+  }
+
+  private _tweenTilesTo(
+    spec: SpriteFrameSpec,
+    visibleCount: number,
+    expanded: boolean,
+    onComplete?: () => void,
+  ): void {
+    const targets: TweenTarget[] = this.tiles.map((sprite, i) => {
+      const seat = this._seatPosition(
+        this._tweenTargetOffset(i, visibleCount, expanded),
+      )
+      return {
+        sprite,
+        fromX: sprite.position.x,
+        fromY: sprite.position.y,
+        toX: seat.x,
+        toY: seat.y,
+      }
+    })
+    this.tiles.forEach((sprite, i) => {
+      sprite.tint = this._tileTint(spec, i, expanded)
+    })
+    this._syncLeaders(visibleCount, false)
+    this._startTween(targets, () => {
+      this.tiles.forEach((sprite, i) => {
+        sprite.zIndex = expanded ? i : 0
+      })
+      this._syncLeaders(visibleCount, this.props?.expanded ?? false)
+      onComplete?.()
+    })
   }
 
   update(props: SpriteComponentProps): void {
@@ -119,59 +195,36 @@ export class SpriteComponent extends Container {
     }
 
     const typeChanged = this.spec?.frame !== spec.frame
-    const count =
-      spec.strategy === 'singleton'
-        ? 1
-        : Math.max(1, Math.floor(props.replicaCount))
-    const countChanged = this.tiles.length !== count
+    const visibleCount = this._visibleTileCount(spec, props.replicaCount, props.expanded)
     const expandedChanged =
       this.props !== null && this.props.expanded !== props.expanded
+    const tileCountChanged = this.tiles.length !== visibleCount
 
     const prevProps = this.props
     this.spec = spec
     this.props = props
 
-    if (typeChanged || countChanged) {
+    if (typeChanged || (tileCountChanged && !expandedChanged)) {
       this._stopTween()
-      this._clear()
-      const layout = this._layout()
-      const offsets = this._slotOffsets(spec, count, props.expanded)
-      for (let i = 0; i < count; i++) {
-        const sprite = new Sprite(Texture.from(spec.frame))
-        sprite.eventMode = 'none'
-        sprite.anchor.set(layout.anchor.x, layout.anchor.y)
-        sprite.scale.set(layout.scale)
-        sprite.tint = this._tileTint(spec, i, count, props.expanded)
-        const seat = this._seatPosition(offsets[i])
-        sprite.position.set(seat.x, seat.y)
-        sprite.zIndex = seat.y
-        this.tiles.push(sprite)
-        this.addChild(sprite)
-      }
-      this._syncLeaders(count, props.expanded)
+      this._rebuildTiles(spec, visibleCount, props.expanded)
       return
     }
 
     if (expandedChanged && prevProps) {
-      const offsets = this._slotOffsets(spec, count, props.expanded)
-      const targets: TweenTarget[] = this.tiles.map((sprite, i) => {
-        const seat = this._seatPosition(offsets[i])
-        return {
-          sprite,
-          fromX: sprite.position.x,
-          fromY: sprite.position.y,
-          toX: seat.x,
-          toY: seat.y,
-        }
-      })
-      this.tiles.forEach((sprite, i) => {
-        sprite.tint = this._tileTint(spec, i, count, props.expanded)
-      })
-      // Leaders appear only once the fan-out settles (and clear immediately on collapse).
-      this._syncLeaders(count, false)
-      this._startTween(targets, () => {
-        this._syncLeaders(count, this.props?.expanded ?? false)
-      })
+      this._stopTween()
+      if (props.expanded) {
+        const total = this._totalReplicaCount(spec, props.replicaCount)
+        this._rebuildTiles(spec, total, true, true)
+        this._tweenTilesTo(spec, total, true)
+        return
+      }
+      if (this.tiles.length > 1) {
+        this._tweenTilesTo(spec, this.tiles.length, false, () => {
+          this._rebuildTiles(spec, 1, false)
+        })
+        return
+      }
+      this._rebuildTiles(spec, 1, false)
     }
   }
 
@@ -217,7 +270,8 @@ export class SpriteComponent extends Container {
           target.fromX + (target.toX - target.fromX) * e,
           target.fromY + (target.toY - target.fromY) * e,
         )
-        target.sprite.zIndex = target.sprite.position.y
+        const idx = this.tiles.indexOf(target.sprite)
+        target.sprite.zIndex = idx >= 0 ? idx : 0
       }
       if (t >= 1) {
         this._stopTween()

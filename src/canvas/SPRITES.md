@@ -31,6 +31,10 @@ Replica fan-out state lives in `ComponentContainer` (`expanded` flag) — not in
 `CanvasNode`. Labels, badge, status dot, and overlays stay in
 `ComponentContainer` for both render paths.
 
+**Collapsed replicas:** multi-replica nodes render **one** tinted sprite; the
+`×N` badge communicates count. Click expand to fan out one sprite per replica
+(animated). Procedural rendering still uses stacked shelves when sprites are off.
+
 ## Updating the atlas
 
 After editing SVGs or adding a frame:
