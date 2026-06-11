@@ -20,7 +20,11 @@ import {
 } from './proceduralComponent'
 import { expandedSlotOffset } from './replicaSlots'
 import { USE_SPRITE_COMPONENTS } from '../config/renderMode'
-import { DEFAULT_SPRITE_LAYOUT, SPRITE_LAYOUT } from '../config/spriteLayout'
+import {
+  DEFAULT_SPRITE_LAYOUT,
+  SPRITE_LAYOUT,
+  spriteBodyBounds,
+} from '../config/spriteLayout'
 import { isAtlasReady } from '../sprites/atlasState'
 import { spriteFrameForType } from '../sprites/spriteFrames'
 import { SpriteComponent } from '../sprites/SpriteComponent'
@@ -114,6 +118,15 @@ export class ComponentContainer extends Container {
 
   /** Bounding box encompassing every drawn slab (collapsed cake or exploded slots). */
   private _componentBounds(): { x: number; y: number; w: number; h: number } {
+    if (USE_SPRITE_COMPONENTS && isAtlasReady() && !this._prevExpanded) {
+      const spec = spriteFrameForType(this._prevType)
+      if (spec) {
+        const layout = SPRITE_LAYOUT[spec.frame] ?? DEFAULT_SPRITE_LAYOUT
+        const spriteBounds = spriteBodyBounds(layout)
+        if (spriteBounds) return spriteBounds
+      }
+    }
+
     const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
     const layers = this._prevVisualReplicas
 
@@ -155,6 +168,9 @@ export class ComponentContainer extends Container {
       return polys
     }
     if (layers > 1) {
+      if (USE_SPRITE_COMPONENTS && isAtlasReady() && spriteFrameForType(this._prevType)) {
+        return [isoBoxSilhouette(0, 0, 0, sH)]
+      }
       return [collapsedStackSilhouette(this._prevType, layers)]
     }
     return [isoBoxSilhouette(0, 0, 0, sH)]

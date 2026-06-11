@@ -2,7 +2,7 @@
   "frames": {
     "cache_base": {
       "frame": {
-        "x": 994,
+        "x": 1132,
         "y": 2,
         "w": 260,
         "h": 174
@@ -26,7 +26,7 @@
     },
     "server_base": {
       "frame": {
-        "x": 258,
+        "x": 640,
         "y": 2,
         "w": 260,
         "h": 214
@@ -50,7 +50,7 @@
     },
     "database_base": {
       "frame": {
-        "x": 520,
+        "x": 902,
         "y": 2,
         "w": 228,
         "h": 188
@@ -74,7 +74,7 @@
     },
     "worker_base": {
       "frame": {
-        "x": 1256,
+        "x": 1394,
         "y": 2,
         "w": 204,
         "h": 152
@@ -100,20 +100,20 @@
       "frame": {
         "x": 2,
         "y": 2,
-        "w": 254,
-        "h": 244
+        "w": 300,
+        "h": 485
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 1,
-        "y": 1,
-        "w": 254,
-        "h": 244
+        "x": 0,
+        "y": 0,
+        "w": 300,
+        "h": 485
       },
       "sourceSize": {
-        "w": 256,
-        "h": 275
+        "w": 79,
+        "h": 128
       },
       "pivot": {
         "x": 0.5,
@@ -122,22 +122,22 @@
     },
     "queue_base": {
       "frame": {
-        "x": 750,
+        "x": 304,
         "y": 2,
-        "w": 242,
-        "h": 186
+        "w": 334,
+        "h": 252
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 19,
-        "y": 17,
-        "w": 242,
-        "h": 186
+        "x": 0,
+        "y": 0,
+        "w": 334,
+        "h": 252
       },
       "sourceSize": {
-        "w": 264,
-        "h": 208
+        "w": 334,
+        "h": 252
       },
       "pivot": {
         "x": 0.5,
@@ -151,8 +151,8 @@
     "image": "components.png",
     "format": "RGBA8888",
     "size": {
-      "w": 1462,
-      "h": 248
+      "w": 1600,
+      "h": 490
     },
     "scale": "1"
   }
