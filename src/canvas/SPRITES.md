@@ -24,6 +24,7 @@ Toggle `USE_SPRITE_COMPONENTS = false` to restore procedural cubes exactly.
 | `public/spritesheets/components.*` | Shipped atlas |
 | `sprites/spriteFrames.ts` | Node type → frame + tint + layout strategy |
 | `config/spriteLayout.ts` | Per-frame scale, anchor, tile seat offsets |
+| `config/spriteHealthRim.ts` | Per-archetype health rim silhouettes (from SVG outlines) |
 | `sprites/SpriteComponent.ts` | Stacking, row clustering, fan-out tween |
 | `components/replicaSlots.ts` | Shared `expandedSlotOffset`, `STACK_STEP` |
 
