@@ -147,7 +147,6 @@ export class SpriteComponent extends Container {
   /** Per-tile target offset for expand (fan-out) or collapse (all to origin). */
   private _tweenTargetOffset(
     tileIndex: number,
-    visibleCount: number,
     expanded: boolean,
   ): { x: number; y: number } {
     if (!expanded) return { x: 0, y: 0 }
@@ -162,7 +161,7 @@ export class SpriteComponent extends Container {
   ): void {
     const targets: TweenTarget[] = this.tiles.map((sprite, i) => {
       const seat = this._seatPosition(
-        this._tweenTargetOffset(i, visibleCount, expanded),
+        this._tweenTargetOffset(i, expanded),
       )
       return {
         sprite,
