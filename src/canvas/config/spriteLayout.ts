@@ -38,8 +38,22 @@ export const SPRITE_LAYOUT: Record<string, SpriteLayout> = {
     bodyWidth: 128,
     bodyHeight: 107,
   },
-  database_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 33 },
-  worker_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 18 },
+  database_base: {
+    scale: 0.5,
+    anchor: { x: 0.5, y: 1 },
+    offsetX: 0,
+    offsetY: 33,
+    bodyWidth: 114,
+    bodyHeight: 94,
+  },
+  worker_base: {
+    scale: 0.5,
+    anchor: { x: 0.5, y: 1 },
+    offsetX: 0,
+    offsetY: 18,
+    bodyWidth: 102,
+    bodyHeight: 76,
+  },
   loadbalancer_base: {
     scale: 0.28,
     anchor: { x: 0.5, y: 1 },
@@ -48,7 +62,14 @@ export const SPRITE_LAYOUT: Record<string, SpriteLayout> = {
     bodyWidth: 64,
     bodyHeight: 101,
   },
-  queue_base: { scale: 0.5, anchor: { x: 0.5, y: 1 }, offsetX: 0, offsetY: 18 },
+  queue_base: {
+    scale: 0.5,
+    anchor: { x: 0.5, y: 1 },
+    offsetX: 0,
+    offsetY: 18,
+    bodyWidth: 167,
+    bodyHeight: 126,
+  },
 }
 
 export const DEFAULT_SPRITE_LAYOUT: SpriteLayout = {
@@ -75,3 +96,4 @@ export function spriteBodyBounds(layout: SpriteLayout): {
     h: layout.bodyHeight,
   }
 }
+

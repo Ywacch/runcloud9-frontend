@@ -25,6 +25,7 @@ import {
   SPRITE_LAYOUT,
   spriteBodyBounds,
 } from '../config/spriteLayout'
+import { spriteHealthRimPoly } from '../config/spriteHealthRim'
 import { isAtlasReady } from '../sprites/atlasState'
 import { spriteFrameForType } from '../sprites/spriteFrames'
 import { SpriteComponent } from '../sprites/SpriteComponent'
@@ -156,6 +157,23 @@ export class ComponentContainer extends Container {
    * box or collapsed stack; one per tile in the expanded fan.
    */
   private _healthRimPolys(): number[][] {
+    if (USE_SPRITE_COMPONENTS && isAtlasReady()) {
+      const spec = spriteFrameForType(this._prevType)
+      if (spec) {
+        const layout = SPRITE_LAYOUT[spec.frame] ?? DEFAULT_SPRITE_LAYOUT
+        const polyAt = (off: { x: number; y: number }) =>
+          spriteHealthRimPoly(spec.frame, layout, off)
+        const layers = this._prevVisualReplicas
+        if (this._prevExpanded && layers > 1) {
+          return Array.from({ length: layers }, (_, i) => polyAt(expandedSlotOffset(i))).filter(
+            (p): p is number[] => p !== null,
+          )
+        }
+        const single = polyAt({ x: 0, y: 0 })
+        if (single) return [single]
+      }
+    }
+
     const sH = COMPONENT_COLORS[this._prevType]?.sideHeight ?? 30
     const layers = this._prevVisualReplicas
 
@@ -168,12 +186,29 @@ export class ComponentContainer extends Container {
       return polys
     }
     if (layers > 1) {
-      if (USE_SPRITE_COMPONENTS && isAtlasReady() && spriteFrameForType(this._prevType)) {
-        return [isoBoxSilhouette(0, 0, 0, sH)]
-      }
       return [collapsedStackSilhouette(this._prevType, layers)]
     }
     return [isoBoxSilhouette(0, 0, 0, sH)]
+  }
+
+  /** removeChildren() destroys overlay graphics — drop stale refs so setters redraw. */
+  private _clearOverlayRefs(): void {
+    this.selectionOverlay = null
+    this.healthOverlay = null
+    this.walkthroughOverlay = null
+    this.narrativeOverlay = null
+    this.connectOverlay = null
+  }
+
+  private _restoreDecorations(): void {
+    this.setWalkthroughVisual(this.walkthroughRole)
+    this.setNarrativeHighlight(this.narrativeHighlighted)
+    this.setHealthVisual(this.healthVisual)
+    this.setConnectVisual(this.connectRole)
+  }
+
+  private _isSelectedInStore(): boolean {
+    return useCanvasStore.getState().selectedIds.includes(this.nodeId)
   }
 
   private _updateHitArea(): void {
@@ -190,9 +225,10 @@ export class ComponentContainer extends Container {
   }
 
   private _build(node: CanvasNode): void {
+    this._clearOverlayRefs()
     this.removeChildren()
-    this.selectionOverlay = null
     this.replicaBadge = null
+    if (this.spriteBody?.destroyed) this.spriteBody = null
 
     const colors = COMPONENT_COLORS[node.type]
     const sH = colors.sideHeight
@@ -226,6 +262,9 @@ export class ComponentContainer extends Container {
     this.statusDot.position.set(TILE_W + 2 + statusOff.x, -TILE_H / 2 + statusOff.y)
     this._updateStatusDot(node.status)
     this.addChild(this.statusDot)
+
+    this._restoreDecorations()
+    if (this._isSelectedInStore()) this.setSelected(true)
   }
 
   private _drawSingle(node: CanvasNode): void {
@@ -472,8 +511,6 @@ export class ComponentContainer extends Container {
     this.expanded = !this.expanded
     this._build(node)
     this._updateHitArea()
-    this.setWalkthroughVisual(this.walkthroughRole)
-    if (this.selectionOverlay) this.setSelected(true)
   }
 
   private _onPointerDown = (e: FederatedPointerEvent): void => {
@@ -613,15 +650,15 @@ export class ComponentContainer extends Container {
       this._updateStatusDot(node.status)
     }
     this._syncPosition(node.position)
-    this.setWalkthroughVisual(this.walkthroughRole)
-    this.setNarrativeHighlight(this.narrativeHighlighted)
-    this.setHealthVisual(this.healthVisual)
-    this.setConnectVisual(this.connectRole)
-    if (this.selectionOverlay) this.setSelected(true)
+    if (!needsRebuild) {
+      this._restoreDecorations()
+      if (this._isSelectedInStore()) this.setSelected(true)
+    }
   }
 
   setConnectVisual(role: ConnectNodeRole): void {
-    if (role === this.connectRole && (role === 'off' ? !this.connectOverlay : !!this.connectOverlay)) {
+    const connectLive = !!this.connectOverlay && this.connectOverlay.parent === this
+    if (role === this.connectRole && (role === 'off' ? !connectLive : connectLive)) {
       return
     }
     this.connectRole = role
@@ -696,7 +733,8 @@ export class ComponentContainer extends Container {
 
   setHealthVisual(state: HealthVisualState): void {
     const style = healthRimStyle(state)
-    if (state === this.healthVisual && !!style === !!this.healthOverlay) return
+    const overlayLive = !!this.healthOverlay && this.healthOverlay.parent === this
+    if (state === this.healthVisual && !!style === overlayLive) return
     this.healthVisual = state
     this._stopHealthPulse()
 
@@ -752,7 +790,9 @@ export class ComponentContainer extends Container {
   }
 
   setNarrativeHighlight(highlighted: boolean): void {
-    if (highlighted === this.narrativeHighlighted && this.narrativeOverlay) return
+    const narrativeLive =
+      !!this.narrativeOverlay && this.narrativeOverlay.parent === this
+    if (highlighted === this.narrativeHighlighted && narrativeLive) return
     this.narrativeHighlighted = highlighted
     this._stopNarrativePulse()
 
@@ -894,10 +934,6 @@ export class ComponentContainer extends Container {
         if (node) {
           this._build(node)
           this._updateHitArea()
-          this.setWalkthroughVisual(this.walkthroughRole)
-          this.setNarrativeHighlight(this.narrativeHighlighted)
-          this.setHealthVisual(this.healthVisual)
-          this.setConnectVisual(this.connectRole)
         }
       }
       return
