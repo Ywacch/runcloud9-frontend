@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { resetTweenStore } from '../playback/tweenStore'
 import { loadWsEventsJson } from '../../lib/wsEventsPersist'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
@@ -262,6 +263,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   clearMetrics: () => {
     useCanvasStore.getState().setNarrativeHighlightNodeIds([])
     useChaosStore.getState().clear()
+    resetTweenStore()
     return set({
       metrics: {},
       history: {},
