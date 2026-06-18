@@ -8,9 +8,10 @@ import { saveWsEventsJson } from '../../lib/wsEventsPersist'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useMetricsStore } from '../stores/metricsStore'
 import { isMetricsPlaybackEnabled } from '../playback/playbackConfig'
+import { markEventsFired } from '../playback/eventPlayback'
 import {
   pushBufferedSample,
-  resetPlaybackState,
+  reconnectPlaybackBuffer,
   startPlaybackLoop,
   stopPlaybackLoop,
 } from '../playback/playbackLoop'
@@ -100,7 +101,7 @@ export function useMetricsSync(deploymentId: string | null): void {
       clearTimer()
       closeWs()
       if (isMetricsPlaybackEnabled()) {
-        resetPlaybackState()
+        reconnectPlaybackBuffer()
       }
 
       const ws = connectMetricsWS(deploymentId)
@@ -109,7 +110,12 @@ export function useMetricsSync(deploymentId: string | null): void {
       ws.onopen = () => {
         retryRef.current = 0
         const m = useMetricsStore.getState()
-        if (m.events.length === 0) m.restorePersistedWsEvents(deploymentId)
+        if (m.events.length === 0) {
+          m.restorePersistedWsEvents(deploymentId)
+        }
+        if (isMetricsPlaybackEnabled()) {
+          markEventsFired(useMetricsStore.getState().events)
+        }
       }
 
       ws.onmessage = (ev) => {
