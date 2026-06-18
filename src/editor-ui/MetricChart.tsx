@@ -27,6 +27,8 @@ export interface MetricChartProps {
   className?: string
   /** Seconds between samples (~2s on live WS). Used for hover caption. */
   sampleIntervalSec?: number
+  /** Show Hybrid C replay lag hint on chart header. */
+  showPlaybackDelay?: boolean
   pointCaption?: (index: number, total: number) => string
 }
 
@@ -40,6 +42,7 @@ export function MetricChart({
   eventMarkers,
   className,
   sampleIntervalSec = 2,
+  showPlaybackDelay = false,
   pointCaption: pointCaptionProp,
 }: MetricChartProps) {
   const chartHeight = height ?? (compact ? 72 : 128)
@@ -96,7 +99,16 @@ export function MetricChart({
             {title}
           </p>
           {unit ? (
-            <p className="mt-0.5 text-[10px] text-[var(--c9-text-disabled)]">{unit}</p>
+            <p className="mt-0.5 text-[10px] text-[var(--c9-text-disabled)]">
+              {unit}
+              {showPlaybackDelay ? (
+                <span className="text-[var(--c9-text-disabled)]"> · ~5s display delay</span>
+              ) : null}
+            </p>
+          ) : showPlaybackDelay ? (
+            <p className="mt-0.5 text-[10px] text-[var(--c9-text-disabled)]">
+              ~5s display delay
+            </p>
           ) : null}
         </div>
         {legend.length > 0 ? (

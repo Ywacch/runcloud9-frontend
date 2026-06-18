@@ -1,0 +1,334 @@
+import { idleClientLoadgenBucket } from '../../lib/clientMetrics'
+import { chaosOverlayFromWsEvent } from '../../lib/chaos'
+import { parseDbQuerySource } from '../../lib/storageIoDisplay'
+import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
+import { backendComponentToCanvasType } from '../../lib/typeMapping'
+import {
+  parseBackendReplicas,
+  parseLoadgenIntervals,
+  parsePodReplicas,
+  parseStorageIo,
+  sampleFromWsPayload,
+} from '../domain/metricsUiContract'
+import { useChaosStore } from '../stores/chaosStore'
+import { useCanvasStore, type CanvasNode } from '../stores/canvasStore'
+import {
+  useMetricsStore,
+  type MetricsBucket,
+  type WsEvent,
+} from '../stores/metricsStore'
+import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
+
+function nodeIdsForBackendKey(
+  nodes: Record<string, CanvasNode>,
+  backendKey: string,
+): string[] {
+  const canvasType = backendComponentToCanvasType[backendKey]
+  if (!canvasType) return []
+  return Object.values(nodes)
+    .filter((n) => n.type === canvasType)
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((n) => n.id)
+}
+
+function pctFromLimit(usage: number, limit: number): number {
+  if (limit <= 0 || !Number.isFinite(limit)) return 0
+  return Math.min(100, Math.round((usage / limit) * 100))
+}
+
+export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
+  const cpu = cm.cpuUsage ?? 0
+  const mem = cm.memoryBytes ?? cm.memoryUsage ?? 0
+  const cpuLimit = cm.cpuLimit ?? 0
+  const memLimit = cm.memoryLimit ?? 0
+  const requestRate = cm.requestRate ?? 0
+  const p99Sec = cm.p99Latency ?? 0
+  const dbLatSec = cm.dbQueryLatency ?? 0
+  const avgFromDbMs = dbLatSec * 1000
+  const avgLatency =
+    (cm.avgLatency ?? 0) > 0 ? (cm.avgLatency as number) : avgFromDbMs
+
+  const cpuPercent =
+    cpuLimit > 0
+      ? pctFromLimit(cpu, cpuLimit)
+      : Math.min(100, Math.round(cpu * 100))
+  const memPercent =
+    memLimit > 0
+      ? pctFromLimit(mem, memLimit)
+      : Math.min(100, Math.round((mem / (512 * 1024 * 1024)) * 100))
+
+  return {
+    cpuUsage: cpu,
+    cpuPercent,
+    memoryBytes: mem,
+    memPercent,
+    cpuIsEstimated: Boolean(cm.cpuIsEstimated),
+    memIsEstimated: Boolean(cm.memIsEstimated),
+    cpuLimit: cm.cpuLimit ?? 0,
+    memoryLimit: cm.memoryLimit ?? 0,
+    requestRate,
+    errorRate: cm.errorRate ?? 0,
+    totalRequests: Math.round(cm.totalRequests ?? 0),
+    p50Latency: cm.p50Latency ?? 0,
+    p95Latency: cm.p95Latency ?? 0,
+    p99Latency: p99Sec * 1000,
+    avgLatency,
+    cacheStrategy: cm.cacheStrategy ?? '',
+    cacheMetricMode: cm.cacheMetricMode ?? '',
+    cacheReadOperation: cm.cacheReadOperation ?? '',
+    cacheWriteOperation: cm.cacheWriteOperation ?? '',
+    redisOpsPerSec: cm.redisOpsPerSec ?? 0,
+    redisRejectedRate: cm.redisRejectedRate ?? 0,
+    redisKeyspaceHits: cm.redisKeyspaceHits ?? 0,
+    redisKeyspaceMisses: cm.redisKeyspaceMisses ?? 0,
+    redisAvgLatency: cm.redisAvgLatency ?? 0,
+    redisConnectedClients: cm.redisConnectedClients ?? 0,
+    cacheHits: Math.round(cm.cacheHits ?? 0),
+    cacheMisses: Math.round(cm.cacheMisses ?? 0),
+    cacheHitsLast9m: Math.round(cm.cacheHitsLast9m ?? 0),
+    cacheMissesLast9m: Math.round(cm.cacheMissesLast9m ?? 0),
+    dbQueryRate: cm.dbQueryRate ?? 0,
+    dbQueryLatency: dbLatSec,
+    dbQuerySource: parseDbQuerySource(cm.dbQuerySource),
+    dbActiveConnections: Math.round(cm.dbActiveConnections ?? 0),
+    maxConnections: Math.round(cm.maxConnections ?? 0),
+    storageEngine: cm.storageEngine ?? '',
+    storageRole: cm.storageRole ?? '',
+    storageIo: parseStorageIo(cm.storageIo),
+    activeConnections: cm.activeConnections ?? 0,
+    lbConnectionLimit: cm.lbConnectionLimit ?? 0,
+    queueDepth: cm.queueDepth ?? 0,
+    produceRate: cm.produceRate ?? 0,
+    consumeRate: cm.consumeRate ?? 0,
+    messagesReady: cm.messagesReady ?? 0,
+    messagesUnacked: cm.messagesUnacked ?? 0,
+    mqMemoryUsed: cm.mqMemoryUsed ?? 0,
+    mqMemoryLimit: cm.mqMemoryLimit ?? 0,
+    mqSaturationRatio: cm.mqSaturationRatio ?? 0,
+    workerSaturation: cm.workerSaturation ?? 0,
+    redisMaxClients: cm.redisMaxClients ?? 0,
+    perBackendRps:
+      cm.perBackendRps && typeof cm.perBackendRps === 'object'
+        ? { ...cm.perBackendRps }
+        : {},
+    lbAlgorithm: cm.lbAlgorithm ?? '',
+    lbBackends: Array.isArray(cm.lbBackends) ? [...cm.lbBackends] : [],
+    podReplicas: [],
+    backendPods: [],
+    backendReplicas: null,
+    podCount: 1,
+    lastUpdated: Date.now(),
+    qps: Math.round(requestRate),
+  }
+}
+
+export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] {
+  if (!raw?.length) return []
+  const out: WsEvent[] = []
+  for (const e of raw) {
+    const title =
+      (e?.title && String(e.title).trim()) ||
+      (e?.description && String(e.description).trim()) ||
+      ''
+    if (!title) continue
+    const rule =
+      typeof e.rule === 'string' && e.rule.trim() ? e.rule.trim() : undefined
+    out.push({
+      timestamp: e.timestamp ?? new Date().toISOString(),
+      type: e.type ?? 'action',
+      source: e.source ?? 'unknown',
+      component: e.component,
+      rule,
+      title,
+      description: e.description ?? '',
+      narrative:
+        typeof e.narrative === 'string' && e.narrative.trim() ? e.narrative : undefined,
+      suggestion:
+        typeof e.suggestion === 'string' && e.suggestion.trim()
+          ? e.suggestion
+          : undefined,
+      related: Array.isArray(e.related)
+        ? e.related.map((x) => String(x)).filter(Boolean)
+        : undefined,
+    })
+  }
+  return out
+}
+
+function actualRpsFromLoadgen(lg: NonNullable<WsDeploymentMetrics['loadgen']>): number {
+  const actual = Number(lg.actualRps ?? 0)
+  if (actual > 0) return actual
+  return Number(lg.currentRps ?? lg.targetRps ?? 0)
+}
+
+/** Map WS payload → per-canvas-node buckets (shared by live apply + interpolation). */
+export function nodeBucketsFromPayload(
+  payload: WsDeploymentMetrics,
+  nodes: Record<string, CanvasNode>,
+): Record<string, MetricsBucket> {
+  const out: Record<string, MetricsBucket> = {}
+  const components = payload.components ?? {}
+
+  for (const [backendKey, cm] of Object.entries(components)) {
+    if (!cm) continue
+    const ids = nodeIdsForBackendKey(nodes, backendKey)
+    let bucket = componentToBucket(cm)
+
+    if (backendKey === 'app-server') {
+      const pods = parsePodReplicas(cm.replicas)
+      if (pods.length > 0) {
+        bucket = { ...bucket, podReplicas: pods, podCount: pods.length }
+      }
+    }
+
+    if (backendKey === 'lb') {
+      const pods = parsePodReplicas(cm.backendPods)
+      const backendReplicas = parseBackendReplicas(cm.backendReplicas)
+      bucket = {
+        ...bucket,
+        backendPods: pods,
+        backendReplicas,
+        podCount:
+          backendReplicas?.desired && backendReplicas.desired > 0
+            ? backendReplicas.desired
+            : pods.length > 0
+              ? pods.length
+              : bucket.podCount,
+      }
+    }
+
+    for (const id of ids) {
+      out[id] = bucket
+    }
+  }
+
+  const lg = payload.loadgen
+  if (lg && nodes[CLIENT_LOADGEN_ID]) {
+    const rps = lg.active ? actualRpsFromLoadgen(lg) : 0
+    out[CLIENT_LOADGEN_ID] = {
+      ...idleClientLoadgenBucket(),
+      requestRate: rps,
+      totalRequests: Math.round(lg.totalRequests ?? 0),
+      qps: Math.round(rps),
+    }
+  }
+
+  return out
+}
+
+function registerChaosFromEvents(ev: WsEvent[]): void {
+  const chaosState = useChaosStore.getState()
+  const active = chaosState.active
+  for (const e of ev) {
+    const overlay = chaosOverlayFromWsEvent(e)
+    if (!overlay) continue
+    if (
+      active &&
+      active.targetComponent === overlay.targetComponent &&
+      active.scenario === overlay.scenario
+    ) {
+      continue
+    }
+    chaosState.register(
+      overlay.scenario,
+      overlay.targetComponent,
+      overlay.startedAt,
+    )
+    break
+  }
+}
+
+export interface ApplyWsFrameOptions {
+  /** Append to chart history / system series (false when playback buffer owns charts). */
+  appendCharts?: boolean
+  /** Push to timeline immediately (false in F2 — events buffered for F3). */
+  pushEvents?: boolean
+}
+
+/**
+ * Apply latest raw WS frame: headlines, loadgen, status, chaos.
+ * Chart history is optional (playback loop writes when enabled).
+ */
+export function applyWsFrameToStore(
+  payload: WsDeploymentMetrics,
+  options: ApplyWsFrameOptions = {},
+): WsEvent[] {
+  const { appendCharts = true, pushEvents = true } = options
+  const nodes = useCanvasStore.getState().nodes
+  const setLatestMetrics = useMetricsStore.getState().setLatestMetrics
+  const updateMetrics = useMetricsStore.getState().updateMetrics
+  const updateNodeStatus = useCanvasStore.getState().updateNodeStatus
+  const pushEventsFn = useMetricsStore.getState().pushEvents
+  const setTemplateMetrics = useMetricsStore.getState().setTemplateMetrics
+  const writeMetrics = appendCharts ? updateMetrics : setLatestMetrics
+
+  if (payload.templateMetrics && Object.keys(payload.templateMetrics).length > 0) {
+    setTemplateMetrics(payload.templateMetrics)
+  }
+
+  const ev = normalizeWsEvents(payload.events)
+  if (ev.length) {
+    if (pushEvents) {
+      pushEventsFn(ev)
+    }
+    registerChaosFromEvents(ev)
+  }
+
+  const nodeBuckets = nodeBucketsFromPayload(payload, nodes)
+  const components = payload.components ?? {}
+
+  for (const [backendKey, cm] of Object.entries(components)) {
+    if (!cm) continue
+    const ids = nodeIdsForBackendKey(nodes, backendKey)
+    const err = cm.errorRate ?? 0
+    const status = err > 0.25 ? 'degraded' : 'healthy'
+    for (const id of ids) {
+      const bucket = nodeBuckets[id]
+      if (!bucket) continue
+      writeMetrics(id, bucket)
+      updateNodeStatus(id, status)
+    }
+  }
+
+  const lg = payload.loadgen
+  if (lg) {
+    const targetRps = Number(lg.targetRps ?? lg.currentRps ?? 0)
+    const actualRps = Number(lg.actualRps ?? lg.currentRps ?? 0)
+    useMetricsStore.getState().setLoadgen({
+      active: Boolean(lg.active),
+      targetRps,
+      currentRps: targetRps,
+      actualRps,
+      intervalActualRps: Number(lg.intervalActualRps ?? 0),
+      intervalP99Ms: Number(lg.intervalP99Ms ?? 0),
+      recentIntervals: parseLoadgenIntervals(lg.recentIntervals),
+      totalRequests: Number(lg.totalRequests ?? 0),
+      successRate: Number(lg.successRate ?? 0),
+      durationSeconds: 0,
+      elapsedSeconds: Number(lg.durationSeconds ?? 0),
+    })
+  }
+
+  if (appendCharts) {
+    const systemSample = sampleFromWsPayload(payload.timestamp, components)
+    if (systemSample) {
+      useMetricsStore.getState().pushSystemSample(systemSample)
+    }
+  }
+
+  const clientBucket = nodeBuckets[CLIENT_LOADGEN_ID]
+  if (clientBucket) {
+    writeMetrics(CLIENT_LOADGEN_ID, clientBucket)
+  }
+
+  return ev
+}
+
+export function parseServerTimestamp(payload: WsDeploymentMetrics): number {
+  const raw = payload.timestamp
+  if (raw) {
+    const parsed = Date.parse(raw)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return Date.now()
+}

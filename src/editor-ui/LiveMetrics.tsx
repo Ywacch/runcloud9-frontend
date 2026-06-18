@@ -23,6 +23,7 @@ import {
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import type { TweenableMetricField } from '../editor-core/playback/tweenStore'
+import { isMetricsPlaybackEnabled } from '../editor-core/playback/playbackConfig'
 import { useTweenedMetric } from '../editor-core/playback/useTweenedMetric'
 import {
   CPU_ALLOC_HELP,
@@ -776,6 +777,7 @@ function TypeSection({
   const tmWorkerConsumeRate = templateMetrics['worker.consume_rate']
   const tmWorkerRedisWriteRate = templateMetrics['worker.redis_write_rate']
   const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
+  const chartPlaybackDelay = mode === 'live' && isMetricsPlaybackEnabled()
 
   switch (nodeType) {
     case 'compute': {
@@ -820,6 +822,7 @@ function TypeSection({
           <MetricChart
             title={aggregateOnly ? 'Cluster throughput' : 'Throughput'}
             unit="30s · RPS"
+            showPlaybackDelay={chartPlaybackDelay}
             series={[{ data: rpsSeries, color: '#6366f1', showArea: true }]}
             compact
             className={inspectorChartClass}
@@ -827,6 +830,7 @@ function TypeSection({
           <MetricChart
             title={aggregateOnly ? 'Cluster p99 latency' : 'p99 latency'}
             unit="30s · ms"
+            showPlaybackDelay={chartPlaybackDelay}
             series={[{ data: latencySeries, color: 'var(--c9-error)', showArea: true }]}
             compact
             className={inspectorChartClass}
@@ -954,6 +958,7 @@ function TypeSection({
               <MetricChart
                 title="Hit rate"
                 unit="30s · %"
+                showPlaybackDelay={chartPlaybackDelay}
                 series={[{ data: hitRateSeries, color: 'var(--c9-error)', showArea: true }]}
                 compact
                 className={inspectorChartClass}
@@ -999,6 +1004,7 @@ function TypeSection({
             history={history}
             loadgenActive={loadgenActive}
             dbRateHelp={dbRateHelp}
+            showPlaybackDelay={chartPlaybackDelay}
           />
           <DbLoadSection
             m={m}
@@ -1141,6 +1147,7 @@ function TypeSection({
           <MetricChart
             title="Throughput"
             unit="30s · RPS"
+            showPlaybackDelay={chartPlaybackDelay}
             series={[{ data: lbRpsSeries, color: 'var(--c9-info)', showArea: true }]}
             compact
             className={inspectorChartClass}
@@ -1244,6 +1251,7 @@ function TypeSection({
           <MetricChart
             title="Produce rate"
             unit="30s · msg/s"
+            showPlaybackDelay={chartPlaybackDelay}
             series={[{ data: prodSeries, color: '#a78bfa', showArea: true }]}
             compact
             className={inspectorChartClass}
