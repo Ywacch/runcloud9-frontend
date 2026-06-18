@@ -6,6 +6,7 @@ import { MetricChart } from './MetricChart'
 export function SystemMetricsCharts() {
   const series = useMetricsStore((s) => s.systemSeries)
   const chartFrozen = useMetricsStore((s) => s.chartFrozen)
+  const catchingUp = useMetricsStore((s) => s.playbackCatchingUp)
   const showDelay = isMetricsPlaybackEnabled()
 
   if (series.length < 2) return null
@@ -26,7 +27,9 @@ export function SystemMetricsCharts() {
           ? 'Prometheus ~30s rate window · smoothed replay (~5s behind live)'
           : 'Prometheus ~30s rate window · one point every ~2s'}
         {chartFrozen && showDelay ? (
-          <span className="text-amber-400/90"> · buffering</span>
+          <span className="text-amber-400/90">
+            {catchingUp ? ' · catching up…' : ' · buffering'}
+          </span>
         ) : null}
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

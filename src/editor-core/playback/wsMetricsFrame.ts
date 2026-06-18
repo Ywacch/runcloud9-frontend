@@ -216,7 +216,7 @@ export function nodeBucketsFromPayload(
   return out
 }
 
-function registerChaosFromEvents(ev: WsEvent[]): void {
+export function registerChaosFromEvents(ev: WsEvent[]): void {
   const chaosState = useChaosStore.getState()
   const active = chaosState.active
   for (const e of ev) {
@@ -267,10 +267,8 @@ export function applyWsFrameToStore(
   }
 
   const ev = normalizeWsEvents(payload.events)
-  if (ev.length) {
-    if (pushEvents) {
-      pushEventsFn(ev)
-    }
+  if (ev.length && pushEvents) {
+    pushEventsFn(ev)
     registerChaosFromEvents(ev)
   }
 

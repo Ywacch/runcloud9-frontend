@@ -204,6 +204,8 @@ interface MetricsState {
   streamWarning: string | null
   /** True when playback buffer has insufficient samples ahead of playhead. */
   chartFrozen: boolean
+  /** True after WS reconnect until the buffer refills. */
+  playbackCatchingUp: boolean
 
   /** Latest raw WS bucket (headlines / tooltips). Does not append chart history. */
   setLatestMetrics: (nodeId: string, data: MetricsBucket) => void
@@ -218,6 +220,7 @@ interface MetricsState {
   ) => void
   pushPlaybackSystemSample: (sample: SystemMetricsSample, commitKey: number) => void
   setChartFrozen: (frozen: boolean) => void
+  setPlaybackCatchingUp: (catchingUp: boolean) => void
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
   dismissCascadeToast: () => void
@@ -237,6 +240,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   cascadeToast: null,
   streamWarning: null,
   chartFrozen: false,
+  playbackCatchingUp: false,
 
   setLatestMetrics: (nodeId, data) =>
     set((s) => ({
@@ -288,6 +292,8 @@ export const useMetricsStore = create<MetricsState>((set) => ({
 
   setChartFrozen: (chartFrozen) => set({ chartFrozen }),
 
+  setPlaybackCatchingUp: (playbackCatchingUp) => set({ playbackCatchingUp }),
+
   pushEvents: (incoming) =>
     set((s) => {
       if (!incoming?.length) return s
@@ -320,6 +326,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       cascadeToast: null,
       streamWarning: null,
       chartFrozen: false,
+      playbackCatchingUp: false,
     })
   },
 
