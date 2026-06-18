@@ -22,6 +22,8 @@ import {
 } from '../editor-core/stores/canvasStore'
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
+import type { TweenableMetricField } from '../editor-core/playback/tweenStore'
+import { useTweenedMetric } from '../editor-core/playback/useTweenedMetric'
 import {
   CPU_ALLOC_HELP,
   CPU_UTIL_HELP,
@@ -67,6 +69,18 @@ function MetricTile({
       </div>
     </div>
   )
+}
+
+/** Live-mode headline number: tweened toward latest WS sample; sim uses raw. */
+function useLiveMetricNumber(
+  nodeId: string,
+  field: TweenableMetricField,
+  mode: string,
+  raw: number,
+): number {
+  const tweened = useTweenedMetric(nodeId, field)
+  if (mode === 'live' && tweened !== null) return tweened
+  return raw
 }
 
 const inspectorChartClass =
@@ -241,10 +255,13 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
               pod above.
             </p>
           </div>
-          {node.type !== 'client' ? <CommonSection m={m} /> : null}
+          {node.type !== 'client' ? (
+            <CommonSection nodeId={nodeId} m={m} mode={mode} />
+          ) : null}
           <TypeSection
             node={node}
             m={m}
+            mode={mode}
             history={history}
             edges={edges}
             nodes={nodes}
@@ -257,10 +274,13 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
         </div>
       ) : (
         <>
-          {node.type !== 'client' ? <CommonSection m={m} /> : null}
+          {node.type !== 'client' ? (
+            <CommonSection nodeId={nodeId} m={m} mode={mode} />
+          ) : null}
           <TypeSection
             node={node}
             m={m}
+            mode={mode}
             history={history}
             edges={edges}
             nodes={nodes}
@@ -680,18 +700,28 @@ function SimulationInspectorSection({
   )
 }
 
-function CommonSection({ m }: { m: MetricsBucket }) {
+function CommonSection({
+  nodeId,
+  m,
+  mode,
+}: {
+  nodeId: string
+  m: MetricsBucket
+  mode: string
+}) {
+  const cpuPercent = useLiveMetricNumber(nodeId, 'cpuPercent', mode, m.cpuPercent)
+  const memPercent = useLiveMetricNumber(nodeId, 'memPercent', mode, m.memPercent)
   const cpuValue = m.cpuIsEstimated
     ? m.cpuLimit > 0
       ? `${fmtCpuMilliCores(m.cpuLimit)} (alloc)`
       : `${fmtCpuMilliCores(m.cpuUsage)} (alloc)`
-    : fmtPct(m.cpuPercent)
+    : fmtPct(cpuPercent)
   const memValue = m.memIsEstimated
     ? m.memoryLimit > 0
       ? `${fmtMemMB(m.memoryLimit)} (alloc)`
       : `${fmtMemMB(m.memoryBytes)} (alloc)`
     : `${fmtBytes(m.memoryBytes)}${
-        m.memoryLimit > 0 ? ` · ${fmtPct(m.memPercent)}` : ''
+        m.memoryLimit > 0 ? ` · ${fmtPct(memPercent)}` : ''
       }`
   const cpuHelp = m.cpuIsEstimated ? CPU_ALLOC_HELP : CPU_UTIL_HELP
   const memHelp = m.memIsEstimated ? MEM_ALLOC_HELP : MEM_UTIL_HELP
@@ -706,6 +736,7 @@ function CommonSection({ m }: { m: MetricsBucket }) {
 function TypeSection({
   node,
   m,
+  mode,
   history,
   edges,
   nodes,
@@ -717,6 +748,7 @@ function TypeSection({
 }: {
   node: CanvasNode
   m: MetricsBucket
+  mode: string
   history: MetricsBucket[]
   edges: Record<string, CanvasEdge>
   nodes: Record<string, CanvasNode>
@@ -729,6 +761,14 @@ function TypeSection({
 }) {
   const nodeId = node.id
   const nodeType = node.type
+  const requestRate = useLiveMetricNumber(nodeId, 'requestRate', mode, m.requestRate)
+  const errorRate = useLiveMetricNumber(nodeId, 'errorRate', mode, m.errorRate)
+  const p50Latency = useLiveMetricNumber(nodeId, 'p50Latency', mode, m.p50Latency)
+  const p95Latency = useLiveMetricNumber(nodeId, 'p95Latency', mode, m.p95Latency)
+  const p99Latency = useLiveMetricNumber(nodeId, 'p99Latency', mode, m.p99Latency)
+  const cacheHits = useLiveMetricNumber(nodeId, 'cacheHits', mode, m.cacheHits)
+  const cacheMisses = useLiveMetricNumber(nodeId, 'cacheMisses', mode, m.cacheMisses)
+  const dbQueryRate = useLiveMetricNumber(nodeId, 'dbQueryRate', mode, m.dbQueryRate)
   const isSocialFeed = snapshotTemplateId === 'social-feed'
   const tmMqQueueDepth = templateMetrics['mq.queue_depth']
   const tmMqProduceRate = templateMetrics['mq.produce_rate']
@@ -762,20 +802,20 @@ function TypeSection({
             <div className="grid grid-cols-3 gap-2">
               <MetricTile label="Total" value={fmtInt(m.totalRequests)} />
               <MetricTile label="Avg RPS" value={fmtInt(avgRps)} />
-              <MetricTile label="Current RPS" value={fmtInt(m.requestRate)} />
+              <MetricTile label="Current RPS" value={fmtInt(requestRate)} />
             </div>
           </div>
           <MetricTile
             label={aggregateOnly ? 'Error rate (cluster)' : 'Error Rate'}
-            value={fmtErrorRate(m.errorRate)}
+            value={fmtErrorRate(errorRate)}
           />
           <MetricSectionHeading help={LATENCY_HELP}>
             {aggregateOnly ? 'Latency (cluster)' : 'Latency'}
           </MetricSectionHeading>
           <div className="grid grid-cols-3 gap-2">
-            <MetricTile label="p50" value={fmtMs(m.p50Latency)} />
-            <MetricTile label="p95" value={fmtMs(m.p95Latency)} />
-            <MetricTile label="p99" value={fmtMs(m.p99Latency)} />
+            <MetricTile label="p50" value={fmtMs(p50Latency)} />
+            <MetricTile label="p95" value={fmtMs(p95Latency)} />
+            <MetricTile label="p99" value={fmtMs(p99Latency)} />
           </div>
           <MetricChart
             title={aggregateOnly ? 'Cluster throughput' : 'Throughput'}
@@ -797,8 +837,8 @@ function TypeSection({
 
     case 'cache': {
       const cacheRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'cache')
-      const total = m.cacheHits + m.cacheMisses
-      const hitRatePct = total > 0 ? (m.cacheHits / total) * 100 : 0
+      const total = cacheHits + cacheMisses
+      const hitRatePct = total > 0 ? (cacheHits / total) * 100 : 0
       const hitRateLabel = total > 0 ? fmtPct(hitRatePct) : '—'
       const hitRateSeries = history.map((h) => {
         const t = h.cacheHits + h.cacheMisses
@@ -843,12 +883,12 @@ function TypeSection({
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <MetricTile
                   label="Redis ops"
-                  value={`${fmtRate(m.redisOpsPerSec || m.requestRate)}/s`}
+                  value={`${fmtRate(m.redisOpsPerSec || requestRate)}/s`}
                   help={cacheRateHelp}
                 />
                 <MetricTile
                   label="Request rate"
-                  value={`${fmtRate(m.requestRate)}/s`}
+                  value={`${fmtRate(requestRate)}/s`}
                   help={cacheRateHelp}
                 />
                 <MetricTile
@@ -888,11 +928,11 @@ function TypeSection({
                 <div className="grid grid-cols-2 gap-2">
                   <MetricTile
                     label="Hits/s"
-                    value={`${fmtRate(m.cacheHits)}/s`}
+                    value={`${fmtRate(cacheHits)}/s`}
                   />
                   <MetricTile
                     label="Misses/s"
-                    value={`${fmtRate(m.cacheMisses)}/s`}
+                    value={`${fmtRate(cacheMisses)}/s`}
                   />
                 </div>
               </div>
@@ -951,14 +991,18 @@ function TypeSection({
       return (
         <div className="space-y-3">
           <DbActivitySection
-            m={{ ...m, maxConnections: m.maxConnections > 0 ? m.maxConnections : maxConnFallback }}
+            m={{
+              ...m,
+              dbQueryRate,
+              maxConnections: m.maxConnections > 0 ? m.maxConnections : maxConnFallback,
+            }}
             history={history}
             loadgenActive={loadgenActive}
             dbRateHelp={dbRateHelp}
           />
           <DbLoadSection
             m={m}
-            dbQueryRate={m.dbQueryRate}
+            dbQueryRate={dbQueryRate}
             templateMetrics={templateMetrics}
           />
         </div>
@@ -997,7 +1041,7 @@ function TypeSection({
           ) : null}
           <MetricTile
             label="Requests routed"
-            value={`${fmtInt(m.requestRate)} rps`}
+            value={`${fmtInt(requestRate)} rps`}
             help={lbRateHelp}
           />
           {connLimit > 0 ? (
@@ -1108,7 +1152,7 @@ function TypeSection({
     case 'client':
       return (
         <>
-          <MetricTile label="Current RPS" value={fmtInt(m.requestRate)} />
+          <MetricTile label="Current RPS" value={fmtInt(requestRate)} />
           <MetricTile label="Total Requests" value={fmtInt(m.totalRequests)} />
         </>
       )
