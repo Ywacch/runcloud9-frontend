@@ -22,11 +22,13 @@ export function DbActivitySection({
   history,
   loadgenActive,
   dbRateHelp,
+  showPlaybackDelay = false,
 }: {
   m: MetricsBucket
   history: MetricsBucket[]
   loadgenActive: boolean
   dbRateHelp: string
+  showPlaybackDelay?: boolean
 }) {
   const maxConn =
     m.maxConnections > 0 ? m.maxConnections : 100
@@ -80,6 +82,7 @@ export function DbActivitySection({
       <MetricChart
         title="Queries/s"
         unit="30s window"
+        showPlaybackDelay={showPlaybackDelay}
         series={[{ data: queryRateSeries, color: '#6366f1', showArea: true }]}
         compact
         className="rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none"
@@ -88,6 +91,7 @@ export function DbActivitySection({
         <MetricChart
           title="Query latency"
           unit="30s · ms"
+          showPlaybackDelay={showPlaybackDelay}
           series={[{ data: latencySeries, color: 'var(--c9-warning)', showArea: true }]}
           compact
           className="rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none"

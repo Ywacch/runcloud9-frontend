@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { resetTweenStore } from '../playback/tweenStore'
+import { clearPlaybackSession } from '../playback/playbackLoop'
 import { loadWsEventsJson } from '../../lib/wsEventsPersist'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
@@ -202,10 +202,22 @@ interface MetricsState {
   cascadeToast: WsEvent | null
   /** Non-fatal transport/polling issue while live session remains active. */
   streamWarning: string | null
+  /** True when playback buffer has insufficient samples ahead of playhead. */
+  chartFrozen: boolean
 
+  /** Latest raw WS bucket (headlines / tooltips). Does not append chart history. */
+  setLatestMetrics: (nodeId: string, data: MetricsBucket) => void
   updateMetrics: (nodeId: string, data: MetricsBucket) => void
   setLoadgen: (data: LiveLoadgenState | null) => void
   pushSystemSample: (sample: SystemMetricsSample) => void
+  /** Playhead-interpolated chart point (replaces tail when commitKey matches). */
+  pushPlaybackChartPoint: (
+    nodeId: string,
+    data: MetricsBucket,
+    commitKey: number,
+  ) => void
+  pushPlaybackSystemSample: (sample: SystemMetricsSample, commitKey: number) => void
+  setChartFrozen: (frozen: boolean) => void
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
   dismissCascadeToast: () => void
@@ -224,6 +236,12 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   templateMetrics: {},
   cascadeToast: null,
   streamWarning: null,
+  chartFrozen: false,
+
+  setLatestMetrics: (nodeId, data) =>
+    set((s) => ({
+      metrics: { ...s.metrics, [nodeId]: data },
+    })),
 
   updateMetrics: (nodeId, data) =>
     set((s) => {
@@ -241,6 +259,34 @@ export const useMetricsStore = create<MetricsState>((set) => ({
     set((s) => ({
       systemSeries: [...s.systemSeries.slice(-(MAX_SYSTEM_SAMPLES - 1)), sample],
     })),
+
+  pushPlaybackChartPoint: (nodeId, data, commitKey) =>
+    set((s) => {
+      const prev = s.history[nodeId] ?? []
+      const last = prev[prev.length - 1]
+      const point = { ...data, lastUpdated: commitKey }
+      const next =
+        last && last.lastUpdated === commitKey
+          ? [...prev.slice(0, -1), point]
+          : [...prev.slice(-29), point]
+      return {
+        history: { ...s.history, [nodeId]: next },
+      }
+    }),
+
+  pushPlaybackSystemSample: (sample, commitKey) =>
+    set((s) => {
+      const prev = s.systemSeries
+      const last = prev[prev.length - 1]
+      const point = { ...sample, t: commitKey }
+      const next =
+        last && last.t === commitKey
+          ? [...prev.slice(0, -1), point]
+          : [...prev.slice(-(MAX_SYSTEM_SAMPLES - 1)), point]
+      return { systemSeries: next }
+    }),
+
+  setChartFrozen: (chartFrozen) => set({ chartFrozen }),
 
   pushEvents: (incoming) =>
     set((s) => {
@@ -263,7 +309,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   clearMetrics: () => {
     useCanvasStore.getState().setNarrativeHighlightNodeIds([])
     useChaosStore.getState().clear()
-    resetTweenStore()
+    clearPlaybackSession()
     return set({
       metrics: {},
       history: {},
@@ -273,6 +319,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       templateMetrics: {},
       cascadeToast: null,
       streamWarning: null,
+      chartFrozen: false,
     })
   },
 
