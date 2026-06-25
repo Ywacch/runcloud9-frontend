@@ -3,6 +3,7 @@ import { fmtBytes, fmtInt, fmtMs, fmtRate } from '../lib/format'
 import {
   cacheEngineSectionTitle,
   dbLoadSectionTitle,
+  fanoutScanModelEstimate,
   formatDbQueriesPerSec,
   hasStorageMetrics,
   shouldShowHighScanRatioHint,
@@ -15,6 +16,7 @@ import {
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
 import { MetricChart } from './MetricChart'
+import { InspectorDisclosure } from './InspectorDisclosure'
 
 /** RED — app SQL load on Postgres (app-server instrumentation). */
 export function DbActivitySection({
@@ -145,32 +147,65 @@ export function InspectorSection({
   )
 }
 
-function StorageIoTiles({
+function StorageIoPrimaryTiles({
   m,
   engine,
-  isPostgres,
+  modelEstimate,
 }: {
   m: MetricsBucket
   engine: string
-  isPostgres: boolean
+  modelEstimate?: number | null
 }) {
   const io = m.storageIo!
   const readLabel = storageReadTileLabel(io, engine)
   const writeLabel = storageWriteTileLabel(io, engine)
-  const utilPct = storageUtilizationPct(io)
-  const role = (m.storageRole ?? '').trim()
-  const scopeLine = storageScopeLine(
-    role,
-    io,
-    isPostgres ? 'all-db-clients' : undefined,
-  )
 
   return (
-    <>
+    <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <Tile label={readLabel} value={`${fmtRate(io.readRate)}/s`} />
         <Tile label={writeLabel} value={`${fmtRate(io.writeRate)}/s`} />
       </div>
+      {modelEstimate != null && modelEstimate > 0 ? (
+        <div className="rounded border border-violet-500/25 bg-violet-950/20 px-2.5 py-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/80">
+            Model (est.)
+          </p>
+          <p className="mt-0.5 font-mono text-xs text-violet-100">
+            ~{fmtRate(modelEstimate)}/s row scans from fanout formula
+          </p>
+          <p className="mt-1 text-[9px] leading-snug text-gray-500">
+            consume_rate × fanout_size — teaching estimate, not reconciled with
+            exporter ground truth.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function StorageIoSecondaryTiles({
+  m,
+  isPostgres,
+}: {
+  m: MetricsBucket
+  isPostgres: boolean
+}) {
+  const io = m.storageIo!
+  const utilPct = storageUtilizationPct(io)
+  const hasCapacity =
+    io.bytesUsed > 0 ||
+    io.bytesLimit > 0 ||
+    (isPostgres && io.errorRate > 0) ||
+    (!isPostgres && io.errorRate > 0)
+
+  if (!hasCapacity) return null
+
+  return (
+    <InspectorDisclosure
+      title={isPostgres ? 'Capacity & rollbacks' : 'Capacity & store errors'}
+      hint={io.bytesUsed > 0 ? fmtBytes(io.bytesUsed) : undefined}
+    >
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {io.bytesUsed > 0 ? (
           <Tile label="Data size" value={fmtBytes(io.bytesUsed)} />
@@ -204,6 +239,22 @@ function StorageIoTiles({
           ) : null}
         </div>
       ) : null}
+    </InspectorDisclosure>
+  )
+}
+
+function StorageIoScopeFooter({ m, isPostgres }: { m: MetricsBucket; isPostgres: boolean }) {
+  const io = m.storageIo
+  if (!io) return null
+  const role = (m.storageRole ?? '').trim()
+  const scopeLine = storageScopeLine(
+    role,
+    io,
+    isPostgres ? 'all-db-clients' : undefined,
+  )
+  if (!scopeLine && !io.footnote?.trim()) return null
+  return (
+    <>
       {scopeLine ? (
         <p className="text-[10px] text-gray-500">{scopeLine}</p>
       ) : null}
@@ -211,6 +262,22 @@ function StorageIoTiles({
         <p className="text-[9px] leading-snug text-gray-500">{io.footnote.trim()}</p>
       ) : null}
     </>
+  )
+}
+
+function StoragePatternBadge({ m }: { m: MetricsBucket }) {
+  const pattern = m.storageIo?.pattern?.trim()
+  if (!pattern) return null
+  const note = m.storageIo?.patternNote?.trim()
+  return (
+    <div className="rounded border border-cyan-500/25 bg-cyan-950/20 px-2.5 py-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300/90">
+        Access pattern · {pattern}
+      </p>
+      {note ? (
+        <p className="mt-1 text-[10px] leading-snug text-gray-400">{note}</p>
+      ) : null}
+    </div>
   )
 }
 
@@ -231,11 +298,18 @@ export function DbLoadSection({
   const fanoutConsume = templateMetrics['worker.consume_rate'] ?? 0
   const fanoutP99 = templateMetrics['worker.fanout_size_p99'] ?? 0
   const showFanout = fanoutConsume > 0 || fanoutP99 > 0
+  const modelEstimate = fanoutScanModelEstimate(templateMetrics)
+  const hasPattern = Boolean(m.storageIo.pattern?.trim())
 
   return (
     <InspectorSection title={dbLoadSectionTitle(engine)}>
-      <StorageIoTiles m={m} engine={engine} isPostgres />
-      {shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
+      <StorageIoPrimaryTiles
+        m={m}
+        engine={engine}
+        modelEstimate={modelEstimate}
+      />
+      <StoragePatternBadge m={m} />
+      {!hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
         <p className="text-[10px] leading-snug text-violet-300/90">
           High row scan ratio — bulk reads or fanout worker may be active.
         </p>
@@ -256,6 +330,8 @@ export function DbLoadSection({
           </p>
         </div>
       ) : null}
+      <StorageIoSecondaryTiles m={m} isPostgres />
+      <StorageIoScopeFooter m={m} isPostgres />
       {!m.storageIo.footnote?.trim() && engine.toLowerCase() === 'postgresql' ? (
         <p className="text-[9px] leading-snug text-gray-600">
           Row scans include all DB clients (app-server and workers), not app query count
@@ -274,7 +350,9 @@ export function CacheEngineSection({ m }: { m: MetricsBucket }) {
 
   return (
     <InspectorSection title={cacheEngineSectionTitle(engine)}>
-      <StorageIoTiles m={m} engine={engine} isPostgres={false} />
+      <StorageIoPrimaryTiles m={m} engine={engine} />
+      <StorageIoSecondaryTiles m={m} isPostgres={false} />
+      <StorageIoScopeFooter m={m} isPostgres={false} />
     </InspectorSection>
   )
 }

@@ -43,6 +43,8 @@ function lerpStorageIo(
     writeLabel: later.writeLabel,
     scope: later.scope,
     footnote: later.footnote,
+    pattern: later.pattern,
+    patternNote: later.patternNote,
     source: later.source,
   }
 }

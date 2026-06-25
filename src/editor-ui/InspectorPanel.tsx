@@ -9,7 +9,6 @@ import {
   clampAppServerReplicas,
 } from '../lib/replicaConfig'
 import { NODE_VISUAL } from '../lib/nodeVisual'
-import { getRelevantTemplateMetrics } from '../lib/templateMetricsFilter'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
   useCanvasStore,
@@ -17,13 +16,11 @@ import {
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
-import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { CacheBrowser } from './CacheBrowser'
 import { ComponentLogPanel } from './ComponentLogPanel'
 import { DataBrowser } from './DataBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
-import { TemplateMetricsSnippet } from './TemplateMetricsSnippet'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -45,7 +42,6 @@ export function InspectorPanel() {
   const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
   const updateNodeLabel = useCanvasStore((s) => s.updateNodeLabel)
   const removeNode = useCanvasStore((s) => s.removeNode)
-  const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const templateInfo = useTemplateRegistryStore((s) =>
@@ -69,11 +65,6 @@ export function InspectorPanel() {
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
-  const componentType = node ? canvasToBackend[node.type] : ''
-  const relevantTemplateMetrics =
-    node && liveMode
-      ? getRelevantTemplateMetrics(templateMetrics, componentType)
-      : {}
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
@@ -169,7 +160,6 @@ export function InspectorPanel() {
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                 {liveTab === 'metrics' ? (
                   <>
-                    <TemplateMetricsSnippet templateMetrics={relevantTemplateMetrics} />
                     <ChaosActions node={node} />
                     <LiveMetrics node={node} />
                   </>

@@ -148,7 +148,7 @@ export function SessionSummary() {
         {summary.storagePeaks ? (
           <div className="mb-4 space-y-2 border-b border-[var(--c9-border)] pb-4">
             <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
-              Storage I/O peaks
+              DB load peaks
             </h3>
             <div className="grid grid-cols-2 gap-2">
               <SummaryCard
