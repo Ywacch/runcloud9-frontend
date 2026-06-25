@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatDbQueriesPerSec,
+  fanoutScanModelEstimate,
   hasStorageMetrics,
   shouldShowHighScanRatioHint,
   storageEngineLabel,
@@ -86,5 +87,15 @@ describe('storageIoDisplay', () => {
   it('shouldShowHighScanRatioHint when scan ratio high', () => {
     expect(shouldShowHighScanRatioHint(50, 14731)).toBe(true)
     expect(shouldShowHighScanRatioHint(50, 100)).toBe(false)
+  })
+
+  it('fanoutScanModelEstimate multiplies consume and fanout size', () => {
+    expect(
+      fanoutScanModelEstimate({
+        'worker.consume_rate': 15,
+        'worker.fanout_size_avg': 1200,
+      }),
+    ).toBe(18000)
+    expect(fanoutScanModelEstimate({})).toBeNull()
   })
 })

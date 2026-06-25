@@ -189,6 +189,9 @@ function isMetricRelevant(
   return true
 }
 
+/** Journey KPIs in SystemTopBar — keep scannable (metrics-component-panels §2.7). */
+const MAX_TEMPLATE_KPI_ROWS = 6
+
 export function templateKpiRows(
   templateId: string | null | undefined,
   metrics: Record<string, MetricsBucket>,
@@ -312,5 +315,5 @@ export function templateKpiRows(
       })
     }
   }
-  return rows
+  return rows.slice(0, MAX_TEMPLATE_KPI_ROWS)
 }

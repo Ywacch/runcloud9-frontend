@@ -132,3 +132,27 @@ export function shouldShowHighScanRatioHint(
 ): boolean {
   return dbQueryRate > 0 && readRate / dbQueryRate > threshold
 }
+
+/**
+ * Modeled row-scan estimate from fanout worker telemetry (not ground truth).
+ * Uses avg when present, else p99 as a conservative teaching proxy.
+ */
+export function fanoutScanModelEstimate(
+  templateMetrics: Record<string, number>,
+): number | null {
+  const consume = templateMetrics['worker.consume_rate']
+  const avg =
+    templateMetrics['worker.fanout_size_avg'] ??
+    templateMetrics['worker.fanout_size_p99']
+  if (
+    consume == null ||
+    avg == null ||
+    !Number.isFinite(consume) ||
+    !Number.isFinite(avg) ||
+    consume <= 0 ||
+    avg <= 0
+  ) {
+    return null
+  }
+  return consume * avg
+}

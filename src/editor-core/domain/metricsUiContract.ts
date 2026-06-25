@@ -44,6 +44,9 @@ export interface StorageIoMetrics {
   writeLabel?: string
   scope?: string
   footnote?: string
+  /** Structural access pattern (planned on wire) — not a live counter. */
+  pattern?: string
+  patternNote?: string
   /** Reserved — not populated until Phase 2.5; use `dbQueryLatency` on db. */
   readLatency: number
   writeLatency: number
@@ -71,6 +74,8 @@ export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
     writeLabel: str(r.writeLabel),
     scope: str(r.scope),
     footnote: str(r.footnote),
+    pattern: str(r.pattern),
+    patternNote: str(r.patternNote),
     readLatency: num(r.readLatency),
     writeLatency: num(r.writeLatency),
     bytesUsed: num(r.bytesUsed),

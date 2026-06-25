@@ -42,6 +42,7 @@ import {
   DbLoadSection,
   InspectorSection,
 } from './StorageIoSection'
+import { InspectorDisclosure } from './InspectorDisclosure'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
 
@@ -940,15 +941,12 @@ function TypeSection({
                   />
                 </div>
               </div>
-              <div>
-                <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500">
-                  Last 9 min
-                </div>
+              <InspectorDisclosure title="Session totals (9 min)">
                 <div className="grid grid-cols-2 gap-2">
                   <MetricTile label="Hits" value={fmtInt(m.cacheHitsLast9m)} />
                   <MetricTile label="Misses" value={fmtInt(m.cacheMissesLast9m)} />
                 </div>
-              </div>
+              </InspectorDisclosure>
               <div className="h-2 rounded-full bg-gray-800">
                 <div
                   className="h-full rounded-full bg-emerald-500 transition-[width]"
@@ -968,15 +966,15 @@ function TypeSection({
               </p>
             </InspectorSection>
           )}
-          <InspectorSection title="Keyspace (Redis)">
+          <InspectorDisclosure title="Engine detail (Redis)" hint="Keyspace counters">
             <div className="grid grid-cols-2 gap-2">
               <MetricTile
-                label="Hits/s"
+                label="Keyspace hits/s"
                 value={`${fmtRate(m.redisKeyspaceHits)}/s`}
                 help={cacheRateHelp}
               />
               <MetricTile
-                label="Misses/s"
+                label="Keyspace misses/s"
                 value={`${fmtRate(m.redisKeyspaceMisses)}/s`}
                 help={cacheRateHelp}
               />
@@ -984,7 +982,33 @@ function TypeSection({
             <p className="text-[9px] leading-snug text-gray-600">
               Redis protocol-level counters — may differ from app hit/miss rates above.
             </p>
-          </InspectorSection>
+            {!timelineMode &&
+            ((m.redisRejectedRate ?? 0) > 0 ||
+              (m.redisConnectedClients ?? 0) > 0 ||
+              (m.redisAvgLatency ?? 0) > 0) ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {(m.redisRejectedRate ?? 0) > 0 ? (
+                  <MetricTile
+                    label="Rejected conns"
+                    value={`${fmtRate(m.redisRejectedRate)}/s`}
+                  />
+                ) : null}
+                {(m.redisConnectedClients ?? 0) > 0 ? (
+                  <MetricTile
+                    label="Connected clients"
+                    value={fmtInt(Math.round(m.redisConnectedClients ?? 0))}
+                  />
+                ) : null}
+                {(m.redisAvgLatency ?? 0) > 0 ? (
+                  <MetricTile
+                    label="Redis avg latency"
+                    value={fmtMs((m.redisAvgLatency ?? 0) * 1000)}
+                    help={withPodRateDisclaimer(LATENCY_HELP, 'cache')}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </InspectorDisclosure>
           <CacheEngineSection m={m} />
         </div>
       )
@@ -1203,11 +1227,19 @@ function TypeSection({
               label="Queue depth"
               value={fmtInt(Math.round(queueDepth))}
             />
-            <MetricTile
-              label="Ready / unacked"
-              value={`${fmtInt(Math.round(m.messagesReady))} / ${fmtInt(Math.round(m.messagesUnacked))}`}
-            />
           </div>
+          <InspectorDisclosure title="Ready / unacked messages">
+            <div className="grid grid-cols-2 gap-2">
+              <MetricTile
+                label="Ready"
+                value={fmtInt(Math.round(m.messagesReady))}
+              />
+              <MetricTile
+                label="Unacked"
+                value={fmtInt(Math.round(m.messagesUnacked))}
+              />
+            </div>
+          </InspectorDisclosure>
           <div className="space-y-1">
             <div className="text-[10px] uppercase tracking-wider text-gray-500">
               Saturation (produce ÷ consume)
