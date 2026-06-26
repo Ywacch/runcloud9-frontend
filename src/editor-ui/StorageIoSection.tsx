@@ -1,40 +1,44 @@
 import type { ReactNode } from 'react'
 import { fmtBytes, fmtInt, fmtMs, fmtRate } from '../lib/format'
 import {
-  cacheEngineSectionTitle,
-  dbLoadSectionTitle,
   fanoutScanModelEstimate,
   formatDbQueriesPerSec,
   hasStorageMetrics,
   shouldShowHighScanRatioHint,
   storageReadTileLabel,
   storageScopeLine,
-  storageUtilBarClass,
-  storageUtilizationPct,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
-import { MetricHelpIcon, MetricSectionHeading } from './MetricHelpIcon'
-import { MetricChart } from './MetricChart'
 import { InspectorDisclosure } from './InspectorDisclosure'
+import {
+  CapacityBar,
+  EngineDiagnosticsBlock,
+  MetricSeriesGraph,
+  PedagogicalHint,
+  PedagogicalSection,
+  StatBlock,
+  StatRow,
+  formatResourceLabels,
+  type PanelViewState,
+} from './inspectorPanelUi'
 
-/** RED — app SQL load on Postgres (app-server instrumentation). */
+/** RED — app SQL intent (app-server instrumentation). */
 export function DbActivitySection({
   m,
   history,
   loadgenActive,
   dbRateHelp,
+  view,
   showPlaybackDelay = false,
 }: {
   m: MetricsBucket
   history: MetricsBucket[]
   loadgenActive: boolean
   dbRateHelp: string
+  view: PanelViewState
   showPlaybackDelay?: boolean
 }) {
-  const maxConn =
-    m.maxConnections > 0 ? m.maxConnections : 100
-  const connPercent = maxConn > 0 ? (m.dbActiveConnections / maxConn) * 100 : 0
   const storageReadRate = m.storageIo?.readRate ?? 0
   const queriesDisplay = formatDbQueriesPerSec(
     m.dbQueryRate,
@@ -43,6 +47,7 @@ export function DbActivitySection({
     loadgenActive,
   )
   const queryRateSeries = history.map((h) => h.dbQueryRate)
+  const errorSeries = history.map((h) => h.errorRate)
   const latencyMs =
     m.dbQueryLatency > 0
       ? m.dbQueryLatency * 1000
@@ -54,191 +59,330 @@ export function DbActivitySection({
   )
 
   return (
-    <InspectorSection title="DB Activity">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <MetricTile
-          label="Queries/s"
-          value={queriesDisplay}
-          help={`${dbRateHelp} SQL statements from app-server instrumentation only.`}
-        />
-        <MetricTile
-          label="Connections"
-          value={`${fmtInt(m.dbActiveConnections)} / ${fmtInt(maxConn)}`}
-        />
-      </div>
-      {latencyMs > 0 ? (
-        <MetricTile label="Query latency" value={fmtMs(latencyMs)} help={dbRateHelp} />
-      ) : null}
-      <div className="h-2 rounded-full bg-gray-800">
-        <div
-          className={`h-full rounded-full ${
-            connPercent > 85
-              ? 'bg-red-500'
-              : connPercent > 60
-                ? 'bg-amber-500'
-                : 'bg-emerald-500'
-          }`}
-          style={{ width: `${Math.min(100, connPercent)}%` }}
-        />
-      </div>
-      <MetricChart
-        title="Queries/s"
-        unit="30s window"
-        showPlaybackDelay={showPlaybackDelay}
-        series={[{ data: queryRateSeries, color: '#6366f1', showArea: true }]}
-        compact
-        className="rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none"
+    <PedagogicalSection
+      title="Logical queries (RED)"
+      subtitle="What clients intended / executed on the hot path"
+    >
+      <StatRow
+        left={
+          <StatBlock
+            label="Query rate"
+            value={queriesDisplay}
+            help={`${dbRateHelp} SQL from app-server instrumentation only.`}
+            graph={
+              <MetricSeriesGraph
+                data={queryRateSeries}
+                color="#6366f1"
+                title="Query rate"
+                unit="30s window"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+        right={
+          <StatBlock
+            label="Error rate"
+            value={`${fmtRate(m.errorRate)}/s`}
+            graph={
+              <MetricSeriesGraph
+                data={errorSeries}
+                color="var(--c9-error)"
+                title="Error rate"
+                unit="30s · /s"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
       />
-      {latencySeries.some((v) => v > 0) ? (
-        <MetricChart
-          title="Query latency"
-          unit="30s · ms"
-          showPlaybackDelay={showPlaybackDelay}
-          series={[{ data: latencySeries, color: 'var(--c9-warning)', showArea: true }]}
-          compact
-          className="rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none"
-        />
-      ) : null}
-      <p className="text-[9px] leading-snug text-gray-600">
-        Queries/s counts app SQL operations — not worker fanout scans or exporter traffic.
-      </p>
-    </InspectorSection>
+      <StatBlock
+        label="Latency (p99)"
+        value={latencyMs > 0 ? fmtMs(latencyMs) : '—'}
+        help={dbRateHelp}
+        graph={
+          latencySeries.some((v) => v > 0) ? (
+            <MetricSeriesGraph
+              data={latencySeries}
+              color="var(--c9-warning)"
+              title="Query latency"
+              unit="30s · ms"
+              view={view}
+              showPlaybackDelay={showPlaybackDelay}
+            />
+          ) : null
+        }
+      />
+    </PedagogicalSection>
   )
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
-  return <MetricTile label={label} value={value} />
-}
-
-function MetricTile({
-  label,
-  value,
-  help,
-}: {
-  label: string
-  value: string
-  help?: string
-}) {
-  return (
-    <div className="rounded-lg border border-gray-700/50 bg-gray-800/50 p-2.5">
-      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
-        <span>{label}</span>
-        {help ? <MetricHelpIcon title={help} /> : null}
-      </div>
-      <div className="mt-0.5 font-mono text-sm font-semibold text-white">{value}</div>
-    </div>
-  )
-}
-
-export function InspectorSection({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
-  return (
-    <div className="space-y-2 rounded-lg border border-gray-700/40 bg-gray-900/20 p-3">
-      <MetricSectionHeading className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-        {title}
-      </MetricSectionHeading>
-      {children}
-    </div>
-  )
-}
-
-function StorageIoPrimaryTiles({
+/** USE — Postgres engine execution + access pattern. */
+export function DbLoadSection({
   m,
-  engine,
-  modelEstimate,
+  dbQueryRate,
+  templateMetrics,
+  view,
+  showPlaybackDelay = false,
+  history = [],
 }: {
   m: MetricsBucket
-  engine: string
-  modelEstimate?: number | null
+  dbQueryRate: number
+  templateMetrics: Record<string, number>
+  view: PanelViewState
+  showPlaybackDelay?: boolean
+  history?: MetricsBucket[]
 }) {
-  const io = m.storageIo!
+  if (!hasStorageMetrics(m) || !m.storageIo) return null
+
+  const engine = (m.storageEngine ?? 'postgresql').trim()
+  const io = m.storageIo
+  const readRate = io.readRate
   const readLabel = storageReadTileLabel(io, engine)
   const writeLabel = storageWriteTileLabel(io, engine)
+  const readSeries = history.map((h) => h.storageIo?.readRate ?? 0)
+  const writeSeries = history.map((h) => h.storageIo?.writeRate ?? 0)
+  const modelEstimate = fanoutScanModelEstimate(templateMetrics)
+  const hasPattern = Boolean(io.pattern?.trim())
+  const patternLabel = io.pattern?.trim() || null
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <Tile label={readLabel} value={`${fmtRate(io.readRate)}/s`} />
-        <Tile label={writeLabel} value={`${fmtRate(io.writeRate)}/s`} />
-      </div>
-      {modelEstimate != null && modelEstimate > 0 ? (
-        <div className="rounded border border-violet-500/25 bg-violet-950/20 px-2.5 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/80">
-            Model (est.)
-          </p>
-          <p className="mt-0.5 font-mono text-xs text-violet-100">
-            ~{fmtRate(modelEstimate)}/s row scans from fanout formula
-          </p>
-          <p className="mt-1 text-[9px] leading-snug text-gray-500">
-            consume_rate × fanout_size — teaching estimate, not reconciled with
-            exporter ground truth.
-          </p>
+    <PedagogicalSection
+      title="Storage execution (USE & pattern)"
+      subtitle="How the underlying storage engine processes the queries"
+    >
+      {patternLabel ? (
+        <div className="inline-flex rounded border border-cyan-500/30 bg-cyan-950/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">
+          Access pattern · {patternLabel}
         </div>
       ) : null}
-    </div>
+      <StatRow
+        left={
+          <StatBlock
+            label={readLabel}
+            value={`${fmtRate(readRate)}/s`}
+            graph={
+              <MetricSeriesGraph
+                data={readSeries}
+                color="#22d3ee"
+                title="Rows scanned"
+                unit="30s · /s"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+        right={
+          <StatBlock
+            label={writeLabel}
+            value={`${fmtRate(io.writeRate)}/s`}
+            graph={
+              <MetricSeriesGraph
+                data={writeSeries}
+                color="#a78bfa"
+                title="Rows written"
+                unit="30s · /s"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+      />
+      {modelEstimate != null && modelEstimate > 0 ? (
+        <p className="font-mono text-[10px] text-violet-300/90">
+          Model (est.): ~{fmtRate(modelEstimate)}/s row scans from fanout formula
+        </p>
+      ) : null}
+      {!hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
+        <PedagogicalHint>
+          Inefficient access pattern: {fmtRate(dbQueryRate)} logical queries are causing{' '}
+          {fmtRate(readRate)} row/document reads per second. Check the Data tab for a missing
+          index that may be causing O(N) sequential scans.
+        </PedagogicalHint>
+      ) : null}
+      {io.patternNote?.trim() ? (
+        <p className="text-[10px] leading-snug text-gray-500">{io.patternNote.trim()}</p>
+      ) : null}
+      <StorageIoScopeFooter m={m} isPostgres />
+    </PedagogicalSection>
   )
 }
 
-function StorageIoSecondaryTiles({
+export function DbClusterResourcesSection({
   m,
-  isPostgres,
+  cpuPercent,
+  memPercent,
+  view,
+  showPlaybackDelay = false,
+  history = [],
 }: {
   m: MetricsBucket
-  isPostgres: boolean
+  cpuPercent: number
+  memPercent: number
+  view: PanelViewState
+  showPlaybackDelay?: boolean
+  history?: MetricsBucket[]
 }) {
-  const io = m.storageIo!
-  const utilPct = storageUtilizationPct(io)
-  const hasCapacity =
-    io.bytesUsed > 0 ||
-    io.bytesLimit > 0 ||
-    (isPostgres && io.errorRate > 0) ||
-    (!isPostgres && io.errorRate > 0)
-
-  if (!hasCapacity) return null
+  const labels = formatResourceLabels(m, cpuPercent, memPercent)
+  const cpuSeries = history.map((h) => h.cpuPercent)
+  const memSeries = history.map((h) => h.memPercent)
 
   return (
-    <InspectorDisclosure
-      title={isPostgres ? 'Capacity & rollbacks' : 'Capacity & store errors'}
-      hint={io.bytesUsed > 0 ? fmtBytes(io.bytesUsed) : undefined}
+    <PedagogicalSection
+      title="Cluster resources (USE)"
+      subtitle="Hardware utilization handling the execution load"
     >
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {io.bytesUsed > 0 ? (
-          <Tile label="Data size" value={fmtBytes(io.bytesUsed)} />
+      <StatRow
+        left={
+          <StatBlock
+            label="CPU utilization"
+            value={labels.cpu}
+            graph={
+              <MetricSeriesGraph
+                data={cpuSeries}
+                color="#f59e0b"
+                title="CPU"
+                unit="30s · %"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+        right={
+          <StatBlock
+            label="Memory usage"
+            value={labels.mem}
+            graph={
+              <MetricSeriesGraph
+                data={memSeries}
+                color="#8b5cf6"
+                title="Memory"
+                unit="30s · %"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+      />
+      <CapacityBar pct={cpuPercent} />
+    </PedagogicalSection>
+  )
+}
+
+export function DbDiagnosticsDisclosure({
+  m,
+  maxConnections,
+}: {
+  m: MetricsBucket
+  maxConnections: number
+}) {
+  const maxConn = maxConnections > 0 ? maxConnections : 100
+  const connPct = maxConn > 0 ? (m.dbActiveConnections / maxConn) * 100 : 0
+  const io = m.storageIo
+
+  return (
+    <InspectorDisclosure title="Engine detail & diagnostics">
+      <div className="space-y-2 font-mono text-[11px] text-gray-300">
+        <div>
+          Active connections · {fmtInt(m.dbActiveConnections)} / {fmtInt(maxConn)}
+          <CapacityBar pct={connPct} warnAt={60} criticalAt={85} />
+        </div>
+        {io && io.bytesUsed > 0 ? (
+          <div>Data size · {fmtBytes(io.bytesUsed)}</div>
         ) : null}
-        {isPostgres && io.errorRate > 0 ? (
-          <Tile label="Rollbacks" value={`${fmtRate(io.errorRate)}/s`} />
-        ) : null}
-        {!isPostgres && io.errorRate > 0 ? (
-          <Tile label="Store errors" value={`${fmtRate(io.errorRate)}/s`} />
+        {io && io.errorRate > 0 ? (
+          <div>Rollbacks · {fmtRate(io.errorRate)}/s</div>
         ) : null}
       </div>
-      {io.bytesLimit > 0 ? (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-gray-500">
-            <span>Utilization</span>
-            <span className="font-mono text-gray-300">
-              {fmtBytes(io.bytesUsed)} / {fmtBytes(io.bytesLimit)} ({utilPct.toFixed(0)}%)
-            </span>
+      <PedagogicalHint tone="muted">
+        Engine-specific (PostgreSQL) metrics. High connection counts can lead to connection
+        pooling bottlenecks.
+      </PedagogicalHint>
+    </InspectorDisclosure>
+  )
+}
+
+/** Redis command throughput — engine USE layer for cache nodes. */
+export function CacheEngineSection({
+  m,
+  evictionPolicy,
+  view,
+  showPlaybackDelay = false,
+  history = [],
+}: {
+  m: MetricsBucket
+  evictionPolicy?: string
+  view: PanelViewState
+  showPlaybackDelay?: boolean
+  history?: MetricsBucket[]
+}) {
+  if (!hasStorageMetrics(m) || !m.storageIo) return null
+
+  const engine = (m.storageEngine ?? 'redis').trim()
+  const io = m.storageIo
+  const readLabel = storageReadTileLabel(io, engine)
+  const writeLabel = storageWriteTileLabel(io, engine)
+  const memPct = m.memoryLimit > 0 ? Math.min(100, (m.memoryBytes / m.memoryLimit) * 100) : 0
+  const memSeries = history.map((h) =>
+    h.memoryLimit > 0 ? Math.min(100, (h.memoryBytes / h.memoryLimit) * 100) : 0,
+  )
+
+  return (
+    <PedagogicalSection
+      title="Engine throughput (USE)"
+      subtitle="What mechanical work is the Redis cluster doing?"
+    >
+      <StatRow
+        left={
+          <StatBlock
+            label="Memory utilization"
+            value={`${fmtBytes(m.memoryBytes)}${m.memoryLimit > 0 ? ` · ${memPct.toFixed(1)}%` : ''}`}
+            graph={
+              <MetricSeriesGraph
+                data={memSeries}
+                color="#8b5cf6"
+                title="Memory"
+                unit="30s · %"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+        right={
+          <div className="space-y-2">
+            <StatBlock label={readLabel} value={`${fmtRate(io.readRate)}/s`} />
+            <StatBlock label={writeLabel} value={`${fmtRate(io.writeRate)}/s`} />
           </div>
-          <div className="h-2 rounded-full bg-gray-800">
-            <div
-              className={`h-full rounded-full transition-[width] ${storageUtilBarClass(utilPct)}`}
-              style={{ width: `${utilPct}%` }}
-            />
-          </div>
-          {utilPct >= 80 ? (
-            <p className="text-[10px] text-amber-400/90">
-              {utilPct >= 90 ? 'Critical' : 'High'} storage use — above{' '}
-              {utilPct >= 90 ? '90' : '80'}%
-            </p>
-          ) : null}
-        </div>
+        }
+      />
+      {evictionPolicy ? (
+        <p className="text-[10px] text-gray-500">({evictionPolicy} eviction)</p>
       ) : null}
+      <StorageIoScopeFooter m={m} isPostgres={false} />
+    </PedagogicalSection>
+  )
+}
+
+export function EngineHealthDisclosure({
+  m,
+  cpuPercent,
+  memPercent,
+}: {
+  m: MetricsBucket
+  cpuPercent: number
+  memPercent: number
+}) {
+  const labels = formatResourceLabels(m, cpuPercent, memPercent)
+  return (
+    <InspectorDisclosure title="Engine health (diagnostics)">
+      <EngineDiagnosticsBlock cpuLabel={labels.cpu} memLabel={labels.mem} />
     </InspectorDisclosure>
   )
 }
@@ -254,105 +398,29 @@ function StorageIoScopeFooter({ m, isPostgres }: { m: MetricsBucket; isPostgres:
   )
   if (!scopeLine && !io.footnote?.trim()) return null
   return (
-    <>
-      {scopeLine ? (
-        <p className="text-[10px] text-gray-500">{scopeLine}</p>
-      ) : null}
+    <div className="space-y-1">
+      {scopeLine ? <p className="text-[10px] text-gray-500">{scopeLine}</p> : null}
       {io.footnote?.trim() ? (
         <p className="text-[9px] leading-snug text-gray-500">{io.footnote.trim()}</p>
-      ) : null}
-    </>
-  )
-}
-
-function StoragePatternBadge({ m }: { m: MetricsBucket }) {
-  const pattern = m.storageIo?.pattern?.trim()
-  if (!pattern) return null
-  const note = m.storageIo?.patternNote?.trim()
-  return (
-    <div className="rounded border border-cyan-500/25 bg-cyan-950/20 px-2.5 py-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300/90">
-        Access pattern · {pattern}
-      </p>
-      {note ? (
-        <p className="mt-1 text-[10px] leading-snug text-gray-400">{note}</p>
       ) : null}
     </div>
   )
 }
 
-/** USE — Postgres engine row/table work (all DB clients). */
-export function DbLoadSection({
-  m,
-  dbQueryRate,
-  templateMetrics,
+/** @deprecated Use pedagogical sections — kept for imports that expect a bordered wrapper. */
+export function InspectorSection({
+  title,
+  children,
 }: {
-  m: MetricsBucket
-  dbQueryRate: number
-  templateMetrics: Record<string, number>
+  title: string
+  children: ReactNode
 }) {
-  if (!hasStorageMetrics(m) || !m.storageIo) return null
-
-  const engine = (m.storageEngine ?? 'postgresql').trim()
-  const readRate = m.storageIo.readRate
-  const fanoutConsume = templateMetrics['worker.consume_rate'] ?? 0
-  const fanoutP99 = templateMetrics['worker.fanout_size_p99'] ?? 0
-  const showFanout = fanoutConsume > 0 || fanoutP99 > 0
-  const modelEstimate = fanoutScanModelEstimate(templateMetrics)
-  const hasPattern = Boolean(m.storageIo.pattern?.trim())
-
   return (
-    <InspectorSection title={dbLoadSectionTitle(engine)}>
-      <StorageIoPrimaryTiles
-        m={m}
-        engine={engine}
-        modelEstimate={modelEstimate}
-      />
-      <StoragePatternBadge m={m} />
-      {!hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
-        <p className="text-[10px] leading-snug text-violet-300/90">
-          High row scan ratio — bulk reads or fanout worker may be active.
-        </p>
-      ) : null}
-      {showFanout ? (
-        <div className="rounded border border-gray-700/40 bg-gray-800/30 px-2.5 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-            Fanout worker
-          </p>
-          <p className="mt-1 text-xs text-gray-300">
-            {fanoutConsume > 0 ? (
-              <span>Consume {fmtRate(fanoutConsume)}/s</span>
-            ) : null}
-            {fanoutConsume > 0 && fanoutP99 > 0 ? ' · ' : null}
-            {fanoutP99 > 0 ? (
-              <span>p99 fanout {fmtInt(Math.round(fanoutP99))} followers/post</span>
-            ) : null}
-          </p>
-        </div>
-      ) : null}
-      <StorageIoSecondaryTiles m={m} isPostgres />
-      <StorageIoScopeFooter m={m} isPostgres />
-      {!m.storageIo.footnote?.trim() && engine.toLowerCase() === 'postgresql' ? (
-        <p className="text-[9px] leading-snug text-gray-600">
-          Row scans include all DB clients (app-server and workers), not app query count
-          alone. Process RAM is in resource metrics — not data size.
-        </p>
-      ) : null}
-    </InspectorSection>
-  )
-}
-
-/** Redis command throughput (supplementary to app hit/miss counters). */
-export function CacheEngineSection({ m }: { m: MetricsBucket }) {
-  if (!hasStorageMetrics(m) || !m.storageIo) return null
-
-  const engine = (m.storageEngine ?? 'redis').trim()
-
-  return (
-    <InspectorSection title={cacheEngineSectionTitle(engine)}>
-      <StorageIoPrimaryTiles m={m} engine={engine} />
-      <StorageIoSecondaryTiles m={m} isPostgres={false} />
-      <StorageIoScopeFooter m={m} isPostgres={false} />
-    </InspectorSection>
+    <section className="space-y-2">
+      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+        {title}
+      </h4>
+      {children}
+    </section>
   )
 }
