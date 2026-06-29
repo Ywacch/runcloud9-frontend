@@ -8,6 +8,11 @@ import { saveWsEventsJson } from '../../lib/wsEventsPersist'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useMetricsStore } from '../stores/metricsStore'
 import { isMetricsPlaybackEnabled } from '../playback/playbackConfig'
+import {
+  WS_STALE_CHECK_INTERVAL_MS,
+  isWsConnectionStale,
+  wsReconnectDelayMs,
+} from './wsStaleWatchdog'
 import { markEventsFired } from '../playback/eventPlayback'
 import {
   pushBufferedSample,
@@ -46,9 +51,14 @@ export function useMetricsSync(deploymentId: string | null): void {
   const wsRef = useRef<WebSocket | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFrameAtRef = useRef(0)
+  const staleCloseRef = useRef(false)
+  const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     retryRef.current = 0
+    lastFrameAtRef.current = 0
+    staleCloseRef.current = false
 
     const clearPersistTimer = () => {
       if (persistTimerRef.current) {
@@ -64,6 +74,32 @@ export function useMetricsSync(deploymentId: string | null): void {
       }
     }
 
+    const clearStaleCheck = () => {
+      if (staleCheckRef.current) {
+        clearInterval(staleCheckRef.current)
+        staleCheckRef.current = null
+      }
+    }
+
+    const startStaleCheck = () => {
+      clearStaleCheck()
+      lastFrameAtRef.current = 0
+      staleCheckRef.current = setInterval(() => {
+        const ws = wsRef.current
+        if (!ws) return
+        if (
+          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now())
+        ) {
+          useMetricsStore
+            .getState()
+            .setStreamWarning('Reconnecting live metrics…')
+          staleCloseRef.current = true
+          retryRef.current = 0
+          ws.close()
+        }
+      }, WS_STALE_CHECK_INTERVAL_MS)
+    }
+
     const closeWs = () => {
       if (wsRef.current) {
         wsRef.current.onopen = null
@@ -77,6 +113,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
     if (!deploymentId) {
       clearTimer()
+      clearStaleCheck()
       clearPersistTimer()
       closeWs()
       stopPlaybackLoop()
@@ -99,6 +136,8 @@ export function useMetricsSync(deploymentId: string | null): void {
 
     const connect = () => {
       clearTimer()
+      clearStaleCheck()
+      staleCloseRef.current = false
       closeWs()
       if (isMetricsPlaybackEnabled()) {
         reconnectPlaybackBuffer()
@@ -106,6 +145,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
       const ws = connectMetricsWS(deploymentId)
       wsRef.current = ws
+      startStaleCheck()
 
       ws.onopen = () => {
         retryRef.current = 0
@@ -120,6 +160,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
       ws.onmessage = (ev) => {
         retryRef.current = 0
+        lastFrameAtRef.current = Date.now()
         useMetricsStore.getState().setStreamWarning(null)
         try {
           const data = JSON.parse(ev.data as string) as WsDeploymentMetrics
@@ -136,8 +177,19 @@ export function useMetricsSync(deploymentId: string | null): void {
 
       ws.onclose = () => {
         wsRef.current = null
+        clearStaleCheck()
+        const wasStaleClose = staleCloseRef.current
+        staleCloseRef.current = false
         const st = useCanvasStore.getState()
         if (st.deploymentId !== deploymentId) return
+        if (wasStaleClose) {
+          retryRef.current = 0
+          timerRef.current = setTimeout(
+            connect,
+            wsReconnectDelayMs(0, true),
+          )
+          return
+        }
         const maxRetries = 5
         if (retryRef.current >= maxRetries) {
           useMetricsStore
@@ -158,7 +210,7 @@ export function useMetricsSync(deploymentId: string | null): void {
             })
           return
         }
-        const delay = Math.min(30_000, 1000 * Math.pow(2, retryRef.current))
+        const delay = wsReconnectDelayMs(retryRef.current, false)
         retryRef.current += 1
         timerRef.current = setTimeout(connect, delay)
       }
@@ -168,6 +220,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
     return () => {
       clearTimer()
+      clearStaleCheck()
       clearPersistTimer()
       closeWs()
       stopPlaybackLoop()
