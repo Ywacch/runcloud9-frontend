@@ -2,6 +2,11 @@ import { useEffect, useRef } from 'react'
 import { connectLogsWS } from '../../lib/api'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useLogStore, type RawLogLine } from '../stores/logStore'
+import {
+  WS_STALE_CHECK_INTERVAL_MS,
+  isWsConnectionStale,
+  wsReconnectDelayMs,
+} from './wsStaleWatchdog'
 
 function isLogLine(x: unknown): x is RawLogLine {
   if (typeof x !== 'object' || x === null) return false
@@ -33,15 +38,43 @@ export function useLogSync(deploymentId: string | null): void {
   const retryRef = useRef(0)
   const wsRef = useRef<WebSocket | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFrameAtRef = useRef(0)
+  const staleCloseRef = useRef(false)
+  const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     retryRef.current = 0
+    lastFrameAtRef.current = 0
+    staleCloseRef.current = false
 
     const clearTimer = () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+    }
+
+    const clearStaleCheck = () => {
+      if (staleCheckRef.current) {
+        clearInterval(staleCheckRef.current)
+        staleCheckRef.current = null
+      }
+    }
+
+    const startStaleCheck = () => {
+      clearStaleCheck()
+      lastFrameAtRef.current = 0
+      staleCheckRef.current = setInterval(() => {
+        const ws = wsRef.current
+        if (!ws) return
+        if (
+          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now())
+        ) {
+          staleCloseRef.current = true
+          retryRef.current = 0
+          ws.close()
+        }
+      }, WS_STALE_CHECK_INTERVAL_MS)
     }
 
     const closeWs = () => {
@@ -57,19 +90,24 @@ export function useLogSync(deploymentId: string | null): void {
 
     if (!deploymentId) {
       clearTimer()
+      clearStaleCheck()
       closeWs()
       return
     }
 
     const connect = () => {
       clearTimer()
+      clearStaleCheck()
+      staleCloseRef.current = false
       closeWs()
 
       const ws = connectLogsWS(deploymentId)
       wsRef.current = ws
+      startStaleCheck()
 
       ws.onmessage = (ev) => {
         retryRef.current = 0
+        lastFrameAtRef.current = Date.now()
         try {
           const data = JSON.parse(ev.data as string) as unknown
           ingestPayload(data)
@@ -84,9 +122,20 @@ export function useLogSync(deploymentId: string | null): void {
 
       ws.onclose = () => {
         wsRef.current = null
+        clearStaleCheck()
+        const wasStaleClose = staleCloseRef.current
+        staleCloseRef.current = false
         if (useCanvasStore.getState().deploymentId !== deploymentId) return
+        if (wasStaleClose) {
+          retryRef.current = 0
+          timerRef.current = setTimeout(
+            connect,
+            wsReconnectDelayMs(0, true),
+          )
+          return
+        }
         if (retryRef.current >= 5) return
-        const delay = Math.min(30_000, 1000 * Math.pow(2, retryRef.current))
+        const delay = wsReconnectDelayMs(retryRef.current, false)
         retryRef.current += 1
         timerRef.current = setTimeout(connect, delay)
       }
@@ -96,6 +145,7 @@ export function useLogSync(deploymentId: string | null): void {
 
     return () => {
       clearTimer()
+      clearStaleCheck()
       closeWs()
     }
   }, [deploymentId])
