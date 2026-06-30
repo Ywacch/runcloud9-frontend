@@ -38,9 +38,13 @@ export interface MetricsBucket {
   requestRate: number
   errorRate: number
   totalRequests: number
+  /** Rolling 9m 5xx count. */
+  totalErrors9m: number
   p50Latency: number
   p95Latency: number
   p99Latency: number
+  /** Rolling 9m p99 in milliseconds (WS sends seconds). */
+  p99Latency9m: number
   avgLatency: number
 
   // Cache-specific
@@ -61,6 +65,8 @@ export interface MetricsBucket {
 
   // DB-specific
   dbQueryRate: number
+  /** Rolling 9m app query count. */
+  dbTotalQueries: number
   /** App-reported query latency (seconds on WS). */
   dbQueryLatency: number
   /** `"app"` = trust dbQueryRate; `"none"` = no app instrumentation. */

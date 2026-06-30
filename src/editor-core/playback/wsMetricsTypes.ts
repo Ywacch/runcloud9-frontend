@@ -18,9 +18,11 @@ export interface WsComponentMetrics {
   requestRate?: number
   errorRate?: number
   totalRequests?: number
+  totalErrors9m?: number
   p50Latency?: number
   p95Latency?: number
   p99Latency?: number
+  p99Latency9m?: number
   avgLatency?: number
   cacheHits?: number
   cacheMisses?: number

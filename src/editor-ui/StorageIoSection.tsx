@@ -9,6 +9,7 @@ import {
   storageScopeLine,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
+import { dbQueryHeadline } from '../lib/metricTimeframe'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import {
@@ -40,12 +41,16 @@ export function DbActivitySection({
   showPlaybackDelay?: boolean
 }) {
   const storageReadRate = m.storageIo?.readRate ?? 0
-  const queriesDisplay = formatDbQueriesPerSec(
-    m.dbQueryRate,
-    m.dbQuerySource,
-    storageReadRate,
-    loadgenActive,
-  )
+  const dbHead = dbQueryHeadline(m, view.timeframe)
+  const queriesDisplay =
+    view.timeframe === 'session'
+      ? fmtInt(dbHead.sessionTotal)
+      : formatDbQueriesPerSec(
+          m.dbQueryRate,
+          m.dbQuerySource,
+          storageReadRate,
+          loadgenActive,
+        )
   const queryRateSeries = history.map((h) => h.dbQueryRate)
   const errorSeries = history.map((h) => h.errorRate)
   const latencyMs =
@@ -66,7 +71,7 @@ export function DbActivitySection({
       <StatRow
         left={
           <StatBlock
-            label="Query rate"
+            label={dbHead.label}
             value={queriesDisplay}
             help={`${dbRateHelp} SQL from app-server instrumentation only.`}
             graph={

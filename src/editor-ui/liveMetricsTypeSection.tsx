@@ -23,6 +23,12 @@ import type { ReplicaInspectorRow } from '../lib/replicaMetricsDisplay'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import { shouldShowKeyspaceDriftHint } from '../lib/storageIoDisplay'
 import {
+  cacheHeadlines,
+  cacheHitRateDisplay,
+  redHeadlines,
+  replicaListRows as buildReplicaListRows,
+} from '../lib/metricTimeframe'
+import {
   CacheEngineSection,
   DbActivitySection,
   DbClusterResourcesSection,
@@ -93,8 +99,6 @@ export function LiveMetricsTypeSection({
   const nodeId = node.id
   const nodeType = node.type
   const requestRate = useLiveMetricNumber(nodeId, 'requestRate', mode, m.requestRate)
-  const errorRate = useLiveMetricNumber(nodeId, 'errorRate', mode, m.errorRate)
-  const p99Latency = useLiveMetricNumber(nodeId, 'p99Latency', mode, m.p99Latency)
   const cacheHits = useLiveMetricNumber(nodeId, 'cacheHits', mode, m.cacheHits)
   const cacheMisses = useLiveMetricNumber(nodeId, 'cacheMisses', mode, m.cacheMisses)
   const dbQueryRate = useLiveMetricNumber(nodeId, 'dbQueryRate', mode, m.dbQueryRate)
@@ -113,19 +117,25 @@ export function LiveMetricsTypeSection({
 
   switch (nodeType) {
     case 'compute': {
+      const red = redHeadlines(m, view.timeframe, fmtErrorRate)
       const rpsSeries = history.map((h) => h.requestRate)
       const latencySeries = history.map((h) => h.p99Latency)
       const errorSeries = history.map((h) => h.errorRate)
       const cpuSeries = history.map((h) => h.cpuPercent)
       const memSeries = history.map((h) => h.memPercent)
-      const replicaListRows = replicaRows.map((r) => ({
-        name: truncatePodName(r.podName || r.label, 22),
-        rps: r.qps,
-        p99Ms: r.latencyMs,
-        cpuPct: r.cpuPercent,
-        warn: r.latencyMs > 500 || r.qps < requestRate * 0.1,
-        hot: r.latencyMs > 1000,
-      }))
+      const computeReplicaList =
+        m.podReplicas.length > 0
+          ? buildReplicaListRows(m.podReplicas, view.timeframe, {
+              clusterRps: requestRate,
+            })
+          : replicaRows.map((r) => ({
+              name: truncatePodName(r.podName || r.label, 22),
+              primaryText: `${Math.round(r.qps)} rps`,
+              p99Ms: r.latencyMs,
+              cpuPct: r.cpuPercent,
+              warn: r.latencyMs > 500 || r.qps < requestRate * 0.1,
+              hot: r.latencyMs > 1000,
+            }))
 
       return (
         <div className="space-y-5">
@@ -136,8 +146,8 @@ export function LiveMetricsTypeSection({
             <StatRow
               left={
                 <StatBlock
-                  label="Request rate"
-                  value={`${fmtInt(requestRate)} rps`}
+                  label={red.throughputLabel}
+                  value={red.throughputDisplay}
                   help={THROUGHPUT_HELP}
                   graph={
                     <MetricSeriesGraph
@@ -153,8 +163,8 @@ export function LiveMetricsTypeSection({
               }
               right={
                 <StatBlock
-                  label="Latency (p99)"
-                  value={fmtMs(p99Latency)}
+                  label={red.latencyLabel}
+                  value={fmtMs(red.latencyMs)}
                   help={LATENCY_HELP}
                   graph={
                     <MetricSeriesGraph
@@ -170,8 +180,8 @@ export function LiveMetricsTypeSection({
               }
             />
             <StatBlock
-              label="Error rate"
-              value={fmtErrorRate(errorRate)}
+              label={red.errorLabel}
+              value={red.errorDisplay}
               graph={
                 <MetricSeriesGraph
                   data={errorSeries}
@@ -229,9 +239,9 @@ export function LiveMetricsTypeSection({
             />
           </PedagogicalSection>
 
-          {replicaListRows.length > 0 ? (
+          {computeReplicaList.length > 0 ? (
             <InspectorDisclosure title="Per-replica breakdown">
-              <ReplicaFlatList rows={replicaListRows} />
+              <ReplicaFlatList rows={computeReplicaList} />
             </InspectorDisclosure>
           ) : null}
         </div>
@@ -240,9 +250,8 @@ export function LiveMetricsTypeSection({
 
     case 'cache': {
       const cacheRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'cache')
-      const total = cacheHits + cacheMisses
-      const hitRatePct = total > 0 ? (cacheHits / total) * 100 : 0
-      const hitRateLabel = total > 0 ? fmtPct(hitRatePct) : '—'
+      const cacheHead = cacheHeadlines(m, view.timeframe, fmtRate)
+      const hitRateLabel = cacheHitRateDisplay(cacheHead.hitRatePct)
       const hitRateSeries = history.map((h) => {
         const t = h.cacheHits + h.cacheMisses
         return t > 0 ? (h.cacheHits / t) * 100 : 0
@@ -337,7 +346,7 @@ export function LiveMetricsTypeSection({
             <StatRow
               left={
                 <StatBlock
-                  label="Hit rate (30s)"
+                  label={cacheHead.hitRateLabel}
                   value={hitRateLabel}
                   graph={
                     <MetricSeriesGraph
@@ -353,8 +362,8 @@ export function LiveMetricsTypeSection({
               }
               right={
                 <StatBlock
-                  label="Throughput"
-                  value={`${fmtRate(cacheHits)}/s hits · ${fmtRate(cacheMisses)}/s misses`}
+                  label={cacheHead.throughputLabel}
+                  value={cacheHead.throughputDisplay}
                   help={cacheRateHelp}
                   graph={
                     <MetricSeriesGraph
@@ -468,6 +477,7 @@ export function LiveMetricsTypeSection({
 
     case 'load_balancer': {
       const lbRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'load_balancer')
+      const red = redHeadlines(m, view.timeframe, fmtErrorRate)
       const lbRpsSeries = history.map((h) => h.requestRate)
       const backends = Object.values(edges)
         .filter((e) => e.sourceId === nodeId)
@@ -487,23 +497,20 @@ export function LiveMetricsTypeSection({
           : perBe.map(([, rps]) => rps)
       const skew = podDistributionSkew(podRates)
       const maxRate = skew.max
-      const replicaListRows = (
+      const replicaListRows =
         backendPods.length > 0
-          ? backendPods.map((pod) => ({
-              name: truncatePodName(pod.name),
-              rps: pod.requestRate,
-              p99Ms: pod.p99LatencyMs,
-              warn: skew.skewed && pod.requestRate < maxRate * 0.5,
-              hot: skew.skewed && pod.requestRate >= maxRate * 0.9,
-            }))
+          ? buildReplicaListRows(backendPods, view.timeframe, {
+              clusterRps: requestRate,
+              maxRate,
+              skewed: skew.skewed,
+            })
           : perBe.map(([name, rps]) => ({
               name: truncatePodName(name),
-              rps,
+              primaryText: `${Math.round(rps)} rps`,
               p99Ms: 0,
               warn: skew.skewed && rps < maxRate * 0.5,
               hot: skew.skewed && rps >= maxRate * 0.9,
             }))
-      ) as Array<{ name: string; rps: number; p99Ms: number; warn?: boolean; hot?: boolean }>
 
       return (
         <div className="space-y-5">
@@ -514,8 +521,12 @@ export function LiveMetricsTypeSection({
             <StatRow
               left={
                 <StatBlock
-                  label="Requests routed"
-                  value={`${fmtInt(requestRate)} rps`}
+                  label={
+                    view.timeframe === 'session'
+                      ? 'Total requests (9m)'
+                      : 'Requests routed'
+                  }
+                  value={red.throughputDisplay}
                   help={lbRateHelp}
                   graph={
                     <MetricSeriesGraph
@@ -529,8 +540,19 @@ export function LiveMetricsTypeSection({
                   }
                 />
               }
-              right={<StatBlock label="Algorithm" value={algo} />}
+              right={
+                view.timeframe === 'session' ? (
+                  <StatBlock
+                    label={red.latencyLabel}
+                    value={fmtMs(red.latencyMs)}
+                    help={LATENCY_HELP}
+                  />
+                ) : (
+                  <StatBlock label="Algorithm" value={algo} />
+                )
+              }
             />
+            <PedagogicalCaption>Algorithm: {algo}</PedagogicalCaption>
           </PedagogicalSection>
 
           <PedagogicalSection
