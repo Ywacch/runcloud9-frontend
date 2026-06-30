@@ -133,6 +133,37 @@ export function shouldShowHighScanRatioHint(
   return dbQueryRate > 0 && readRate / dbQueryRate > threshold
 }
 
+/** App vs Redis keyspace hit-rate gap (percentage points). */
+export function keyspaceHitRateDriftPct(
+  appHits: number,
+  appMisses: number,
+  keyspaceHits: number,
+  keyspaceMisses: number,
+): number | null {
+  const appTotal = appHits + appMisses
+  const ksTotal = keyspaceHits + keyspaceMisses
+  if (appTotal <= 0 || ksTotal <= 0) return null
+  const appHitRate = (appHits / appTotal) * 100
+  const ksHitRate = (keyspaceHits / ksTotal) * 100
+  return Math.abs(appHitRate - ksHitRate)
+}
+
+export function shouldShowKeyspaceDriftHint(
+  appHits: number,
+  appMisses: number,
+  keyspaceHits: number,
+  keyspaceMisses: number,
+  thresholdPct = 10,
+): boolean {
+  const drift = keyspaceHitRateDriftPct(
+    appHits,
+    appMisses,
+    keyspaceHits,
+    keyspaceMisses,
+  )
+  return drift != null && drift > thresholdPct
+}
+
 /**
  * Modeled row-scan estimate from fanout worker telemetry (not ground truth).
  * Uses avg when present, else p99 as a conservative teaching proxy.

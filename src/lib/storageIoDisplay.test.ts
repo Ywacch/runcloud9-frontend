@@ -4,6 +4,7 @@ import {
   fanoutScanModelEstimate,
   hasStorageMetrics,
   shouldShowHighScanRatioHint,
+  shouldShowKeyspaceDriftHint,
   storageEngineLabel,
   storageReadTileLabel,
   storageScopeLine,
@@ -87,6 +88,26 @@ describe('storageIoDisplay', () => {
   it('shouldShowHighScanRatioHint when scan ratio high', () => {
     expect(shouldShowHighScanRatioHint(50, 14731)).toBe(true)
     expect(shouldShowHighScanRatioHint(50, 100)).toBe(false)
+  })
+
+  it('uses wire labels for social-feed sorted-set redis commands', () => {
+    const io = {
+      ...baseIo,
+      unit: 'cmd/s',
+      readRate: 120,
+      writeRate: 8,
+      readLabel: 'ZREVRANGE commands/s',
+      writeLabel: 'ZADD/ZREMRANGE commands/s',
+      footnote: 'Sorted-set timeline reads/writes (social-feed push).',
+    }
+    expect(storageReadTileLabel(io, 'redis')).toBe('ZREVRANGE commands/s')
+    expect(storageWriteTileLabel(io, 'redis')).toBe('ZADD/ZREMRANGE commands/s')
+  })
+
+  it('shouldShowKeyspaceDriftHint when hit rates diverge', () => {
+    expect(shouldShowKeyspaceDriftHint(90, 10, 70, 30)).toBe(true)
+    expect(shouldShowKeyspaceDriftHint(90, 10, 88, 12)).toBe(false)
+    expect(shouldShowKeyspaceDriftHint(0, 0, 10, 0)).toBe(false)
   })
 
   it('fanoutScanModelEstimate multiplies consume and fanout size', () => {
