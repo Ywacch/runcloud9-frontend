@@ -111,6 +111,13 @@ export function parseLoadgenIntervals(raw: unknown): LoadgenIntervalBucket[] {
   return out.slice(-12)
 }
 
+export function parseRecentLatenciesMs(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((v) => Number(v))
+    .filter((n) => Number.isFinite(n) && n >= 0)
+}
+
 export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
   if (!Array.isArray(raw)) return []
   const out: PodReplicaMetrics[] = []

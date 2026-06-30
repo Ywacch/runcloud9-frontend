@@ -88,6 +88,9 @@ export interface WsDeploymentMetrics {
     intervalActualRps?: number
     intervalP99Ms?: number
     recentIntervals?: unknown
+    recentLatenciesMs?: unknown
+    meanLatency?: number
+    p99Latency?: number
     totalRequests?: number
     successRate?: number
     durationSeconds?: number

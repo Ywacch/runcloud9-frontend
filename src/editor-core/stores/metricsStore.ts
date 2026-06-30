@@ -131,6 +131,8 @@ export interface LiveLoadgenState {
   intervalActualRps: number
   intervalP99Ms: number
   recentIntervals: LoadgenIntervalBucket[]
+  /** Client-path latency samples (ms), oldest first — not tweened. */
+  recentLatenciesMs: number[]
   totalRequests: number
   successRate: number
   durationSeconds: number
