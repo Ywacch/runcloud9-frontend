@@ -21,6 +21,7 @@ import {
 } from '../lib/metricHelp'
 import type { ReplicaInspectorRow } from '../lib/replicaMetricsDisplay'
 import { InspectorDisclosure } from './InspectorDisclosure'
+import { shouldShowKeyspaceDriftHint } from '../lib/storageIoDisplay'
 import {
   CacheEngineSection,
   DbActivitySection,
@@ -106,6 +107,7 @@ export function LiveMetricsTypeSection({
   const tmWorkerConsumeRate = templateMetrics['worker.consume_rate']
   const tmWorkerRedisWriteRate = templateMetrics['worker.redis_write_rate']
   const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
+  const tmFeedPushRate = templateMetrics['feed.push_rate']
   const chartPlaybackDelay = mode === 'live' && isMetricsPlaybackEnabled()
   const resourceLabels = formatResourceLabels(m, cpuPercent, memPercent)
 
@@ -252,32 +254,76 @@ export function LiveMetricsTypeSection({
       const metricMode = (m.cacheMetricMode ?? '').trim()
       const timelineMode = isTimelineCacheMode(backendStrategy, metricMode)
       const evictionPolicy = String(node.config.evictionPolicy ?? 'allkeys-lru')
+      const storageIoReadRate = m.storageIo?.readRate ?? 0
+      const preferStorageIo = storageIoReadRate > 0
+      const keyspaceDrift = shouldShowKeyspaceDriftHint(
+        cacheHits,
+        cacheMisses,
+        m.redisKeyspaceHits ?? 0,
+        m.redisKeyspaceMisses ?? 0,
+      )
 
       if (timelineMode) {
+        const showLegacyRedisOps =
+          !preferStorageIo && (m.redisOpsPerSec ?? 0) > 0
+
         return (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <PedagogicalSection
-              title="Engine throughput (USE)"
-              subtitle="Sorted-set timeline traffic"
+              title="Feed delivery (RED)"
+              subtitle="Push-model timeline reads"
             >
               <StatRow
                 left={
                   <StatBlock
-                    label="Redis ops"
-                    value={`${fmtRate(m.redisOpsPerSec || requestRate)}/s`}
+                    label="Feed reads (push)"
+                    value={
+                      Number.isFinite(tmFeedPushRate)
+                        ? `${fmtRate(tmFeedPushRate)}/s`
+                        : '—'
+                    }
                     help={cacheRateHelp}
                   />
                 }
                 right={
-                  <StatBlock label="Request rate" value={`${fmtRate(requestRate)}/s`} />
+                  <StatBlock
+                    label="Request rate"
+                    value={`${fmtRate(requestRate)}/s`}
+                  />
                 }
               />
               <PedagogicalCaption>
-                Timeline mode does not use Redis keyspace hit/miss counters as the primary
-                signal.
+                Template feed.push_rate tracks timeline read traffic; engine
+                command rates below use wire storageIo labels (e.g. ZREVRANGE).
               </PedagogicalCaption>
             </PedagogicalSection>
-            <EngineHealthDisclosure m={m} cpuPercent={cpuPercent} memPercent={memPercent} />
+
+            <CacheEngineSection
+              m={m}
+              evictionPolicy={evictionPolicy}
+              view={view}
+              showPlaybackDelay={chartPlaybackDelay}
+              history={history}
+            />
+
+            {showLegacyRedisOps ? (
+              <PedagogicalSection
+                title="Engine throughput (USE)"
+                subtitle="Legacy redisOpsPerSec — prefer storageIo when available"
+              >
+                <StatBlock
+                  label="Redis ops"
+                  value={`${fmtRate(m.redisOpsPerSec ?? 0)}/s`}
+                  help={cacheRateHelp}
+                />
+              </PedagogicalSection>
+            ) : null}
+
+            <EngineHealthDisclosure
+              m={m}
+              cpuPercent={cpuPercent}
+              memPercent={memPercent}
+            />
           </div>
         )
       }
@@ -372,7 +418,9 @@ export function LiveMetricsTypeSection({
               </div>
             ) : null}
             <PedagogicalHint tone="sky">
-              Protocol counters track network noise; minor drift from app metrics is normal.
+              {keyspaceDrift
+                ? 'App hit rate and keyspace counters differ by more than 10% — check pod aggregation scope.'
+                : 'Protocol counters track network noise; minor drift from app metrics is normal.'}
             </PedagogicalHint>
           </InspectorDisclosure>
 
