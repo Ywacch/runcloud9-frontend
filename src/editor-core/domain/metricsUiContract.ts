@@ -23,6 +23,8 @@ export interface PodReplicaMetrics {
   requestRate: number
   /** Milliseconds (WS sends seconds). */
   p99LatencyMs: number
+  /** Rolling 9m request count (Prometheus window). */
+  totalRequests: number
   /** CPU cores in use. */
   cpuUsage: number
   errorRate: number
@@ -122,6 +124,7 @@ export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
       ready: Boolean(r.ready),
       requestRate: num(r.requestRate),
       p99LatencyMs: num(r.p99Latency) * 1000,
+      totalRequests: Math.round(num(r.totalRequests)),
       cpuUsage: num(r.cpuUsage),
       errorRate: num(r.errorRate),
       memoryBytes: num(r.memoryBytes ?? r.memoryUsage),

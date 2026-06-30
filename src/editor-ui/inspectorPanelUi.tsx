@@ -35,8 +35,11 @@ export function PanelViewControls({
       <TogglePill
         active={view.timeframe === 'session'}
         onClick={() => onChange({ timeframe: 'session' })}
-        label="Full Session"
+        label="Session (9m)"
       />
+      <span className="w-full text-[9px] leading-snug text-gray-600">
+        Totals use a rolling 9-minute Prometheus window.
+      </span>
       <span className="text-gray-700">|</span>
       <span className="font-semibold uppercase tracking-wider text-gray-600">Graphs:</span>
       <TogglePill
@@ -261,7 +264,8 @@ export function ReplicaFlatList({
 }: {
   rows: Array<{
     name: string
-    rps: number
+    primaryText?: string
+    rps?: number
     p99Ms: number
     cpuPct?: number
     warn?: boolean
@@ -279,7 +283,7 @@ export function ReplicaFlatList({
           <span className="shrink-0 text-gray-400">{'·'.repeat(3)}</span>
           <span className="shrink-0">
             {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
-            {Math.round(row.rps)} rps
+            {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
           </span>
           <span className="shrink-0 text-gray-500">| p99 {Math.round(row.p99Ms)}ms</span>
           {row.cpuPct != null ? (
