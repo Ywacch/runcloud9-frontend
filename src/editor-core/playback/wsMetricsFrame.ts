@@ -7,6 +7,7 @@ import {
   parseBackendReplicas,
   parseLoadgenIntervals,
   parsePodReplicas,
+  parseRecentLatenciesMs,
   parseStorageIo,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
@@ -303,6 +304,7 @@ export function applyWsFrameToStore(
       intervalActualRps: Number(lg.intervalActualRps ?? 0),
       intervalP99Ms: Number(lg.intervalP99Ms ?? 0),
       recentIntervals: parseLoadgenIntervals(lg.recentIntervals),
+      recentLatenciesMs: parseRecentLatenciesMs(lg.recentLatenciesMs),
       totalRequests: Number(lg.totalRequests ?? 0),
       successRate: Number(lg.successRate ?? 0),
       durationSeconds: 0,

@@ -131,6 +131,7 @@ describe('computeThroughputRps', () => {
       intervalActualRps: 0,
       intervalP99Ms: 0,
       recentIntervals: [],
+      recentLatenciesMs: [],
       totalRequests: 0,
       successRate: 100,
       durationSeconds: 0,

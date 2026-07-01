@@ -2,6 +2,7 @@ import { fmtMs, fmtRate } from '../lib/format'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { MetricChart } from './MetricChart'
+import { LatencyNeedleChart } from './LatencyNeedleChart'
 
 function appServerObservedRps(
   metrics: ReturnType<typeof useMetricsStore.getState>['metrics'],
@@ -79,6 +80,9 @@ export function LoadgenMetricsPanel() {
           />
         </div>
       ) : null}
+      <div className="mt-2">
+        <LatencyNeedleChart latenciesMs={loadgen.recentLatenciesMs} />
+      </div>
       {throttleHint ? (
         <p className="mt-1.5 text-[10px] leading-snug text-amber-200/90">{throttleHint}</p>
       ) : null}

@@ -173,6 +173,7 @@ function applyTick(result: SimulationTickResult): void {
         intervalActualRps: st.throughputQps,
         intervalP99Ms: st.latencyMs ?? 0,
         recentIntervals: [],
+        recentLatenciesMs: [],
         totalRequests: Math.round(totalRequestsByNode[clientEntry.id] ?? 0),
         successRate: Math.max(
           0,
