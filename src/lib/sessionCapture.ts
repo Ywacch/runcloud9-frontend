@@ -5,6 +5,7 @@ import { parseEventsSummary } from './eventsSummaryFromApi'
 import {
   mergePeakScalars,
   normalizeSparklines,
+  parseClientLatencyHistory,
   parsePeakFieldsFromMetricsSummary,
   parseSessionHistory,
   parseSteadyState,
@@ -162,6 +163,9 @@ function mergeApiMetricsSummary(
   const sessionSparklines = parsed ? normalizeSparklines(parsed) : undefined
   const steadyState = parseSteadyState(apiMetricsSummary.steady_state)
   const eventsSummary = parseEventsSummary(apiMetricsSummary.events_summary)
+  const clientLatencyHistory = parseClientLatencyHistory(
+    apiMetricsSummary.client_latency_history,
+  )
 
   let duration = base.duration
   if (dur != null && dur > 0) {
@@ -188,6 +192,9 @@ function mergeApiMetricsSummary(
     steadyState: steadyState ?? undefined,
     eventsSummary: eventsSummary.length > 0 ? eventsSummary : undefined,
     storagePeaks: peaks.storagePeaks,
+    clientLatencyHistory: clientLatencyHistory?.length
+      ? clientLatencyHistory
+      : undefined,
   }
 }
 

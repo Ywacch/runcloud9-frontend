@@ -1,6 +1,13 @@
 export type { SteadyStateSummary } from './metricsUiContract'
 export { parseSteadyState } from './metricsUiContract'
 
+/** Client-path p99 from 5s Vegeta windows persisted at teardown. */
+export interface ClientLatencyInterval {
+  t: string
+  p99Ms: number
+  actualRps: number
+}
+
 /**
  * Parses `metrics_summary` from GET /deployments/{id} after teardown (includes
  * `session_history` downsampled snapshots from the API).
@@ -26,6 +33,33 @@ function num(v: unknown): number {
     return Number.isFinite(n) ? n : 0
   }
   return 0
+}
+
+function finiteNonNegative(v: unknown): number | null {
+  if (typeof v === 'number') {
+    return Number.isFinite(v) && v >= 0 ? v : null
+  }
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+  return null
+}
+
+/** Parse `metrics_summary.client_latency_history` (oldest → newest). */
+export function parseClientLatencyHistory(raw: unknown): ClientLatencyInterval[] | null {
+  if (!Array.isArray(raw)) return null
+  const out: ClientLatencyInterval[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as Record<string, unknown>
+    const p99Ms = finiteNonNegative(row.p99Ms)
+    const actualRps = finiteNonNegative(row.actualRps)
+    if (p99Ms == null || actualRps == null) continue
+    const t = typeof row.t === 'string' ? row.t : ''
+    out.push({ t, p99Ms, actualRps })
+  }
+  return out.length > 0 ? out : null
 }
 
 interface RawComponent {

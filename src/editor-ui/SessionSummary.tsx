@@ -11,6 +11,7 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
 import { HighlightReel } from './HighlightReel'
 import { MetricChart } from './MetricChart'
+import { ClientLatencyBoxChart } from './ClientLatencyBoxChart'
 
 function markerRatios(
   markers: SessionSparklines['markers'],
@@ -79,6 +80,18 @@ export function SessionSummary() {
                 value={fmtPct(summary.steadyState.steadyCacheHitRate)}
               />
             </div>
+          </div>
+        ) : null}
+
+        {summary.clientLatencyHistory && summary.clientLatencyHistory.length >= 4 ? (
+          <div className="mb-4 space-y-2 border-b border-[var(--c9-border)] pb-4">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
+              Client-path latency
+            </h3>
+            <p className="text-[10px] text-[var(--c9-muted)]">
+              Client p99 · 5s windows across session (Vegeta → LB/app).
+            </p>
+            <ClientLatencyBoxChart intervals={summary.clientLatencyHistory} />
           </div>
         ) : null}
 
