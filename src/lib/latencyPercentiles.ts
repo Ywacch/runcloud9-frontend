@@ -29,3 +29,47 @@ export function latencyReferenceLines(latenciesMs: number[]): LatencyReferenceLi
     p99: percentileSorted(sorted, 99),
   }
 }
+
+export interface BoxPlotStats {
+  whiskerMin: number
+  q1: number
+  median: number
+  q3: number
+  whiskerMax: number
+}
+
+function sortedFiniteNonNegative(samples: number[]): number[] {
+  return samples.filter((n) => Number.isFinite(n) && n >= 0).sort((a, b) => a - b)
+}
+
+/** Tukey box plot quartiles + 1.5×IQR whiskers (needs ≥4 samples). */
+export function boxPlotQuartiles(samples: number[]): BoxPlotStats | null {
+  const sorted = sortedFiniteNonNegative(samples)
+  if (sorted.length < 4) return null
+
+  const q1 = percentileSorted(sorted, 25)
+  const median = percentileSorted(sorted, 50)
+  const q3 = percentileSorted(sorted, 75)
+  const iqr = q3 - q1
+  const lowerFence = q1 - 1.5 * iqr
+  const upperFence = q3 + 1.5 * iqr
+
+  let whiskerMin = sorted[0]!
+  for (const v of sorted) {
+    if (v >= lowerFence) {
+      whiskerMin = v
+      break
+    }
+  }
+
+  let whiskerMax = sorted[sorted.length - 1]!
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const v = sorted[i]!
+    if (v <= upperFence) {
+      whiskerMax = v
+      break
+    }
+  }
+
+  return { whiskerMin, q1, median, q3, whiskerMax }
+}

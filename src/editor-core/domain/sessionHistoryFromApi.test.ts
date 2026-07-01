@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import {
   mergePeakScalars,
+  parseClientLatencyHistory,
   parsePeakFieldsFromMetricsSummary,
   parseSessionHistory,
 } from './sessionHistoryFromApi'
+
+describe('parseClientLatencyHistory', () => {
+  it('returns validated intervals oldest to newest', () => {
+    const parsed = parseClientLatencyHistory([
+      { t: '2026-06-30T23:10:05.123456789Z', p99Ms: 42.5, actualRps: 48.2 },
+      { t: '2026-06-30T23:10:10Z', p99Ms: '38', actualRps: 50 },
+    ])
+    expect(parsed).toEqual([
+      { t: '2026-06-30T23:10:05.123456789Z', p99Ms: 42.5, actualRps: 48.2 },
+      { t: '2026-06-30T23:10:10Z', p99Ms: 38, actualRps: 50 },
+    ])
+  })
+
+  it('filters junk rows and returns null when empty', () => {
+    expect(
+      parseClientLatencyHistory([
+        { p99Ms: -1, actualRps: 10 },
+        { p99Ms: 10, actualRps: NaN },
+        'bad',
+      ]),
+    ).toBeNull()
+    expect(parseClientLatencyHistory(null)).toBeNull()
+  })
+})
 
 describe('parseSessionHistory', () => {
   it('builds series and markers from snapshots', () => {

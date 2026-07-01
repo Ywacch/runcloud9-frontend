@@ -10,6 +10,7 @@ import {
 import { resetDesignStorytellingUi } from '../../lib/resetStorytellingUi'
 import type { SessionEventSummary } from '../../lib/eventsSummaryFromApi'
 import type {
+  ClientLatencyInterval,
   SessionSparklines,
   StoragePeakSummary,
 } from '../domain/sessionHistoryFromApi'
@@ -91,6 +92,8 @@ export interface SessionSummary {
   eventsSummary?: SessionEventSummary[]
   /** Teardown peaks from `metrics_summary` storage I/O fields when present. */
   storagePeaks?: StoragePeakSummary
+  /** Client-path p99 per 5s window from `metrics_summary.client_latency_history`. */
+  clientLatencyHistory?: ClientLatencyInterval[]
   componentSummaries: Record<
     string,
     {
