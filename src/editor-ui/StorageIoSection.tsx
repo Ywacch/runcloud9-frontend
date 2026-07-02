@@ -21,6 +21,7 @@ import {
   StatBlock,
   StatRow,
   formatResourceLabels,
+  resourceUsageHelp,
   type PanelViewState,
 } from './inspectorPanelUi'
 
@@ -233,8 +234,10 @@ export function DbClusterResourcesSection({
   history?: MetricsBucket[]
 }) {
   const labels = formatResourceLabels(m, cpuPercent, memPercent)
-  const cpuSeries = history.map((h) => h.cpuPercent)
-  const memSeries = history.map((h) => h.memPercent)
+  const showUtilizationCharts = !m.cpuIsEstimated
+  const cpuSeries = showUtilizationCharts ? history.map((h) => h.cpuPercent) : []
+  const memSeries = showUtilizationCharts ? history.map((h) => h.memPercent) : []
+  const resourceHelp = resourceUsageHelp(m)
 
   return (
     <PedagogicalSection
@@ -247,14 +250,16 @@ export function DbClusterResourcesSection({
             label="CPU utilization"
             value={labels.cpu}
             graph={
-              <MetricSeriesGraph
-                data={cpuSeries}
-                color="#f59e0b"
-                title="CPU"
-                unit="30s · %"
-                view={view}
-                showPlaybackDelay={showPlaybackDelay}
-              />
+              showUtilizationCharts ? (
+                <MetricSeriesGraph
+                  data={cpuSeries}
+                  color="#f59e0b"
+                  title="CPU"
+                  unit="30s · %"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              ) : undefined
             }
           />
         }
@@ -263,19 +268,24 @@ export function DbClusterResourcesSection({
             label="Memory usage"
             value={labels.mem}
             graph={
-              <MetricSeriesGraph
-                data={memSeries}
-                color="#8b5cf6"
-                title="Memory"
-                unit="30s · %"
-                view={view}
-                showPlaybackDelay={showPlaybackDelay}
-              />
+              showUtilizationCharts ? (
+                <MetricSeriesGraph
+                  data={memSeries}
+                  color="#8b5cf6"
+                  title="Memory"
+                  unit="30s · %"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              ) : undefined
             }
           />
         }
       />
-      <CapacityBar pct={cpuPercent} />
+      {showUtilizationCharts ? <CapacityBar pct={cpuPercent} /> : null}
+      {resourceHelp ? (
+        <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
+      ) : null}
     </PedagogicalSection>
   )
 }

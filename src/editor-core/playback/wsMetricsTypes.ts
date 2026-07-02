@@ -38,6 +38,8 @@ export interface WsComponentMetrics {
   memoryLimit?: number
   cpuIsEstimated?: boolean
   memIsEstimated?: boolean
+  cpuSource?: string
+  memSource?: string
   activeConnections?: number
   queueDepth?: number
   produceRate?: number

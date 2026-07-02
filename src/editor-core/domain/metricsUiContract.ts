@@ -118,6 +118,13 @@ export function parseRecentLatenciesMs(raw: unknown): number[] {
     .filter((n) => Number.isFinite(n) && n >= 0)
 }
 
+export function parseResourceUsageSource(
+  raw: unknown,
+): 'cadvisor' | 'metrics_api' | 'requests' | undefined {
+  if (raw === 'cadvisor' || raw === 'metrics_api' || raw === 'requests') return raw
+  return undefined
+}
+
 export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
   if (!Array.isArray(raw)) return []
   const out: PodReplicaMetrics[] = []

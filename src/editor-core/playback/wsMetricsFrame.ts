@@ -8,6 +8,7 @@ import {
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRecentLatenciesMs,
+  parseResourceUsageSource,
   parseStorageIo,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
@@ -65,6 +66,8 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     memPercent,
     cpuIsEstimated: Boolean(cm.cpuIsEstimated),
     memIsEstimated: Boolean(cm.memIsEstimated),
+    cpuSource: parseResourceUsageSource(cm.cpuSource),
+    memSource: parseResourceUsageSource(cm.memSource),
     cpuLimit: cm.cpuLimit ?? 0,
     memoryLimit: cm.memoryLimit ?? 0,
     requestRate,

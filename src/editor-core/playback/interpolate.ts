@@ -49,6 +49,17 @@ function lerpStorageIo(
   }
 }
 
+function resolveResourceSource(
+  a: MetricsBucket['cpuSource'],
+  b: MetricsBucket['cpuSource'],
+  t: number,
+): MetricsBucket['cpuSource'] {
+  if (!a && b) return t >= 0.5 ? b : a
+  if (a && !b) return t >= 0.5 ? b : a
+  if (!a && !b) return undefined
+  return snapStr(a ?? '', b ?? '', t) as MetricsBucket['cpuSource']
+}
+
 function resolveDbQuerySource(
   a: MetricsBucket['dbQuerySource'],
   b: MetricsBucket['dbQuerySource'],
@@ -78,6 +89,8 @@ export function lerpMetricsBucket(
   playheadMs: number,
 ): MetricsBucket {
   const dbQuerySource = resolveDbQuerySource(a.dbQuerySource, b.dbQuerySource, t)
+  const cpuSource = resolveResourceSource(a.cpuSource, b.cpuSource, t)
+  const memSource = resolveResourceSource(a.memSource, b.memSource, t)
 
   return {
     cpuUsage: lerpNum(a.cpuUsage, b.cpuUsage, t),
@@ -86,6 +99,8 @@ export function lerpMetricsBucket(
     memPercent: lerpNum(a.memPercent, b.memPercent, t),
     cpuIsEstimated: snapBool(a.cpuIsEstimated, b.cpuIsEstimated, t),
     memIsEstimated: snapBool(a.memIsEstimated, b.memIsEstimated, t),
+    cpuSource,
+    memSource,
     cpuLimit: lerpNum(a.cpuLimit, b.cpuLimit, t),
     memoryLimit: lerpNum(a.memoryLimit, b.memoryLimit, t),
     requestRate: lerpNum(a.requestRate, b.requestRate, t),

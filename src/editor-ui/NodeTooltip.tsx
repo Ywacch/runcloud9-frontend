@@ -1,17 +1,12 @@
 import { useMemo } from 'react'
-import {
-  fmtCpuMilliCores,
-  fmtMemMB,
-  fmtMs,
-  fmtPct,
-  fmtRate,
-} from '../lib/format'
+import { fmtMs, fmtRate } from '../lib/format'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import type { HealthState } from '../editor-core/domain/healthThresholds'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { formatResourceLabels } from './inspectorPanelUi'
 
 interface NodeTooltipProps {
   node: CanvasNode
@@ -22,28 +17,6 @@ interface NodeTooltipProps {
 
 function pct(v: number | undefined): number {
   return Math.max(0, Math.min(100, Math.round((v ?? 0) * 100)))
-}
-
-function cpuLabel(metrics: MetricsBucket | undefined): string {
-  if (!metrics) return '-'
-  if (metrics.cpuIsEstimated) {
-    if (metrics.cpuLimit > 0) {
-      return `${fmtCpuMilliCores(metrics.cpuLimit)} (alloc)`
-    }
-    return `${fmtCpuMilliCores(metrics.cpuUsage)} (est.)`
-  }
-  return fmtPct(metrics.cpuPercent)
-}
-
-function memLabel(metrics: MetricsBucket | undefined): string {
-  if (!metrics) return '-'
-  if (metrics.memIsEstimated) {
-    if (metrics.memoryLimit > 0) {
-      return `${fmtMemMB(metrics.memoryLimit)} (alloc)`
-    }
-    return `${fmtMemMB(metrics.memoryBytes)} (est.)`
-  }
-  return fmtPct(metrics.memPercent)
 }
 
 export function NodeTooltip({
@@ -65,8 +38,9 @@ export function NodeTooltip({
 
   const cpuPct = metrics?.cpuIsEstimated ? 0 : pct(metrics?.cpuPercent)
   const memPct = metrics?.memIsEstimated ? 0 : pct(metrics?.memPercent)
-  const cpuValue = cpuLabel(metrics)
-  const memValue = memLabel(metrics)
+  const labels = metrics
+    ? formatResourceLabels(metrics, pct(metrics.cpuPercent), pct(metrics.memPercent))
+    : { cpu: '-', mem: '-' }
   const rpsClass =
     health === 'warning'
       ? 'text-amber-300'
@@ -90,7 +64,7 @@ export function NodeTooltip({
             <div>
               <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
               <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-                {cpuValue}
+                {labels.cpu}
               </p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div
@@ -102,7 +76,7 @@ export function NodeTooltip({
             <div>
               <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
               <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-                {memValue}
+                {labels.mem}
               </p>
               <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
                 <div

@@ -19,6 +19,9 @@ export interface WsEvent {
   related?: string[]
 }
 
+/** How container CPU/memory usage was resolved on the backend. */
+export type ResourceUsageSource = 'cadvisor' | 'metrics_api' | 'requests'
+
 /** Per-node metrics snapshot (full WS component payload mapped for UI). */
 export interface MetricsBucket {
   // Resource (USE)
@@ -29,6 +32,8 @@ export interface MetricsBucket {
   /** True when backend filled usage from kube requests (no real-time series). */
   cpuIsEstimated: boolean
   memIsEstimated: boolean
+  cpuSource?: ResourceUsageSource
+  memSource?: ResourceUsageSource
   /** K8s CPU limit in cores (denominator). */
   cpuLimit: number
   /** K8s / Redis maxmemory limit in bytes. */
