@@ -5,8 +5,11 @@ export const CPU_UTIL_HELP =
 export const MEM_UTIL_HELP =
   'Memory utilization vs pod limit. Watch for pressure before OOM risk.'
 export const CPU_ALLOC_HELP =
-  'Allocated to this pod. Real utilization appears once metrics collection starts, or if the pod restarted.'
-export const MEM_ALLOC_HELP = CPU_ALLOC_HELP
+  'Static CPU request/limit for this pod — not live utilization. Real % appears once metrics collection starts.'
+export const MEM_ALLOC_HELP =
+  'Static memory request/limit for this pod — not live utilization. Real % appears once metrics collection starts.'
+export const METRICS_API_FRESHNESS_HELP =
+  'Container usage from the Kubernetes Metrics API (same source as kubectl top). Updates about every 15–60 seconds.'
 
 export const THROUGHPUT_HELP =
   'Request throughput through this component (rolling view from the metrics stream).'

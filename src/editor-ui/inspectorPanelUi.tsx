@@ -5,7 +5,11 @@ import {
   fmtMemMB,
   fmtPct,
 } from '../lib/format'
-import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import {
+  CPU_ALLOC_HELP,
+  METRICS_API_FRESHNESS_HELP,
+} from '../lib/metricHelp'
+import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import { SparkLine } from './SparkLine'
 import { MetricChart } from './MetricChart'
 import { MetricHelpIcon } from './MetricHelpIcon'
@@ -305,6 +309,18 @@ export function podDistributionSkew(
   return { skewed: max - min > threshold, max, min }
 }
 
+export function resourceFreshnessSuffix(source: ResourceUsageSource | undefined): string {
+  return source === 'metrics_api' ? ' · ~30s' : ''
+}
+
+export function resourceUsageHelp(m: MetricsBucket): string | undefined {
+  if (m.cpuIsEstimated) return CPU_ALLOC_HELP
+  if (m.cpuSource === 'metrics_api' || m.memSource === 'metrics_api') {
+    return METRICS_API_FRESHNESS_HELP
+  }
+  return undefined
+}
+
 export function formatResourceLabels(
   m: MetricsBucket,
   cpuPercent: number,
@@ -312,15 +328,15 @@ export function formatResourceLabels(
 ): { cpu: string; mem: string } {
   const cpu = m.cpuIsEstimated
     ? m.cpuLimit > 0
-      ? `${fmtCpuMilliCores(m.cpuLimit)} alloc`
-      : `${fmtCpuMilliCores(m.cpuUsage)} alloc`
-    : fmtPct(cpuPercent)
+      ? `Limit ${fmtCpuMilliCores(m.cpuLimit)}`
+      : `Limit ${fmtCpuMilliCores(m.cpuUsage)}`
+    : `${fmtPct(cpuPercent)}${resourceFreshnessSuffix(m.cpuSource)}`
   const mem = m.memIsEstimated
     ? m.memoryLimit > 0
-      ? `${fmtMemMB(m.memoryLimit)} alloc`
-      : `${fmtMemMB(m.memoryBytes)} alloc`
+      ? `Limit ${fmtMemMB(m.memoryLimit)}`
+      : `Limit ${fmtMemMB(m.memoryBytes)}`
     : `${fmtBytes(m.memoryBytes)}${
         m.memoryLimit > 0 ? ` · ${fmtPct(memPercent)}` : ''
-      }`
+      }${resourceFreshnessSuffix(m.memSource)}`
   return { cpu, mem }
 }

@@ -1,7 +1,31 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { parseRecentLatenciesMs } from '../domain/metricsUiContract'
-import { applyWsFrameToStore } from './wsMetricsFrame'
+import { parseRecentLatenciesMs, parseResourceUsageSource } from '../domain/metricsUiContract'
+import { applyWsFrameToStore, componentToBucket } from './wsMetricsFrame'
 import { useMetricsStore } from '../stores/metricsStore'
+
+describe('parseResourceUsageSource', () => {
+  it('accepts known backend source values', () => {
+    expect(parseResourceUsageSource('metrics_api')).toBe('metrics_api')
+    expect(parseResourceUsageSource('cadvisor')).toBe('cadvisor')
+    expect(parseResourceUsageSource('requests')).toBe('requests')
+    expect(parseResourceUsageSource('bad')).toBeUndefined()
+  })
+})
+
+describe('componentToBucket resource sources', () => {
+  it('maps cpuSource and memSource onto the bucket', () => {
+    const bucket = componentToBucket({
+      cpuSource: 'metrics_api',
+      memSource: 'metrics_api',
+      cpuLimit: 0.5,
+      memoryLimit: 512 * 1024 * 1024,
+      cpuUsage: 0.2,
+      memoryBytes: 256 * 1024 * 1024,
+    })
+    expect(bucket.cpuSource).toBe('metrics_api')
+    expect(bucket.memSource).toBe('metrics_api')
+  })
+})
 
 describe('parseRecentLatenciesMs', () => {
   it('returns finite non-negative numbers in order', () => {
