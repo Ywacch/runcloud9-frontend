@@ -8,6 +8,7 @@ import {
 import {
   CPU_ALLOC_HELP,
   METRICS_API_FRESHNESS_HELP,
+  TIER_C_WARMUP_HELP,
 } from '../lib/metricHelp'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import { SparkLine } from './SparkLine'
@@ -319,6 +320,61 @@ export function resourceUsageHelp(m: MetricsBucket): string | undefined {
     return METRICS_API_FRESHNESS_HELP
   }
   return undefined
+}
+
+/** Tier C = Kubernetes Metrics API (kubectl top), typical on GKE Autopilot DB/LB/MQ. */
+export const TIER_C_WARMUP_MS = 60_000
+
+export function isTierCResource(m: MetricsBucket): boolean {
+  return m.cpuSource === 'metrics_api' || m.memSource === 'metrics_api'
+}
+
+export function isTierCWarmingUp(
+  firstTierCAtMs: number | null,
+  nowMs: number,
+): boolean {
+  if (firstTierCAtMs == null) return false
+  return nowMs - firstTierCAtMs < TIER_C_WARMUP_MS
+}
+
+export function shouldShowDbClusterUtilizationCharts(
+  m: MetricsBucket,
+  warmingUp: boolean,
+): boolean {
+  if (m.cpuIsEstimated) return false
+  if (warmingUp && isTierCResource(m)) return false
+  return true
+}
+
+export function dbClusterResourceHelp(
+  m: MetricsBucket,
+  warmingUp: boolean,
+): string | undefined {
+  if (m.cpuIsEstimated) return CPU_ALLOC_HELP
+  if (warmingUp && isTierCResource(m)) return TIER_C_WARMUP_HELP
+  return resourceUsageHelp(m)
+}
+
+export function formatDbClusterResourceLabels(
+  m: MetricsBucket,
+  cpuPercent: number,
+  memPercent: number,
+  warmingUp: boolean,
+): { cpu: string; mem: string } {
+  if (m.cpuIsEstimated || m.memIsEstimated) {
+    return formatResourceLabels(m, cpuPercent, memPercent)
+  }
+  if (warmingUp && isTierCResource(m)) {
+    const cpuLimit =
+      m.cpuLimit > 0 ? fmtCpuMilliCores(m.cpuLimit) : fmtCpuMilliCores(m.cpuUsage)
+    const memLimit =
+      m.memoryLimit > 0 ? fmtMemMB(m.memoryLimit) : fmtMemMB(m.memoryBytes)
+    return {
+      cpu: `Warming up · Limit ${cpuLimit}`,
+      mem: `Warming up · Limit ${memLimit}`,
+    }
+  }
+  return formatResourceLabels(m, cpuPercent, memPercent)
 }
 
 export function formatResourceLabels(
