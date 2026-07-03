@@ -1,5 +1,5 @@
 /** Display lag between wall clock and chart playhead (Hybrid C). */
-export const BUFFER_LAG_MS = 5_000
+export const BUFFER_LAG_MS = 2_000
 
 export const BUFFER_MAX_SAMPLES = 30
 

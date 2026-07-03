@@ -65,7 +65,7 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
 
 describe('resourceFreshnessSuffix', () => {
   it('appends freshness note only for metrics_api', () => {
-    expect(resourceFreshnessSuffix('metrics_api')).toBe(' · ~30s')
+    expect(resourceFreshnessSuffix('metrics_api')).toBe(' · ~15–60s')
     expect(resourceFreshnessSuffix('cadvisor')).toBe('')
     expect(resourceFreshnessSuffix(undefined)).toBe('')
   })
@@ -88,8 +88,8 @@ describe('formatResourceLabels', () => {
       42,
       77,
     )
-    expect(labels.cpu).toBe('42% · ~30s')
-    expect(labels.mem).toContain('77% · ~30s')
+    expect(labels.cpu).toBe('42% · ~15–60s')
+    expect(labels.mem).toContain('77% · ~15–60s')
   })
 
   it('shows cadvisor utilization without freshness suffix', () => {
@@ -100,7 +100,7 @@ describe('formatResourceLabels', () => {
     )
     expect(labels.cpu).toBe('42%')
     expect(labels.mem).toContain('77%')
-    expect(labels.mem).not.toContain('~30s')
+    expect(labels.mem).not.toContain('~15–60s')
   })
 })
 

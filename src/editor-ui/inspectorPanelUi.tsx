@@ -34,7 +34,7 @@ export function PanelViewControls({
       <TogglePill
         active={view.timeframe === 'live'}
         onClick={() => onChange({ timeframe: 'live' })}
-        label="Live (30s)"
+        label="Live (10s)"
       />
       <TogglePill
         active={view.timeframe === 'session'}
@@ -310,7 +310,7 @@ export function podDistributionSkew(
 }
 
 export function resourceFreshnessSuffix(source: ResourceUsageSource | undefined): string {
-  return source === 'metrics_api' ? ' · ~30s' : ''
+  return source === 'metrics_api' ? ' · ~15–60s' : ''
 }
 
 export function resourceUsageHelp(m: MetricsBucket): string | undefined {

@@ -24,8 +24,8 @@ export function SystemMetricsCharts() {
       </p>
       <p className="mb-3 text-[10px] leading-snug text-[var(--c9-text-disabled)]">
         {showDelay
-          ? 'Prometheus ~30s rate window · smoothed replay (~5s behind live)'
-          : 'Prometheus ~30s rate window · one point every ~2s'}
+          ? 'Prometheus ~10s rate window · smoothed replay (~2s behind live)'
+          : 'Prometheus ~10s rate window · one point every ~2s'}
         {chartFrozen && showDelay ? (
           <span className="text-amber-400/90">
             {catchingUp ? ' · catching up…' : ' · buffering'}
