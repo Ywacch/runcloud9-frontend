@@ -10,6 +10,8 @@ export const MEM_ALLOC_HELP =
   'Static memory request/limit for this pod — not live utilization. Real % appears once metrics collection starts.'
 export const METRICS_API_FRESHNESS_HELP =
   'Container usage from the Kubernetes Metrics API (same source as kubectl top). Updates about every 15–60 seconds.'
+export const TIER_C_WARMUP_HELP =
+  'Kubernetes Metrics API samples can step for the first minute on Autopilot. Use query rate and storage execution above for live DB pressure.'
 
 export const THROUGHPUT_HELP =
   'Request throughput through this component (rolling view from the metrics stream).'

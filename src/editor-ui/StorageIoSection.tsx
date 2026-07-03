@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fmtBytes, fmtInt, fmtMs, fmtRate } from '../lib/format'
 import {
   fanoutScanModelEstimate,
@@ -20,8 +21,12 @@ import {
   PedagogicalSection,
   StatBlock,
   StatRow,
+  dbClusterResourceHelp,
+  formatDbClusterResourceLabels,
   formatResourceLabels,
-  resourceUsageHelp,
+  isTierCResource,
+  isTierCWarmingUp,
+  shouldShowDbClusterUtilizationCharts,
   type PanelViewState,
 } from './inspectorPanelUi'
 
@@ -219,6 +224,7 @@ export function DbLoadSection({
 }
 
 export function DbClusterResourcesSection({
+  nodeId,
   m,
   cpuPercent,
   memPercent,
@@ -226,6 +232,7 @@ export function DbClusterResourcesSection({
   showPlaybackDelay = false,
   history = [],
 }: {
+  nodeId: string
   m: MetricsBucket
   cpuPercent: number
   memPercent: number
@@ -233,11 +240,33 @@ export function DbClusterResourcesSection({
   showPlaybackDelay?: boolean
   history?: MetricsBucket[]
 }) {
-  const labels = formatResourceLabels(m, cpuPercent, memPercent)
-  const showUtilizationCharts = !m.cpuIsEstimated
+  const firstTierCAtRef = useRef<number | null>(null)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    firstTierCAtRef.current = null
+  }, [nodeId])
+
+  useEffect(() => {
+    if (!isTierCResource(m) || m.cpuIsEstimated) return
+    if (firstTierCAtRef.current == null) {
+      firstTierCAtRef.current = Date.now()
+    }
+  }, [nodeId, m.cpuSource, m.memSource, m.cpuIsEstimated])
+
+  const warmingUp = isTierCWarmingUp(firstTierCAtRef.current, nowMs)
+
+  useEffect(() => {
+    if (!warmingUp) return
+    const id = window.setInterval(() => setNowMs(Date.now()), 5_000)
+    return () => window.clearInterval(id)
+  }, [warmingUp])
+
+  const labels = formatDbClusterResourceLabels(m, cpuPercent, memPercent, warmingUp)
+  const showUtilizationCharts = shouldShowDbClusterUtilizationCharts(m, warmingUp)
   const cpuSeries = showUtilizationCharts ? history.map((h) => h.cpuPercent) : []
   const memSeries = showUtilizationCharts ? history.map((h) => h.memPercent) : []
-  const resourceHelp = resourceUsageHelp(m)
+  const resourceHelp = dbClusterResourceHelp(m, warmingUp)
 
   return (
     <PedagogicalSection

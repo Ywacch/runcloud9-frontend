@@ -463,6 +463,7 @@ export function LiveMetricsTypeSection({
             history={history}
           />
           <DbClusterResourcesSection
+            nodeId={nodeId}
             m={m}
             cpuPercent={cpuPercent}
             memPercent={memPercent}
