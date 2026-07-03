@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useEffect, useRef, useState } from 'react'
 import { fmtBytes, fmtInt, fmtMs, fmtRate } from '../lib/format'
 import {
   fanoutScanModelEstimate,
@@ -24,11 +23,10 @@ import {
   dbClusterResourceHelp,
   formatDbClusterResourceLabels,
   formatResourceLabels,
-  isTierCResource,
-  isTierCWarmingUp,
   shouldShowDbClusterUtilizationCharts,
   type PanelViewState,
 } from './inspectorPanelUi'
+import { useDbTierCWarmup } from './useDbTierCWarmup'
 
 /** RED — app SQL intent (app-server instrumentation). */
 export function DbActivitySection({
@@ -240,27 +238,7 @@ export function DbClusterResourcesSection({
   showPlaybackDelay?: boolean
   history?: MetricsBucket[]
 }) {
-  const firstTierCAtRef = useRef<number | null>(null)
-  const [nowMs, setNowMs] = useState(() => Date.now())
-
-  useEffect(() => {
-    firstTierCAtRef.current = null
-  }, [nodeId])
-
-  useEffect(() => {
-    if (!isTierCResource(m) || m.cpuIsEstimated) return
-    if (firstTierCAtRef.current == null) {
-      firstTierCAtRef.current = Date.now()
-    }
-  }, [nodeId, m.cpuSource, m.memSource, m.cpuIsEstimated])
-
-  const warmingUp = isTierCWarmingUp(firstTierCAtRef.current, nowMs)
-
-  useEffect(() => {
-    if (!warmingUp) return
-    const id = window.setInterval(() => setNowMs(Date.now()), 5_000)
-    return () => window.clearInterval(id)
-  }, [warmingUp])
+  const warmingUp = useDbTierCWarmup(nodeId, m)
 
   const labels = formatDbClusterResourceLabels(m, cpuPercent, memPercent, warmingUp)
   const showUtilizationCharts = shouldShowDbClusterUtilizationCharts(m, warmingUp)
