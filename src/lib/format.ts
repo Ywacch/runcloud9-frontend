@@ -21,6 +21,12 @@ export function fmtMs(v: number | undefined | null): string {
   return `${Math.round(v)}ms`
 }
 
+/** Whole-number percent for bars and labels (MetricsBucket cpuPercent/memPercent are 0–100). */
+export function clampPercent(v: number | undefined | null): number {
+  if (v == null || !Number.isFinite(v)) return 0
+  return Math.max(0, Math.min(100, Math.round(v)))
+}
+
 /** Percentage — clamped 0–100; whole numbers without “.0” */
 export function fmtPct(v: number | undefined | null): string {
   if (v == null || !Number.isFinite(v)) return '—'

@@ -1,22 +1,22 @@
 import { useMemo } from 'react'
-import { fmtMs, fmtRate } from '../lib/format'
+import { clampPercent, fmtMs, fmtRate } from '../lib/format'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
+import { syncDbTierCWarmup } from '../lib/tierCWarmupSession'
 import type { HealthState } from '../editor-core/domain/healthThresholds'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
-import { formatResourceLabels } from './inspectorPanelUi'
+import {
+  formatDbClusterResourceLabels,
+  formatResourceLabels,
+} from './inspectorPanelUi'
 
 interface NodeTooltipProps {
   node: CanvasNode
   metrics?: MetricsBucket
   health: HealthState
   align: 'left' | 'right'
-}
-
-function pct(v: number | undefined): number {
-  return Math.max(0, Math.min(100, Math.round((v ?? 0) * 100)))
 }
 
 export function NodeTooltip({
@@ -36,10 +36,16 @@ export function NodeTooltip({
     [node.type, snapshotTemplateId, topology, storytelling],
   )
 
-  const cpuPct = metrics?.cpuIsEstimated ? 0 : pct(metrics?.cpuPercent)
-  const memPct = metrics?.memIsEstimated ? 0 : pct(metrics?.memPercent)
+  const dbWarmingUp =
+    node.type === 'database' && metrics
+      ? syncDbTierCWarmup(node.id, metrics, Date.now())
+      : false
+  const cpuPct = metrics?.cpuIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.cpuPercent)
+  const memPct = metrics?.memIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.memPercent)
   const labels = metrics
-    ? formatResourceLabels(metrics, pct(metrics.cpuPercent), pct(metrics.memPercent))
+    ? node.type === 'database'
+      ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
+      : formatResourceLabels(metrics, cpuPct, memPct)
     : { cpu: '-', mem: '-' }
   const rpsClass =
     health === 'warning'

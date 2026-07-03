@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { clearPlaybackSession } from '../playback/playbackLoop'
+import { clearTierCWarmupSession } from '../../lib/tierCWarmupSession'
 import { loadWsEventsJson } from '../../lib/wsEventsPersist'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
@@ -329,6 +330,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
     useCanvasStore.getState().setNarrativeHighlightNodeIds([])
     useChaosStore.getState().clear()
     clearPlaybackSession()
+    clearTierCWarmupSession()
     return set({
       metrics: {},
       history: {},
