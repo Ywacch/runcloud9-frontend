@@ -81,7 +81,7 @@ export function cacheHeadlines(
   const misses = m.cacheMisses
   const total = hits + misses
   return {
-    hitRateLabel: 'Hit rate (30s)',
+    hitRateLabel: 'Hit rate (10s)',
     hitRatePct: total > 0 ? (hits / total) * 100 : null,
     throughputLabel: 'Throughput',
     throughputDisplay: `${formatRate(hits)}/s hits · ${formatRate(misses)}/s misses`,

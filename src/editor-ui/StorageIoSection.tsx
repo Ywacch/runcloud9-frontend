@@ -80,7 +80,7 @@ export function DbActivitySection({
                 data={queryRateSeries}
                 color="#6366f1"
                 title="Query rate"
-                unit="30s window"
+                unit="10s window"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
               />
@@ -96,7 +96,7 @@ export function DbActivitySection({
                 data={errorSeries}
                 color="var(--c9-error)"
                 title="Error rate"
-                unit="30s · /s"
+                unit="10s · /s"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
               />
@@ -114,7 +114,7 @@ export function DbActivitySection({
               data={latencySeries}
               color="var(--c9-warning)"
               title="Query latency"
-              unit="30s · ms"
+              unit="10s · ms"
               view={view}
               showPlaybackDelay={showPlaybackDelay}
             />
@@ -174,7 +174,7 @@ export function DbLoadSection({
                 data={readSeries}
                 color="#22d3ee"
                 title="Rows scanned"
-                unit="30s · /s"
+                unit="10s · /s"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
               />
@@ -190,7 +190,7 @@ export function DbLoadSection({
                 data={writeSeries}
                 color="#a78bfa"
                 title="Rows written"
-                unit="30s · /s"
+                unit="10s · /s"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
               />
@@ -255,7 +255,7 @@ export function DbClusterResourcesSection({
                   data={cpuSeries}
                   color="#f59e0b"
                   title="CPU"
-                  unit="30s · %"
+                  unit="10s · %"
                   view={view}
                   showPlaybackDelay={showPlaybackDelay}
                 />
@@ -273,7 +273,7 @@ export function DbClusterResourcesSection({
                   data={memSeries}
                   color="#8b5cf6"
                   title="Memory"
-                  unit="30s · %"
+                  unit="10s · %"
                   view={view}
                   showPlaybackDelay={showPlaybackDelay}
                 />
@@ -363,7 +363,7 @@ export function CacheEngineSection({
                 data={memSeries}
                 color="#8b5cf6"
                 title="Memory"
-                unit="30s · %"
+                unit="10s · %"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
               />

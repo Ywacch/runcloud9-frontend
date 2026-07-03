@@ -16,7 +16,7 @@ export const THROUGHPUT_HELP =
 export const LATENCY_HELP =
   'Latency percentiles for this hop (from the metrics stream).'
 export const LATENCY_P99_SPARK_HELP =
-  'p99 latency over the last 30 seconds (from the metrics stream).'
+  'p99 latency over the last 10 seconds (from the metrics stream).'
 
 export const POD_RATE_DISCLAIMER =
   'RPS/QPS may be slightly off because Prometheus queries run against individual pods.'

@@ -154,7 +154,7 @@ export function LiveMetricsTypeSection({
                       data={rpsSeries}
                       color="#6366f1"
                       title="Throughput"
-                      unit="30s · RPS"
+                      unit="10s · RPS"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -171,7 +171,7 @@ export function LiveMetricsTypeSection({
                       data={latencySeries}
                       color="var(--c9-error)"
                       title="p99 latency"
-                      unit="30s · ms"
+                      unit="10s · ms"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -187,7 +187,7 @@ export function LiveMetricsTypeSection({
                   data={errorSeries}
                   color="var(--c9-warning)"
                   title="Errors"
-                  unit="30s"
+                  unit="10s"
                   view={view}
                   showPlaybackDelay={chartPlaybackDelay}
                 />
@@ -213,7 +213,7 @@ export function LiveMetricsTypeSection({
                       data={cpuSeries}
                       color="#f59e0b"
                       title="CPU"
-                      unit="30s · %"
+                      unit="10s · %"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -229,7 +229,7 @@ export function LiveMetricsTypeSection({
                       data={memSeries}
                       color="#8b5cf6"
                       title="Memory"
-                      unit="30s · %"
+                      unit="10s · %"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -353,7 +353,7 @@ export function LiveMetricsTypeSection({
                       data={hitRateSeries}
                       color="var(--c9-success)"
                       title="Hit rate"
-                      unit="30s · %"
+                      unit="10s · %"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -370,7 +370,7 @@ export function LiveMetricsTypeSection({
                       data={hitsSeries}
                       color="#22d3ee"
                       title="Hits"
-                      unit="30s · /s"
+                      unit="10s · /s"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -533,7 +533,7 @@ export function LiveMetricsTypeSection({
                       data={lbRpsSeries}
                       color="var(--c9-info)"
                       title="Throughput"
-                      unit="30s · RPS"
+                      unit="10s · RPS"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -645,7 +645,7 @@ export function LiveMetricsTypeSection({
                       data={prodSeries}
                       color="#a78bfa"
                       title="Produce"
-                      unit="30s · msg/s"
+                      unit="10s · msg/s"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -661,7 +661,7 @@ export function LiveMetricsTypeSection({
                       data={consSeries}
                       color="#34d399"
                       title="Consume"
-                      unit="30s · msg/s"
+                      unit="10s · msg/s"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -685,7 +685,7 @@ export function LiveMetricsTypeSection({
                       data={depthSeries}
                       color="#f59e0b"
                       title="Depth"
-                      unit="30s"
+                      unit="10s"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -764,7 +764,7 @@ export function LiveMetricsTypeSection({
                       data={consSeries}
                       color="#2dd4bf"
                       title="Consume"
-                      unit="30s · /s"
+                      unit="10s · /s"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
@@ -799,7 +799,7 @@ export function LiveMetricsTypeSection({
                       data={cpuSeries}
                       color="#f59e0b"
                       title="CPU"
-                      unit="30s · %"
+                      unit="10s · %"
                       view={view}
                       showPlaybackDelay={chartPlaybackDelay}
                     />
