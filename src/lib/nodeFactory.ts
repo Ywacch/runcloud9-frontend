@@ -11,6 +11,7 @@ export function defaultConfigForType(
     case 'database':
       return {
         engine: 'postgresql',
+        instanceSize: 'small',
         storageGB: 10,
         maxConnections: 100,
         readReplicas: 0,

@@ -8,6 +8,7 @@ import {
   getTemplates,
   type TemplateInfo,
 } from '../lib/api'
+import { ensureResourceProfilesLoaded } from '../lib/resourceProfileStore'
 import {
   debugAuthError,
   mapAuthErrorMessage,
@@ -124,6 +125,7 @@ export function Sidebar() {
 
   useEffect(() => {
     let cancelled = false
+    void ensureResourceProfilesLoaded()
     getTemplates()
       .then((rows) => {
         if (cancelled) return

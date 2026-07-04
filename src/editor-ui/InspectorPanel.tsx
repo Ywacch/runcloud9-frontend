@@ -21,6 +21,12 @@ import { ComponentLogPanel } from './ComponentLogPanel'
 import { DataBrowser } from './DataBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
+import { ResourceProfileFields } from './ResourceProfileFields'
+import { getResourceProfilesCached } from '../lib/resourceProfileStore'
+import {
+  formatProvisionedShort,
+  resolveProvisionedLimits,
+} from '../lib/resolveProvisionedLimits'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -30,6 +36,12 @@ const badgeClass =
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
+}
+
+function provisionedBadge(node: CanvasNode): string | null {
+  if (node.type === 'client') return null
+  const catalog = getResourceProfilesCached()
+  return formatProvisionedShort(resolveProvisionedLimits(node.type, node.config, catalog))
 }
 
 export function InspectorPanel() {
@@ -227,11 +239,17 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
             <span className={badgeClass}>
               Resource profile: {String(c.instanceSize ?? 'small')}
             </span>
+            {provisionedBadge(node) ? (
+              <span className={badgeClass}>{provisionedBadge(node)}</span>
+            ) : null}
           </>
         ) : null}
         {node.type === 'database' ? (
           <>
             <span className={badgeClass}>Engine: PostgreSQL</span>
+            {provisionedBadge(node) ? (
+              <span className={badgeClass}>{provisionedBadge(node)}</span>
+            ) : null}
           </>
         ) : null}
         {node.type === 'cache' ? (
@@ -239,16 +257,27 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
             <span className={badgeClass}>
               Strategy: {String(c.cacheStrategy ?? 'cache-aside')}
             </span>
+            {provisionedBadge(node) ? (
+              <span className={badgeClass}>{provisionedBadge(node)}</span>
+            ) : null}
           </>
         ) : null}
         {node.type === 'load_balancer' ? (
-          <span className={badgeClass}>
-            Algorithm: {String(c.algorithm ?? 'round-robin')}
-          </span>
+          <>
+            <span className={badgeClass}>
+              Algorithm: {String(c.algorithm ?? 'round-robin')}
+            </span>
+            {provisionedBadge(node) ? (
+              <span className={badgeClass}>{provisionedBadge(node)}</span>
+            ) : null}
+          </>
         ) : null}
         {node.type === 'message_queue' ? (
           <>
             <span className={badgeClass}>Engine: RabbitMQ</span>
+            {provisionedBadge(node) ? (
+              <span className={badgeClass}>{provisionedBadge(node)}</span>
+            ) : null}
           </>
         ) : null}
         {node.type === 'worker' ? (
@@ -256,6 +285,9 @@ function ReadOnlyConfig({ node }: { node: CanvasNode }) {
             <span className={badgeClass}>
               Resource profile: {String(c.instanceSize ?? 'small')}
             </span>
+            {provisionedBadge(node) ? (
+              <span className={badgeClass}>{provisionedBadge(node)}</span>
+            ) : null}
           </>
         ) : null}
         {node.type === 'client' ? (
@@ -351,6 +383,12 @@ function CacheNodeInspectorFields({
           </p>
         ) : null}
       </div>
+      <ResourceProfileFields
+        idPrefix="cache"
+        nodeType="cache"
+        config={c}
+        updateConfig={updateConfig}
+      />
       {simulationMode ? (
         <>
           <div>
@@ -443,6 +481,13 @@ function TypeFields({
               )}
             </select>
           </div>
+          <ResourceProfileFields
+            idPrefix="lb"
+            nodeType="load_balancer"
+            config={c}
+            showDefaultOption
+            updateConfig={updateConfig}
+          />
           {simulationMode ? (
             <>
               <div>
@@ -521,7 +566,6 @@ function TypeFields({
       )
 
     case 'compute': {
-      const instanceSize = String(c.instanceSize ?? 'small')
       const replicas = clampAppServerReplicas(c.replicas ?? 1)
       return (
         <>
@@ -551,25 +595,12 @@ function TypeFields({
               }}
             />
           </div>
-          <div>
-            <label className={labelClass} htmlFor="compute-size">
-              Resource profile
-            </label>
-            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-              Adjusts Kubernetes CPU/memory reservations; performance impact depends on
-              workload bottlenecks.
-            </p>
-            <select
-              id="compute-size"
-              className={fieldClass}
-              value={instanceSize}
-              onChange={(e) => updateConfig({ instanceSize: e.target.value })}
-            >
-              <option value="small">small</option>
-              <option value="medium">medium</option>
-              <option value="large">large</option>
-            </select>
-          </div>
+          <ResourceProfileFields
+            idPrefix="compute"
+            nodeType="compute"
+            config={c}
+            updateConfig={updateConfig}
+          />
           {simulationMode ? (
             <div>
               <label className={labelClass} htmlFor="compute-cap">
@@ -615,6 +646,12 @@ function TypeFields({
               PostgreSQL
             </span>
           </div>
+          <ResourceProfileFields
+            idPrefix="database"
+            nodeType="database"
+            config={c}
+            updateConfig={updateConfig}
+          />
           {simulationMode ? (
             <>
               <div>
@@ -691,6 +728,13 @@ function TypeFields({
               RabbitMQ
             </span>
           </div>
+          <ResourceProfileFields
+            idPrefix="mq"
+            nodeType="message_queue"
+            config={c}
+            showDefaultOption
+            updateConfig={updateConfig}
+          />
           {simulationMode ? (
             <>
               <div>
@@ -747,28 +791,14 @@ function TypeFields({
       )
 
     case 'worker': {
-      const instanceSize = String(c.instanceSize ?? 'small')
       return (
         <>
-          <div>
-            <label className={labelClass} htmlFor="worker-size">
-              Resource profile
-            </label>
-            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-              Adjusts Kubernetes CPU/memory reservations; performance impact depends on
-              workload bottlenecks.
-            </p>
-            <select
-              id="worker-size"
-              className={fieldClass}
-              value={instanceSize}
-              onChange={(e) => updateConfig({ instanceSize: e.target.value })}
-            >
-              <option value="small">small</option>
-              <option value="medium">medium</option>
-              <option value="large">large</option>
-            </select>
-          </div>
+          <ResourceProfileFields
+            idPrefix="worker"
+            nodeType="worker"
+            config={c}
+            updateConfig={updateConfig}
+          />
           {simulationMode ? (
             <div>
               <label className={labelClass} htmlFor="worker-cap">

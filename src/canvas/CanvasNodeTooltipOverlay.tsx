@@ -23,14 +23,17 @@ export function CanvasNodeTooltipOverlay() {
   const metrics = useMetricsStore((s) => s.metrics)
   const [, refresh] = useState(0)
 
+  const tooltipEnabled =
+    (mode === 'design' || isMetricsViewportMode(mode)) && Boolean(hoveredNodeId)
+
   useEffect(() => {
-    if (!isMetricsViewportMode(mode) || !hoveredNodeId) return
+    if (!tooltipEnabled) return
     return subscribeCanvasViewportScreenRefresh(() => {
       refresh((n) => n + 1)
     })
-  }, [mode, hoveredNodeId])
+  }, [tooltipEnabled])
 
-  if (!isMetricsViewportMode(mode) || !hoveredNodeId) return null
+  if (!tooltipEnabled || !hoveredNodeId) return null
 
   const node = nodes[hoveredNodeId]
   if (!node) return null
@@ -46,13 +49,20 @@ export function CanvasNodeTooltipOverlay() {
   const bucket = metrics[hoveredNodeId]
   const health = computeHealthState(bucket, node.status)
   const align = node.position[0] > 0 ? 'left' : 'right'
+  const showLiveMetrics = isMetricsViewportMode(mode)
 
   return (
     <div
       className="pointer-events-none absolute left-0 top-0 z-20"
       style={{ transform: `translate(${screen.x}px, ${screen.y}px)` }}
     >
-      <NodeTooltip node={node} metrics={bucket} health={health} align={align} />
+      <NodeTooltip
+        node={node}
+        metrics={bucket}
+        health={health}
+        align={align}
+        showLiveMetrics={showLiveMetrics}
+      />
     </div>
   )
 }

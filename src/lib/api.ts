@@ -140,6 +140,25 @@ export async function getTemplates(): Promise<TemplateInfo[]> {
   return res.json() as Promise<TemplateInfo[]>
 }
 
+export interface ResourceLimitsJSON {
+  cpu: string
+  memory: string
+  ephemeralStorage: string
+  profile?: string
+}
+
+export interface ResourceProfilesResponse {
+  profiles: Record<string, ResourceLimitsJSON>
+  components: Record<string, ResourceLimitsJSON>
+}
+
+export async function getResourceProfiles(): Promise<ResourceProfilesResponse> {
+  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await fetch(`${base}/meta/resource-profiles`)
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<ResourceProfilesResponse>
+}
+
 /** JSON `{ "error": "..." }` or plain text — same parsing as other deployment API calls. */
 export async function readApiErrorMessage(res: Response): Promise<string> {
   const text = await res.text()
