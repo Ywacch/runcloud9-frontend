@@ -1,13 +1,7 @@
 import { getAccessToken } from './auth'
 import { ApiError } from './apiError'
 import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
-import type {
-  DeploymentConn,
-  DeploymentDesign,
-  DeploymentNode,
-  ResourceLimitsJSON,
-  ResourceProfilesResponse,
-} from './deploymentTypes'
+import type { DeploymentDesign, ResourceProfilesResponse } from './deploymentTypes'
 import { ResourceBudgetApiError } from './resourceBudgetError'
 import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
