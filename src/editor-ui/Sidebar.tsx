@@ -1,4 +1,4 @@
-import { type DragEvent, useCallback, useEffect, useState } from 'react'
+import { type DragEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   type DeploymentResult,
@@ -18,6 +18,11 @@ import {
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
+import {
+  designExceedsResourceQuota,
+  toResourceBudgetErrorResponse,
+  type ResourceBudgetErrorResponse,
+} from '../lib/sumDesignBudget'
 import {
   clearLiveSessionPersist,
   persistLiveSession,
@@ -86,6 +91,7 @@ export function Sidebar() {
   const navigate = useNavigate()
   const mode = useCanvasStore((s) => s.mode)
   const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
@@ -110,6 +116,8 @@ export function Sidebar() {
   const [deploySimulationMessage, setDeploySimulationMessage] = useState<
     string | null
   >(null)
+  const [deployResourceBudget, setDeployResourceBudget] =
+    useState<ResourceBudgetErrorResponse | null>(null)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [templateInfoById, setTemplateInfoById] = useState<
     Record<string, TemplateInfo>
@@ -178,6 +186,7 @@ export function Sidebar() {
     setDeployModalOpen(false)
     setDeployModalMode('progress')
     setDeployRequestMessage(null)
+    setDeployResourceBudget(null)
     setDeploying(false)
   }, [])
 
@@ -190,6 +199,16 @@ export function Sidebar() {
   const nodeCount = Object.keys(nodes).length
   const live = mode === 'live'
   const simulate = mode === 'simulate'
+  const quotaPreview = useMemo(() => {
+    if (live || simulate || !snapshotTemplateId || nodeCount === 0) return null
+    try {
+      const design = snapshotToDeploymentDesign(useCanvasStore.getState().exportJSON())
+      const over = designExceedsResourceQuota(design)
+      return over ? toResourceBudgetErrorResponse(over) : null
+    } catch {
+      return null
+    }
+  }, [live, simulate, snapshotTemplateId, nodeCount, nodes, edges])
   const simRunning = useSimulationStore((s) => s.running)
   const selectedTemplate = snapshotTemplateId
     ? templateInfoById[snapshotTemplateId]
@@ -209,7 +228,9 @@ export function Sidebar() {
       ? `The "${selectedTemplate.name}" template is simulation-only right now.`
       : !session
         ? 'Sign in to deploy infrastructure.'
-        : undefined
+        : quotaPreview
+          ? `Needs ${quotaPreview.requested.cpu} CPU / ${quotaPreview.requested.memory} RAM (plan cap ${quotaPreview.cap.cpu} / ${quotaPreview.cap.memory})`
+          : undefined
 
   const togglePlace = (type: CanvasNode['type']) => {
     if (placingNodeType === type) {
@@ -290,6 +311,7 @@ export function Sidebar() {
     setDeployModalMode('progress')
     setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
+    setDeployResourceBudget(null)
     setDeploySteps([
       {
         id: 'validate',
@@ -357,6 +379,7 @@ export function Sidebar() {
       } else {
         setDeployModalMode('request_rejected')
         setDeployRequestMessage(friendly)
+        setDeployResourceBudget(friendly.resourceBudget ?? null)
       }
       setDeploySimulationMessage(null)
       setDeploySteps((s) =>
@@ -392,6 +415,7 @@ export function Sidebar() {
     setDeployModalMode('progress')
     setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
+    setDeployResourceBudget(null)
     setDeploying(false)
   }, [setPendingDeployAfterAuth])
 
@@ -627,7 +651,8 @@ export function Sidebar() {
                 nodeCount === 0 ||
                 !snapshotTemplateId ||
                 !selectedTemplate ||
-                !selectedTemplate.deployable
+                !selectedTemplate.deployable ||
+                Boolean(quotaPreview)
               }
               title={deployDisabledReason}
               onClick={() => handleDeploy()}
@@ -635,6 +660,13 @@ export function Sidebar() {
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>
+            {quotaPreview ? (
+              <p className="text-[11px] leading-snug text-amber-300/90">
+                This design exceeds the explorer quota ({quotaPreview.requested.cpu} /{' '}
+                {quotaPreview.requested.memory} vs cap {quotaPreview.cap.cpu} /{' '}
+                {quotaPreview.cap.memory}). Downsize nodes or replicas to deploy.
+              </p>
+            ) : null}
             {nodeCount > 0 && snapshotTemplateId ? (
               <button
                 type="button"
@@ -665,6 +697,7 @@ export function Sidebar() {
         requestMessage={deployRequestMessage?.body}
         technicalDetails={deployRequestMessage?.technicalDetails}
         requestActionLabel={deployRequestMessage?.actionLabel}
+        resourceBudget={deployResourceBudget}
         onRequestAction={
           deployRequestMessage?.actionLabel
             ? () => navigate('/login')
@@ -677,6 +710,7 @@ export function Sidebar() {
           setDeployModalMode('progress')
           setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
+          setDeployResourceBudget(null)
           setDeploying(false)
         }}
         onSimulateDesign={() => {
@@ -688,6 +722,7 @@ export function Sidebar() {
           setDeployModalMode('progress')
           setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
+          setDeployResourceBudget(null)
           setDeploying(false)
         }}
         onModifyDesign={() => {
@@ -695,6 +730,7 @@ export function Sidebar() {
           setDeployModalMode('progress')
           setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
+          setDeployResourceBudget(null)
           setDeploying(false)
         }}
       />

@@ -1,5 +1,8 @@
 import { getAccessToken } from './auth'
+import { ApiError } from './apiError'
 import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
+import { ResourceBudgetApiError } from './resourceBudgetError'
+import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
 
 /**
@@ -117,17 +120,16 @@ export interface TemplatePreset {
   edges: TemplatePresetEdge[]
 }
 
-export class ApiError extends Error {
-  status: number
-  rawMessage: string
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-    this.rawMessage = message
-  }
-}
+export { ApiError } from './apiError'
+export type {
+  ResourceBudgetErrorResponse,
+  ResourceBudgetLine,
+} from './sumDesignBudget'
+export {
+  ResourceBudgetApiError,
+  isResourceBudgetApiError,
+} from './resourceBudgetError'
+export { isResourceBudgetErrorResponse } from './sumDesignBudget'
 
 /**
  * Fetch the template registry from the backend.
@@ -185,10 +187,35 @@ export async function createDeployment(
     body: JSON.stringify(design),
   })
   if (!res.ok) {
-    const message = await readApiErrorMessage(res)
+    const text = await res.text()
+    if (res.status === 422 && text) {
+      try {
+        const body = JSON.parse(text) as unknown
+        if (isResourceBudgetErrorResponse(body)) {
+          throw new ResourceBudgetApiError(body)
+        }
+      } catch (error) {
+        if (error instanceof ResourceBudgetApiError) throw error
+      }
+    }
+    const message = text ? await parseErrorMessageFromText(text, res) : res.statusText
     throw new ApiError(res.status, message)
   }
   return res.json() as Promise<DeploymentResult>
+}
+
+async function parseErrorMessageFromText(
+  text: string,
+  res: Response,
+): Promise<string> {
+  if (!text) return res.statusText || `HTTP ${res.status}`
+  try {
+    const j = JSON.parse(text) as { error?: string }
+    if (typeof j.error === 'string') return j.error
+  } catch {
+    /* not JSON */
+  }
+  return text.slice(0, 200)
 }
 
 export async function deleteDeployment(id: string): Promise<void> {
