@@ -651,10 +651,7 @@ export class ComponentContainer extends Container {
 
   private _onPointerOver = (): void => {
     const state = useCanvasStore.getState()
-    if (
-      (isMetricsViewportMode(state.mode) || state.mode === 'design') &&
-      !this.isDragging
-    ) {
+    if (isMetricsViewportMode(state.mode) && !this.isDragging) {
       state.setHoveredNodeId(this.nodeId)
     }
     if (!isCanvasEditMode(state.mode) || state.designTool !== 'connect') return
