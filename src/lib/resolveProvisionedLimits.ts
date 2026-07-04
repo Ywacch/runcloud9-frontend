@@ -38,7 +38,3 @@ export function formatProvisionedLabel(limits: ResourceLimitsJSON): string {
 export function formatProvisionedShort(limits: ResourceLimitsJSON): string {
   return `${limits.cpu} · ${limits.memory}`
 }
-
-export function formatProvisionedTooltip(limits: ResourceLimitsJSON): string {
-  return `Provisioned · ${formatProvisionedShort(limits)}`
-}

@@ -1,11 +1,6 @@
 import { useMemo } from 'react'
 import { clampPercent, fmtMs, fmtRate } from '../lib/format'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
-import { getResourceProfilesCached } from '../lib/resourceProfileStore'
-import {
-  formatProvisionedTooltip,
-  resolveProvisionedLimits,
-} from '../lib/resolveProvisionedLimits'
 import { syncDbTierCWarmup } from '../lib/tierCWarmupSession'
 import type { HealthState } from '../editor-core/domain/healthThresholds'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
@@ -22,7 +17,6 @@ interface NodeTooltipProps {
   metrics?: MetricsBucket
   health: HealthState
   align: 'left' | 'right'
-  showLiveMetrics?: boolean
 }
 
 export function NodeTooltip({
@@ -30,7 +24,6 @@ export function NodeTooltip({
   metrics,
   health,
   align,
-  showLiveMetrics = true,
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
@@ -43,34 +36,17 @@ export function NodeTooltip({
     [node.type, snapshotTemplateId, topology, storytelling],
   )
 
-  const provisionedLine = useMemo(() => {
-    if (node.type === 'client') return null
-    const catalog = getResourceProfilesCached()
-    return formatProvisionedTooltip(
-      resolveProvisionedLimits(node.type, node.config, catalog),
-    )
-  }, [node.type, node.config])
-
   const dbWarmingUp =
-    showLiveMetrics &&
-    node.type === 'database' &&
-    metrics
+    node.type === 'database' && metrics
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
-  const cpuPct =
-    showLiveMetrics && metrics && !metrics.cpuIsEstimated && !dbWarmingUp
-      ? clampPercent(metrics.cpuPercent)
-      : 0
-  const memPct =
-    showLiveMetrics && metrics && !metrics.memIsEstimated && !dbWarmingUp
-      ? clampPercent(metrics.memPercent)
-      : 0
-  const labels =
-    showLiveMetrics && metrics
-      ? node.type === 'database'
-        ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
-        : formatResourceLabels(metrics, cpuPct, memPct)
-      : { cpu: '-', mem: '-' }
+  const cpuPct = metrics?.cpuIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.cpuPercent)
+  const memPct = metrics?.memIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.memPercent)
+  const labels = metrics
+    ? node.type === 'database'
+      ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
+      : formatResourceLabels(metrics, cpuPct, memPct)
+    : { cpu: '-', mem: '-' }
   const rpsClass =
     health === 'warning'
       ? 'text-amber-300'
@@ -90,56 +66,49 @@ export function NodeTooltip({
       <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
         {roleLabel}
       </p>
-      {provisionedLine ? (
-        <p className="mt-1 border-t border-white/10 pt-1 text-center font-mono text-[10px] text-zinc-300">
-          {provisionedLine}
-        </p>
-      ) : null}
-      {showLiveMetrics ? (
-        <div className="mt-1 border-t border-white/10 pt-1.5">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
-              <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-                {labels.cpu}
-              </p>
-              <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-                <div
-                  className="h-full rounded bg-violet-400 transition-[width] duration-150"
-                  style={{ width: `${cpuPct}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
-              <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-                {labels.mem}
-              </p>
-              <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-                <div
-                  className="h-full rounded bg-sky-400 transition-[width] duration-150"
-                  style={{ width: `${memPct}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <p className="font-mono text-[10px] lowercase text-zinc-400">rps</p>
-              <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
-                {fmtRate(metrics?.requestRate ?? 0)}
-              </p>
-              <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-                <div className="h-full w-full rounded bg-cyan-400/85" />
-              </div>
+      <div className="mt-1 border-t border-white/10 pt-1.5">
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
+            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+              {labels.cpu}
+            </p>
+            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+              <div
+                className="h-full rounded bg-violet-400 transition-[width] duration-150"
+                style={{ width: `${cpuPct}%` }}
+              />
             </div>
           </div>
-          <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
-            <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
-            <span className="font-mono text-[11px] text-zinc-200">
-              {fmtMs(metrics?.p99Latency ?? 0)}
-            </span>
+          <div>
+            <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
+            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+              {labels.mem}
+            </p>
+            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+              <div
+                className="h-full rounded bg-sky-400 transition-[width] duration-150"
+                style={{ width: `${memPct}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="font-mono text-[10px] lowercase text-zinc-400">rps</p>
+            <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
+              {fmtRate(metrics?.requestRate ?? 0)}
+            </p>
+            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+              <div className="h-full w-full rounded bg-cyan-400/85" />
+            </div>
           </div>
         </div>
-      ) : null}
+        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
+          <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
+          <span className="font-mono text-[11px] text-zinc-200">
+            {fmtMs(metrics?.p99Latency ?? 0)}
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
