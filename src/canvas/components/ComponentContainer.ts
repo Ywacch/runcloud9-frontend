@@ -31,10 +31,16 @@ import { spriteFrameForType } from '../sprites/spriteFrames'
 import { SpriteComponent } from '../sprites/SpriteComponent'
 import { nodeToIso, isoToNode, clampIsoCell } from '../utils/positionAdapter'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
+import { getResourceProfilesCached } from '../../lib/resourceProfileStore'
+import {
+  formatProvisionedShort,
+  resolveProvisionedLimits,
+} from '../../lib/resolveProvisionedLimits'
 import {
   isCanvasEditMode,
   isMetricsViewportMode,
   useCanvasStore,
+  type CanvasMode,
   type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
 import { getApp } from '../engine/app'
@@ -93,6 +99,7 @@ export class ComponentContainer extends Container {
   private connectTickerFn: ((ticker: Ticker) => void) | null = null
   private statusDot!: Graphics
   private labelText!: Text
+  private provisionedSublabel: Text | null = null
   private replicaBadge: Text | null = null
   private spriteBody: SpriteComponent | null = null
   private expanded = false
@@ -228,6 +235,7 @@ export class ComponentContainer extends Container {
     this._clearOverlayRefs()
     this.removeChildren()
     this.replicaBadge = null
+    this.provisionedSublabel = null
     if (this.spriteBody?.destroyed) this.spriteBody = null
 
     const colors = COMPONENT_COLORS[node.type]
@@ -433,6 +441,23 @@ export class ComponentContainer extends Container {
     this.labelText.position.set(TILE_W / 2, bounds.y - 6)
     this.addChild(this.labelText)
 
+    const sublabel = this._provisionedSublabelText(node)
+    if (sublabel && this._shouldShowProvisionedSublabel(useCanvasStore.getState().mode)) {
+      this.provisionedSublabel = new Text({
+        text: sublabel,
+        style: new TextStyle({
+          fontSize: 9,
+          fill: 0x9ca3af,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          dropShadow: { color: 0x000000, alpha: 0.7, blur: 2, distance: 1 },
+        }),
+      })
+      this.provisionedSublabel.eventMode = 'none'
+      this.provisionedSublabel.anchor.set(0.5, 0)
+      this.provisionedSublabel.position.set(TILE_W / 2, bounds.y + 2)
+      this.addChild(this.provisionedSublabel)
+    }
+
     if (hasStack) {
       const count =
         node.type === 'database'
@@ -469,6 +494,55 @@ export class ComponentContainer extends Container {
         hint.position.set(TILE_W / 2, bounds.y + 8)
         this.addChild(hint)
       }
+    }
+  }
+
+  private _shouldShowProvisionedSublabel(mode: CanvasMode): boolean {
+    return mode === 'design' || mode === 'simulate'
+  }
+
+  private _provisionedSublabelText(node: CanvasNode): string | null {
+    if (node.type === 'client') return null
+    const catalog = getResourceProfilesCached()
+    return formatProvisionedShort(
+      resolveProvisionedLimits(node.type, node.config, catalog),
+    )
+  }
+
+  private _syncProvisionedSublabel(node: CanvasNode): void {
+    const mode = useCanvasStore.getState().mode
+    const visible = this._shouldShowProvisionedSublabel(mode)
+    const text = this._provisionedSublabelText(node)
+
+    if (!visible || !text) {
+      if (this.provisionedSublabel) {
+        this.removeChild(this.provisionedSublabel)
+        this.provisionedSublabel.destroy()
+        this.provisionedSublabel = null
+      }
+      return
+    }
+
+    if (!this.provisionedSublabel) {
+      const bounds = this._componentBounds()
+      this.provisionedSublabel = new Text({
+        text,
+        style: new TextStyle({
+          fontSize: 9,
+          fill: 0x9ca3af,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          dropShadow: { color: 0x000000, alpha: 0.7, blur: 2, distance: 1 },
+        }),
+      })
+      this.provisionedSublabel.eventMode = 'none'
+      this.provisionedSublabel.anchor.set(0.5, 0)
+      this.provisionedSublabel.position.set(TILE_W / 2, bounds.y + 2)
+      this.addChild(this.provisionedSublabel)
+      return
+    }
+
+    if (this.provisionedSublabel.text !== text) {
+      this.provisionedSublabel.text = text
     }
   }
 
@@ -577,7 +651,10 @@ export class ComponentContainer extends Container {
 
   private _onPointerOver = (): void => {
     const state = useCanvasStore.getState()
-    if (isMetricsViewportMode(state.mode) && !this.isDragging) {
+    if (
+      (isMetricsViewportMode(state.mode) || state.mode === 'design') &&
+      !this.isDragging
+    ) {
       state.setHoveredNodeId(this.nodeId)
     }
     if (!isCanvasEditMode(state.mode) || state.designTool !== 'connect') return
@@ -648,6 +725,7 @@ export class ComponentContainer extends Container {
     } else {
       if (this.labelText.text !== node.label) this.labelText.text = node.label
       this._updateStatusDot(node.status)
+      this._syncProvisionedSublabel(node)
     }
     this._syncPosition(node.position)
     if (!needsRebuild) {

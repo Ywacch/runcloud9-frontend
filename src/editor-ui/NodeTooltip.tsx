@@ -1,6 +1,11 @@
 import { useMemo } from 'react'
 import { clampPercent, fmtMs, fmtRate } from '../lib/format'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
+import { getResourceProfilesCached } from '../lib/resourceProfileStore'
+import {
+  formatProvisionedTooltip,
+  resolveProvisionedLimits,
+} from '../lib/resolveProvisionedLimits'
 import { syncDbTierCWarmup } from '../lib/tierCWarmupSession'
 import type { HealthState } from '../editor-core/domain/healthThresholds'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
@@ -17,6 +22,7 @@ interface NodeTooltipProps {
   metrics?: MetricsBucket
   health: HealthState
   align: 'left' | 'right'
+  showLiveMetrics?: boolean
 }
 
 export function NodeTooltip({
@@ -24,6 +30,7 @@ export function NodeTooltip({
   metrics,
   health,
   align,
+  showLiveMetrics = true,
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
@@ -36,35 +43,59 @@ export function NodeTooltip({
     [node.type, snapshotTemplateId, topology, storytelling],
   )
 
+  const provisionedLine = useMemo(() => {
+    if (node.type === 'client') return null
+    const catalog = getResourceProfilesCached()
+    return formatProvisionedTooltip(
+      resolveProvisionedLimits(node.type, node.config, catalog),
+    )
+  }, [node.type, node.config])
+
   const dbWarmingUp =
-    node.type === 'database' && metrics
+    showLiveMetrics &&
+    node.type === 'database' &&
+    metrics
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
-  const cpuPct = metrics?.cpuIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.cpuPercent)
-  const memPct = metrics?.memIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.memPercent)
-  const labels = metrics
-    ? node.type === 'database'
-      ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
-      : formatResourceLabels(metrics, cpuPct, memPct)
-    : { cpu: '-', mem: '-' }
+  const cpuPct =
+    showLiveMetrics && metrics && !metrics.cpuIsEstimated && !dbWarmingUp
+      ? clampPercent(metrics.cpuPercent)
+      : 0
+  const memPct =
+    showLiveMetrics && metrics && !metrics.memIsEstimated && !dbWarmingUp
+      ? clampPercent(metrics.memPercent)
+      : 0
+  const labels =
+    showLiveMetrics && metrics
+      ? node.type === 'database'
+        ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
+        : formatResourceLabels(metrics, cpuPct, memPct)
+      : { cpu: '-', mem: '-' }
   const rpsClass =
     health === 'warning'
       ? 'text-amber-300'
       : health === 'error'
         ? 'text-red-300'
         : 'text-cyan-300'
+
   return (
     <div
       className={`pointer-events-none w-[178px] rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-2.5 py-2 text-[10px] text-[var(--c9-text)] shadow-xl backdrop-blur ${
         align === 'right' ? 'origin-top-left' : 'origin-top-right -translate-x-full'
       }`}
     >
-        <p className="truncate text-center text-[13px] font-semibold text-violet-300">
-          {node.label}
+      <p className="truncate text-center text-[13px] font-semibold text-violet-300">
+        {node.label}
+      </p>
+      <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
+        {roleLabel}
+      </p>
+      {provisionedLine ? (
+        <p className="mt-1 border-t border-white/10 pt-1 text-center font-mono text-[10px] text-zinc-300">
+          {provisionedLine}
         </p>
-        <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
-          {roleLabel}
-        </p>
+      ) : null}
+      {showLiveMetrics ? (
         <div className="mt-1 border-t border-white/10 pt-1.5">
           <div className="grid grid-cols-3 gap-2">
             <div>
@@ -108,6 +139,7 @@ export function NodeTooltip({
             </span>
           </div>
         </div>
+      ) : null}
     </div>
   )
 }
