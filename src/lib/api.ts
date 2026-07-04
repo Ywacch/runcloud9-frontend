@@ -1,6 +1,18 @@
 import { getAccessToken } from './auth'
+import { ApiError } from './apiError'
 import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
+import type { DeploymentDesign, ResourceProfilesResponse } from './deploymentTypes'
+import { ResourceBudgetApiError } from './resourceBudgetError'
+import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
+
+export type {
+  DeploymentConn,
+  DeploymentDesign,
+  DeploymentNode,
+  ResourceLimitsJSON,
+  ResourceProfilesResponse,
+} from './deploymentTypes'
 
 /**
  * Same-origin prefix for deployment APIs (`/deployments/...`).
@@ -27,27 +39,6 @@ export function buildWsBaseForApi(apiBase: string, current: Location): string {
   }
   const proto = current.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${current.host}${apiBase}`
-}
-
-export interface DeploymentDesign {
-  version: string
-  template: string
-  archetype: string
-  nodes: DeploymentNode[]
-  connections: DeploymentConn[]
-}
-
-export interface DeploymentNode {
-  id: string
-  type: string
-  name: string
-  config: Record<string, unknown>
-}
-
-export interface DeploymentConn {
-  sourceId: string
-  targetId: string
-  protocol: string
 }
 
 export interface DeploymentResult {
@@ -117,17 +108,16 @@ export interface TemplatePreset {
   edges: TemplatePresetEdge[]
 }
 
-export class ApiError extends Error {
-  status: number
-  rawMessage: string
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-    this.rawMessage = message
-  }
-}
+export { ApiError } from './apiError'
+export type {
+  ResourceBudgetErrorResponse,
+  ResourceBudgetLine,
+} from './sumDesignBudget'
+export {
+  ResourceBudgetApiError,
+  isResourceBudgetApiError,
+} from './resourceBudgetError'
+export { isResourceBudgetErrorResponse } from './sumDesignBudget'
 
 /**
  * Fetch the template registry from the backend.
@@ -138,18 +128,6 @@ export async function getTemplates(): Promise<TemplateInfo[]> {
   const res = await fetch(`${base}/templates`)
   if (!res.ok) throw new Error(await readApiErrorMessage(res))
   return res.json() as Promise<TemplateInfo[]>
-}
-
-export interface ResourceLimitsJSON {
-  cpu: string
-  memory: string
-  ephemeralStorage: string
-  profile?: string
-}
-
-export interface ResourceProfilesResponse {
-  profiles: Record<string, ResourceLimitsJSON>
-  components: Record<string, ResourceLimitsJSON>
 }
 
 export async function getResourceProfiles(): Promise<ResourceProfilesResponse> {
@@ -185,10 +163,35 @@ export async function createDeployment(
     body: JSON.stringify(design),
   })
   if (!res.ok) {
-    const message = await readApiErrorMessage(res)
+    const text = await res.text()
+    if (res.status === 422 && text) {
+      try {
+        const body = JSON.parse(text) as unknown
+        if (isResourceBudgetErrorResponse(body)) {
+          throw new ResourceBudgetApiError(body)
+        }
+      } catch (error) {
+        if (error instanceof ResourceBudgetApiError) throw error
+      }
+    }
+    const message = text ? await parseErrorMessageFromText(text, res) : res.statusText
     throw new ApiError(res.status, message)
   }
   return res.json() as Promise<DeploymentResult>
+}
+
+async function parseErrorMessageFromText(
+  text: string,
+  res: Response,
+): Promise<string> {
+  if (!text) return res.statusText || `HTTP ${res.status}`
+  try {
+    const j = JSON.parse(text) as { error?: string }
+    if (typeof j.error === 'string') return j.error
+  } catch {
+    /* not JSON */
+  }
+  return text.slice(0, 200)
 }
 
 export async function deleteDeployment(id: string): Promise<void> {

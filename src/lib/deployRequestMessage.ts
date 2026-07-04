@@ -1,13 +1,25 @@
 import { ApiError } from './api'
+import { isResourceBudgetApiError } from './resourceBudgetError'
+import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
 
 export interface DeployRequestMessage {
   title: string
   body: string
   technicalDetails?: string
   actionLabel?: string
+  resourceBudget?: ResourceBudgetErrorResponse
 }
 
 export function mapDeployRequestError(error: unknown): DeployRequestMessage {
+  if (isResourceBudgetApiError(error)) {
+    return {
+      title: 'Design exceeds your resource quota',
+      body: 'This design needs more CPU and memory than your plan allows. Downsize nodes, reduce replicas, or remove components before deploying.',
+      technicalDetails: error.budget.error,
+      resourceBudget: error.budget,
+    }
+  }
+
   if (error instanceof ApiError) {
     const raw = error.rawMessage || error.message
     const normalized = raw.toLowerCase()
@@ -38,6 +50,14 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
       return {
         title: 'Deployment request was not accepted',
         body: 'You do not have permission to perform this action.',
+        technicalDetails: raw,
+      }
+    }
+
+    if (error.status === 422) {
+      return {
+        title: 'Design exceeds your resource quota',
+        body: 'This design needs more CPU and memory than your plan allows. Downsize nodes, reduce replicas, or remove components before deploying.',
         technicalDetails: raw,
       }
     }

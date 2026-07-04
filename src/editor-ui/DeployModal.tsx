@@ -1,5 +1,7 @@
 import { DeployProgressSteps, type DeployStep } from './DeployProgressSteps'
 import { SignInForm } from './SignInForm'
+import { ResourceBudgetBreakdown } from './ResourceBudgetBreakdown'
+import type { ResourceBudgetErrorResponse } from '../lib/sumDesignBudget'
 
 export type { DeployStep }
 
@@ -18,6 +20,7 @@ interface Props {
   technicalDetails?: string | null
   requestActionLabel?: string | null
   onRequestAction?: () => void
+  resourceBudget?: ResourceBudgetErrorResponse | null
   /** Backend returned simulation_recommended — no deployment was created. */
   simulationRecommended?: string | null
   onClose?: () => void
@@ -35,6 +38,7 @@ export function DeployModal({
   technicalDetails,
   requestActionLabel,
   onRequestAction,
+  resourceBudget,
   simulationRecommended,
   onClose,
   onAuthDismiss,
@@ -129,7 +133,10 @@ export function DeployModal({
             <p className="text-sm leading-relaxed text-[var(--c9-text)]">
               {requestMessage || 'Please try again.'}
             </p>
-            {technicalDetails ? (
+            {resourceBudget ? (
+              <ResourceBudgetBreakdown budget={resourceBudget} />
+            ) : null}
+            {technicalDetails && !resourceBudget ? (
               <p className="font-mono text-[10px] leading-relaxed text-[var(--c9-muted)]">
                 {technicalDetails}
               </p>
