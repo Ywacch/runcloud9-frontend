@@ -1,5 +1,5 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
-import type { ResourceLimitsJSON, ResourceProfilesResponse } from './api'
+import type { ResourceLimitsJSON, ResourceProfilesResponse } from './deploymentTypes'
 
 const PROFILE_COMPONENTS = new Set<CanvasNode['type']>([
   'database',

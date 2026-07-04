@@ -1,4 +1,4 @@
-import type { DeploymentDesign, DeploymentNode, ResourceProfilesResponse } from './api'
+import type { DeploymentDesign, DeploymentNode, ResourceProfilesResponse } from './deploymentTypes'
 import { backendComponentToCanvasType } from './typeMapping'
 import {
   formatCpuMilli,

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getResourceProfiles, type ResourceProfilesResponse } from './api'
+import type { ResourceProfilesResponse } from './deploymentTypes'
 import { FALLBACK_RESOURCE_PROFILES } from './resourceProfileCatalogFallback'
 
 interface ResourceProfileState {
@@ -25,6 +25,7 @@ export async function ensureResourceProfilesLoaded(): Promise<void> {
   if (loadAttempted) return
   useResourceProfileStore.setState({ loadAttempted: true })
   try {
+    const { getResourceProfiles } = await import('./api')
     const catalog = await getResourceProfiles()
     useResourceProfileStore.setState({ catalog })
   } catch {

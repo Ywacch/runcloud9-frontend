@@ -1,4 +1,4 @@
-import type { ResourceProfilesResponse } from './api'
+import type { ResourceProfilesResponse } from './deploymentTypes'
 
 /** Offline fallback — must match ganymede/pkg/deployer/resource_catalog.go NewResourceCatalogResponse(). */
 export const FALLBACK_RESOURCE_PROFILES: ResourceProfilesResponse = {

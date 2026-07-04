@@ -1,9 +1,24 @@
 import { getAccessToken } from './auth'
 import { ApiError } from './apiError'
 import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
+import type {
+  DeploymentConn,
+  DeploymentDesign,
+  DeploymentNode,
+  ResourceLimitsJSON,
+  ResourceProfilesResponse,
+} from './deploymentTypes'
 import { ResourceBudgetApiError } from './resourceBudgetError'
 import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
+
+export type {
+  DeploymentConn,
+  DeploymentDesign,
+  DeploymentNode,
+  ResourceLimitsJSON,
+  ResourceProfilesResponse,
+} from './deploymentTypes'
 
 /**
  * Same-origin prefix for deployment APIs (`/deployments/...`).
@@ -30,27 +45,6 @@ export function buildWsBaseForApi(apiBase: string, current: Location): string {
   }
   const proto = current.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${current.host}${apiBase}`
-}
-
-export interface DeploymentDesign {
-  version: string
-  template: string
-  archetype: string
-  nodes: DeploymentNode[]
-  connections: DeploymentConn[]
-}
-
-export interface DeploymentNode {
-  id: string
-  type: string
-  name: string
-  config: Record<string, unknown>
-}
-
-export interface DeploymentConn {
-  sourceId: string
-  targetId: string
-  protocol: string
 }
 
 export interface DeploymentResult {
@@ -140,18 +134,6 @@ export async function getTemplates(): Promise<TemplateInfo[]> {
   const res = await fetch(`${base}/templates`)
   if (!res.ok) throw new Error(await readApiErrorMessage(res))
   return res.json() as Promise<TemplateInfo[]>
-}
-
-export interface ResourceLimitsJSON {
-  cpu: string
-  memory: string
-  ephemeralStorage: string
-  profile?: string
-}
-
-export interface ResourceProfilesResponse {
-  profiles: Record<string, ResourceLimitsJSON>
-  components: Record<string, ResourceLimitsJSON>
 }
 
 export async function getResourceProfiles(): Promise<ResourceProfilesResponse> {

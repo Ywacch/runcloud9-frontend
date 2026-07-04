@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DeploymentDesign } from './api'
+import type { DeploymentDesign } from './deploymentTypes'
 import { parseCpuMilli, parseMemoryBytes } from './k8sQuantity'
 import { FALLBACK_RESOURCE_PROFILES } from './resourceProfileCatalogFallback'
 import {
