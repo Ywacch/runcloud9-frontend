@@ -12,6 +12,7 @@ export interface TopologyLimits {
   maxAppServerReplicas: number
   allowLoadBalancer: boolean
   allowMQWorker: boolean
+  allowProxyCache: boolean
 }
 
 export function resolveEffectiveTier(user: UserRecord | null): EffectiveTier {
@@ -43,12 +44,14 @@ export function topologyLimitsForTier(effectiveTier: EffectiveTier): TopologyLim
       maxAppServerReplicas: 3,
       allowLoadBalancer: true,
       allowMQWorker: true,
+      allowProxyCache: true,
     }
   }
   return {
     maxAppServerReplicas: 1,
     allowLoadBalancer: false,
     allowMQWorker: false,
+    allowProxyCache: false,
   }
 }
 

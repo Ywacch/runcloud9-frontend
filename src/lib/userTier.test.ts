@@ -50,10 +50,15 @@ describe('userTier', () => {
     expect(topologyLimitsForTier('internal').allowLoadBalancer).toBe(true)
   })
 
-  it('free tier blocks lb/mq/worker and caps replicas at 1', () => {
+  it('free tier blocks lb/mq/worker, proxy cache, and caps replicas at 1', () => {
     const limits = topologyLimitsForTier('free')
     expect(limits.allowLoadBalancer).toBe(false)
     expect(limits.allowMQWorker).toBe(false)
+    expect(limits.allowProxyCache).toBe(false)
     expect(limits.maxAppServerReplicas).toBe(1)
+  })
+
+  it('engineer tier allows proxy cache strategies', () => {
+    expect(topologyLimitsForTier('engineer').allowProxyCache).toBe(true)
   })
 })

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../../lib/cacheTopologyStrategy'
+import { useAuthStore } from '../../product/stores/authStore'
 import {
   clearCanvasHistory,
   popRedoSnapshot,
@@ -18,6 +19,10 @@ import type { SteadyStateSummary } from '../domain/metricsUiContract'
 
 /** Design-mode interaction: select/move + inspector, connect nodes, or delete by clicking. */
 export type DesignTool = 'select' | 'connect' | 'erase'
+
+function cacheStrategyOptionsForUser() {
+  return { allowProxyStrategies: useAuthStore.getState().isPremium }
+}
 
 export type CanvasMode = 'design' | 'live' | 'simulate'
 
@@ -283,7 +288,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         const e = edges[eid]
         if (e.sourceId === id || e.targetId === id) delete edges[eid]
       }
-      const nodesNorm = applyCacheStrategyNormalizationToNodes(nodes, edges)
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(
+        nodes,
+        edges,
+        cacheStrategyOptionsForUser(),
+      )
       return {
         nodes: nodesNorm,
         edges,
@@ -316,7 +325,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         const e = edges[eid]
         if (idSet.has(e.sourceId) || idSet.has(e.targetId)) delete edges[eid]
       }
-      const nodesNorm = applyCacheStrategyNormalizationToNodes(nodes, edges)
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(
+        nodes,
+        edges,
+        cacheStrategyOptionsForUser(),
+      )
       return {
         nodes: nodesNorm,
         edges,
@@ -337,7 +350,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (dup) return s
       recordCanvasHistory(s.nodes, s.edges)
       const edges = { ...s.edges, [edge.id]: edge }
-      const nodesNorm = applyCacheStrategyNormalizationToNodes(s.nodes, edges)
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(
+        s.nodes,
+        edges,
+        cacheStrategyOptionsForUser(),
+      )
       return {
         edges,
         nodes: nodesNorm,
@@ -350,7 +367,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!s.edges[id]) return s
       recordCanvasHistory(s.nodes, s.edges)
       const { [id]: _removed, ...edges } = s.edges
-      const nodesNorm = applyCacheStrategyNormalizationToNodes(s.nodes, edges)
+      const nodesNorm = applyCacheStrategyNormalizationToNodes(
+        s.nodes,
+        edges,
+        cacheStrategyOptionsForUser(),
+      )
       return { edges, nodes: nodesNorm }
     }),
 

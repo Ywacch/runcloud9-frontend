@@ -31,6 +31,15 @@ describe('mapDeployRequestError', () => {
     expect(msg.actionLabel).toBe('Upgrade to Engineer')
   })
 
+  it('maps proxy cache 403 to upgrade CTA', () => {
+    const err = new ApiError(
+      403,
+      'proxy cache strategies require an active subscription — use cache-aside or timeline-store, or upgrade',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+  })
+
   it('keeps premium template 403 distinct from topology', () => {
     const err = new ApiError(403, 'premium template required')
     const msg = mapDeployRequestError(err)

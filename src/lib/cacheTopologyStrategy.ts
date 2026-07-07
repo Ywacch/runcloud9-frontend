@@ -1,9 +1,18 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
 const PROXY_STRATEGIES = ['write-through', 'write-behind', 'read-through'] as const
+export const PROXY_CACHE_STRATEGIES = PROXY_STRATEGIES
 const CACHE_ASIDE = 'cache-aside'
 const TIMELINE_STORE = 'timeline-store'
 const NON_PROXY_STRATEGIES = [CACHE_ASIDE, TIMELINE_STORE] as const
+
+export function isProxyCacheStrategy(strategy: unknown): boolean {
+  return (PROXY_STRATEGIES as readonly string[]).includes(String(strategy ?? ''))
+}
+
+export interface CacheStrategyOptions {
+  allowProxyStrategies?: boolean
+}
 
 function edgeList(edges: Record<string, CanvasEdge>): CanvasEdge[] {
   return Object.values(edges)
@@ -21,7 +30,9 @@ export function getAvailableCacheStrategies(
   cacheNodeId: string,
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
+  options?: CacheStrategyOptions,
 ): string[] {
+  const allowProxy = options?.allowProxyStrategies ?? true
   const list = edgeList(edges)
   const hasDBEdge = list.some(
     (e) =>
@@ -40,16 +51,20 @@ export function getAvailableCacheStrategies(
     ),
   )
 
+  let strategies: string[]
   if (hasDBEdge && !anyConnectorAlsoHasDb) {
-    return [...PROXY_STRATEGIES]
+    strategies = [...PROXY_STRATEGIES]
+  } else if (!hasDBEdge && anyConnectorAlsoHasDb) {
+    strategies = [...NON_PROXY_STRATEGIES]
+  } else if (!hasDBEdge && !anyConnectorAlsoHasDb) {
+    strategies = [...NON_PROXY_STRATEGIES]
+  } else {
+    return []
   }
-  if (!hasDBEdge && anyConnectorAlsoHasDb) {
-    return [...NON_PROXY_STRATEGIES]
+  if (!allowProxy) {
+    strategies = strategies.filter((s) => !isProxyCacheStrategy(s))
   }
-  if (!hasDBEdge && !anyConnectorAlsoHasDb) {
-    return [...NON_PROXY_STRATEGIES]
-  }
-  return []
+  return strategies
 }
 
 export function defaultCacheStrategyForTopology(
@@ -115,13 +130,14 @@ export function getCacheTopologyEdgeIssues(
 export function applyCacheStrategyNormalizationToNodes(
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
+  options?: CacheStrategyOptions,
 ): Record<string, CanvasNode> {
   const next = { ...nodes }
   let changed = false
   for (const id of Object.keys(next)) {
     const n = next[id]
     if (n?.type !== 'cache') continue
-    const avail = getAvailableCacheStrategies(id, next, edges)
+    const avail = getAvailableCacheStrategies(id, next, edges, options)
     const cur = String(n.config.cacheStrategy ?? CACHE_ASIDE)
     if (avail.length > 0 && !avail.includes(cur)) {
       next[id] = {

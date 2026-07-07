@@ -43,11 +43,12 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
       if (
         normalized.includes('load balancers require') ||
         normalized.includes('message queues and workers') ||
+        normalized.includes('proxy cache strategies require') ||
         normalized.includes('exceed your plan limit')
       ) {
         return {
           title: 'Upgrade required for this topology',
-          body: 'Load balancing, async components (message queue + worker), and multiple app replicas are available on the Engineer plan. Remove those components or upgrade to deploy this design.',
+          body: 'Load balancing, async components (message queue + worker), proxy cache strategies, and multiple app replicas are available on the Engineer plan. Adjust your design or upgrade to deploy.',
           technicalDetails: raw,
           actionLabel: 'Upgrade to Engineer',
         }
