@@ -4,10 +4,11 @@ import {
 } from '../lib/cacheTopologyStrategy'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
-  APP_SERVER_REPLICA_MAX,
   APP_SERVER_REPLICA_MIN,
   clampAppServerReplicas,
 } from '../lib/replicaConfig'
+import { maxAppServerReplicasForUser } from '../lib/userTier'
+import { useAuthStore } from '../product/stores/authStore'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
@@ -440,6 +441,8 @@ function TypeFields({
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
 }) {
+  const userRecord = useAuthStore((s) => s.userRecord)
+  const maxAppReplicas = maxAppServerReplicasForUser(userRecord)
   const c = node.config
 
   switch (node.type) {
@@ -566,7 +569,7 @@ function TypeFields({
       )
 
     case 'compute': {
-      const replicas = clampAppServerReplicas(c.replicas ?? 1)
+      const replicas = clampAppServerReplicas(c.replicas ?? 1, maxAppReplicas)
       return (
         <>
           <div>
@@ -575,14 +578,14 @@ function TypeFields({
             </label>
             <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
               One app-server on the canvas; deploy scales Kubernetes pods (
-              {APP_SERVER_REPLICA_MIN}–{APP_SERVER_REPLICA_MAX}). Click an
+              {APP_SERVER_REPLICA_MIN}–{maxAppReplicas}). Click an
               existing app server on the grid to add another replica slot.
             </p>
             <input
               id="compute-replicas"
               type="number"
               min={APP_SERVER_REPLICA_MIN}
-              max={APP_SERVER_REPLICA_MAX}
+              max={maxAppReplicas}
               step={1}
               className={fieldClass}
               value={replicas}
@@ -590,7 +593,7 @@ function TypeFields({
                 const n = Number(e.target.value)
                 if (!Number.isFinite(n)) return
                 updateConfig({
-                  replicas: clampAppServerReplicas(n),
+                  replicas: clampAppServerReplicas(n, maxAppReplicas),
                 })
               }}
             />

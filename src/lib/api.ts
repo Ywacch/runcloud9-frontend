@@ -73,6 +73,8 @@ export interface TemplateInfo {
   deployable: boolean
   tags: string[]
   preset?: TemplatePreset
+  /** Explorer/free-tier canvas variant (app + cache + db, no LB/MQ/worker). */
+  presetLite?: TemplatePreset
   /** Template-scoped storytelling (journeys, roles, narrative hints) from GET /templates. */
   storytelling?: StorytellingSpec | null
   /** Default load-generator RPS for this template (from GET /templates). */

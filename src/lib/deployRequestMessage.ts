@@ -40,6 +40,18 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
           technicalDetails: raw,
         }
       }
+      if (
+        normalized.includes('load balancers require') ||
+        normalized.includes('message queues and workers') ||
+        normalized.includes('exceed your plan limit')
+      ) {
+        return {
+          title: 'Upgrade required for this topology',
+          body: 'Load balancing, async components (message queue + worker), and multiple app replicas are available on the Engineer plan. Remove those components or upgrade to deploy this design.',
+          technicalDetails: raw,
+          actionLabel: 'Upgrade to Engineer',
+        }
+      }
       if (normalized.includes('you do not own this deployment')) {
         return {
           title: 'Deployment request was not accepted',

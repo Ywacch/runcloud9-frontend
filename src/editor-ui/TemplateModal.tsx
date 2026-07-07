@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { getTemplates, type TemplateInfo as ApiTemplateInfo } from '../lib/api'
+import { selectTemplatePreset } from '../lib/selectTemplatePreset'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../product/stores/authStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
@@ -352,6 +353,7 @@ export function TemplateModal({
   onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
   const isPremiumUser = useAuthStore((s) => s.isPremium)
+  const userRecord = useAuthStore((s) => s.userRecord)
   const [items, setItems] = useState<ModalTemplateItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -368,14 +370,15 @@ export function TemplateModal({
         const next: ModalTemplateItem[] = []
         for (const t of list) {
           const meta = TEMPLATE_META_BY_ID[t.id]
-          if (t.preset) {
+          const preset = selectTemplatePreset(t, userRecord)
+          if (preset) {
             next.push({
               kind: 'preset',
               row: {
                 ...t,
                 icon: meta?.icon ?? LinkIcon,
                 accent: meta?.accent ?? 'var(--c9-text-muted)',
-                snapshot: templatePresetToCanvasSnapshot(t.preset, t.id),
+                snapshot: templatePresetToCanvasSnapshot(preset, t.id),
               },
             })
           } else {
@@ -396,7 +399,7 @@ export function TemplateModal({
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, userRecord])
 
   useEffect(() => {
     if (!open) return
@@ -465,6 +468,12 @@ export function TemplateModal({
               )}
             </div>
           )}
+          {!isPremiumUser && !loading && !error && items.length > 0 ? (
+            <p className="mt-4 text-center text-xs leading-relaxed text-[var(--c9-muted)]">
+              Explorer presets omit load balancers and async fan-out (MQ + worker). Async
+              fan-out and load balancing are available on Engineer.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
