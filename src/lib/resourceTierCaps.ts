@@ -3,7 +3,7 @@ export const DEFAULT_RESOURCE_TIER = 'explorer'
 
 export const TIER_RESOURCE_CAPS: Record<string, { cpu: string; memory: string }> =
   {
-    explorer: { cpu: '500m', memory: '1Gi' },
+    explorer: { cpu: '625m', memory: '1280Mi' },
     engineer: { cpu: '1500m', memory: '3Gi' },
     architect: { cpu: '4', memory: '8Gi' },
   }

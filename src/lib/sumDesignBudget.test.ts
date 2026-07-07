@@ -131,10 +131,13 @@ describe('sumDesignBudget', () => {
     expect(parseMemoryBytes(got.requested.memory)).toBe(1280 * 1024 ** 2)
   })
 
-  it('flags explorer lite url-shortener as over explorer quota', () => {
+  it('explorer lite url-shortener fits raised explorer cap', () => {
     expect(
       designExceedsResourceQuota(urlShortenerLiteDesign(), 'explorer', catalog),
-    ).not.toBeNull()
+    ).toBeNull()
+    const got = sumDesignBudget(urlShortenerLiteDesign(), 'explorer', catalog)
+    expect(got.cap.cpu).toBe('625m')
+    expect(got.cap.memory).toBe('1280Mi')
   })
 
   it('social-feed-pull lite fits explorer cap exactly', () => {

@@ -81,14 +81,6 @@ const PALETTE: { type: CanvasNode['type']; title: string; face: string }[] = [
   { type: 'worker', title: 'Worker', face: 'var(--c9-accent-hover)' },
 ]
 
-const FREE_TIER_LOCKED_TYPES = new Set<CanvasNode['type']>([
-  'load_balancer',
-  'message_queue',
-  'worker',
-])
-
-const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
-
 let emptyDragImage: HTMLCanvasElement | null = null
 
 function getEmptyDragImage(): HTMLCanvasElement {
@@ -598,19 +590,17 @@ export function Sidebar() {
         <ul className="space-y-2">
           {PALETTE.map(({ type, title, face }) => {
             const placing = placingNodeType === type
-            const tierLocked = !isPremiumUser && FREE_TIER_LOCKED_TYPES.has(type)
             return (
               <li key={type}>
                 <button
                   type="button"
-                  draggable={!live && !tierLocked}
-                  disabled={live || tierLocked}
-                  title={tierLocked ? UPGRADE_TOOLTIP : undefined}
-                  onDragStart={live || tierLocked ? undefined : onDragStart(type)}
-                  onClick={() => !live && !tierLocked && togglePlace(type)}
+                  draggable={!live}
+                  disabled={live}
+                  onDragStart={live ? undefined : onDragStart(type)}
+                  onClick={() => !live && togglePlace(type)}
                   className={`flex w-full items-center gap-3 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 px-3 py-2.5 text-left text-sm text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
                     placing ? 'ring-2 ring-[var(--c9-accent)] ring-offset-2 ring-offset-[var(--c9-bg)]' : ''
-                  } ${tierLocked ? 'opacity-50' : ''}`}
+                  }`}
                   style={{ borderLeftWidth: 4, borderLeftColor: face }}
                 >
                   <span

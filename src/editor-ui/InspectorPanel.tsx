@@ -322,10 +322,14 @@ function CacheNodeInspectorFields({
 }) {
   const c = node.config
   const strategy = String(c.cacheStrategy ?? 'cache-aside')
+  const isPremiumUser = useAuthStore((s) => s.isPremium)
 
   const available = useMemo(
-    () => getAvailableCacheStrategies(node.id, nodes, edges),
-    [node.id, nodes, edges],
+    () =>
+      getAvailableCacheStrategies(node.id, nodes, edges, {
+        allowProxyStrategies: isPremiumUser,
+      }),
+    [node.id, nodes, edges, isPremiumUser],
   )
 
   useEffect(() => {

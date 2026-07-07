@@ -1,9 +1,14 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { isProxyCacheStrategy } from './cacheTopologyStrategy'
 import type { TopologyLimits } from './userTier'
 
 export interface TopologyViolation {
-  kind: 'load_balancer' | 'async' | 'replicas'
+  kind: 'load_balancer' | 'async' | 'replicas' | 'proxy_cache'
   message: string
+}
+
+function cacheStrategyForNode(node: CanvasNode): string {
+  return String(node.config.cacheStrategy ?? node.config.strategy ?? 'cache-aside')
 }
 
 /** Client-side preview of deployer.ValidateTierTopology for free-tier guardrails. */
@@ -29,6 +34,16 @@ export function findTopologyViolations(
         message:
           'Message queues and workers require an Engineer subscription — remove async components or upgrade.',
       })
+    }
+    if (node.type === 'cache' && !limits.allowProxyCache) {
+      const strategy = cacheStrategyForNode(node)
+      if (isProxyCacheStrategy(strategy)) {
+        violations.push({
+          kind: 'proxy_cache',
+          message:
+            'Proxy cache strategies require an Engineer subscription — use cache-aside or timeline-store, or upgrade.',
+        })
+      }
     }
     if (node.type === 'compute') {
       const replicas = Math.floor(Number(node.config.replicas ?? 1))
