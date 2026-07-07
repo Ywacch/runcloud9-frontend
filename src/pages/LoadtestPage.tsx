@@ -16,9 +16,12 @@ import {
   deploymentDesignToSnapshot,
 } from '../lib/deployPayload'
 import { persistLiveSession } from '../lib/liveSessionStorage'
+import { selectTemplatePreset } from '../lib/selectTemplatePreset'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
+import { useAuthStore } from '../product/stores/authStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { canvasToBackend } from '../lib/typeMapping'
+import type { UserRecord } from '../lib/userTier'
 
 type LaunchResult = {
   index: number
@@ -28,9 +31,13 @@ type LaunchResult = {
   error?: string
 }
 
-function buildDesignForTemplate(template: TemplateInfo): DeploymentDesign {
-  const snapshot = template.preset
-    ? templatePresetToCanvasSnapshot(template.preset, template.id)
+function buildDesignForTemplate(
+  template: TemplateInfo,
+  userRecord: UserRecord | null,
+): DeploymentDesign {
+  const preset = selectTemplatePreset(template, userRecord)
+  const snapshot = preset
+    ? templatePresetToCanvasSnapshot(preset, template.id)
     : {
         version: '1.0' as const,
         templateId: template.id,
@@ -86,6 +93,7 @@ async function runWithConcurrency(
 }
 
 export default function LoadtestPage() {
+  const userRecord = useAuthStore((s) => s.userRecord)
   const [templates, setTemplates] = useState<TemplateInfo[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [count, setCount] = useState(5)
@@ -180,7 +188,7 @@ export default function LoadtestPage() {
     const safeConcurrency = Math.max(1, Math.min(20, concurrency))
     setLaunching(true)
     setLaunchResults([])
-    const design = buildDesignForTemplate(selectedTemplate)
+    const design = buildDesignForTemplate(selectedTemplate, userRecord)
     await runWithConcurrency(safeCount, safeConcurrency, async (index) => {
       try {
         const result = await createDeployment(design)

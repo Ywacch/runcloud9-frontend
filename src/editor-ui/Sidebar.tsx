@@ -44,6 +44,12 @@ import { useAuthStore } from '../product/stores/authStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
+import { findTopologyViolations } from '../lib/topologyGuard'
+import {
+  resolveEffectiveTier,
+  resourceQuotaTier,
+  topologyLimitsForTier,
+} from '../lib/userTier'
 import {
   DeployModal,
   type DeployModalMode,
@@ -75,6 +81,14 @@ const PALETTE: { type: CanvasNode['type']; title: string; face: string }[] = [
   { type: 'worker', title: 'Worker', face: 'var(--c9-accent-hover)' },
 ]
 
+const FREE_TIER_LOCKED_TYPES = new Set<CanvasNode['type']>([
+  'load_balancer',
+  'message_queue',
+  'worker',
+])
+
+const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
+
 let emptyDragImage: HTMLCanvasElement | null = null
 
 function getEmptyDragImage(): HTMLCanvasElement {
@@ -100,6 +114,8 @@ export function Sidebar() {
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const session = useAuthStore((s) => s.session)
+  const userRecord = useAuthStore((s) => s.userRecord)
+  const isPremiumUser = useAuthStore((s) => s.isPremium)
   const pendingDeployAfterAuth = useAuthStore((s) => s.pendingDeployAfterAuth)
   const setPendingDeployAfterAuth = useAuthStore((s) => s.setPendingDeployAfterAuth)
 
@@ -199,16 +215,25 @@ export function Sidebar() {
   const nodeCount = Object.keys(nodes).length
   const live = mode === 'live'
   const simulate = mode === 'simulate'
+  const effectiveTier = resolveEffectiveTier(userRecord)
+  const quotaTier = resourceQuotaTier(effectiveTier)
+  const topologyLimits = topologyLimitsForTier(effectiveTier)
+
   const quotaPreview = useMemo(() => {
     if (live || simulate || !snapshotTemplateId || nodeCount === 0) return null
     try {
       const design = snapshotToDeploymentDesign(useCanvasStore.getState().exportJSON())
-      const over = designExceedsResourceQuota(design)
+      const over = designExceedsResourceQuota(design, quotaTier)
       return over ? toResourceBudgetErrorResponse(over) : null
     } catch {
       return null
     }
-  }, [live, simulate, snapshotTemplateId, nodeCount, nodes, edges])
+  }, [live, simulate, snapshotTemplateId, nodeCount, nodes, edges, quotaTier])
+
+  const topologyViolations = useMemo(() => {
+    if (live || simulate || isPremiumUser) return []
+    return findTopologyViolations(nodes, topologyLimits)
+  }, [live, simulate, isPremiumUser, nodes, topologyLimits])
   const simRunning = useSimulationStore((s) => s.running)
   const selectedTemplate = snapshotTemplateId
     ? templateInfoById[snapshotTemplateId]
@@ -228,6 +253,8 @@ export function Sidebar() {
       ? `The "${selectedTemplate.name}" template is simulation-only right now.`
       : !session
         ? 'Sign in to deploy infrastructure.'
+        : topologyViolations.length > 0
+          ? topologyViolations[0].message
         : quotaPreview
           ? `Needs ${quotaPreview.requested.cpu} CPU / ${quotaPreview.requested.memory} RAM (plan cap ${quotaPreview.cap.cpu} / ${quotaPreview.cap.memory})`
           : undefined
@@ -571,17 +598,19 @@ export function Sidebar() {
         <ul className="space-y-2">
           {PALETTE.map(({ type, title, face }) => {
             const placing = placingNodeType === type
+            const tierLocked = !isPremiumUser && FREE_TIER_LOCKED_TYPES.has(type)
             return (
               <li key={type}>
                 <button
                   type="button"
-                  draggable={!live}
-                  disabled={live}
-                  onDragStart={live ? undefined : onDragStart(type)}
-                  onClick={() => !live && togglePlace(type)}
+                  draggable={!live && !tierLocked}
+                  disabled={live || tierLocked}
+                  title={tierLocked ? UPGRADE_TOOLTIP : undefined}
+                  onDragStart={live || tierLocked ? undefined : onDragStart(type)}
+                  onClick={() => !live && !tierLocked && togglePlace(type)}
                   className={`flex w-full items-center gap-3 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 px-3 py-2.5 text-left text-sm text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
                     placing ? 'ring-2 ring-[var(--c9-accent)] ring-offset-2 ring-offset-[var(--c9-bg)]' : ''
-                  }`}
+                  } ${tierLocked ? 'opacity-50' : ''}`}
                   style={{ borderLeftWidth: 4, borderLeftColor: face }}
                 >
                   <span
@@ -652,7 +681,8 @@ export function Sidebar() {
                 !snapshotTemplateId ||
                 !selectedTemplate ||
                 !selectedTemplate.deployable ||
-                Boolean(quotaPreview)
+                Boolean(quotaPreview) ||
+                topologyViolations.length > 0
               }
               title={deployDisabledReason}
               onClick={() => handleDeploy()}
@@ -660,9 +690,14 @@ export function Sidebar() {
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>
+            {topologyViolations.length > 0 ? (
+              <p className="text-[11px] leading-snug text-amber-300/90">
+                {topologyViolations[0].message}
+              </p>
+            ) : null}
             {quotaPreview ? (
               <p className="text-[11px] leading-snug text-amber-300/90">
-                This design exceeds the explorer quota ({quotaPreview.requested.cpu} /{' '}
+                This design exceeds the {quotaPreview.tier} quota ({quotaPreview.requested.cpu} /{' '}
                 {quotaPreview.requested.memory} vs cap {quotaPreview.cap.cpu} /{' '}
                 {quotaPreview.cap.memory}). Downsize nodes or replicas to deploy.
               </p>
@@ -699,9 +734,13 @@ export function Sidebar() {
         requestActionLabel={deployRequestMessage?.actionLabel}
         resourceBudget={deployResourceBudget}
         onRequestAction={
-          deployRequestMessage?.actionLabel
+          deployRequestMessage?.actionLabel === 'Sign in'
             ? () => navigate('/login')
-            : undefined
+            : deployRequestMessage?.actionLabel === 'Upgrade to Engineer'
+              ? () => navigate('/')
+              : deployRequestMessage?.actionLabel
+                ? () => navigate('/login')
+                : undefined
         }
         onAuthDismiss={dismissAuthModal}
         simulationRecommended={deploySimulationMessage}

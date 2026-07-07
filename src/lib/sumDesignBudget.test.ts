@@ -69,18 +69,90 @@ function urlShortenerScaledLargeDesign(): DeploymentDesign {
   }
 }
 
+function urlShortenerLiteDesign(): DeploymentDesign {
+  return {
+    version: '1.0',
+    template: 'url-shortener',
+    archetype: 'url-shortener',
+    nodes: [
+      {
+        id: 'app-1',
+        type: 'app-server',
+        name: 'App Server',
+        config: { replicas: 1, instanceSize: 'small' },
+      },
+      {
+        id: 'cache-1',
+        type: 'cache',
+        name: 'Redis',
+        config: { strategy: 'cache-aside' },
+      },
+      { id: 'db-1', type: 'db', name: 'PostgreSQL', config: {} },
+    ],
+    connections: [],
+  }
+}
+
+function socialFeedPullLiteDesign(): DeploymentDesign {
+  return {
+    version: '1.0',
+    template: 'social-feed-pull',
+    archetype: 'standard',
+    nodes: [
+      {
+        id: 'app-1',
+        type: 'app-server',
+        name: 'App Server',
+        config: { replicas: 1, instanceSize: 'small' },
+      },
+      { id: 'db-1', type: 'db', name: 'PostgreSQL', config: {} },
+    ],
+    connections: [],
+  }
+}
+
 describe('sumDesignBudget', () => {
-  it('matches url-shortener default totals (875m / 1408Mi)', () => {
+  it('matches url-shortener engineer preset totals (875m / 1408Mi)', () => {
     const got = sumDesignBudget(urlShortenerDefaultDesign(), 'explorer', catalog)
     expect(parseCpuMilli(got.requested.cpu)).toBe(875)
     expect(parseMemoryBytes(got.requested.memory)).toBe(1408 * 1024 ** 2)
     expect(got.breakdown.some((row) => row.label === 'loadgen')).toBe(true)
   })
 
-  it('flags default url-shortener as over explorer quota', () => {
+  it('flags engineer url-shortener preset as over explorer quota', () => {
     expect(
       designExceedsResourceQuota(urlShortenerDefaultDesign(), 'explorer', catalog),
     ).not.toBeNull()
+  })
+
+  it('matches explorer lite url-shortener totals (625m / 1280Mi)', () => {
+    const got = sumDesignBudget(urlShortenerLiteDesign(), 'explorer', catalog)
+    expect(parseCpuMilli(got.requested.cpu)).toBe(625)
+    expect(parseMemoryBytes(got.requested.memory)).toBe(1280 * 1024 ** 2)
+  })
+
+  it('flags explorer lite url-shortener as over explorer quota', () => {
+    expect(
+      designExceedsResourceQuota(urlShortenerLiteDesign(), 'explorer', catalog),
+    ).not.toBeNull()
+  })
+
+  it('social-feed-pull lite fits explorer cap exactly', () => {
+    expect(
+      designExceedsResourceQuota(socialFeedPullLiteDesign(), 'explorer', catalog),
+    ).toBeNull()
+    const got = sumDesignBudget(socialFeedPullLiteDesign(), 'explorer', catalog)
+    expect(parseCpuMilli(got.requested.cpu)).toBe(500)
+    expect(parseMemoryBytes(got.requested.memory)).toBe(1024 * 1024 ** 2)
+  })
+
+  it('uses engineer caps when tier is engineer', () => {
+    const got = sumDesignBudget(urlShortenerLiteDesign(), 'engineer', catalog)
+    expect(got.cap.cpu).toBe('1500m')
+    expect(got.cap.memory).toBe('3Gi')
+    expect(
+      designExceedsResourceQuota(urlShortenerLiteDesign(), 'engineer', catalog),
+    ).toBeNull()
   })
 
   it('passes scaled large design on architect tier', () => {

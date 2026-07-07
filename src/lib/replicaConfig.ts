@@ -2,13 +2,14 @@
 export const APP_SERVER_REPLICA_MIN = 1
 export const APP_SERVER_REPLICA_MAX = 3
 
-export function clampAppServerReplicas(raw: unknown): number {
+export function clampAppServerReplicas(
+  raw: unknown,
+  max: number = APP_SERVER_REPLICA_MAX,
+): number {
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n)) return APP_SERVER_REPLICA_MIN
-  return Math.min(
-    APP_SERVER_REPLICA_MAX,
-    Math.max(APP_SERVER_REPLICA_MIN, Math.floor(n)),
-  )
+  const ceiling = Math.max(APP_SERVER_REPLICA_MIN, Math.floor(max))
+  return Math.min(ceiling, Math.max(APP_SERVER_REPLICA_MIN, Math.floor(n)))
 }
 
 /** Map canvas LB config to API canonical `lbAlgorithm`. */

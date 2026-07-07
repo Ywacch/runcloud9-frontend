@@ -1,4 +1,4 @@
-import { ApiError } from './api'
+import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
 
@@ -38,6 +38,18 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
           title: 'Deployment request was not accepted',
           body: 'This template requires RunCloud9 Premium.',
           technicalDetails: raw,
+        }
+      }
+      if (
+        normalized.includes('load balancers require') ||
+        normalized.includes('message queues and workers') ||
+        normalized.includes('exceed your plan limit')
+      ) {
+        return {
+          title: 'Upgrade required for this topology',
+          body: 'Load balancing, async components (message queue + worker), and multiple app replicas are available on the Engineer plan. Remove those components or upgrade to deploy this design.',
+          technicalDetails: raw,
+          actionLabel: 'Upgrade to Engineer',
         }
       }
       if (normalized.includes('you do not own this deployment')) {
