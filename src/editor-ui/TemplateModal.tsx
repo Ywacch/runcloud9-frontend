@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { getTemplates, type TemplateInfo as ApiTemplateInfo } from '../lib/api'
 import { selectTemplatePreset } from '../lib/selectTemplatePreset'
+import { templateDisplayCopy } from '../lib/templateDisplayCopy'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../product/stores/authStore'
+import type { UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
 
@@ -178,15 +180,18 @@ function MiniTopologyPreview({
 
 function TemplatePickerCard({
   row,
+  userRecord,
   isPremiumUser,
   onSelect,
 }: {
   row: PresetTemplateRow
+  userRecord: UserRecord | null
   isPremiumUser: boolean
   onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
   const premiumLocked = row.premium && !isPremiumUser
   const snapshot = row.snapshot
+  const display = templateDisplayCopy(row, userRecord)
 
   return (
     <div
@@ -234,9 +239,9 @@ function TemplatePickerCard({
             )}
           </div>
         </div>
-        <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{row.description}</p>
+        <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{display.description}</p>
         <p className="mt-2 text-[10px] text-gray-500">
-          {row.components} components · {row.bottleneck}
+          {display.components} components · {display.bottleneck}
         </p>
 
         <div className="mt-4 space-y-2">
@@ -276,12 +281,15 @@ function TemplatePickerCard({
 
 function RemoteTemplateCard({
   row,
+  userRecord,
   isPremiumUser,
 }: {
   row: ApiTemplateInfo
+  userRecord: UserRecord | null
   isPremiumUser: boolean
 }) {
   const premiumLocked = row.premium && !isPremiumUser
+  const display = templateDisplayCopy(row, userRecord)
   const remotePresetTitle = 'Canvas preset not available for this template yet'
 
   return (
@@ -320,9 +328,9 @@ function RemoteTemplateCard({
             )}
           </div>
         </div>
-        <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{row.description}</p>
+        <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{display.description}</p>
         <p className="mt-2 text-[10px] text-gray-500">
-          {row.components} components · {row.bottleneck}
+          {display.components} components · {display.bottleneck}
         </p>
 
         <div className="mt-4">
@@ -453,6 +461,7 @@ export function TemplateModal({
                   <TemplatePickerCard
                     key={item.row.id}
                     row={item.row}
+                    userRecord={userRecord}
                     isPremiumUser={isPremiumUser}
                     onSelect={(action) => {
                       if (onSelect(action) !== false) onClose()
@@ -462,6 +471,7 @@ export function TemplateModal({
                   <RemoteTemplateCard
                     key={item.row.id}
                     row={item.row}
+                    userRecord={userRecord}
                     isPremiumUser={isPremiumUser}
                   />
                 ),

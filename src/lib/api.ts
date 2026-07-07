@@ -67,6 +67,10 @@ export interface TemplateInfo {
   description: string
   components: number
   bottleneck: string
+  /** Explorer/free-tier modal copy when presetLite differs from full preset. */
+  descriptionLite?: string
+  componentsLite?: number
+  bottleneckLite?: string
   available: boolean
   premium: boolean
   simulatable: boolean
