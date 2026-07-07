@@ -1,4 +1,4 @@
-import { ApiError } from './api'
+import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
 
