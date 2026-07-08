@@ -397,3 +397,14 @@ export function formatResourceLabels(
       }${resourceFreshnessSuffix(m.memSource)}`
   return { cpu, mem }
 }
+
+/** Compact memory label for the canvas node tooltip (percent only when live). */
+export function tooltipMemoryDisplay(
+  m: MetricsBucket,
+  memPercent: number,
+  memLabel: string,
+  warmingUp = false,
+): string {
+  if (m.memIsEstimated || warmingUp || m.memoryLimit <= 0) return memLabel
+  return fmtPct(memPercent)
+}
