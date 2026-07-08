@@ -4,6 +4,7 @@ import { clampPercent } from './format'
 import {
   formatDbClusterResourceLabels,
   formatResourceLabels,
+  tooltipMemoryDisplay,
 } from '../editor-ui/inspectorPanelUi'
 
 function bucket(partial: Partial<MetricsBucket> = {}): MetricsBucket {
@@ -87,6 +88,19 @@ describe('tooltip resource labels', () => {
     expect(labels.cpu).toBe('8%')
     expect(labels.mem).toContain('47%')
     expect(labels.mem).not.toContain('~15–60s')
+  })
+
+  it('shows percent-only memory in canvas tooltip when live', () => {
+    const memPct = clampPercent(bucket().memPercent)
+    const labels = formatResourceLabels(bucket(), 8, memPct)
+    expect(tooltipMemoryDisplay(bucket(), memPct, labels.mem)).toBe('47%')
+    expect(labels.mem).toContain('MB')
+  })
+
+  it('keeps full memory label in tooltip when estimated', () => {
+    const b = bucket({ memIsEstimated: true })
+    const labels = formatResourceLabels(b, 0, 0)
+    expect(tooltipMemoryDisplay(b, 0, labels.mem)).toBe('Limit 256 MB')
   })
 
   it('uses warmup copy for database tier C during warmup', () => {
