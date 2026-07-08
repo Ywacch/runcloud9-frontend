@@ -64,10 +64,9 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
 }
 
 describe('resourceFreshnessSuffix', () => {
-  it('appends freshness note only for metrics_api', () => {
-    expect(resourceFreshnessSuffix('metrics_api')).toBe(' · ~15–60s')
+  it('does not append inline freshness text (shown on help hover instead)', () => {
+    expect(resourceFreshnessSuffix('metrics_api')).toBe('')
     expect(resourceFreshnessSuffix('cadvisor')).toBe('')
-    expect(resourceFreshnessSuffix(undefined)).toBe('')
   })
 })
 
@@ -82,14 +81,15 @@ describe('formatResourceLabels', () => {
     expect(labels.mem).toBe('Limit 256 MB')
   })
 
-  it('shows metrics_api freshness suffix on real utilization', () => {
+  it('shows utilization without inline freshness suffix', () => {
     const labels = formatResourceLabels(
       bucket({ cpuSource: 'metrics_api', memSource: 'metrics_api' }),
       42,
       77,
     )
-    expect(labels.cpu).toBe('42% · ~15–60s')
-    expect(labels.mem).toContain('77% · ~15–60s')
+    expect(labels.cpu).toBe('42%')
+    expect(labels.mem).toContain('77%')
+    expect(labels.mem).not.toContain('~15–60s')
   })
 
   it('shows cadvisor utilization without freshness suffix', () => {

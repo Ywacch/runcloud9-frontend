@@ -5,6 +5,7 @@ import {
   cacheHeadlines,
   cacheHitRateDisplay,
   dbQueryHeadline,
+  podCpuPercent,
   redHeadlines,
   replicaListRows,
 } from './metricTimeframe'
@@ -99,6 +100,12 @@ describe('dbQueryHeadline', () => {
   })
 })
 
+describe('podCpuPercent', () => {
+  it('computes percent from cores used and limit', () => {
+    expect(podCpuPercent(0.1, 0.125)).toBe(80)
+  })
+})
+
 describe('replicaListRows', () => {
   it('formats session totals with share percent', () => {
     const rows = replicaListRows(
@@ -109,7 +116,7 @@ describe('replicaListRows', () => {
           requestRate: 50,
           p99LatencyMs: 40,
           totalRequests: 7500,
-          cpuUsage: 0.2,
+          cpuUsage: 0.1,
           errorRate: 0,
           memoryBytes: 0,
         },
@@ -119,14 +126,36 @@ describe('replicaListRows', () => {
           requestRate: 50,
           p99LatencyMs: 42,
           totalRequests: 2500,
-          cpuUsage: 0.1,
+          cpuUsage: 0.05,
           errorRate: 0,
           memoryBytes: 0,
         },
       ],
       'session',
+      { cpuLimitCores: 0.125 },
     )
     expect(rows[0]?.primaryText).toContain('7,500')
     expect(rows[0]?.primaryText).toContain('75%')
+    expect(rows[0]?.cpuPct).toBe(80)
+  })
+
+  it('uses cpu limit for live replica CPU display', () => {
+    const rows = replicaListRows(
+      [
+        {
+          name: 'app-server-abc',
+          ready: true,
+          requestRate: 77,
+          p99LatencyMs: 2500,
+          totalRequests: 0,
+          cpuUsage: 0.1025,
+          errorRate: 0,
+          memoryBytes: 0,
+        },
+      ],
+      'live',
+      { cpuLimitCores: 0.125 },
+    )
+    expect(rows[0]?.cpuPct).toBe(82)
   })
 })

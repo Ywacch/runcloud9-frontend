@@ -84,8 +84,9 @@ describe('tooltip resource labels', () => {
     const cpuPct = clampPercent(bucket().cpuPercent)
     const memPct = clampPercent(bucket().memPercent)
     const labels = formatResourceLabels(bucket(), cpuPct, memPct)
-    expect(labels.cpu).toBe('8% · ~15–60s')
-    expect(labels.mem).toContain('47% · ~15–60s')
+    expect(labels.cpu).toBe('8%')
+    expect(labels.mem).toContain('47%')
+    expect(labels.mem).not.toContain('~15–60s')
   })
 
   it('uses warmup copy for database tier C during warmup', () => {

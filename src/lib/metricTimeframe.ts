@@ -108,6 +108,15 @@ export function replicaSharePct(podTotal: number, sumTotals: number): number | n
   return (podTotal / sumTotals) * 100
 }
 
+/** CPU % for a pod row — cpuUsage is cores in use (metrics-ui-contract). */
+export function podCpuPercent(cpuUsage: number, cpuLimitCores: number): number | undefined {
+  if (!(cpuUsage > 0)) return undefined
+  if (cpuLimitCores > 0) {
+    return Math.min(100, (cpuUsage / cpuLimitCores) * 100)
+  }
+  return Math.min(100, cpuUsage * 100)
+}
+
 /** Build per-pod list rows for compute replicas or LB backend pods. */
 export function replicaListRows(
   pods: PodReplicaMetrics[],
@@ -116,13 +125,17 @@ export function replicaListRows(
     clusterRps?: number
     maxRate?: number
     skewed?: boolean
+    /** Parent component CPU limit (cores) for per-pod CPU %. */
+    cpuLimitCores?: number
   } = {},
 ): ReplicaListRow[] {
   const sumTotals = pods.reduce((s, p) => s + (p.totalRequests ?? 0), 0)
   const maxRate = options.maxRate ?? Math.max(0, ...pods.map((p) => p.requestRate))
+  const cpuLimit = options.cpuLimitCores ?? 0
 
   return pods.map((pod) => {
     const p99Ms = pod.p99LatencyMs
+    const cpuPct = podCpuPercent(pod.cpuUsage, cpuLimit)
     if (timeframe === 'session') {
       const total = pod.totalRequests ?? 0
       const pct = replicaSharePct(total, sumTotals)
@@ -134,7 +147,7 @@ export function replicaListRows(
         name: pod.name,
         primaryText,
         p99Ms,
-        cpuPct: pod.cpuUsage > 0 ? Math.min(100, pod.cpuUsage * 100) : undefined,
+        cpuPct,
         warn: options.skewed && total < sumTotals * 0.15,
         hot: options.skewed && pct != null && pct >= 45,
       }
@@ -146,7 +159,7 @@ export function replicaListRows(
       name: pod.name,
       primaryText: `${Math.round(rps)} rps`,
       p99Ms,
-      cpuPct: pod.cpuUsage > 0 ? Math.min(100, pod.cpuUsage * 100) : undefined,
+      cpuPct,
       warn: options.skewed && rps < maxRate * 0.5,
       hot: options.skewed && rps >= maxRate * 0.9 && clusterRps > 0 && rps < clusterRps * 0.1,
     }

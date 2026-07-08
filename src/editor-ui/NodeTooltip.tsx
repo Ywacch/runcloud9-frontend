@@ -10,6 +10,7 @@ import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistry
 import {
   formatDbClusterResourceLabels,
   formatResourceLabels,
+  resourceUsageHelp,
 } from './inspectorPanelUi'
 
 interface NodeTooltipProps {
@@ -47,6 +48,7 @@ export function NodeTooltip({
       ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
       : formatResourceLabels(metrics, cpuPct, memPct)
     : { cpu: '-', mem: '-' }
+  const resourceHelp = metrics ? resourceUsageHelp(metrics) : undefined
   const rpsClass =
     health === 'warning'
       ? 'text-amber-300'
@@ -68,7 +70,7 @@ export function NodeTooltip({
       </p>
       <div className="mt-1 border-t border-white/10 pt-1.5">
         <div className="grid grid-cols-3 gap-2">
-          <div>
+          <div title={resourceHelp}>
             <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
             <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
               {labels.cpu}
@@ -80,7 +82,7 @@ export function NodeTooltip({
               />
             </div>
           </div>
-          <div>
+          <div title={resourceHelp}>
             <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
             <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
               {labels.mem}

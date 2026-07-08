@@ -13,6 +13,7 @@ import {
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import { SparkLine } from './SparkLine'
 import { MetricChart } from './MetricChart'
+import { InspectorDisclosure } from './InspectorDisclosure'
 import { MetricHelpIcon } from './MetricHelpIcon'
 
 export type MetricsTimeframe = 'live' | 'session'
@@ -121,19 +122,17 @@ export function PedagogicalHint({
         ? 'text-gray-500'
         : 'text-violet-300/90'
   return (
-    <p className={`text-[10px] leading-relaxed ${toneClass}`}>
-      <span className="mr-1">↳ 💡</span>
-      {children}
-    </p>
+    <InspectorDisclosure title="Tip" defaultOpen={false}>
+      <p className={`text-[10px] leading-relaxed ${toneClass}`}>{children}</p>
+    </InspectorDisclosure>
   )
 }
 
 export function PedagogicalCaption({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[10px] leading-snug text-gray-500">
-      <span className="mr-1">↳ 💬</span>
-      {children}
-    </p>
+    <InspectorDisclosure title="Note" defaultOpen={false}>
+      <p className="text-[10px] leading-snug text-gray-500">{children}</p>
+    </InspectorDisclosure>
   )
 }
 
@@ -310,8 +309,8 @@ export function podDistributionSkew(
   return { skewed: max - min > threshold, max, min }
 }
 
-export function resourceFreshnessSuffix(source: ResourceUsageSource | undefined): string {
-  return source === 'metrics_api' ? ' · ~15–60s' : ''
+export function resourceFreshnessSuffix(_source: ResourceUsageSource | undefined): string {
+  return ''
 }
 
 export function resourceUsageHelp(m: MetricsBucket): string | undefined {

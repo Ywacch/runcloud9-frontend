@@ -98,7 +98,7 @@ describe('formatDbClusterResourceLabels', () => {
 
   it('falls back to normal labels after warmup', () => {
     const labels = formatDbClusterResourceLabels(bucket({}), 42, 77, false)
-    expect(labels.cpu).toBe('42% · ~15–60s')
+    expect(labels.cpu).toBe('42%')
   })
 
   it('estimated fallback takes precedence over warmup', () => {
