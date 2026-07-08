@@ -9,7 +9,7 @@ import {
   storageScopeLine,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
-import { dbQueryHeadline } from '../lib/metricTimeframe'
+import { dbQueryHeadline, storageIoThroughputFields } from '../lib/metricTimeframe'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import {
@@ -23,6 +23,7 @@ import {
   dbClusterResourceHelp,
   formatDbClusterResourceLabels,
   formatResourceLabels,
+  memoryUsageHelp,
   resourceUsageHelp,
   shouldShowDbClusterUtilizationCharts,
   type PanelViewState,
@@ -359,7 +360,15 @@ export function CacheEngineSection({
   )
   const cpuSeries = history.map((h) => h.cpuPercent)
   const resourceHelp = resourceUsageHelp(m)
+  const memHelp = memoryUsageHelp(m, memPct)
   const cpuLabel = formatResourceLabels(m, cpuPercent, memPct).cpu
+  const ioTiles = storageIoThroughputFields(
+    m,
+    view.timeframe,
+    readLabel,
+    writeLabel,
+    fmtRate,
+  )
 
   return (
     <PedagogicalSection
@@ -372,6 +381,7 @@ export function CacheEngineSection({
             <StatBlock
               label="Memory utilization"
               value={`${fmtBytes(m.memoryBytes)}${m.memoryLimit > 0 ? ` · ${memPct.toFixed(1)}%` : ''}`}
+              help={memHelp}
               graph={
                 <MetricSeriesGraph
                   data={memSeries}
@@ -402,8 +412,8 @@ export function CacheEngineSection({
         }
         right={
           <div className="space-y-2">
-            <StatBlock label={readLabel} value={`${fmtRate(io.readRate)}/s`} />
-            <StatBlock label={writeLabel} value={`${fmtRate(io.writeRate)}/s`} />
+            <StatBlock label={ioTiles.readLabel} value={ioTiles.readValue} />
+            <StatBlock label={ioTiles.writeLabel} value={ioTiles.writeValue} />
           </div>
         }
       />

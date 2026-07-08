@@ -25,6 +25,7 @@ import { shouldShowKeyspaceDriftHint } from '../lib/storageIoDisplay'
 import {
   cacheHeadlines,
   cacheHitRateDisplay,
+  feedPushHeadline,
   redHeadlines,
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
@@ -46,6 +47,7 @@ import {
   StatBlock,
   StatRow,
   formatResourceLabels,
+  memoryUsageHelp,
   resourceUsageHelp,
   podDistributionSkew,
   type PanelViewState,
@@ -116,6 +118,7 @@ export function LiveMetricsTypeSection({
   const chartPlaybackDelay = mode === 'live' && isMetricsPlaybackEnabled()
   const resourceLabels = formatResourceLabels(m, cpuPercent, memPercent)
   const resourceHelp = resourceUsageHelp(m)
+  const memHelp = memoryUsageHelp(m, memPercent)
 
   switch (nodeType) {
     case 'compute': {
@@ -130,12 +133,14 @@ export function LiveMetricsTypeSection({
           ? buildReplicaListRows(m.podReplicas, view.timeframe, {
               clusterRps: requestRate,
               cpuLimitCores: m.cpuLimit,
+              memoryLimitBytes: m.memoryLimit,
             })
           : replicaRows.map((r) => ({
               name: truncatePodName(r.podName || r.label, 22),
               primaryText: `${Math.round(r.qps)} rps`,
               p99Ms: r.latencyMs,
               cpuPct: r.cpuPercent,
+              memPct: r.memPercent > 0 ? r.memPercent : undefined,
               warn: r.latencyMs > 500 || r.qps < requestRate * 0.1,
               hot: r.latencyMs > 1000,
             }))
@@ -228,7 +233,7 @@ export function LiveMetricsTypeSection({
                 <StatBlock
                   label="Memory usage"
                   value={resourceLabels.mem}
-                  help={resourceHelp}
+                  help={memHelp}
                   graph={
                     <MetricSeriesGraph
                       data={memSeries}
@@ -280,6 +285,8 @@ export function LiveMetricsTypeSection({
       if (timelineMode) {
         const showLegacyRedisOps =
           !preferStorageIo && (m.redisOpsPerSec ?? 0) > 0
+        const feedHead = feedPushHeadline(m, view.timeframe, tmFeedPushRate, fmtRate)
+        const cacheRed = redHeadlines(m, view.timeframe, fmtErrorRate)
 
         return (
           <div className="space-y-5">
@@ -290,19 +297,23 @@ export function LiveMetricsTypeSection({
               <StatRow
                 left={
                   <StatBlock
-                    label="Feed reads (push)"
-                    value={
-                      Number.isFinite(tmFeedPushRate)
-                        ? `${fmtRate(tmFeedPushRate)}/s`
-                        : '—'
-                    }
-                    help={cacheRateHelp}
+                    label={feedHead.label}
+                    value={feedHead.display}
+                    help={view.timeframe === 'live' ? cacheRateHelp : undefined}
                   />
                 }
                 right={
                   <StatBlock
-                    label="Request rate"
-                    value={`${fmtRate(requestRate)}/s`}
+                    label={
+                      view.timeframe === 'session'
+                        ? cacheRed.throughputLabel
+                        : 'Request rate'
+                    }
+                    value={
+                      view.timeframe === 'session'
+                        ? cacheRed.throughputDisplay
+                        : `${fmtRate(requestRate)}/s`
+                    }
                   />
                 }
               />
@@ -512,6 +523,7 @@ export function LiveMetricsTypeSection({
               maxRate,
               skewed: skew.skewed,
               cpuLimitCores: m.cpuLimit,
+              memoryLimitBytes: m.memoryLimit,
             })
           : perBe.map(([name, rps]) => ({
               name: truncatePodName(name),
@@ -817,7 +829,11 @@ export function LiveMetricsTypeSection({
                 />
               }
               right={
-                <StatBlock label="Memory usage" value={resourceLabels.mem} />
+                <StatBlock
+                  label="Memory usage"
+                  value={resourceLabels.mem}
+                  help={memHelp}
+                />
               }
             />
             <div className="space-y-1">

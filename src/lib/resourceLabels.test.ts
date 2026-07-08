@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   formatResourceLabels,
+  memoryUsageHelp,
   resourceFreshnessSuffix,
   resourceUsageHelp,
 } from '../editor-ui/inspectorPanelUi'
@@ -101,6 +102,16 @@ describe('formatResourceLabels', () => {
     expect(labels.cpu).toBe('42%')
     expect(labels.mem).toContain('77%')
     expect(labels.mem).not.toContain('~15–60s')
+  })
+})
+
+describe('memoryUsageHelp', () => {
+  it('returns utilization percent only', () => {
+    expect(memoryUsageHelp(bucket({ memSource: 'metrics_api' }), 77)).toBe('77%')
+  })
+
+  it('returns alloc help when estimated', () => {
+    expect(memoryUsageHelp(bucket({ memIsEstimated: true }), 0)).toMatch(/Static memory/)
   })
 })
 

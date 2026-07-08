@@ -41,6 +41,9 @@ export interface BackendReplicaStatus {
 export interface StorageIoMetrics {
   readRate: number
   writeRate: number
+  /** Prometheus increase(...[9m]) — optional until backend ships. */
+  readTotal9m?: number
+  writeTotal9m?: number
   unit: string
   readLabel?: string
   writeLabel?: string
@@ -71,6 +74,8 @@ export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
   return {
     readRate: num(r.readRate),
     writeRate: num(r.writeRate),
+    readTotal9m: num(r.readTotal9m) || undefined,
+    writeTotal9m: num(r.writeTotal9m) || undefined,
     unit: typeof r.unit === 'string' ? r.unit.trim() : '',
     readLabel: str(r.readLabel),
     writeLabel: str(r.writeLabel),

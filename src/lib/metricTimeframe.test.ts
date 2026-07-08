@@ -5,9 +5,12 @@ import {
   cacheHeadlines,
   cacheHitRateDisplay,
   dbQueryHeadline,
+  feedPushHeadline,
   podCpuPercent,
+  podMemPercent,
   redHeadlines,
   replicaListRows,
+  storageIoThroughputFields,
 } from './metricTimeframe'
 
 function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
@@ -100,9 +103,59 @@ describe('dbQueryHeadline', () => {
   })
 })
 
+describe('feedPushHeadline', () => {
+  it('shows cache query total in session mode', () => {
+    const h = feedPushHeadline(bucket({}), 'session', 99, (n) => String(n))
+    expect(h.label).toBe('Cache queries (9m)')
+    expect(h.display).toBe('4,421')
+  })
+
+  it('shows live push rate when available', () => {
+    const h = feedPushHeadline(bucket({}), 'live', 12.5, (n) => String(n))
+    expect(h.label).toBe('Feed reads (push)')
+    expect(h.display).toBe('12.5/s')
+  })
+})
+
+describe('storageIoThroughputFields', () => {
+  it('uses session totals when present on storageIo', () => {
+    const fields = storageIoThroughputFields(
+      bucket({
+        storageIo: {
+          readRate: 11,
+          writeRate: 11634,
+          readTotal9m: 5940,
+          writeTotal9m: 6_282_360,
+          unit: 'ops/s',
+          readLabel: 'ZREVRANGE commands/s',
+          writeLabel: 'ZADD/ZREMRANGE commands/s',
+          readLatency: 0,
+          writeLatency: 0,
+          bytesUsed: 0,
+          bytesLimit: 0,
+          errorRate: 0,
+          source: 'redis_exporter',
+        },
+      }),
+      'session',
+      'ZREVRANGE commands/s',
+      'ZADD/ZREMRANGE commands/s',
+      (n) => String(n),
+    )
+    expect(fields.readValue).toBe('5,940')
+    expect(fields.writeValue).toBe('6,282,360')
+  })
+})
+
 describe('podCpuPercent', () => {
   it('computes percent from cores used and limit', () => {
     expect(podCpuPercent(0.1, 0.125)).toBe(80)
+  })
+})
+
+describe('podMemPercent', () => {
+  it('computes percent from bytes used and limit', () => {
+    expect(podMemPercent(134_217_728, 268_435_456)).toBe(50)
   })
 })
 
@@ -150,12 +203,13 @@ describe('replicaListRows', () => {
           totalRequests: 0,
           cpuUsage: 0.1025,
           errorRate: 0,
-          memoryBytes: 0,
+          memoryBytes: 134_217_728,
         },
       ],
       'live',
-      { cpuLimitCores: 0.125 },
+      { cpuLimitCores: 0.125, memoryLimitBytes: 268_435_456 },
     )
     expect(rows[0]?.cpuPct).toBe(82)
+    expect(rows[0]?.memPct).toBe(50)
   })
 })

@@ -32,8 +32,21 @@ export interface ReplicaListRow {
   primaryText: string
   p99Ms: number
   cpuPct?: number
+  memPct?: number
   warn?: boolean
   hot?: boolean
+}
+
+export interface FeedPushHeadlineFields {
+  label: string
+  display: string
+}
+
+export interface StorageIoTileFields {
+  readLabel: string
+  readValue: string
+  writeLabel: string
+  writeValue: string
 }
 
 export function redHeadlines(
@@ -103,6 +116,66 @@ export function dbQueryHeadline(
   }
 }
 
+/** App-level cache query totals for timeline / push feed inspector (session). */
+export function cacheQueryTotal9m(m: MetricsBucket): number {
+  return m.cacheHitsLast9m + m.cacheMissesLast9m
+}
+
+export function feedPushHeadline(
+  m: MetricsBucket,
+  timeframe: MetricsTimeframe,
+  livePushRate: number,
+  formatRate: (n: number) => string,
+): FeedPushHeadlineFields {
+  if (timeframe === 'session') {
+    return {
+      label: 'Cache queries (9m)',
+      display: fmtInt(cacheQueryTotal9m(m)),
+    }
+  }
+  if (Number.isFinite(livePushRate) && livePushRate > 0) {
+    return {
+      label: 'Feed reads (push)',
+      display: `${formatRate(livePushRate)}/s`,
+    }
+  }
+  const liveQueries = m.cacheHits + m.cacheMisses
+  return {
+    label: 'Feed reads (push)',
+    display: liveQueries > 0 ? `${formatRate(liveQueries)}/s` : '—',
+  }
+}
+
+/** Redis / storageIo command tiles — session totals when available on the wire. */
+export function storageIoThroughputFields(
+  m: MetricsBucket,
+  timeframe: MetricsTimeframe,
+  readLabel: string,
+  writeLabel: string,
+  formatRate: (n: number) => string,
+): StorageIoTileFields {
+  const io = m.storageIo
+  if (!io) {
+    return { readLabel, readValue: '—', writeLabel, writeValue: '—' }
+  }
+  if (timeframe === 'session') {
+    const readTotal = io.readTotal9m ?? cacheQueryTotal9m(m)
+    const writeTotal = io.writeTotal9m
+    return {
+      readLabel: `${readLabel} (9m total)`,
+      readValue: fmtInt(readTotal),
+      writeLabel: `${writeLabel} (9m total)`,
+      writeValue: writeTotal != null && writeTotal > 0 ? fmtInt(writeTotal) : '—',
+    }
+  }
+  return {
+    readLabel,
+    readValue: `${formatRate(io.readRate)}/s`,
+    writeLabel,
+    writeValue: `${formatRate(io.writeRate)}/s`,
+  }
+}
+
 export function replicaSharePct(podTotal: number, sumTotals: number): number | null {
   if (sumTotals <= 0 || podTotal <= 0) return null
   return (podTotal / sumTotals) * 100
@@ -117,6 +190,14 @@ export function podCpuPercent(cpuUsage: number, cpuLimitCores: number): number |
   return Math.min(100, cpuUsage * 100)
 }
 
+export function podMemPercent(
+  memoryBytes: number,
+  memoryLimitBytes: number,
+): number | undefined {
+  if (!(memoryBytes > 0) || !(memoryLimitBytes > 0)) return undefined
+  return Math.min(100, (memoryBytes / memoryLimitBytes) * 100)
+}
+
 /** Build per-pod list rows for compute replicas or LB backend pods. */
 export function replicaListRows(
   pods: PodReplicaMetrics[],
@@ -127,15 +208,19 @@ export function replicaListRows(
     skewed?: boolean
     /** Parent component CPU limit (cores) for per-pod CPU %. */
     cpuLimitCores?: number
+    /** Parent component memory limit (bytes) for per-pod memory %. */
+    memoryLimitBytes?: number
   } = {},
 ): ReplicaListRow[] {
   const sumTotals = pods.reduce((s, p) => s + (p.totalRequests ?? 0), 0)
   const maxRate = options.maxRate ?? Math.max(0, ...pods.map((p) => p.requestRate))
   const cpuLimit = options.cpuLimitCores ?? 0
+  const memLimit = options.memoryLimitBytes ?? 0
 
   return pods.map((pod) => {
     const p99Ms = pod.p99LatencyMs
     const cpuPct = podCpuPercent(pod.cpuUsage, cpuLimit)
+    const memPct = podMemPercent(pod.memoryBytes, memLimit)
     if (timeframe === 'session') {
       const total = pod.totalRequests ?? 0
       const pct = replicaSharePct(total, sumTotals)
@@ -148,6 +233,7 @@ export function replicaListRows(
         primaryText,
         p99Ms,
         cpuPct,
+        memPct,
         warn: options.skewed && total < sumTotals * 0.15,
         hot: options.skewed && pct != null && pct >= 45,
       }
@@ -160,6 +246,7 @@ export function replicaListRows(
       primaryText: `${Math.round(rps)} rps`,
       p99Ms,
       cpuPct,
+      memPct,
       warn: options.skewed && rps < maxRate * 0.5,
       hot: options.skewed && rps >= maxRate * 0.9 && clusterRps > 0 && rps < clusterRps * 0.1,
     }

@@ -7,14 +7,14 @@ import {
 } from '../lib/format'
 import {
   CPU_ALLOC_HELP,
+  MEM_ALLOC_HELP,
   METRICS_API_FRESHNESS_HELP,
   TIER_C_WARMUP_HELP,
 } from '../lib/metricHelp'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import { SparkLine } from './SparkLine'
 import { MetricChart } from './MetricChart'
-import { InspectorDisclosure } from './InspectorDisclosure'
-import { MetricHelpIcon } from './MetricHelpIcon'
+import { MetricHelpIcon, HoverInsight } from './MetricHelpIcon'
 
 export type MetricsTimeframe = 'live' | 'session'
 
@@ -46,18 +46,6 @@ export function PanelViewControls({
       <span className="w-full text-[9px] leading-snug text-gray-600">
         Totals use a rolling 9-minute Prometheus window.
       </span>
-      <span className="text-gray-700">|</span>
-      <span className="font-semibold uppercase tracking-wider text-gray-600">Graphs:</span>
-      <TogglePill
-        active={view.showGraphs}
-        onClick={() => onChange({ showGraphs: true })}
-        label="ON"
-      />
-      <TogglePill
-        active={!view.showGraphs}
-        onClick={() => onChange({ showGraphs: false })}
-        label="OFF"
-      />
     </div>
   )
 }
@@ -122,17 +110,21 @@ export function PedagogicalHint({
         ? 'text-gray-500'
         : 'text-violet-300/90'
   return (
-    <InspectorDisclosure title="Tip" defaultOpen={false}>
-      <p className={`text-[10px] leading-relaxed ${toneClass}`}>{children}</p>
-    </InspectorDisclosure>
+    <p className="pt-0.5">
+      <HoverInsight icon="💡" tone={tone}>
+        <span className={toneClass}>{children}</span>
+      </HoverInsight>
+    </p>
   )
 }
 
 export function PedagogicalCaption({ children }: { children: ReactNode }) {
   return (
-    <InspectorDisclosure title="Note" defaultOpen={false}>
-      <p className="text-[10px] leading-snug text-gray-500">{children}</p>
-    </InspectorDisclosure>
+    <p className="pt-0.5">
+      <HoverInsight icon="💬" tone="muted">
+        <span className="text-gray-400">{children}</span>
+      </HoverInsight>
+    </p>
   )
 }
 
@@ -272,27 +264,30 @@ export function ReplicaFlatList({
     rps?: number
     p99Ms: number
     cpuPct?: number
+    memPct?: number
     warn?: boolean
     hot?: boolean
   }>
 }) {
   if (rows.length === 0) return null
   return (
-    <ul className="space-y-1 font-mono text-[10px] text-gray-300">
+    <ul className="space-y-1.5 font-mono text-[10px] text-gray-300">
       {rows.map((row) => (
-        <li key={row.name} className="flex flex-wrap items-baseline gap-x-2">
-          <span className="min-w-0 flex-1 truncate text-gray-500" title={row.name}>
+        <li
+          key={row.name}
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-0.5"
+        >
+          <span className="truncate text-gray-500" title={row.name}>
             {row.name}
           </span>
-          <span className="shrink-0 text-gray-400">{'·'.repeat(3)}</span>
-          <span className="shrink-0">
+          <span className="shrink-0 whitespace-nowrap text-right text-gray-400">
             {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
             {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
+            {' · '}
+            p99 {Math.round(row.p99Ms)}ms
+            {row.cpuPct != null ? ` · CPU ${Math.round(row.cpuPct)}%` : ''}
+            {row.memPct != null ? ` · Mem ${Math.round(row.memPct)}%` : ''}
           </span>
-          <span className="shrink-0 text-gray-500">| p99 {Math.round(row.p99Ms)}ms</span>
-          {row.cpuPct != null ? (
-            <span className="shrink-0 text-gray-500">| CPU {Math.round(row.cpuPct)}%</span>
-          ) : null}
         </li>
       ))}
     </ul>
@@ -318,6 +313,13 @@ export function resourceUsageHelp(m: MetricsBucket): string | undefined {
   if (m.cpuSource === 'metrics_api' || m.memSource === 'metrics_api') {
     return METRICS_API_FRESHNESS_HELP
   }
+  return undefined
+}
+
+/** Hover help for memory tiles — utilization % only (bytes stay in the value). */
+export function memoryUsageHelp(m: MetricsBucket, memPercent: number): string | undefined {
+  if (m.memIsEstimated) return MEM_ALLOC_HELP
+  if (m.memoryLimit > 0) return fmtPct(memPercent)
   return undefined
 }
 

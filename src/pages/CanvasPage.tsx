@@ -20,7 +20,6 @@ import {
   CanvasErrorBoundary,
   ChaosOverlayTicker,
   DesignToolStrip,
-  DeploymentPlayground,
   EventTimeline,
   InspectorPanel,
   LiveOverlay,
@@ -451,7 +450,6 @@ export default function CanvasPage() {
             </div>
           </div>
         ) : null}
-        <DeploymentPlayground />
         <LogPanel />
         <DesignToolStrip />
         <WalkthroughOverlay />

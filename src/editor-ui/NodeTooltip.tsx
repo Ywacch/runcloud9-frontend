@@ -49,6 +49,10 @@ export function NodeTooltip({
       : formatResourceLabels(metrics, cpuPct, memPct)
     : { cpu: '-', mem: '-' }
   const resourceHelp = metrics ? resourceUsageHelp(metrics) : undefined
+  const memHelp =
+    metrics && !metrics.memIsEstimated && metrics.memoryLimit > 0
+      ? `${Math.round(memPct)}%`
+      : undefined
   const rpsClass =
     health === 'warning'
       ? 'text-amber-300'
@@ -82,7 +86,7 @@ export function NodeTooltip({
               />
             </div>
           </div>
-          <div title={resourceHelp}>
+          <div title={memHelp}>
             <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
             <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
               {labels.mem}
