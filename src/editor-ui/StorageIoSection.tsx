@@ -23,6 +23,7 @@ import {
   dbClusterResourceHelp,
   formatDbClusterResourceLabels,
   formatResourceLabels,
+  resourceUsageHelp,
   shouldShowDbClusterUtilizationCharts,
   type PanelViewState,
 } from './inspectorPanelUi'
@@ -333,12 +334,14 @@ export function DbDiagnosticsDisclosure({
 /** Redis command throughput — engine USE layer for cache nodes. */
 export function CacheEngineSection({
   m,
+  cpuPercent,
   evictionPolicy,
   view,
   showPlaybackDelay = false,
   history = [],
 }: {
   m: MetricsBucket
+  cpuPercent: number
   evictionPolicy?: string
   view: PanelViewState
   showPlaybackDelay?: boolean
@@ -354,6 +357,9 @@ export function CacheEngineSection({
   const memSeries = history.map((h) =>
     h.memoryLimit > 0 ? Math.min(100, (h.memoryBytes / h.memoryLimit) * 100) : 0,
   )
+  const cpuSeries = history.map((h) => h.cpuPercent)
+  const resourceHelp = resourceUsageHelp(m)
+  const cpuLabel = formatResourceLabels(m, cpuPercent, memPct).cpu
 
   return (
     <PedagogicalSection
@@ -362,20 +368,37 @@ export function CacheEngineSection({
     >
       <StatRow
         left={
-          <StatBlock
-            label="Memory utilization"
-            value={`${fmtBytes(m.memoryBytes)}${m.memoryLimit > 0 ? ` · ${memPct.toFixed(1)}%` : ''}`}
-            graph={
-              <MetricSeriesGraph
-                data={memSeries}
-                color="#8b5cf6"
-                title="Memory"
-                unit="10s · %"
-                view={view}
-                showPlaybackDelay={showPlaybackDelay}
-              />
-            }
-          />
+          <div className="space-y-3">
+            <StatBlock
+              label="Memory utilization"
+              value={`${fmtBytes(m.memoryBytes)}${m.memoryLimit > 0 ? ` · ${memPct.toFixed(1)}%` : ''}`}
+              graph={
+                <MetricSeriesGraph
+                  data={memSeries}
+                  color="#8b5cf6"
+                  title="Memory"
+                  unit="10s · %"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              }
+            />
+            <StatBlock
+              label="CPU utilization"
+              value={cpuLabel}
+              help={resourceHelp}
+              graph={
+                <MetricSeriesGraph
+                  data={cpuSeries}
+                  color="#f59e0b"
+                  title="CPU"
+                  unit="10s · %"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              }
+            />
+          </div>
         }
         right={
           <div className="space-y-2">

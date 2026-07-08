@@ -46,6 +46,7 @@ import {
   StatBlock,
   StatRow,
   formatResourceLabels,
+  resourceUsageHelp,
   podDistributionSkew,
   type PanelViewState,
 } from './inspectorPanelUi'
@@ -114,6 +115,7 @@ export function LiveMetricsTypeSection({
   const tmFeedPushRate = templateMetrics['feed.push_rate']
   const chartPlaybackDelay = mode === 'live' && isMetricsPlaybackEnabled()
   const resourceLabels = formatResourceLabels(m, cpuPercent, memPercent)
+  const resourceHelp = resourceUsageHelp(m)
 
   switch (nodeType) {
     case 'compute': {
@@ -127,6 +129,7 @@ export function LiveMetricsTypeSection({
         m.podReplicas.length > 0
           ? buildReplicaListRows(m.podReplicas, view.timeframe, {
               clusterRps: requestRate,
+              cpuLimitCores: m.cpuLimit,
             })
           : replicaRows.map((r) => ({
               name: truncatePodName(r.podName || r.label, 22),
@@ -208,6 +211,7 @@ export function LiveMetricsTypeSection({
                 <StatBlock
                   label="CPU utilization"
                   value={resourceLabels.cpu}
+                  help={resourceHelp}
                   graph={
                     <MetricSeriesGraph
                       data={cpuSeries}
@@ -224,6 +228,7 @@ export function LiveMetricsTypeSection({
                 <StatBlock
                   label="Memory usage"
                   value={resourceLabels.mem}
+                  help={resourceHelp}
                   graph={
                     <MetricSeriesGraph
                       data={memSeries}
@@ -309,6 +314,7 @@ export function LiveMetricsTypeSection({
 
             <CacheEngineSection
               m={m}
+              cpuPercent={cpuPercent}
               evictionPolicy={evictionPolicy}
               view={view}
               showPlaybackDelay={chartPlaybackDelay}
@@ -385,6 +391,7 @@ export function LiveMetricsTypeSection({
 
           <CacheEngineSection
             m={m}
+            cpuPercent={cpuPercent}
             evictionPolicy={evictionPolicy}
             view={view}
             showPlaybackDelay={chartPlaybackDelay}
@@ -504,6 +511,7 @@ export function LiveMetricsTypeSection({
               clusterRps: requestRate,
               maxRate,
               skewed: skew.skewed,
+              cpuLimitCores: m.cpuLimit,
             })
           : perBe.map(([name, rps]) => ({
               name: truncatePodName(name),
@@ -795,6 +803,7 @@ export function LiveMetricsTypeSection({
                 <StatBlock
                   label="CPU utilization"
                   value={resourceLabels.cpu}
+                  help={resourceHelp}
                   graph={
                     <MetricSeriesGraph
                       data={cpuSeries}
