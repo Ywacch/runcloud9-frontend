@@ -43,6 +43,21 @@ export function resourceQuotaTier(effectiveTier: EffectiveTier): string {
   }
 }
 
+/** Map GET /me limits to topology guard shape. */
+export function topologyLimitsFromApi(limits: {
+  maxAppServerReplicas: number
+  allowLoadBalancer: boolean
+  allowMQWorker: boolean
+  allowProxyCache: boolean
+}): TopologyLimits {
+  return {
+    maxAppServerReplicas: limits.maxAppServerReplicas,
+    allowLoadBalancer: limits.allowLoadBalancer,
+    allowMQWorker: limits.allowMQWorker,
+    allowProxyCache: limits.allowProxyCache,
+  }
+}
+
 export function topologyLimitsForTier(effectiveTier: EffectiveTier): TopologyLimits {
   if (effectiveTier === 'engineer' || effectiveTier === 'internal') {
     return {

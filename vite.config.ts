@@ -73,6 +73,12 @@ export default defineConfig(({ mode }) => {
         '/templates': {
           ...common,
         },
+        '/me': {
+          ...common,
+        },
+        '/meta': {
+          ...common,
+        },
       },
     },
   }
