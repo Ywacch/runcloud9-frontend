@@ -151,10 +151,25 @@ describe('sumDesignBudget', () => {
 
   it('uses engineer caps when tier is engineer', () => {
     const got = sumDesignBudget(urlShortenerLiteDesign(), 'engineer', catalog)
-    expect(got.cap.cpu).toBe('1500m')
-    expect(got.cap.memory).toBe('3Gi')
+    expect(got.cap.cpu).toBe('3375m')
+    expect(got.cap.memory).toBe('6912Mi')
     expect(
       designExceedsResourceQuota(urlShortenerLiteDesign(), 'engineer', catalog),
+    ).toBeNull()
+  })
+
+  it('uses internal caps when tier is internal', () => {
+    const got = sumDesignBudget(urlShortenerLiteDesign(), 'internal', catalog)
+    expect(got.cap.cpu).toBe('4250m')
+    expect(got.cap.memory).toBe('8320Mi')
+    expect(
+      designExceedsResourceQuota(urlShortenerLiteDesign(), 'internal', catalog),
+    ).toBeNull()
+  })
+
+  it('engineer url-shortener preset fits raised engineer cap', () => {
+    expect(
+      designExceedsResourceQuota(urlShortenerDefaultDesign(), 'engineer', catalog),
     ).toBeNull()
   })
 

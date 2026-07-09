@@ -4,7 +4,8 @@ export const DEFAULT_RESOURCE_TIER = 'explorer'
 export const TIER_RESOURCE_CAPS: Record<string, { cpu: string; memory: string }> =
   {
     explorer: { cpu: '625m', memory: '1280Mi' },
-    engineer: { cpu: '1500m', memory: '3Gi' },
+    engineer: { cpu: '3375m', memory: '6912Mi' },
+    internal: { cpu: '4250m', memory: '8320Mi' },
     architect: { cpu: '4', memory: '8Gi' },
   }
 
@@ -29,7 +30,7 @@ export function loadgenLimits(tier: string | undefined | null): {
   memory: string
 } {
   const normalized = normalizeResourceTier(tier)
-  if (normalized === 'engineer' || normalized === 'architect') {
+  if (normalized === 'engineer' || normalized === 'internal' || normalized === 'architect') {
     return { cpu: '500m', memory: '1Gi' }
   }
   return { cpu: '250m', memory: '512Mi' }
