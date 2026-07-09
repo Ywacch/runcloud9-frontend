@@ -5,6 +5,7 @@ import {
   parseProvisionMetrics,
   shouldUseLegacyProvisioningPulse,
   type NormalizedComponentProvisionState,
+  type NormalizedLoadgenState,
   type NormalizedSeedingState,
   type ParsedProvisionMetrics,
 } from '../lib/provisionMetrics'
@@ -104,6 +105,21 @@ function seedingStatusLabel(state: NormalizedSeedingState): string {
   }
 }
 
+function loadgenStatusLabel(state: NormalizedLoadgenState): string {
+  switch (state) {
+    case 'pending':
+      return 'Pending'
+    case 'ready':
+      return 'Ready'
+    case 'failed':
+      return 'Failed'
+    case 'skipped':
+      return 'Skipped'
+    default:
+      return 'Unknown'
+  }
+}
+
 type CheckRowTone = 'active' | 'ready' | 'neutral' | 'dim' | 'warn' | 'error'
 
 function InfrastructureChecklistRow({
@@ -184,6 +200,69 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
     [parsed.componentStatus, nodes],
   )
   const seeding: NormalizedSeedingState = parsed.seedingStatus ?? 'pending'
+  const loadgen: NormalizedLoadgenState = parsed.loadgenStatus ?? 'pending'
+
+  const seedingRow = (() => {
+    const sl = seedingStatusLabel(seeding)
+    let tone: CheckRowTone =
+      seeding === 'seeding' ? 'active' : seeding === 'done' ? 'ready' : 'dim'
+    if (seeding === 'failed') tone = 'warn'
+
+    const leftIcon =
+      seeding === 'done' ? (
+        <IconCheckCircle className="h-4 w-4 text-emerald-400" />
+      ) : seeding === 'seeding' ? (
+        <IconSync className="h-4 w-4 animate-spin text-[var(--c9-accent)]" />
+      ) : seeding === 'failed' ? (
+        <IconWarning className="h-4 w-4 text-amber-400" />
+      ) : seeding === 'skipped' ? (
+        <span className="flex h-4 w-4 items-center justify-center text-[var(--c9-muted)]">
+          –
+        </span>
+      ) : (
+        <IconSchedule className="h-4 w-4 text-[var(--c9-muted)]" />
+      )
+
+    return (
+      <InfrastructureChecklistRow
+        name="Data seeding"
+        statusLabel={sl}
+        tone={seeding === 'failed' ? 'warn' : tone}
+        leftIcon={leftIcon}
+      />
+    )
+  })()
+
+  const loadgenRow = (() => {
+    const sl = loadgenStatusLabel(loadgen)
+    let tone: CheckRowTone =
+      loadgen === 'pending' ? 'dim' : loadgen === 'ready' ? 'ready' : 'dim'
+    if (loadgen === 'failed') tone = 'warn'
+
+    const leftIcon =
+      loadgen === 'ready' ? (
+        <IconCheckCircle className="h-4 w-4 text-emerald-400" />
+      ) : loadgen === 'failed' ? (
+        <IconWarning className="h-4 w-4 text-amber-400" />
+      ) : loadgen === 'skipped' ? (
+        <span className="flex h-4 w-4 items-center justify-center text-[var(--c9-muted)]">
+          –
+        </span>
+      ) : loadgen === 'pending' ? (
+        <IconSchedule className="h-4 w-4 text-[var(--c9-muted)]" />
+      ) : (
+        <IconRadioEmpty className="h-4 w-4 text-[var(--c9-muted)]" />
+      )
+
+    return (
+      <InfrastructureChecklistRow
+        name="Load generator"
+        statusLabel={sl}
+        tone={loadgen === 'failed' ? 'warn' : tone}
+        leftIcon={leftIcon}
+      />
+    )
+  })()
 
   return (
     <div className="max-h-[min(17rem,calc(100vh-10rem))] space-y-1 overflow-y-auto pr-0.5">
@@ -215,36 +294,8 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
           />
         )
       })}
-      {(() => {
-        const sl = seedingStatusLabel(seeding)
-        let tone: CheckRowTone =
-          seeding === 'seeding' ? 'active' : seeding === 'done' ? 'ready' : 'dim'
-        if (seeding === 'failed') tone = 'warn'
-
-        const leftIcon =
-          seeding === 'done' ? (
-            <IconCheckCircle className="h-4 w-4 text-emerald-400" />
-          ) : seeding === 'seeding' ? (
-            <IconSync className="h-4 w-4 animate-spin text-[var(--c9-accent)]" />
-          ) : seeding === 'failed' ? (
-            <IconWarning className="h-4 w-4 text-amber-400" />
-          ) : seeding === 'skipped' ? (
-            <span className="flex h-4 w-4 items-center justify-center text-[var(--c9-muted)]">
-              –
-            </span>
-          ) : (
-            <IconSchedule className="h-4 w-4 text-[var(--c9-muted)]" />
-          )
-
-        return (
-          <InfrastructureChecklistRow
-            name="Data seeding"
-            statusLabel={sl}
-            tone={seeding === 'failed' ? 'warn' : tone}
-            leftIcon={leftIcon}
-          />
-        )
-      })()}
+      {seedingRow}
+      {loadgenRow}
     </div>
   )
 })

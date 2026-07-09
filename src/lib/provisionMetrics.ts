@@ -16,10 +16,18 @@ export type NormalizedSeedingState =
   | 'skipped'
   | 'unknown'
 
+export type NormalizedLoadgenState =
+  | 'pending'
+  | 'ready'
+  | 'failed'
+  | 'skipped'
+  | 'unknown'
+
 export type ParsedProvisionMetrics = {
   provisionPhase?: string
   componentStatus: Record<string, string>
   seedingStatus?: NormalizedSeedingState
+  loadgenStatus?: NormalizedLoadgenState
 }
 
 function pickStr(
@@ -63,6 +71,10 @@ export function parseProvisionMetrics(
     'seeding_status',
     'seedingStatus',
   ])
+  const rawLoadgen = pickStr(metricsSummary as Record<string, unknown>, [
+    'loadgen_status',
+    'loadgenStatus',
+  ])
 
   const componentStatus: Record<string, string> = {}
   if (rawComp) {
@@ -86,10 +98,24 @@ export function parseProvisionMetrics(
     else seedingStatus = 'unknown'
   }
 
+  let loadgenStatus: NormalizedLoadgenState | undefined
+  if (rawLoadgen) {
+    const s = rawLoadgen.trim().toLowerCase()
+    if (
+      s === 'pending' ||
+      s === 'ready' ||
+      s === 'failed' ||
+      s === 'skipped'
+    )
+      loadgenStatus = s
+    else loadgenStatus = 'unknown'
+  }
+
   return {
     provisionPhase: phase,
     componentStatus,
     seedingStatus,
+    loadgenStatus,
   }
 }
 
@@ -102,7 +128,8 @@ export function metricsSummaryHasContractFields(
   const hasPhase = 'provision_phase' in m || 'provisionPhase' in m
   const hasComponents = 'component_status' in m || 'componentStatus' in m
   const hasSeeding = 'seeding_status' in m || 'seedingStatus' in m
-  return hasPhase && hasComponents && hasSeeding
+  const hasLoadgen = 'loadgen_status' in m || 'loadgenStatus' in m
+  return hasPhase && hasComponents && hasSeeding && hasLoadgen
 }
 
 /** When true, show thin indeterminate bar (contract fields missing on metricsSummary). */
