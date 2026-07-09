@@ -118,6 +118,11 @@ const TEMPLATE_METRIC_ROWS: Record<
   'social-feed': [
     { key: 'feed.pull_rate', label: 'Feed reads/s (pull)', format: (n) => `${fmtRate(n)}/s` },
     { key: 'feed.push_rate', label: 'Feed reads/s (push)', format: (n) => `${fmtRate(n)}/s` },
+    {
+      key: 'feed.push_total',
+      label: 'Feed reads (push)',
+      format: (n) => fmtInt(Math.round(n)),
+    },
     { key: 'feed.pull_p95', label: 'Feed read p95 (pull)', format: (n) => fmtMs(n * 1000) },
     { key: 'feed.push_p95', label: 'Feed read p95 (push)', format: (n) => fmtMs(n * 1000) },
     { key: 'worker.processed', label: 'Fan-out jobs done', format: (n) => fmtInt(Math.round(n)) },
