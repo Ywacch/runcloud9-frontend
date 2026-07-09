@@ -4,11 +4,18 @@ import type { ReplicaMetrics } from '../editor-core/domain/simulation/types'
 export function shortPodLabel(name: string, index: number): string {
   const trimmed = name.trim()
   if (!trimmed) return `pod ${index + 1}`
+  return compactPodName(trimmed) || `pod ${index + 1}`
+}
+
+/** Short label for inspector replica rows — keeps the unique pod suffix. */
+export function compactPodName(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return ''
   const parts = trimmed.split('-')
   if (parts.length >= 2) {
     return parts.slice(-2).join('-')
   }
-  return trimmed.length > 22 ? `${trimmed.slice(0, 20)}…` : trimmed
+  return trimmed.length > 18 ? `${trimmed.slice(0, 16)}…` : trimmed
 }
 
 export interface ReplicaInspectorRow extends ReplicaMetrics {

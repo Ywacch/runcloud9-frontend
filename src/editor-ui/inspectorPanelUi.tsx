@@ -5,6 +5,7 @@ import {
   fmtMemMB,
   fmtPct,
 } from '../lib/format'
+import { compactPodName } from '../lib/replicaMetricsDisplay'
 import {
   CPU_ALLOC_HELP,
   MEM_ALLOC_HELP,
@@ -271,16 +272,13 @@ export function ReplicaFlatList({
 }) {
   if (rows.length === 0) return null
   return (
-    <ul className="space-y-1.5 font-mono text-[10px] text-gray-300">
+    <ul className="min-w-0 space-y-2 font-mono text-[10px] text-gray-300">
       {rows.map((row) => (
-        <li
-          key={row.name}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-0.5"
-        >
-          <span className="truncate text-gray-500" title={row.name}>
-            {row.name}
+        <li key={row.name} className="min-w-0 space-y-0.5">
+          <span className="block truncate text-gray-500" title={row.name}>
+            {compactPodName(row.name) || row.name}
           </span>
-          <span className="shrink-0 whitespace-nowrap text-right text-gray-400">
+          <span className="block text-gray-400">
             {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
             {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
             {' · '}
