@@ -1,5 +1,8 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
+import { autoArrangeByDependencyLayers } from './autoArrange'
+import { withoutCanvasHistoryRecording } from './canvasHistory'
 import { defaultEdgeProtocol } from './defaultEdgeProtocol'
 import { createCanvasNode } from './nodeFactory'
 import { clampAppServerReplicas } from './replicaConfig'
@@ -68,18 +71,37 @@ export function ensureLoadBalancerForReplicas(): void {
     })
   }
 
-  if (!nodes[CLIENT_LOADGEN_ID]) return
-  const clientEdge = Object.values(st.edges).find(
-    (e) => e.sourceId === CLIENT_LOADGEN_ID,
-  )
-  if (!clientEdge || clientEdge.targetId === AUTO_LOAD_BALANCER_ID) return
+  if (nodes[CLIENT_LOADGEN_ID]) {
+    const clientEdge = Object.values(st.edges).find(
+      (e) => e.sourceId === CLIENT_LOADGEN_ID,
+    )
+    if (clientEdge && clientEdge.targetId !== AUTO_LOAD_BALANCER_ID) {
+      st.removeEdge(clientEdge.id)
+      st.addEdge({
+        id: `edge-client-${AUTO_LOAD_BALANCER_ID}`,
+        sourceId: CLIENT_LOADGEN_ID,
+        targetId: AUTO_LOAD_BALANCER_ID,
+        protocol: defaultEdgeProtocol('client', 'load_balancer'),
+        animated: true,
+      })
+    }
+  }
 
-  st.removeEdge(clientEdge.id)
-  st.addEdge({
-    id: `edge-client-${AUTO_LOAD_BALANCER_ID}`,
-    sourceId: CLIENT_LOADGEN_ID,
-    targetId: AUTO_LOAD_BALANCER_ID,
-    protocol: defaultEdgeProtocol('client', 'load_balancer'),
-    animated: true,
+  autoArrangeCanvasAfterLbInject()
+}
+
+function autoArrangeCanvasAfterLbInject(): void {
+  const st = useCanvasStore.getState()
+  const nodeList = Object.values(st.nodes)
+  if (nodeList.length === 0) return
+  const nextPositions = autoArrangeByDependencyLayers(
+    nodeList,
+    Object.values(st.edges),
+  )
+  withoutCanvasHistoryRecording(() => {
+    for (const [id, pos] of Object.entries(nextPositions)) {
+      st.updateNodePosition(id, pos)
+    }
   })
+  requestCanvasFit()
 }

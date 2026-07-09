@@ -45,7 +45,7 @@ describe('ensureLoadBalancerForReplicas', () => {
 
   it('adds auto LB and edge when replicas > 1 and no LB exists', () => {
     useCanvasStore.setState({
-      nodes: { 'app-1': computeNode('app-1', 2) },
+      nodes: { 'app-1': computeNode('app-1', 2, [6, 0.3, 0]) },
       edges: {},
     })
 
@@ -60,6 +60,10 @@ describe('ensureLoadBalancerForReplicas', () => {
           e.sourceId === AUTO_LOAD_BALANCER_ID && e.targetId === 'app-1',
       ),
     ).toBe(true)
+    // Dependency-layer arrange places LB upstream of compute (lower x).
+    expect(nodes[AUTO_LOAD_BALANCER_ID]!.position[0]).toBeLessThan(
+      nodes['app-1']!.position[0],
+    )
   })
 
   it('is unchanged when an LB already exists', () => {
