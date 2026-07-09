@@ -143,6 +143,40 @@ export async function getResourceProfiles(): Promise<ResourceProfilesResponse> {
   return res.json() as Promise<ResourceProfilesResponse>
 }
 
+export interface CurrentUserLimits {
+  maxConcurrent: number
+  sessionDefaultMins: number
+  sessionCapMins: number
+  allTemplates: boolean
+  maxAppServerReplicas: number
+  allowLoadBalancer: boolean
+  allowMQWorker: boolean
+  allowProxyCache: boolean
+}
+
+export interface CurrentUserResponse {
+  userId: string
+  isInternal: boolean
+  isPremium: boolean
+  premiumExpiresAt: string | null
+  effectiveTier: 'free' | 'engineer' | 'internal'
+  quotaTier: string
+  limits: CurrentUserLimits
+}
+
+/** GET /me — authenticated caller profile (tier, quota, deployment limits). */
+export async function getMe(): Promise<CurrentUserResponse> {
+  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await fetch(`${base}/me`, {
+    headers: authHeader() ?? {},
+  })
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
+  return res.json() as Promise<CurrentUserResponse>
+}
+
 /** JSON `{ "error": "..." }` or plain text — same parsing as other deployment API calls. */
 export async function readApiErrorMessage(res: Response): Promise<string> {
   const text = await res.text()

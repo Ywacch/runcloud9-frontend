@@ -445,8 +445,11 @@ function TypeFields({
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
 }) {
+  const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
-  const maxAppReplicas = maxAppServerReplicasForUser(userRecord)
+  const maxAppReplicas =
+    currentUser?.limits.maxAppServerReplicas ??
+    maxAppServerReplicasForUser(userRecord)
   const c = node.config
 
   switch (node.type) {

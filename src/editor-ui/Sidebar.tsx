@@ -49,6 +49,7 @@ import {
   resolveEffectiveTier,
   resourceQuotaTier,
   topologyLimitsForTier,
+  topologyLimitsFromApi,
 } from '../lib/userTier'
 import {
   DeployModal,
@@ -106,6 +107,7 @@ export function Sidebar() {
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const session = useAuthStore((s) => s.session)
+  const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
   const isPremiumUser = useAuthStore((s) => s.isPremium)
   const pendingDeployAfterAuth = useAuthStore((s) => s.pendingDeployAfterAuth)
@@ -207,9 +209,12 @@ export function Sidebar() {
   const nodeCount = Object.keys(nodes).length
   const live = mode === 'live'
   const simulate = mode === 'simulate'
-  const effectiveTier = resolveEffectiveTier(userRecord)
-  const quotaTier = resourceQuotaTier(effectiveTier)
-  const topologyLimits = topologyLimitsForTier(effectiveTier)
+  const effectiveTier =
+    currentUser?.effectiveTier ?? resolveEffectiveTier(userRecord)
+  const quotaTier = currentUser?.quotaTier ?? resourceQuotaTier(effectiveTier)
+  const topologyLimits = currentUser
+    ? topologyLimitsFromApi(currentUser.limits)
+    : topologyLimitsForTier(effectiveTier)
 
   const quotaPreview = useMemo(() => {
     if (live || simulate || !snapshotTemplateId || nodeCount === 0) return null

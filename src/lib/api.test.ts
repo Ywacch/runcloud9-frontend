@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildWsBaseForApi, deleteDeployment, startLoadGen, stopLoadGen } from './api'
+import { buildWsBaseForApi, deleteDeployment, getMe, startLoadGen, stopLoadGen } from './api'
 import { getAccessToken } from './auth'
 
 vi.mock('./auth', () => ({
@@ -47,6 +47,62 @@ describe('auth headers for protected deployment calls', () => {
     )
 
     await expect(stopLoadGen('dep-2')).rejects.toMatchObject({
+      status: 401,
+      rawMessage: 'invalid token',
+    })
+  })
+})
+
+describe('getMe', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sends Authorization and returns profile', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('tok-me')
+    const profile = {
+      userId: 'u1',
+      isInternal: false,
+      isPremium: true,
+      premiumExpiresAt: '2026-12-31T00:00:00Z',
+      effectiveTier: 'engineer',
+      quotaTier: 'engineer',
+      limits: {
+        maxConcurrent: 1,
+        sessionDefaultMins: 9,
+        sessionCapMins: 15,
+        allTemplates: true,
+        maxAppServerReplicas: 3,
+        allowLoadBalancer: true,
+        allowMQWorker: true,
+        allowProxyCache: true,
+      },
+    }
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => profile,
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getMe()).resolves.toEqual(profile)
+    expect(fetchMock).toHaveBeenCalledWith('/me', {
+      headers: { Authorization: 'Bearer tok-me' },
+    })
+  })
+
+  it('throws ApiError on 401', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('expired')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        text: async () => JSON.stringify({ error: 'invalid token' }),
+      }),
+    )
+
+    await expect(getMe()).rejects.toMatchObject({
       status: 401,
       rawMessage: 'invalid token',
     })
