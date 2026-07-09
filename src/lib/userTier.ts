@@ -33,9 +33,14 @@ export function hasPaidTier(user: UserRecord | null): boolean {
 
 /** Maps effective tier to deployer quota tier names. */
 export function resourceQuotaTier(effectiveTier: EffectiveTier): string {
-  return effectiveTier === 'engineer' || effectiveTier === 'internal'
-    ? 'engineer'
-    : 'explorer'
+  switch (effectiveTier) {
+    case 'engineer':
+      return 'engineer'
+    case 'internal':
+      return 'internal'
+    default:
+      return 'explorer'
+  }
 }
 
 export function topologyLimitsForTier(effectiveTier: EffectiveTier): TopologyLimits {

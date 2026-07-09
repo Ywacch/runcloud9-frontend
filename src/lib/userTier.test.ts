@@ -38,7 +38,7 @@ describe('userTier', () => {
     ).toBe('free')
   })
 
-  it('maps internal to engineer quota and full topology', () => {
+  it('maps internal to internal quota and full topology', () => {
     expect(
       resolveEffectiveTier({
         isInternal: true,
@@ -46,8 +46,12 @@ describe('userTier', () => {
         premiumExpiresAt: null,
       }),
     ).toBe('internal')
-    expect(resourceQuotaTier('internal')).toBe('engineer')
+    expect(resourceQuotaTier('internal')).toBe('internal')
     expect(topologyLimitsForTier('internal').allowLoadBalancer).toBe(true)
+  })
+
+  it('maps engineer to engineer quota', () => {
+    expect(resourceQuotaTier('engineer')).toBe('engineer')
   })
 
   it('free tier blocks lb/mq/worker, proxy cache, and caps replicas at 1', () => {
