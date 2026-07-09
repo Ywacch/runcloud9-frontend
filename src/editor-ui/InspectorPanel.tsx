@@ -7,6 +7,7 @@ import {
   APP_SERVER_REPLICA_MIN,
   clampAppServerReplicas,
 } from '../lib/replicaConfig'
+import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
 import { NODE_VISUAL } from '../lib/nodeVisual'
@@ -599,9 +600,11 @@ function TypeFields({
               onChange={(e) => {
                 const n = Number(e.target.value)
                 if (!Number.isFinite(n)) return
-                updateConfig({
-                  replicas: clampAppServerReplicas(n, maxAppReplicas),
-                })
+                const replicas = clampAppServerReplicas(n, maxAppReplicas)
+                updateConfig({ replicas })
+                if (replicas > 1) {
+                  ensureLoadBalancerForReplicas()
+                }
               }}
             />
           </div>
