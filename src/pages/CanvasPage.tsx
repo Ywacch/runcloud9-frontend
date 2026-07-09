@@ -45,7 +45,7 @@ import {
   isTerminalDeploymentStatus,
 } from '../lib/sessionCapture'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
-import { spawnClientLoadgenNode } from '../lib/spawnClientNode'
+import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 
@@ -183,15 +183,28 @@ export default function CanvasPage() {
           live.setPlacingNodeType(null)
           live.setDesignTool('select')
           spawnClientLoadgenNode()
+          if (polled?.loadgenStatus === 'failed') {
+            const liveAfterSpawn = useCanvasStore.getState()
+            if (liveAfterSpawn.nodes[CLIENT_LOADGEN_ID]) {
+              liveAfterSpawn.updateNodeStatus(CLIENT_LOADGEN_ID, 'degraded')
+            }
+          }
           discardWsEventsStorage(deploymentId)
           useMetricsStore.getState().clearMetrics()
           useLogStore.getState().clearLogs()
+          const liveWarnings: string[] = []
           if (polled?.seedingStatus === 'failed') {
-            useMetricsStore
-              .getState()
-              .setStreamWarning(
-                'Live session started, but data seeding reported a failure. Metrics may be incomplete.',
-              )
+            liveWarnings.push(
+              'Live session started, but data seeding reported a failure. Metrics may be incomplete.',
+            )
+          }
+          if (polled?.loadgenStatus === 'failed') {
+            liveWarnings.push(
+              'Live session started, but the load generator pod failed to deploy. Load testing may be unavailable.',
+            )
+          }
+          if (liveWarnings.length > 0) {
+            useMetricsStore.getState().setStreamWarning(liveWarnings.join(' '))
           }
           stopPolling()
           return
