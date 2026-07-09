@@ -97,6 +97,9 @@ export class ComponentContainer extends Container {
   private connectRole: ConnectNodeRole = 'off'
   private connectOverlay: Graphics | null = null
   private connectTickerFn: ((ticker: Ticker) => void) | null = null
+  private appearTickerFn: ((ticker: Ticker) => void) | null = null
+  private appearAnimating = false
+  private appearPivot = { x: 0, y: 0 }
   private statusDot!: Graphics
   private labelText!: Text
   private provisionedSublabel: Text | null = null
@@ -227,7 +230,11 @@ export class ComponentContainer extends Container {
   private _syncPosition(pos: [number, number, number]): void {
     const { col, row } = nodeToIso(pos)
     const screen = isoToScreen(col, row)
-    this.position.set(screen.x, screen.y)
+    if (this.appearAnimating) {
+      this.position.set(screen.x + this.appearPivot.x, screen.y + this.appearPivot.y)
+    } else {
+      this.position.set(screen.x, screen.y)
+    }
     this.zIndex = col + row
   }
 
@@ -731,6 +738,47 @@ export class ComponentContainer extends Container {
     }
   }
 
+  /** Fade + scale-in for auto-added nodes (e.g. auto-load-balancer). */
+  playAppearAnimation(durationMs = 400): void {
+    this._stopAppearAnimation()
+    const bounds = this._componentBounds()
+    const pivotX = bounds.x + bounds.w / 2
+    const pivotY = bounds.y + bounds.h / 2
+    this.appearPivot = { x: pivotX, y: pivotY }
+    this.pivot.set(pivotX, pivotY)
+    this.position.x += pivotX
+    this.position.y += pivotY
+    this.appearAnimating = true
+
+    this.alpha = 0
+    this.scale.set(0.82)
+    const start = performance.now()
+
+    this.appearTickerFn = () => {
+      const t = Math.min(1, (performance.now() - start) / durationMs)
+      const eased = 1 - (1 - t) ** 3
+      this.alpha = eased
+      this.scale.set(0.82 + 0.18 * eased)
+      if (t >= 1) {
+        this.appearAnimating = false
+        this.alpha = 1
+        this.scale.set(1)
+        this.pivot.set(0, 0)
+        this.appearPivot = { x: 0, y: 0 }
+        const node = useCanvasStore.getState().nodes[this.nodeId]
+        if (node) this._syncPosition(node.position)
+        this._stopAppearAnimation()
+      }
+    }
+    getApp().ticker.add(this.appearTickerFn)
+  }
+
+  private _stopAppearAnimation(): void {
+    if (!this.appearTickerFn) return
+    getApp().ticker.remove(this.appearTickerFn)
+    this.appearTickerFn = null
+  }
+
   setConnectVisual(role: ConnectNodeRole): void {
     const connectLive = !!this.connectOverlay && this.connectOverlay.parent === this
     if (role === this.connectRole && (role === 'off' ? !connectLive : connectLive)) {
@@ -1028,6 +1076,7 @@ export class ComponentContainer extends Container {
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
+    this._stopAppearAnimation()
     this._stopWalkthroughPulse()
     this._stopNarrativePulse()
     this._stopHealthPulse()

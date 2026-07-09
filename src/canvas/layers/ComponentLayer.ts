@@ -156,6 +156,11 @@ export class ComponentLayer extends Container {
           c.setSelected(true)
         }
         c.setConnectVisual(connectNodeRole(id, canvas))
+        if (node.config.autoAdded === true) {
+          requestAnimationFrame(() => {
+            if (this.containers.get(id) === c) c.playAppearAnimation()
+          })
+        }
       } else {
         existing.syncNode(node)
       }
