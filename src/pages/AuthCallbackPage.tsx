@@ -1,54 +1,103 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  mergeAuthCallbackParams,
+  postAuthRedirectPath,
+  resolveTokenHashOtpType,
+} from '../lib/authCallback'
+import { mapSupabaseOtpError } from '../lib/authErrorMessage'
 import { supabase } from '../lib/supabase'
+import { C9Card, C9SectionTitle } from '../editor-ui/c9Primitives'
 
-function readTypeFromHash(): string | null {
-  const raw = window.location.hash.replace(/^#/, '')
-  const params = new URLSearchParams(raw)
-  return params.get('type')
-}
-
-function readTypeFromSearch(): string | null {
-  const params = new URLSearchParams(window.location.search)
-  return params.get('type')
-}
+type CallbackStatus = 'loading' | 'error'
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [status, setStatus] = useState<CallbackStatus>('loading')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const run = async () => {
-      const search = new URLSearchParams(window.location.search)
-      const code = search.get('code')
+      const { code, tokenHash, type } = mergeAuthCallbackParams(
+        searchParams,
+        window.location.hash,
+      )
+
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          navigate('/login', { replace: true })
+          setErrorMessage(mapSupabaseOtpError(error))
+          setStatus('error')
+          return
+        }
+      } else if (tokenHash) {
+        const otpType = resolveTokenHashOtpType(type)
+        if (!otpType) {
+          setErrorMessage('This invite link is missing a valid type. Request a new invite.')
+          setStatus('error')
+          return
+        }
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: otpType,
+        })
+        if (error) {
+          setErrorMessage(mapSupabaseOtpError(error))
+          setStatus('error')
           return
         }
       }
 
-      const authType = readTypeFromHash() ?? readTypeFromSearch()
       const { data } = await supabase.auth.getSession()
       if (!data.session) {
-        navigate('/login', { replace: true })
+        setErrorMessage(
+          'We could not start your session. Open the invite or reset link from your email again.',
+        )
+        setStatus('error')
         return
       }
 
-      if (authType === 'recovery' || authType === 'invite') {
-        navigate('/set-password', { replace: true })
-        return
-      }
-
-      navigate('/canvas', { replace: true })
+      navigate(postAuthRedirectPath(type), { replace: true })
     }
     void run()
-  }, [navigate])
+  }, [navigate, searchParams])
+
+  if (status === 'error') {
+    return (
+      <main className="dot-grid flex min-h-screen flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
+        <C9Card className="w-full max-w-md p-6 text-center">
+          <C9SectionTitle
+            title="Link could not be verified"
+            description={errorMessage ?? 'This invite or reset link is no longer valid.'}
+          />
+          <div className="mt-5 flex flex-col gap-2">
+            <Link
+              to="/reset-password"
+              className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+            >
+              Request a new invite
+            </Link>
+            <Link
+              to="/login"
+              className="text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
+            >
+              Back to sign in
+            </Link>
+          </div>
+        </C9Card>
+      </main>
+    )
+  }
 
   return (
-    <main className="dot-grid flex min-h-screen items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
-      <div className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-3 text-sm text-[var(--c9-muted)]">
-        Completing sign-in…
+    <main className="dot-grid flex min-h-screen flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
+      <div className="flex flex-col items-center gap-3">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent"
+          aria-hidden
+        />
+        <p className="text-sm text-[var(--c9-muted)]">Completing sign-in…</p>
       </div>
     </main>
   )

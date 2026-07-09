@@ -33,6 +33,21 @@ export function mapSupabaseSignInError(error: unknown): string {
   return raw || 'Could not sign in. Try again.'
 }
 
+export function mapSupabaseOtpError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const msg = raw.toLowerCase()
+  if (msg.includes('expired') || msg.includes('otp_expired')) {
+    return 'This invite or reset link has expired. Request a new one.'
+  }
+  if (msg.includes('invalid') || msg.includes('otp_disabled') || msg.includes('not found')) {
+    return 'This link is invalid or has already been used.'
+  }
+  if (msg.includes('too many requests')) {
+    return 'Too many attempts. Wait a moment and try again.'
+  }
+  return raw || 'Could not verify this link. Request a new invite or reset link.'
+}
+
 export function debugAuthError(error: unknown, context: string): void {
   if (error instanceof ApiError) {
     console.debug(`[auth:${context}] ${error.status} ${error.rawMessage}`)
