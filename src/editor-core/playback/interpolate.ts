@@ -165,6 +165,10 @@ export function lerpMetricsBucket(
         : a.runtimeHealth
           ? { ...a.runtimeHealth, pods: a.runtimeHealth.pods.map((p) => ({ ...p })) }
           : null,
+    layers:
+      t >= 0.5
+        ? b.layers.map((layer) => ({ ...layer }))
+        : a.layers.map((layer) => ({ ...layer })),
     podCount: lerpRound(a.podCount, b.podCount, t),
     lastUpdated: playheadMs,
     qps: Math.round(lerpNum(a.requestRate, b.requestRate, t)),

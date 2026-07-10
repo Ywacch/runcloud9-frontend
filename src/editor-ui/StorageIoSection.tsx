@@ -10,6 +10,13 @@ import {
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
 import { dbQueryHeadline, storageIoThroughputFields } from '../lib/metricTimeframe'
+import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
+import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
+import {
+  cacheLayerSectionLabels,
+  isBackingCacheLayer,
+  isLayeredCache,
+} from '../lib/cacheLayerDisplay'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import {
@@ -18,6 +25,7 @@ import {
   MetricSeriesGraph,
   PedagogicalHint,
   PedagogicalSection,
+  PedagogicalCaption,
   StatBlock,
   StatRow,
   dbClusterResourceHelp,
@@ -333,6 +341,203 @@ export function DbDiagnosticsDisclosure({
 }
 
 /** Redis command throughput — engine USE layer for cache nodes. */
+export function CombinedCacheCanvasRow({
+  m,
+  cpuPercent,
+  memPercent,
+}: {
+  m: MetricsBucket
+  cpuPercent: number
+  memPercent: number
+}) {
+  const labels = formatResourceLabels(m, cpuPercent, memPercent)
+  return (
+    <p className="font-mono text-[10px] text-gray-600">
+      Combined (canvas animation) · CPU {labels.cpu} · Mem {labels.mem}
+    </p>
+  )
+}
+
+function syntheticBucketFromLayer(
+  layer: ComponentLayerMetrics,
+  component: MetricsBucket,
+  includeStorageIo: boolean,
+): MetricsBucket {
+  const { cpuPercent, memPercent } = layerResourcePercents(layer)
+  return {
+    ...component,
+    cpuUsage: layer.cpuUsage,
+    memoryBytes: layer.memoryBytes,
+    cpuLimit: layer.cpuLimit,
+    memoryLimit: layer.memoryLimit,
+    cpuIsEstimated: layer.cpuIsEstimated,
+    memIsEstimated: layer.memIsEstimated,
+    cpuSource: layer.cpuSource,
+    memSource: layer.memSource,
+    cpuPercent,
+    memPercent,
+    storageEngine: layer.engine || component.storageEngine,
+    storageIo: includeStorageIo ? component.storageIo : null,
+    redisOpsPerSec: layer.redisOpsPerSec ?? 0,
+    redisKeyspaceHits: layer.redisKeyspaceHits ?? 0,
+    redisKeyspaceMisses: layer.redisKeyspaceMisses ?? 0,
+    redisRejectedRate: layer.redisRejectedRate ?? 0,
+  }
+}
+
+export function CacheLayerResourceBlock({
+  layer,
+  component,
+  evictionPolicy,
+  view,
+  showPlaybackDelay: _showPlaybackDelay = false,
+}: {
+  layer: ComponentLayerMetrics
+  component: MetricsBucket
+  evictionPolicy?: string
+  view: PanelViewState
+  showPlaybackDelay?: boolean
+}) {
+  const backing = isBackingCacheLayer(layer)
+  const layerBucket = syntheticBucketFromLayer(layer, component, backing)
+  const { cpuPercent, memPercent } = layerResourcePercents(layer)
+  const labels = cacheLayerSectionLabels(layer)
+  const resourceHelp = resourceUsageHelp(layerBucket)
+  const memHelp = memoryUsageHelp(layerBucket, memPercent)
+  const cpuLabel = formatResourceLabels(layerBucket, cpuPercent, memPercent).cpu
+  const engine = (layer.engine || component.storageEngine || 'redis').trim()
+  const io = backing ? component.storageIo : null
+  const readLabel = io ? storageReadTileLabel(io, engine) : ''
+  const writeLabel = io ? storageWriteTileLabel(io, engine) : ''
+  const ioTiles =
+    backing && io
+      ? storageIoThroughputFields(
+          layerBucket,
+          view.timeframe,
+          readLabel,
+          writeLabel,
+          fmtRate,
+        )
+      : null
+
+  return (
+    <PedagogicalSection title={labels.title} subtitle={labels.subtitle}>
+      <StatRow
+        left={
+          <div className="space-y-3">
+            <StatBlock
+              label="Memory utilization"
+              value={`${fmtBytes(layer.memoryBytes)}${
+                layer.memoryLimit > 0 ? ` · ${memPercent.toFixed(1)}%` : ''
+              }`}
+              help={memHelp}
+            />
+            <StatBlock
+              label="CPU utilization"
+              value={cpuLabel}
+              help={resourceHelp}
+            />
+          </div>
+        }
+        right={
+          ioTiles ? (
+            <div className="space-y-2">
+              <StatBlock label={ioTiles.readLabel} value={ioTiles.readValue} />
+              <StatBlock label={ioTiles.writeLabel} value={ioTiles.writeValue} />
+            </div>
+          ) : null
+        }
+      />
+      {backing &&
+      ((layer.redisKeyspaceHits ?? 0) > 0 || (layer.redisKeyspaceMisses ?? 0) > 0) ? (
+        <StatRow
+          left={
+            <StatBlock
+              label="Keyspace hits/s"
+              value={`${fmtRate(layer.redisKeyspaceHits ?? 0)}/s`}
+            />
+          }
+          right={
+            <StatBlock
+              label="Keyspace misses/s"
+              value={`${fmtRate(layer.redisKeyspaceMisses ?? 0)}/s`}
+            />
+          }
+        />
+      ) : null}
+      {(layer.redisRejectedRate ?? 0) > 0 ? (
+        <StatBlock
+          label="Rejected commands/s"
+          value={`${fmtRate(layer.redisRejectedRate ?? 0)}/s`}
+        />
+      ) : null}
+      {(layer.restartCount ?? 0) > 0 ? (
+        <p className="font-mono text-[10px] text-gray-500">
+          {layer.restartCount} pod restarts
+        </p>
+      ) : null}
+      {backing && evictionPolicy ? (
+        <p className="text-[10px] text-gray-500">({evictionPolicy} eviction)</p>
+      ) : null}
+      {backing && io ? <StorageIoScopeFooter m={layerBucket} isPostgres={false} /> : null}
+    </PedagogicalSection>
+  )
+}
+
+export function CacheEnginePanels({
+  m,
+  cpuPercent,
+  memPercent,
+  evictionPolicy,
+  view,
+  showPlaybackDelay = false,
+  history = [],
+}: {
+  m: MetricsBucket
+  cpuPercent: number
+  memPercent: number
+  evictionPolicy?: string
+  view: PanelViewState
+  showPlaybackDelay?: boolean
+  history?: MetricsBucket[]
+}) {
+  if (!isLayeredCache(m)) {
+    return (
+      <CacheEngineSection
+        m={m}
+        cpuPercent={cpuPercent}
+        evictionPolicy={evictionPolicy}
+        view={view}
+        showPlaybackDelay={showPlaybackDelay}
+        history={history}
+      />
+    )
+  }
+
+  return (
+    <>
+      <PedagogicalCaption>
+        app → cache-proxy → redis-internal → db
+      </PedagogicalCaption>
+      {m.layers.map((layer) => (
+        <CacheLayerResourceBlock
+          key={layer.id}
+          layer={layer}
+          component={m}
+          evictionPolicy={evictionPolicy}
+          view={view}
+          showPlaybackDelay={showPlaybackDelay}
+        />
+      ))}
+      <CombinedCacheCanvasRow
+        m={m}
+        cpuPercent={cpuPercent}
+        memPercent={memPercent}
+      />
+    </>
+  )
+}
+
 export function CacheEngineSection({
   m,
   cpuPercent,

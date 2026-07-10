@@ -62,6 +62,7 @@ export interface WsComponentMetrics {
   storageRole?: string
   storageIo?: unknown
   runtimeHealth?: unknown
+  layers?: unknown[]
 }
 
 export interface WsEventPayload {
