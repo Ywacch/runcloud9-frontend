@@ -72,6 +72,7 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     podReplicas: [],
     backendPods: [],
     backendReplicas: null,
+    runtimeHealth: null,
     podCount: 1,
     lastUpdated: 0,
     qps: 0,

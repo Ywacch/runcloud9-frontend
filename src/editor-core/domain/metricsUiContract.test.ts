@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  parseCrashContext,
   parseLoadgenIntervals,
   parsePodReplicas,
+  parseRuntimeHealth,
   parseSteadyState,
   parseStorageIo,
   sampleFromWsPayload,
@@ -101,5 +103,53 @@ describe('metricsUiContract', () => {
     expect(sample!.appRps).toBe(48)
     expect(sample!.dbQueryRate).toBe(3.5)
     expect(sample!.cacheHits).toBe(0.1)
+  })
+
+  it('parseRuntimeHealth maps pod restart fields', () => {
+    const rh = parseRuntimeHealth({
+      unreadyCount: 1,
+      restarting: true,
+      pods: [
+        {
+          name: 'redis-internal-abc',
+          ready: false,
+          restartCount: 3,
+          waitingReason: 'CrashLoopBackOff',
+          lastTerminationReason: 'OOMKilled',
+          exitCode: 137,
+        },
+      ],
+    })
+    expect(rh).toEqual({
+      unreadyCount: 1,
+      restarting: true,
+      pods: [
+        {
+          name: 'redis-internal-abc',
+          ready: false,
+          restartCount: 3,
+          waitingReason: 'CrashLoopBackOff',
+          lastTerminationReason: 'OOMKilled',
+          exitCode: 137,
+        },
+      ],
+    })
+  })
+
+  it('parseCrashContext maps metric snapshot fields', () => {
+    const ctx = parseCrashContext({
+      pod: 'redis-internal-abc',
+      terminationReason: 'OOMKilled',
+      memPercent: 98.2,
+      redisRejectedRate: 140,
+      redisOpsPerSec: 21000,
+    })
+    expect(ctx).toMatchObject({
+      pod: 'redis-internal-abc',
+      terminationReason: 'OOMKilled',
+      memPercent: 98.2,
+      redisRejectedRate: 140,
+      redisOpsPerSec: 21000,
+    })
   })
 })

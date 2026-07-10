@@ -37,6 +37,39 @@ export interface BackendReplicaStatus {
   ready: number
 }
 
+/** Per-pod K8s status from `components.<key>.runtimeHealth.pods[]`. */
+export interface PodRuntimeHealth {
+  name: string
+  ready: boolean
+  restartCount: number
+  waitingReason?: string
+  lastTerminationReason?: string
+  exitCode?: number
+}
+
+/** Live pod readiness/restart summary from WS `runtimeHealth`. */
+export interface RuntimeHealthSummary {
+  unreadyCount: number
+  restarting: boolean
+  pods: PodRuntimeHealth[]
+}
+
+/** Metric snapshot attached to `pod_restart` / `pod_oom` events. */
+export interface CrashContext {
+  pod?: string
+  terminationReason?: string
+  waitingReason?: string
+  exitCode?: number
+  cpuPercent?: number
+  memPercent?: number
+  memoryLimitBytes?: number
+  errorRate?: number
+  activeConnections?: number
+  redisRejectedRate?: number
+  redisOpsPerSec?: number
+  queueDepth?: number
+}
+
 /** Engine-native store signals from WS `storageIo` (metrics-ui-contract). */
 export interface StorageIoMetrics {
   readRate: number
@@ -150,6 +183,55 @@ export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
     })
   }
   return out
+}
+
+export function parseRuntimeHealth(raw: unknown): RuntimeHealthSummary | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const podsRaw = Array.isArray(r.pods) ? r.pods : []
+  const pods: PodRuntimeHealth[] = []
+  for (const row of podsRaw) {
+    if (!row || typeof row !== 'object') continue
+    const p = row as Record<string, unknown>
+    const name = typeof p.name === 'string' ? p.name.trim() : ''
+    if (!name) continue
+    const exitCode = Math.round(num(p.exitCode))
+    pods.push({
+      name,
+      ready: Boolean(p.ready),
+      restartCount: Math.round(num(p.restartCount)),
+      waitingReason: str(p.waitingReason),
+      lastTerminationReason: str(p.lastTerminationReason),
+      exitCode: exitCode !== 0 ? exitCode : undefined,
+    })
+  }
+  const unreadyCount = Math.round(num(r.unreadyCount))
+  const restarting = Boolean(r.restarting)
+  if (!restarting && unreadyCount <= 0 && pods.length === 0) return null
+  return { unreadyCount, restarting, pods }
+}
+
+export function parseCrashContext(raw: unknown): CrashContext | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const ctx: CrashContext = {
+    pod: str(r.pod),
+    terminationReason: str(r.terminationReason),
+    waitingReason: str(r.waitingReason),
+    exitCode: Math.round(num(r.exitCode)) || undefined,
+    cpuPercent: num(r.cpuPercent) || undefined,
+    memPercent: num(r.memPercent) || undefined,
+    memoryLimitBytes: Math.round(num(r.memoryLimitBytes)) || undefined,
+    errorRate: num(r.errorRate) || undefined,
+    activeConnections: num(r.activeConnections) || undefined,
+    redisRejectedRate: num(r.redisRejectedRate) || undefined,
+    redisOpsPerSec: num(r.redisOpsPerSec) || undefined,
+    queueDepth: num(r.queueDepth) || undefined,
+  }
+  const hasData = Object.values(ctx).some(
+    (v) => v !== undefined && v !== '' && v !== 0,
+  )
+  return hasData ? ctx : null
 }
 
 export function parseBackendReplicas(raw: unknown): BackendReplicaStatus | null {

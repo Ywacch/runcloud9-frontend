@@ -44,6 +44,7 @@ import {
   PedagogicalHint,
   PedagogicalSection,
   ReplicaFlatList,
+  RuntimeHealthSection,
   StatBlock,
   StatRow,
   formatResourceLabels,
@@ -119,6 +120,10 @@ export function LiveMetricsTypeSection({
   const resourceLabels = formatResourceLabels(m, cpuPercent, memPercent)
   const resourceHelp = resourceUsageHelp(m)
   const memHelp = memoryUsageHelp(m, memPercent)
+  const panelPrefix =
+    m.runtimeHealth && m.runtimeHealth.pods.length > 0 ? (
+      <RuntimeHealthSection runtimeHealth={m.runtimeHealth} />
+    ) : null
 
   switch (nodeType) {
     case 'compute': {
@@ -147,6 +152,7 @@ export function LiveMetricsTypeSection({
 
       return (
         <div className="space-y-5">
+          {panelPrefix}
           <PedagogicalSection
             title="API performance (RED)"
             subtitle="Is the service fast and healthy?"
@@ -290,6 +296,7 @@ export function LiveMetricsTypeSection({
 
         return (
           <div className="space-y-5">
+            {panelPrefix}
             <PedagogicalSection
               title="Feed delivery (RED)"
               subtitle="Push-model timeline reads"
@@ -356,6 +363,7 @@ export function LiveMetricsTypeSection({
 
       return (
         <div className="space-y-5">
+          {panelPrefix}
           <PedagogicalSection
             title="App cache intent (Declarative)"
             subtitle="Did the cache strategy successfully intercept DB queries?"
@@ -464,6 +472,7 @@ export function LiveMetricsTypeSection({
 
       return (
         <div className="space-y-5">
+          {panelPrefix}
           <DbActivitySection
             m={bucket}
             history={history}
@@ -535,6 +544,7 @@ export function LiveMetricsTypeSection({
 
       return (
         <div className="space-y-5">
+          {panelPrefix}
           <PedagogicalSection
             title="Ingress intent (Declarative)"
             subtitle="What the system is asked to do"
@@ -652,6 +662,7 @@ export function LiveMetricsTypeSection({
 
       return (
         <div className="space-y-5">
+          {panelPrefix}
           <PedagogicalSection
             title="Message traffic (RED)"
             subtitle="Logical publishing and consumption rates"
@@ -770,6 +781,7 @@ export function LiveMetricsTypeSection({
 
       return (
         <div className="space-y-5">
+          {panelPrefix}
           <PedagogicalSection
             title="Job processing (RED)"
             subtitle="Logical job execution speed and health"
