@@ -61,6 +61,7 @@ export interface WsComponentMetrics {
   storageEngine?: string
   storageRole?: string
   storageIo?: unknown
+  runtimeHealth?: unknown
 }
 
 export interface WsEventPayload {
@@ -69,11 +70,13 @@ export interface WsEventPayload {
   source?: string
   component?: string
   rule?: string
+  ruleId?: string
   title?: string
   description?: string
   narrative?: string
   suggestion?: string
   related?: string[]
+  crashContext?: unknown
 }
 
 export interface WsDeploymentMetrics {

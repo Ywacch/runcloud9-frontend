@@ -5,13 +5,16 @@ import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
 import { backendComponentToCanvasType } from '../../lib/typeMapping'
 import {
   parseBackendReplicas,
+  parseCrashContext,
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRecentLatenciesMs,
   parseResourceUsageSource,
+  parseRuntimeHealth,
   parseStorageIo,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
+import { nodeStatusFromMetrics } from '../domain/healthThresholds'
 import { useChaosStore } from '../stores/chaosStore'
 import { useCanvasStore, type CanvasNode } from '../stores/canvasStore'
 import {
@@ -123,6 +126,7 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     podReplicas: [],
     backendPods: [],
     backendReplicas: null,
+    runtimeHealth: parseRuntimeHealth(cm.runtimeHealth),
     podCount: 1,
     lastUpdated: Date.now(),
     qps: Math.round(requestRate),
@@ -139,7 +143,9 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       ''
     if (!title) continue
     const rule =
-      typeof e.rule === 'string' && e.rule.trim() ? e.rule.trim() : undefined
+      (typeof e.ruleId === 'string' && e.ruleId.trim() ? e.ruleId.trim() : undefined) ||
+      (typeof e.rule === 'string' && e.rule.trim() ? e.rule.trim() : undefined)
+    const crashContext = parseCrashContext(e.crashContext) ?? undefined
     out.push({
       timestamp: e.timestamp ?? new Date().toISOString(),
       type: e.type ?? 'action',
@@ -157,6 +163,7 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       related: Array.isArray(e.related)
         ? e.related.map((x) => String(x)).filter(Boolean)
         : undefined,
+      crashContext,
     })
   }
   return out
@@ -285,13 +292,11 @@ export function applyWsFrameToStore(
   for (const [backendKey, cm] of Object.entries(components)) {
     if (!cm) continue
     const ids = nodeIdsForBackendKey(nodes, backendKey)
-    const err = cm.errorRate ?? 0
-    const status = err > 0.25 ? 'degraded' : 'healthy'
     for (const id of ids) {
       const bucket = nodeBuckets[id]
       if (!bucket) continue
       writeMetrics(id, bucket)
-      updateNodeStatus(id, status)
+      updateNodeStatus(id, nodeStatusFromMetrics(bucket))
     }
   }
 

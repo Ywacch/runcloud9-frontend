@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { crashContextLines } from '../lib/crashContextDisplay'
 import { nodeIdsForRelatedBackendComponents } from '../lib/narrativeHighlight'
 import type { WsEvent } from '../editor-core/stores/metricsStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -22,6 +23,7 @@ interface NarrativeCardProps {
 export function NarrativeCard({ event, onClose }: NarrativeCardProps) {
   const isPredicted = useStorytellingStore((s) => s.isPredicted(event))
   const body = (event.narrative && event.narrative.trim()) || event.description
+  const crashLines = event.crashContext ? crashContextLines(event.crashContext) : []
   const relatedChain =
     event.related?.map((r) => PRETTY_RELATED[r] ?? r).join(' → ') ?? ''
 
@@ -75,6 +77,14 @@ export function NarrativeCard({ event, onClose }: NarrativeCardProps) {
           </time>
         </div>
         <p className="mt-4 text-sm leading-relaxed text-zinc-200">{body}</p>
+        {crashLines.length > 0 ? (
+          <div className="mt-4 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
+              Snapshot at crash
+            </p>
+            <p className="mt-1 font-mono text-xs text-zinc-300">{crashLines.join(' · ')}</p>
+          </div>
+        ) : null}
         {relatedChain ? (
           <div className="mt-4 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">

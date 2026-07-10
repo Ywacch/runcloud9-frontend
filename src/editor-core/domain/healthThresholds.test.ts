@@ -52,6 +52,7 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     podReplicas: [],
     backendPods: [],
     backendReplicas: null,
+    runtimeHealth: null,
     podCount: 1,
     lastUpdated: 0,
     qps: 0,
@@ -95,6 +96,42 @@ describe('computeHealthState', () => {
     expect(
       computeHealthState(
         bucket({ cpuPercent: 5, errorRate: 0.02 }),
+        'healthy',
+      ),
+    ).toBe('error')
+  })
+
+  it('returns error when runtimeHealth reports restart or unready pods', () => {
+    expect(
+      computeHealthState(
+        bucket({
+          cpuPercent: 5,
+          runtimeHealth: {
+            unreadyCount: 0,
+            restarting: true,
+            pods: [
+              {
+                name: 'redis-internal-abc',
+                ready: false,
+                restartCount: 2,
+                waitingReason: 'CrashLoopBackOff',
+              },
+            ],
+          },
+        }),
+        'healthy',
+      ),
+    ).toBe('error')
+    expect(
+      computeHealthState(
+        bucket({
+          cpuPercent: 5,
+          runtimeHealth: {
+            unreadyCount: 1,
+            restarting: false,
+            pods: [{ name: 'app-server-xyz', ready: false, restartCount: 0 }],
+          },
+        }),
         'healthy',
       ),
     ).toBe('error')

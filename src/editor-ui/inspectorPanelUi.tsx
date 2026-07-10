@@ -13,6 +13,7 @@ import {
   TIER_C_WARMUP_HELP,
 } from '../lib/metricHelp'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
+import type { RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
 import { SparkLine } from './SparkLine'
 import { MetricChart } from './MetricChart'
 import { MetricHelpIcon, HoverInsight } from './MetricHelpIcon'
@@ -253,6 +254,60 @@ export function EngineDiagnosticsBlock({
         <span>Memory: {memLabel}</span>
       </div>
     </div>
+  )
+}
+
+export function RuntimeHealthSection({
+  runtimeHealth,
+}: {
+  runtimeHealth: RuntimeHealthSummary
+}) {
+  const { pods, unreadyCount, restarting } = runtimeHealth
+  if (pods.length === 0) return null
+  const readyCount = pods.filter((p) => p.ready).length
+  const hasIssue = restarting || unreadyCount > 0
+
+  return (
+    <section className="space-y-2 rounded-lg border border-gray-800/80 bg-gray-950/40 p-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h4
+          className={`text-[11px] font-bold uppercase tracking-wide ${
+            hasIssue ? 'text-red-400' : 'text-gray-200'
+          }`}
+        >
+          Pod status
+        </h4>
+        <span className="font-mono text-[10px] text-gray-500">
+          Ready {readyCount}/{pods.length}
+          {restarting ? ' · restarting' : ''}
+          {unreadyCount > 0 ? ` · ${unreadyCount} not ready` : ''}
+        </span>
+      </div>
+      <ul className="min-w-0 space-y-1.5 font-mono text-[10px] text-gray-300">
+        {pods.map((pod) => {
+          const detail = [
+            pod.ready ? 'ready' : 'not ready',
+            pod.restartCount > 0 ? `${pod.restartCount} restarts` : '',
+            pod.lastTerminationReason ?? '',
+            pod.waitingReason ?? '',
+            pod.exitCode != null && pod.exitCode !== 0 ? `exit ${pod.exitCode}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')
+          return (
+            <li key={pod.name} className="min-w-0">
+              <span
+                className={`block truncate ${pod.ready ? 'text-gray-400' : 'text-red-300'}`}
+                title={pod.name}
+              >
+                {compactPodName(pod.name) || pod.name}
+              </span>
+              <span className="block text-gray-500">{detail}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

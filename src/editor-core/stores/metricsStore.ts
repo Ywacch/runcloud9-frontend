@@ -18,6 +18,8 @@ export interface WsEvent {
   narrative?: string
   suggestion?: string
   related?: string[]
+  /** Metric snapshot at pod restart/OOM detection time. */
+  crashContext?: import('../domain/metricsUiContract').CrashContext
 }
 
 /** How container CPU/memory usage was resolved on the backend. */
@@ -109,6 +111,8 @@ export interface MetricsBucket {
   backendPods: PodReplicaMetrics[]
   /** K8s deployment replica status from LB tick. */
   backendReplicas: BackendReplicaStatus | null
+  /** Live pod readiness/restart state from K8s API. */
+  runtimeHealth: RuntimeHealthSummary | null
 
   // Meta
   podCount: number
@@ -122,6 +126,7 @@ import type {
   BackendReplicaStatus,
   LoadgenIntervalBucket,
   PodReplicaMetrics,
+  RuntimeHealthSummary,
   StorageIoMetrics,
 } from '../domain/metricsUiContract'
 
