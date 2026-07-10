@@ -63,6 +63,7 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     backendPods: [],
     backendReplicas: null,
     runtimeHealth: null,
+    layers: [],
     podCount: 0,
     lastUpdated: 0,
     qps: 0,

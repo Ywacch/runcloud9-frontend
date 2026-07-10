@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   parseCrashContext,
+  parseComponentLayers,
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRuntimeHealth,
@@ -151,5 +152,45 @@ describe('metricsUiContract', () => {
       redisRejectedRate: 140,
       redisOpsPerSec: 21000,
     })
+  })
+
+  it('parseComponentLayers maps two-layer proxy cache fixture', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'cache-proxy',
+        role: 'sidecar',
+        engine: 'caching-proxy',
+        cpuUsage: 0.05,
+        memoryUsage: 67108864,
+        cpuLimit: 0.25,
+        memoryLimit: 134217728,
+        restartCount: 1,
+      },
+      {
+        id: 'redis-internal',
+        role: 'backing-store',
+        engine: 'redis',
+        cpuUsage: 0.12,
+        memoryUsage: 134217728,
+        cpuLimit: 0.5,
+        memoryLimit: 536870912,
+        redisOpsPerSec: 21000,
+        redisKeyspaceHits: 800,
+        redisKeyspaceMisses: 120,
+        redisRejectedRate: 3,
+        restartCount: 5,
+      },
+    ])
+    expect(layers).toHaveLength(2)
+    expect(layers[0].id).toBe('redis-internal')
+    expect(layers[1].id).toBe('cache-proxy')
+    expect(layers[0].redisOpsPerSec).toBe(21000)
+    expect(layers[0].restartCount).toBe(5)
+    expect(layers[1].restartCount).toBe(1)
+  })
+
+  it('parseComponentLayers returns empty for missing input', () => {
+    expect(parseComponentLayers(undefined)).toEqual([])
+    expect(parseComponentLayers([])).toEqual([])
   })
 })

@@ -70,6 +70,26 @@ export interface CrashContext {
   queueDepth?: number
 }
 
+/** Per-process metrics for layered cache (`components.cache.layers[]`). */
+export interface ComponentLayerMetrics {
+  id: string
+  role: string
+  engine: string
+  cpuUsage: number
+  memoryBytes: number
+  cpuLimit: number
+  memoryLimit: number
+  cpuIsEstimated: boolean
+  memIsEstimated: boolean
+  cpuSource?: 'cadvisor' | 'metrics_api' | 'requests'
+  memSource?: 'cadvisor' | 'metrics_api' | 'requests'
+  redisOpsPerSec?: number
+  redisKeyspaceHits?: number
+  redisKeyspaceMisses?: number
+  redisRejectedRate?: number
+  restartCount?: number
+}
+
 /** Engine-native store signals from WS `storageIo` (metrics-ui-contract). */
 export interface StorageIoMetrics {
   readRate: number
@@ -232,6 +252,67 @@ export function parseCrashContext(raw: unknown): CrashContext | null {
     (v) => v !== undefined && v !== '' && v !== 0,
   )
   return hasData ? ctx : null
+}
+
+const LAYER_ROLE_ORDER: Record<string, number> = {
+  'backing-store': 0,
+  sidecar: 1,
+}
+
+export function layerResourcePercents(layer: ComponentLayerMetrics): {
+  cpuPercent: number
+  memPercent: number
+} {
+  const cpuLimit = layer.cpuLimit
+  const memLimit = layer.memoryLimit
+  const cpuPercent =
+    cpuLimit > 0
+      ? Math.min(100, Math.round((layer.cpuUsage / cpuLimit) * 100))
+      : Math.min(100, Math.round(layer.cpuUsage * 100))
+  const memPercent =
+    memLimit > 0
+      ? Math.min(100, Math.round((layer.memoryBytes / memLimit) * 100))
+      : Math.min(100, Math.round((layer.memoryBytes / (512 * 1024 * 1024)) * 100))
+  return { cpuPercent, memPercent }
+}
+
+export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
+  if (!Array.isArray(raw)) return []
+  const out: ComponentLayerMetrics[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    const id = typeof r.id === 'string' ? r.id.trim() : ''
+    if (!id) continue
+    const restartCount = Math.round(num(r.restartCount))
+    const redisOps = num(r.redisOpsPerSec)
+    const redisHits = num(r.redisKeyspaceHits)
+    const redisMisses = num(r.redisKeyspaceMisses)
+    const redisRejected = num(r.redisRejectedRate)
+    out.push({
+      id,
+      role: typeof r.role === 'string' ? r.role.trim() : '',
+      engine: typeof r.engine === 'string' ? r.engine.trim() : '',
+      cpuUsage: num(r.cpuUsage),
+      memoryBytes: Math.round(num(r.memoryUsage ?? r.memoryBytes)),
+      cpuLimit: num(r.cpuLimit),
+      memoryLimit: Math.round(num(r.memoryLimit)),
+      cpuIsEstimated: Boolean(r.cpuIsEstimated),
+      memIsEstimated: Boolean(r.memIsEstimated),
+      cpuSource: parseResourceUsageSource(r.cpuSource),
+      memSource: parseResourceUsageSource(r.memSource),
+      redisOpsPerSec: redisOps > 0 ? redisOps : undefined,
+      redisKeyspaceHits: redisHits > 0 ? redisHits : undefined,
+      redisKeyspaceMisses: redisMisses > 0 ? redisMisses : undefined,
+      redisRejectedRate: redisRejected > 0 ? redisRejected : undefined,
+      restartCount: restartCount > 0 ? restartCount : undefined,
+    })
+  }
+  return out.sort(
+    (a, b) =>
+      (LAYER_ROLE_ORDER[a.role] ?? 99) - (LAYER_ROLE_ORDER[b.role] ?? 99) ||
+      a.id.localeCompare(b.id),
+  )
 }
 
 export function parseBackendReplicas(raw: unknown): BackendReplicaStatus | null {

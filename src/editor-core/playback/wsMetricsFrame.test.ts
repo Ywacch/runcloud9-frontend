@@ -25,6 +25,37 @@ describe('componentToBucket resource sources', () => {
     expect(bucket.cpuSource).toBe('metrics_api')
     expect(bucket.memSource).toBe('metrics_api')
   })
+
+  it('maps cache layers from WS component payload', () => {
+    const bucket = componentToBucket({
+      cacheMetricMode: 'layered',
+      layers: [
+        {
+          id: 'redis-internal',
+          role: 'backing-store',
+          engine: 'redis',
+          cpuUsage: 0.12,
+          memoryUsage: 134217728,
+          cpuLimit: 0.5,
+          memoryLimit: 536870912,
+          redisOpsPerSec: 21000,
+          restartCount: 5,
+        },
+        {
+          id: 'cache-proxy',
+          role: 'sidecar',
+          engine: 'caching-proxy',
+          cpuUsage: 0.05,
+          memoryUsage: 67108864,
+          restartCount: 1,
+        },
+      ],
+    })
+    expect(bucket.layers).toHaveLength(2)
+    expect(bucket.layers[0].id).toBe('redis-internal')
+    expect(bucket.layers[1].id).toBe('cache-proxy')
+    expect(bucket.layers[0].redisOpsPerSec).toBe(21000)
+  })
 })
 
 describe('parseRecentLatenciesMs', () => {

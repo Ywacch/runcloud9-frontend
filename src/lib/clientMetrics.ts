@@ -63,6 +63,7 @@ export function idleClientLoadgenBucket(): MetricsBucket {
     backendPods: [],
     backendReplicas: null,
     runtimeHealth: null,
+    layers: [],
     podCount: 1,
     lastUpdated: t,
     qps: 0,

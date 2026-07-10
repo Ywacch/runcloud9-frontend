@@ -6,6 +6,7 @@ import { backendComponentToCanvasType } from '../../lib/typeMapping'
 import {
   parseBackendReplicas,
   parseCrashContext,
+  parseComponentLayers,
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRecentLatenciesMs,
@@ -127,6 +128,7 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     backendPods: [],
     backendReplicas: null,
     runtimeHealth: parseRuntimeHealth(cm.runtimeHealth),
+    layers: parseComponentLayers(cm.layers),
     podCount: 1,
     lastUpdated: Date.now(),
     qps: Math.round(requestRate),

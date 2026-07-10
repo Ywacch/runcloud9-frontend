@@ -22,6 +22,7 @@ import {
 import type { ReplicaInspectorRow } from '../lib/replicaMetricsDisplay'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import { shouldShowKeyspaceDriftHint } from '../lib/storageIoDisplay'
+import { isLayeredCache } from '../lib/cacheLayerDisplay'
 import {
   cacheHeadlines,
   cacheHitRateDisplay,
@@ -30,7 +31,7 @@ import {
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
 import {
-  CacheEngineSection,
+  CacheEnginePanels,
   DbActivitySection,
   DbClusterResourcesSection,
   DbDiagnosticsDisclosure,
@@ -287,6 +288,7 @@ export function LiveMetricsTypeSection({
         m.redisKeyspaceHits ?? 0,
         m.redisKeyspaceMisses ?? 0,
       )
+      const layeredCache = isLayeredCache(m)
 
       if (timelineMode) {
         const showLegacyRedisOps =
@@ -330,9 +332,10 @@ export function LiveMetricsTypeSection({
               </PedagogicalCaption>
             </PedagogicalSection>
 
-            <CacheEngineSection
+            <CacheEnginePanels
               m={m}
               cpuPercent={cpuPercent}
+              memPercent={memPercent}
               evictionPolicy={evictionPolicy}
               view={view}
               showPlaybackDelay={chartPlaybackDelay}
@@ -352,11 +355,13 @@ export function LiveMetricsTypeSection({
               </PedagogicalSection>
             ) : null}
 
+            {!layeredCache ? (
             <EngineHealthDisclosure
               m={m}
               cpuPercent={cpuPercent}
               memPercent={memPercent}
             />
+            ) : null}
           </div>
         )
       }
@@ -408,15 +413,17 @@ export function LiveMetricsTypeSection({
             </PedagogicalCaption>
           </PedagogicalSection>
 
-          <CacheEngineSection
+          <CacheEnginePanels
             m={m}
             cpuPercent={cpuPercent}
+            memPercent={memPercent}
             evictionPolicy={evictionPolicy}
             view={view}
             showPlaybackDelay={chartPlaybackDelay}
             history={history}
           />
 
+          {!layeredCache ? (
           <InspectorDisclosure title="Engine detail & keyspace" hint="Protocol counters">
             {view.timeframe === 'session' ? (
               <div className="font-mono text-[11px] text-gray-300">
@@ -458,8 +465,29 @@ export function LiveMetricsTypeSection({
                 : 'Protocol counters track network noise; minor drift from app metrics is normal.'}
             </PedagogicalHint>
           </InspectorDisclosure>
+          ) : (
+            <InspectorDisclosure title="Session keyspace totals" hint="Rolling 9m window">
+              {view.timeframe === 'session' ? (
+                <div className="font-mono text-[11px] text-gray-300">
+                  Session totals · Hits {fmtInt(m.cacheHitsLast9m)} · Misses{' '}
+                  {fmtInt(m.cacheMissesLast9m)}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Session totals (9 min)
+                  </div>
+                  <div className="font-mono text-[11px] text-gray-300">
+                    Hits {fmtInt(m.cacheHitsLast9m)} · Misses {fmtInt(m.cacheMissesLast9m)}
+                  </div>
+                </div>
+              )}
+            </InspectorDisclosure>
+          )}
 
+          {!layeredCache ? (
           <EngineHealthDisclosure m={m} cpuPercent={cpuPercent} memPercent={memPercent} />
+          ) : null}
         </div>
       )
     }

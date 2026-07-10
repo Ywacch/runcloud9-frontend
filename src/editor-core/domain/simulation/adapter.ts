@@ -87,6 +87,7 @@ export function simulationStateToMetricsBucket(
     backendPods: [],
     backendReplicas: null,
     runtimeHealth: null,
+    layers: [],
     podCount: opts.podCount ?? 1,
     lastUpdated: t,
     qps: Math.round(state.throughputQps),

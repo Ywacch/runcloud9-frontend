@@ -113,6 +113,8 @@ export interface MetricsBucket {
   backendReplicas: BackendReplicaStatus | null
   /** Live pod readiness/restart state from K8s API. */
   runtimeHealth: RuntimeHealthSummary | null
+  /** Per-process cache layers when proxy mode is active. */
+  layers: ComponentLayerMetrics[]
 
   // Meta
   podCount: number
@@ -124,6 +126,7 @@ export interface MetricsBucket {
 
 import type {
   BackendReplicaStatus,
+  ComponentLayerMetrics,
   LoadgenIntervalBucket,
   PodReplicaMetrics,
   RuntimeHealthSummary,
