@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   cacheInspectorLayerIds,
-  cacheLayerSectionLabels,
+  cacheLayerCardTitle,
+  cacheStrategyBanner,
   isLayeredCache,
+  podsForLayer,
+  resolveCacheInspectorMode,
+  summarizePodHealth,
 } from './cacheLayerDisplay'
 
 function cacheBucket(partial: Partial<MetricsBucket>): MetricsBucket {
@@ -94,22 +98,22 @@ describe('cacheLayerDisplay', () => {
     )
   })
 
-  it('returns layer section labels for backing store and proxy', () => {
+  it('resolves inspector mode from strategy and layers', () => {
+    expect(resolveCacheInspectorMode(cacheBucket({}), 'cache-aside')).toBe('single')
     expect(
-      cacheLayerSectionLabels({
-        id: 'redis-internal',
-        role: 'backing-store',
-        engine: 'redis',
-        cpuUsage: 0,
-        memoryBytes: 0,
-        cpuLimit: 0,
-        memoryLimit: 0,
-        cpuIsEstimated: false,
-        memIsEstimated: false,
-      }).title,
-    ).toBe('Redis backing store')
+      resolveCacheInspectorMode(
+        cacheBucket({ layers: [{ id: 'cache-proxy', role: 'sidecar', engine: 'caching-proxy', cpuUsage: 0, memoryBytes: 0, cpuLimit: 0, memoryLimit: 0, cpuIsEstimated: false, memIsEstimated: false }] }),
+        'write-through',
+      ),
+    ).toBe('layered')
+    expect(resolveCacheInspectorMode(cacheBucket({}), 'timeline-store')).toBe(
+      'timeline',
+    )
+  })
+
+  it('returns layer card titles for proxy and backing store', () => {
     expect(
-      cacheLayerSectionLabels({
+      cacheLayerCardTitle({
         id: 'cache-proxy',
         role: 'sidecar',
         engine: 'caching-proxy',
@@ -119,8 +123,47 @@ describe('cacheLayerDisplay', () => {
         memoryLimit: 0,
         cpuIsEstimated: false,
         memIsEstimated: false,
-      }).title,
-    ).toBe('Cache proxy')
+      }),
+    ).toBe('Cache proxy (sidecar)')
+  })
+
+  it('maps pods to layers by name prefix', () => {
+    const pods = podsForLayer(
+      {
+        id: 'cache-proxy',
+        role: 'sidecar',
+        engine: 'caching-proxy',
+        cpuUsage: 0,
+        memoryBytes: 0,
+        cpuLimit: 0,
+        memoryLimit: 0,
+        cpuIsEstimated: false,
+        memIsEstimated: false,
+      },
+      {
+        unreadyCount: 0,
+        restarting: false,
+        pods: [
+          { name: 'cache-proxy-abc', ready: true, restartCount: 0 },
+          { name: 'redis-internal-xyz', ready: true, restartCount: 1 },
+        ],
+      },
+    )
+    expect(pods).toHaveLength(1)
+    expect(pods[0].name).toBe('cache-proxy-abc')
+  })
+
+  it('summarizes pod health with termination reason', () => {
+    const summary = summarizePodHealth([
+      {
+        name: 'redis-internal-abc',
+        ready: false,
+        restartCount: 2,
+        lastTerminationReason: 'OOMKilled',
+      },
+    ])
+    expect(summary.hasIssue).toBe(true)
+    expect(summary.detailLine).toContain('OOMKilled')
   })
 
   it('lists inspector layer ids only when layered', () => {
@@ -156,5 +199,10 @@ describe('cacheLayerDisplay', () => {
       'cache-proxy',
     ])
     expect(cacheInspectorLayerIds(cacheBucket({}))).toEqual([])
+  })
+
+  it('returns strategy banner copy', () => {
+    expect(cacheStrategyBanner('write-through').title).toContain('Write-through')
+    expect(cacheStrategyBanner('timeline-store').title).toContain('Timeline')
   })
 })

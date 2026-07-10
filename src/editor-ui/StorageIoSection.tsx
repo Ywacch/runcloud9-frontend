@@ -352,8 +352,11 @@ export function CombinedCacheCanvasRow({
 }) {
   const labels = formatResourceLabels(m, cpuPercent, memPercent)
   return (
-    <p className="font-mono text-[10px] text-gray-600">
-      Combined (canvas animation) · CPU {labels.cpu} · Mem {labels.mem}
+    <p
+      className="border-t border-dashed border-gray-800/80 pt-3 font-mono text-[10px] text-gray-600"
+      title="The canvas node rim uses aggregate CPU and memory from all processes below."
+    >
+      Total on canvas node · CPU {labels.cpu} · Mem {labels.mem}
     </p>
   )
 }

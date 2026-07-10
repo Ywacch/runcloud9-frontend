@@ -22,16 +22,24 @@ import {
 import type { ReplicaInspectorRow } from '../lib/replicaMetricsDisplay'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import { shouldShowKeyspaceDriftHint } from '../lib/storageIoDisplay'
-import { isLayeredCache } from '../lib/cacheLayerDisplay'
 import {
-  cacheHeadlines,
-  cacheHitRateDisplay,
-  feedPushHeadline,
+  cacheHasAppTraffic,
+  resolveCacheInspectorMode,
+} from '../lib/cacheLayerDisplay'
+import {
   redHeadlines,
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
 import {
-  CacheEnginePanels,
+  buildCacheHeadlines,
+  CacheCanvasFootnote,
+  CacheInfrastructureSection,
+  CacheSessionTotalsDisclosure,
+  CacheStrategyBanner,
+  CacheStrategyPerformanceSection,
+  CacheTimelinePerformanceSection,
+} from './cacheInspectorSections'
+import {
   DbActivitySection,
   DbClusterResourcesSection,
   DbDiagnosticsDisclosure,
@@ -71,10 +79,6 @@ function useLiveMetricNumber(
   return raw
 }
 
-function isTimelineCacheMode(strategy: string, metricMode: string): boolean {
-  const normalizedMode = metricMode.toLowerCase()
-  return strategy === 'timeline-store' || normalizedMode.includes('sorted-set')
-}
 
 export function LiveMetricsTypeSection({
   node,
@@ -267,226 +271,80 @@ export function LiveMetricsTypeSection({
 
     case 'cache': {
       const cacheRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'cache')
-      const cacheHead = cacheHeadlines(m, view.timeframe, fmtRate)
-      const hitRateLabel = cacheHitRateDisplay(cacheHead.hitRatePct)
-      const hitRateSeries = history.map((h) => {
-        const t = h.cacheHits + h.cacheMisses
-        return t > 0 ? (h.cacheHits / t) * 100 : 0
-      })
-      const hitsSeries = history.map((h) => h.cacheHits)
       const backendStrategy =
         (m.cacheStrategy ?? '').trim() ||
         String(node.config.cacheStrategy ?? 'cache-aside')
-      const metricMode = (m.cacheMetricMode ?? '').trim()
-      const timelineMode = isTimelineCacheMode(backendStrategy, metricMode)
+      const inspectorMode = resolveCacheInspectorMode(m, backendStrategy)
+      const timelineMode = inspectorMode === 'timeline'
+      const layeredCache = inspectorMode === 'layered'
       const evictionPolicy = String(node.config.evictionPolicy ?? 'allkeys-lru')
-      const storageIoReadRate = m.storageIo?.readRate ?? 0
-      const preferStorageIo = storageIoReadRate > 0
       const keyspaceDrift = shouldShowKeyspaceDriftHint(
         cacheHits,
         cacheMisses,
         m.redisKeyspaceHits ?? 0,
         m.redisKeyspaceMisses ?? 0,
       )
-      const layeredCache = isLayeredCache(m)
-
-      if (timelineMode) {
-        const showLegacyRedisOps =
-          !preferStorageIo && (m.redisOpsPerSec ?? 0) > 0
-        const feedHead = feedPushHeadline(m, view.timeframe, tmFeedPushRate, fmtRate)
-        const cacheRed = redHeadlines(m, view.timeframe, fmtErrorRate)
-
-        return (
-          <div className="space-y-5">
-            {panelPrefix}
-            <PedagogicalSection
-              title="Feed delivery (RED)"
-              subtitle="Push-model timeline reads"
-            >
-              <StatRow
-                left={
-                  <StatBlock
-                    label={feedHead.label}
-                    value={feedHead.display}
-                    help={view.timeframe === 'live' ? cacheRateHelp : undefined}
-                  />
-                }
-                right={
-                  <StatBlock
-                    label={
-                      view.timeframe === 'session'
-                        ? cacheRed.throughputLabel
-                        : 'Request rate'
-                    }
-                    value={
-                      view.timeframe === 'session'
-                        ? cacheRed.throughputDisplay
-                        : `${fmtRate(requestRate)}/s`
-                    }
-                  />
-                }
-              />
-              <PedagogicalCaption>
-                Template feed.push_rate tracks timeline read traffic; engine
-                command rates below use wire storageIo labels (e.g. ZREVRANGE).
-              </PedagogicalCaption>
-            </PedagogicalSection>
-
-            <CacheEnginePanels
-              m={m}
-              cpuPercent={cpuPercent}
-              memPercent={memPercent}
-              evictionPolicy={evictionPolicy}
-              view={view}
-              showPlaybackDelay={chartPlaybackDelay}
-              history={history}
-            />
-
-            {showLegacyRedisOps ? (
-              <PedagogicalSection
-                title="Engine throughput (USE)"
-                subtitle="Legacy redisOpsPerSec — prefer storageIo when available"
-              >
-                <StatBlock
-                  label="Redis ops"
-                  value={`${fmtRate(m.redisOpsPerSec ?? 0)}/s`}
-                  help={cacheRateHelp}
-                />
-              </PedagogicalSection>
-            ) : null}
-
-            {!layeredCache ? (
-            <EngineHealthDisclosure
-              m={m}
-              cpuPercent={cpuPercent}
-              memPercent={memPercent}
-            />
-            ) : null}
-          </div>
-        )
-      }
+      const cacheHead = buildCacheHeadlines(m, view.timeframe)
+      const hasTraffic = cacheHasAppTraffic(m, cacheHits, cacheMisses)
+      const showLegacyRedisOps =
+        timelineMode &&
+        !(m.storageIo?.readRate ?? 0) &&
+        (m.redisOpsPerSec ?? 0) > 0
 
       return (
         <div className="space-y-5">
-          {panelPrefix}
-          <PedagogicalSection
-            title="App cache intent (Declarative)"
-            subtitle="Did the cache strategy successfully intercept DB queries?"
-          >
-            <StatRow
-              left={
-                <StatBlock
-                  label={cacheHead.hitRateLabel}
-                  value={hitRateLabel}
-                  graph={
-                    <MetricSeriesGraph
-                      data={hitRateSeries}
-                      color="var(--c9-success)"
-                      title="Hit rate"
-                      unit="10s · %"
-                      view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
-                    />
-                  }
-                />
-              }
-              right={
-                <StatBlock
-                  label={cacheHead.throughputLabel}
-                  value={cacheHead.throughputDisplay}
-                  help={cacheRateHelp}
-                  graph={
-                    <MetricSeriesGraph
-                      data={hitsSeries}
-                      color="#22d3ee"
-                      title="Hits"
-                      unit="10s · /s"
-                      view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
-                    />
-                  }
-                />
-              }
-            />
-            <PedagogicalCaption>
-              App logical cache on the redirect path — not Redis keyspace counters.
-            </PedagogicalCaption>
-          </PedagogicalSection>
+          <CacheStrategyBanner strategy={backendStrategy} />
 
-          <CacheEnginePanels
+          {timelineMode ? (
+            <CacheTimelinePerformanceSection
+              m={m}
+              view={view}
+              tmFeedPushRate={tmFeedPushRate}
+              cacheRateHelp={cacheRateHelp}
+              requestRate={requestRate}
+            />
+          ) : (
+            <CacheStrategyPerformanceSection
+              cacheHead={cacheHead}
+              hasTraffic={hasTraffic}
+              cacheRateHelp={cacheRateHelp}
+            />
+          )}
+
+          <CacheInfrastructureSection
             m={m}
+            mode={inspectorMode}
             cpuPercent={cpuPercent}
             memPercent={memPercent}
             evictionPolicy={evictionPolicy}
             view={view}
-            showPlaybackDelay={chartPlaybackDelay}
-            history={history}
           />
 
-          {!layeredCache ? (
-          <InspectorDisclosure title="Engine detail & keyspace" hint="Protocol counters">
-            {view.timeframe === 'session' ? (
-              <div className="font-mono text-[11px] text-gray-300">
-                Session totals · Hits {fmtInt(m.cacheHitsLast9m)} · Misses{' '}
-                {fmtInt(m.cacheMissesLast9m)}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="text-[10px] uppercase tracking-wider text-gray-500">
-                  Session totals (9 min)
-                </div>
-                <div className="font-mono text-[11px] text-gray-300">
-                  Hits {fmtInt(m.cacheHitsLast9m)} · Misses {fmtInt(m.cacheMissesLast9m)}
-                </div>
-              </div>
-            )}
-            <StatRow
-              left={
-                <StatBlock
-                  label="Keyspace hits/s"
-                  value={`${fmtRate(m.redisKeyspaceHits)}/s`}
-                />
-              }
-              right={
-                <StatBlock
-                  label="Keyspace misses/s"
-                  value={`${fmtRate(m.redisKeyspaceMisses)}/s`}
-                />
-              }
-            />
-            {(m.redisConnectedClients ?? 0) > 0 ? (
-              <div className="font-mono text-[11px] text-gray-400">
-                Connected clients · {fmtInt(Math.round(m.redisConnectedClients ?? 0))}
-              </div>
-            ) : null}
-            <PedagogicalHint tone="sky">
-              {keyspaceDrift
-                ? 'App hit rate and keyspace counters differ by more than 10% — check pod aggregation scope.'
-                : 'Protocol counters track network noise; minor drift from app metrics is normal.'}
-            </PedagogicalHint>
-          </InspectorDisclosure>
-          ) : (
-            <InspectorDisclosure title="Session keyspace totals" hint="Rolling 9m window">
-              {view.timeframe === 'session' ? (
-                <div className="font-mono text-[11px] text-gray-300">
-                  Session totals · Hits {fmtInt(m.cacheHitsLast9m)} · Misses{' '}
-                  {fmtInt(m.cacheMissesLast9m)}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500">
-                    Session totals (9 min)
-                  </div>
-                  <div className="font-mono text-[11px] text-gray-300">
-                    Hits {fmtInt(m.cacheHitsLast9m)} · Misses {fmtInt(m.cacheMissesLast9m)}
-                  </div>
-                </div>
-              )}
-            </InspectorDisclosure>
-          )}
+          {showLegacyRedisOps ? (
+            <PedagogicalSection
+              title="Engine throughput (USE)"
+              subtitle="Legacy redisOpsPerSec — prefer storageIo when available"
+            >
+              <StatBlock
+                label="Redis ops"
+                value={`${fmtRate(m.redisOpsPerSec ?? 0)}/s`}
+                help={cacheRateHelp}
+              />
+            </PedagogicalSection>
+          ) : null}
 
-          {!layeredCache ? (
-          <EngineHealthDisclosure m={m} cpuPercent={cpuPercent} memPercent={memPercent} />
+          <CacheSessionTotalsDisclosure
+            m={m}
+            keyspaceDrift={keyspaceDrift}
+            showKeyspaceRates={!layeredCache}
+          />
+
+          {layeredCache ? (
+            <CacheCanvasFootnote
+              m={m}
+              cpuPercent={cpuPercent}
+              memPercent={memPercent}
+            />
           ) : null}
         </div>
       )
