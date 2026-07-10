@@ -181,6 +181,7 @@ function applyTick(result: SimulationTickResult): void {
         ),
         durationSeconds: 0,
         elapsedSeconds: 0,
+        statusCodes: {},
       })
     }
   }

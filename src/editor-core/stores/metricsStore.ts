@@ -151,6 +151,8 @@ export interface LiveLoadgenState {
   successRate: number
   durationSeconds: number
   elapsedSeconds: number
+  /** HTTP status code → count for the run (e.g. "200", "499", "500"). */
+  statusCodes: Record<string, number>
 }
 
 /** Buffered WS ticks for system teaching charts (~2s cadence). */
