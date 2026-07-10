@@ -1,4 +1,4 @@
-import { fmtMs, fmtRate } from '../lib/format'
+import { fmtInt, fmtMs, fmtRate } from '../lib/format'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { MetricChart } from './MetricChart'
@@ -14,6 +14,16 @@ function appServerObservedRps(
     best = Math.max(best, metrics[n.id]?.requestRate ?? 0)
   }
   return best
+}
+
+function statusCodeChipClass(code: string): string {
+  const n = Number(code)
+  if (Number.isFinite(n)) {
+    if (n >= 500) return 'border-red-500/40 bg-red-500/10 text-red-200/90'
+    if (n >= 400) return 'border-amber-500/40 bg-amber-500/10 text-amber-200/90'
+    if (n >= 200 && n < 300) return 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-muted)]'
+  }
+  return 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-text)]'
 }
 
 /** Three-way loadgen check (metrics-ui-contract § Load generator panel). */
@@ -70,6 +80,20 @@ export function LoadgenMetricsPanel() {
           </span>
         </div>
       </div>
+      {Object.keys(loadgen.statusCodes).length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {Object.entries(loadgen.statusCodes)
+            .sort(([, a], [, b]) => b - a)
+            .map(([code, count]) => (
+              <span
+                key={code}
+                className={`rounded border px-1.5 py-0.5 font-mono text-[10px] leading-none ${statusCodeChipClass(code)}`}
+              >
+                {code} · {fmtInt(count)}
+              </span>
+            ))}
+        </div>
+      ) : null}
       {intervalSpark.length >= 2 ? (
         <div className="mt-2">
           <MetricChart

@@ -176,6 +176,19 @@ export function parseRecentLatenciesMs(raw: unknown): number[] {
     .filter((n) => Number.isFinite(n) && n >= 0)
 }
 
+export function parseStatusCodes(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, number> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const code = String(key).trim()
+    if (!code) continue
+    const n = num(value)
+    if (n < 0) continue
+    out[code] = n
+  }
+  return out
+}
+
 export function parseResourceUsageSource(
   raw: unknown,
 ): 'cadvisor' | 'metrics_api' | 'requests' | undefined {

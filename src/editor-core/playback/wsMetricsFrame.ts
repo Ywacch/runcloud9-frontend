@@ -10,6 +10,7 @@ import {
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRecentLatenciesMs,
+  parseStatusCodes,
   parseResourceUsageSource,
   parseRuntimeHealth,
   parseStorageIo,
@@ -319,6 +320,7 @@ export function applyWsFrameToStore(
       successRate: Number(lg.successRate ?? 0),
       durationSeconds: 0,
       elapsedSeconds: Number(lg.durationSeconds ?? 0),
+      statusCodes: parseStatusCodes(lg.statusCodes),
     })
   }
 

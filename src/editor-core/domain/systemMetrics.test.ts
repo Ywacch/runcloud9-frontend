@@ -138,6 +138,7 @@ describe('computeThroughputRps', () => {
       successRate: 100,
       durationSeconds: 0,
       elapsedSeconds: 0,
+      statusCodes: {},
     }
     const r = computeThroughputRps({}, nodes, loadgen, 'live', {}, false)
     expect(r).toBe(42)

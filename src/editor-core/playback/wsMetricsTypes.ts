@@ -100,6 +100,7 @@ export interface WsDeploymentMetrics {
     totalRequests?: number
     successRate?: number
     durationSeconds?: number
+    statusCodes?: Record<string, number>
   }
 }
 
