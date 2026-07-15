@@ -201,9 +201,27 @@ describe('cacheLayerDisplay', () => {
     expect(cacheInspectorLayerIds(cacheBucket({}))).toEqual([])
   })
 
-  it('returns strategy banner copy', () => {
-    expect(cacheStrategyBanner('write-through').title).toContain('Write-through')
+  it('returns strategy banner tradeoff copy', () => {
+    const wt = cacheStrategyBanner('write-through')
+    expect(wt.title).toContain('Write-through')
+    expect(wt.subtitle).toMatch(/DEL \+ error/i)
+    expect(wt.subtitle).toMatch(/durability/i)
+    expect(wt.subtitle).not.toMatch(/Postgres|PostgreSQL|shortener/i)
+
+    const wb = cacheStrategyBanner('write-behind')
+    expect(wb.title).toContain('Write-behind')
+    expect(wb.subtitle).toMatch(/async flush/i)
+    expect(wb.subtitle).toMatch(/ahead of the database/i)
+    expect(wb.subtitle).not.toMatch(/Postgres|PostgreSQL|Redis/i)
+
+    const ca = cacheStrategyBanner('cache-aside')
+    expect(ca.title).toContain('Cache-aside')
+    expect(ca.subtitle).toMatch(/App owns the cache/i)
+    expect(ca.subtitle).toMatch(/warm on first GET/i)
+    expect(ca.subtitle).not.toMatch(/Postgres|PostgreSQL|shortener/i)
+
     expect(cacheStrategyBanner('read-through').title).toContain('Write-through')
+    expect(cacheStrategyBanner('read-through').subtitle).toBe(wt.subtitle)
     expect(cacheStrategyBanner('timeline-store').title).toContain('Timeline')
   })
 })

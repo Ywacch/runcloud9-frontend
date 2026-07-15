@@ -3,6 +3,11 @@ import {
   getAvailableCacheStrategies,
   isProxyCacheStrategy,
 } from '../lib/cacheTopologyStrategy'
+import {
+  REDIS_EVICTION_POLICIES,
+  REDIS_EVICTION_POLICY_LABEL,
+  normalizeRedisEvictionPolicy,
+} from '../lib/redisEvictionPolicy'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   APP_SERVER_REPLICA_MIN,
@@ -415,6 +420,31 @@ function CacheNodeInspectorFields({
             cache→database link, then pick a strategy again.
           </p>
         ) : null}
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="cache-eviction">
+          Eviction policy
+        </label>
+        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+          Maps to Redis <span className="font-mono">--maxmemory-policy</span>. Memory limit comes from
+          the resource profile (~90% reserved for Redis).
+        </p>
+        <select
+          id="cache-eviction"
+          className={fieldClass}
+          value={normalizeRedisEvictionPolicy(c.evictionPolicy)}
+          onChange={(e) =>
+            updateConfig({
+              evictionPolicy: normalizeRedisEvictionPolicy(e.target.value),
+            })
+          }
+        >
+          {REDIS_EVICTION_POLICIES.map((p) => (
+            <option key={p} value={p}>
+              {REDIS_EVICTION_POLICY_LABEL[p]}
+            </option>
+          ))}
+        </select>
       </div>
       <ResourceProfileFields
         idPrefix="cache"
