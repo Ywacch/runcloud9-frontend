@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  CREATE_MENU_ROOT,
+  canPlaceOnCanvas,
+  filterCreateMenuItems,
+  findCreateGroup,
+  nodeMenuActions,
+} from './canvasContextMenuCatalog'
+
+function node(type: CanvasNode['type']): CanvasNode {
+  return {
+    id: `${type}-1`,
+    type,
+    label: type,
+    position: [0, 0, 0],
+    config: {},
+    status: 'idle',
+  }
+}
+
+describe('canvasContextMenuCatalog', () => {
+  it('exposes proxy nested engines without fake catalogs', () => {
+    const db = findCreateGroup(CREATE_MENU_ROOT, 'database')
+    expect(db?.children.map((c) => c.label)).toEqual(['PostgreSQL'])
+    const cache = findCreateGroup(CREATE_MENU_ROOT, 'cache')
+    expect(cache?.children.map((c) => c.label)).toEqual(['Redis'])
+    const mq = findCreateGroup(CREATE_MENU_ROOT, 'message_queue')
+    expect(mq?.children.map((c) => c.label)).toEqual(['RabbitMQ'])
+  })
+
+  it('search flattens matching engines', () => {
+    const hits = filterCreateMenuItems(CREATE_MENU_ROOT, 'postgre')
+    expect(hits).toHaveLength(1)
+    expect(hits[0].kind).toBe('place')
+    if (hits[0].kind === 'place') {
+      expect(hits[0].nodeType).toBe('database')
+      expect(hits[0].label).toBe('PostgreSQL')
+    }
+  })
+
+  it('canPlaceOnCanvas blocks live and locked', () => {
+    expect(canPlaceOnCanvas('design', false)).toBe(true)
+    expect(canPlaceOnCanvas('simulate', false)).toBe(true)
+    expect(canPlaceOnCanvas('live', false)).toBe(false)
+    expect(canPlaceOnCanvas('design', true)).toBe(false)
+  })
+
+  it('nodeMenuActions includes chaos only in live', () => {
+    const design = nodeMenuActions({
+      node: node('cache'),
+      mode: 'design',
+      deploymentId: null,
+      chaosTargetBusy: false,
+    })
+    expect(design.some((a) => a.kind === 'chaos')).toBe(false)
+    expect(design.some((a) => a.kind === 'delete' && !a.disabled)).toBe(true)
+
+    const live = nodeMenuActions({
+      node: node('cache'),
+      mode: 'live',
+      deploymentId: 'dep-1',
+      chaosTargetBusy: false,
+    })
+    const chaos = live
+      .filter((a): a is Extract<typeof a, { kind: 'chaos' }> => a.kind === 'chaos')
+      .map((a) => a.scenario)
+    expect(chaos).toEqual(['pod_kill', 'cache_flush'])
+  })
+
+  it('disables chaos when target busy', () => {
+    const live = nodeMenuActions({
+      node: node('compute'),
+      mode: 'live',
+      deploymentId: 'dep-1',
+      chaosTargetBusy: true,
+    })
+    const kill = live.find((a) => a.kind === 'chaos')
+    expect(kill?.kind === 'chaos' && kill.disabled).toBe(true)
+  })
+})

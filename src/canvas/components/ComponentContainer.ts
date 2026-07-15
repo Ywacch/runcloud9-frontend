@@ -595,6 +595,9 @@ export class ComponentContainer extends Container {
   }
 
   private _onPointerDown = (e: FederatedPointerEvent): void => {
+    // Right/middle click: leave room for the DOM context menu (do not drag/select).
+    if (e.button !== 0) return
+
     e.stopPropagation()
     const state = useCanvasStore.getState()
     const node = state.nodes[this.nodeId]
