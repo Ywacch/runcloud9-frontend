@@ -4,6 +4,7 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { DeploymentDesign } from './api'
 import { ensureLoadBalancerForReplicas } from './ensureLoadBalancerForReplicas'
 import { clampAppServerReplicas, lbAlgorithmForDeploy } from './replicaConfig'
+import { normalizeRedisEvictionPolicy } from './redisEvictionPolicy'
 
 /**
  * Backend topology validation and env derivation typically read `strategy` on cache
@@ -14,7 +15,7 @@ export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
   // Prelaunch gating: keep payloads minimal and avoid emitting inactive knobs.
   delete config.maxMemory
   delete config.maxMemoryMB
-  delete config.evictionPolicy
+  // evictionPolicy is live — BE maps it to redis --maxmemory-policy (do not strip).
   delete config.durableQueues
   delete config.durable
   delete config.storageSize
@@ -34,6 +35,7 @@ export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
     )
     config.cacheStrategy = strat
     config.strategy = strat
+    config.evictionPolicy = normalizeRedisEvictionPolicy(config.evictionPolicy)
   }
   return config
 }

@@ -31,18 +31,21 @@ export function cacheStrategyBanner(strategy: string): {
     case 'write-through':
       return {
         title: 'Cache strategy: Write-through',
-        subtitle: 'App writes to proxy; proxy updates Redis and Postgres.',
+        subtitle:
+          'Cache SET then sync the database; DEL + error if the DB write fails. Stronger durability on the write path — pays proxy + sync DB cost.',
       }
     case 'write-behind':
       return {
         title: 'Cache strategy: Write-behind',
-        subtitle: 'App writes to proxy; Redis and DB flush asynchronously.',
+        subtitle:
+          'Fast ack after the cache write; async flush to durable storage. Brief window where the cache can be ahead of the database.',
       }
     case 'read-through':
       // Legacy — canonicalized to write-through; same banner copy.
       return {
         title: 'Cache strategy: Write-through',
-        subtitle: 'App writes to proxy; proxy updates Redis and Postgres.',
+        subtitle:
+          'Cache SET then sync the database; DEL + error if the DB write fails. Stronger durability on the write path — pays proxy + sync DB cost.',
       }
     case 'timeline-store':
       return {
@@ -53,7 +56,8 @@ export function cacheStrategyBanner(strategy: string): {
     default:
       return {
         title: 'Cache strategy: Cache-aside',
-        subtitle: 'App talks to Redis directly; cache misses hit the database.',
+        subtitle:
+          'App owns the cache; misses hit the database. Cheapest hot path — consistency is the app’s job. Immutable keys: no SET on write; warm on first GET.',
       }
   }
 }
