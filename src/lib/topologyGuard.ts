@@ -1,5 +1,5 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
-import { isProxyCacheStrategy } from './cacheTopologyStrategy'
+import { isProxyOrLegacyCacheStrategy } from './cacheTopologyStrategy'
 import type { TopologyLimits } from './userTier'
 
 export interface TopologyViolation {
@@ -37,7 +37,7 @@ export function findTopologyViolations(
     }
     if (node.type === 'cache' && !limits.allowProxyCache) {
       const strategy = cacheStrategyForNode(node)
-      if (isProxyCacheStrategy(strategy)) {
+      if (isProxyOrLegacyCacheStrategy(strategy)) {
         violations.push({
           kind: 'proxy_cache',
           message:

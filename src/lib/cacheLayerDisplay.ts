@@ -39,9 +39,10 @@ export function cacheStrategyBanner(strategy: string): {
         subtitle: 'App writes to proxy; Redis and DB flush asynchronously.',
       }
     case 'read-through':
+      // Legacy — canonicalized to write-through; same banner copy.
       return {
-        title: 'Cache strategy: Read-through',
-        subtitle: 'App reads via proxy; misses load from Postgres through Redis.',
+        title: 'Cache strategy: Write-through',
+        subtitle: 'App writes to proxy; proxy updates Redis and Postgres.',
       }
     case 'timeline-store':
       return {
@@ -81,7 +82,7 @@ export function cacheLayerSectionLabels(layer: ComponentLayerMetrics): {
   if (layer.id === 'cache-proxy' || layer.role === 'sidecar') {
     return {
       title: 'Cache proxy',
-      subtitle: 'App talks here first (write-through / read-through path)',
+      subtitle: 'App talks here first (write-through / write-behind path)',
     }
   }
   return {
