@@ -1,3 +1,4 @@
+export { CanvasContextMenu } from './CanvasContextMenu'
 export { CascadeToast } from './CascadeToast'
 export { ChaosOverlayTicker } from './ChaosOverlayTicker'
 export { CanvasErrorBoundary } from './CanvasErrorBoundary'
