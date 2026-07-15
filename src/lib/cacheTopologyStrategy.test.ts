@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
-import { getAvailableCacheStrategies } from './cacheTopologyStrategy'
+import {
+  applyCacheStrategyNormalizationToNodes,
+  getAvailableCacheStrategies,
+} from './cacheTopologyStrategy'
 
-function node(id: string, type: CanvasNode['type']): CanvasNode {
+function node(
+  id: string,
+  type: CanvasNode['type'],
+  config: CanvasNode['config'] = {},
+): CanvasNode {
   return {
     id,
     type,
     label: id,
     position: [0, 0, 0],
-    config: {},
+    config,
     status: 'idle',
   }
 }
@@ -51,6 +58,28 @@ describe('getAvailableCacheStrategies', () => {
     const available = getAvailableCacheStrategies('cache', nodes, edges, {
       allowProxyStrategies: true,
     })
-    expect(available).toEqual(['write-through', 'write-behind', 'read-through'])
+    expect(available).toEqual(['write-through', 'write-behind'])
+  })
+})
+
+describe('applyCacheStrategyNormalizationToNodes', () => {
+  it('snaps legacy read-through to write-through on proxy topology', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      cache: node('cache', 'cache', {
+        cacheStrategy: 'read-through',
+        strategy: 'read-through',
+      }),
+      db: node('db', 'database'),
+    }
+    const edges = {
+      appCache: edge('appCache', 'app', 'cache'),
+      cacheDb: edge('cacheDb', 'cache', 'db'),
+    }
+    const next = applyCacheStrategyNormalizationToNodes(nodes, edges, {
+      allowProxyStrategies: true,
+    })
+    expect(next.cache.config.cacheStrategy).toBe('write-through')
+    expect(next.cache.config.strategy).toBe('write-through')
   })
 })

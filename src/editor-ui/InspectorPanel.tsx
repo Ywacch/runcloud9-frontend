@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   getAvailableCacheStrategies,
+  isProxyCacheStrategy,
 } from '../lib/cacheTopologyStrategy'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
@@ -334,9 +335,17 @@ function CacheNodeInspectorFields({
   )
 
   useEffect(() => {
+    if (strategy === 'read-through') {
+      useCanvasStore.getState().updateNodeConfig(node.id, {
+        cacheStrategy: 'write-through',
+        strategy: 'write-through',
+      })
+      return
+    }
     if (available.length > 0 && !available.includes(strategy)) {
       useCanvasStore.getState().updateNodeConfig(node.id, {
         cacheStrategy: available[0],
+        strategy: available[0],
       })
     }
   }, [available, node.id, strategy])
@@ -345,6 +354,7 @@ function CacheNodeInspectorFields({
   const selectValue = available.includes(strategy)
     ? strategy
     : available[0] ?? strategy
+  const showProxyReadThroughNote = available.some((s) => isProxyCacheStrategy(s))
 
   return (
     <>
@@ -367,7 +377,12 @@ function CacheNodeInspectorFields({
           className={fieldClass}
           value={selectValue}
           disabled={ambiguousTopology}
-          onChange={(e) => updateConfig({ cacheStrategy: e.target.value })}
+          onChange={(e) =>
+            updateConfig({
+              cacheStrategy: e.target.value,
+              strategy: e.target.value,
+            })
+          }
         >
           {ambiguousTopology ? (
             <option value={strategy}>
@@ -381,6 +396,18 @@ function CacheNodeInspectorFields({
             ))
           )}
         </select>
+        {showProxyReadThroughNote ? (
+          <div className="mt-2 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
+              Read-through (always on)
+            </p>
+            <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+              On a cache miss, the caching proxy loads from Postgres, refills Redis, and returns
+              the value. Your app never talks to the database on reads. This applies to both
+              write-through and write-behind.
+            </p>
+          </div>
+        ) : null}
         {ambiguousTopology ? (
           <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
             This wiring is invalid: a connector reaches this cache and the database while the cache

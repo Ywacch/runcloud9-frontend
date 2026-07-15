@@ -1,13 +1,21 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 
-const PROXY_STRATEGIES = ['write-through', 'write-behind', 'read-through'] as const
+const PROXY_STRATEGIES = ['write-through', 'write-behind'] as const
 export const PROXY_CACHE_STRATEGIES = PROXY_STRATEGIES
 const CACHE_ASIDE = 'cache-aside'
 const TIMELINE_STORE = 'timeline-store'
 const NON_PROXY_STRATEGIES = [CACHE_ASIDE, TIMELINE_STORE] as const
+/** Legacy UI value — canonicalized to write-through (backend CanonicalCacheStrategy). */
+const LEGACY_READ_THROUGH = 'read-through'
 
 export function isProxyCacheStrategy(strategy: unknown): boolean {
   return (PROXY_STRATEGIES as readonly string[]).includes(String(strategy ?? ''))
+}
+
+/** True for selectable proxy strategies plus legacy read-through (pre-normalize canvases). */
+export function isProxyOrLegacyCacheStrategy(strategy: unknown): boolean {
+  const s = String(strategy ?? '')
+  return isProxyCacheStrategy(s) || s === LEGACY_READ_THROUGH
 }
 
 export interface CacheStrategyOptions {
@@ -94,7 +102,7 @@ export function getCacheTopologyEdgeIssues(
       const strat = String(src.config.cacheStrategy ?? CACHE_ASIDE)
       if (strat === CACHE_ASIDE) {
         issues[e.id] =
-          'Cache-aside does not use cache→database. Remove this edge or switch to a proxy strategy (write-through / write-behind / read-through).'
+          'Cache-aside does not use cache→database. Remove this edge or switch to a proxy strategy (write-through / write-behind).'
       }
     }
   }
@@ -138,14 +146,24 @@ export function applyCacheStrategyNormalizationToNodes(
     const n = next[id]
     if (n?.type !== 'cache') continue
     const avail = getAvailableCacheStrategies(id, next, edges, options)
-    const cur = String(n.config.cacheStrategy ?? CACHE_ASIDE)
-    if (avail.length > 0 && !avail.includes(cur)) {
-      next[id] = {
-        ...n,
-        config: { ...n.config, cacheStrategy: avail[0] },
-      }
-      changed = true
+    const cur = String(n.config.cacheStrategy ?? n.config.strategy ?? CACHE_ASIDE)
+    let target = cur === LEGACY_READ_THROUGH ? 'write-through' : cur
+    if (avail.length > 0 && !avail.includes(target)) {
+      target = avail[0]
     }
+    if (target === cur && String(n.config.cacheStrategy ?? '') === target) {
+      continue
+    }
+    const config: Record<string, unknown> = {
+      ...n.config,
+      cacheStrategy: target,
+    }
+    // Keep strategy in sync when either key is present (deployPayload wire shape).
+    if ('strategy' in n.config || 'cacheStrategy' in n.config) {
+      config.strategy = target
+    }
+    next[id] = { ...n, config }
+    changed = true
   }
   return changed ? next : nodes
 }

@@ -203,6 +203,7 @@ describe('cacheLayerDisplay', () => {
 
   it('returns strategy banner copy', () => {
     expect(cacheStrategyBanner('write-through').title).toContain('Write-through')
+    expect(cacheStrategyBanner('read-through').title).toContain('Write-through')
     expect(cacheStrategyBanner('timeline-store').title).toContain('Timeline')
   })
 })
