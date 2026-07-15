@@ -74,13 +74,6 @@ export function Hero() {
             >
               <ScreenshotFrame screenshotSrc={canvasHero} />
             </div>
-            <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-lg border border-c9-border bg-c9-bg-surface px-3 py-2">
-              <span
-                className="h-2 w-2 animate-pulse rounded-full bg-emerald-400"
-                aria-hidden
-              />
-              <span className="text-xs text-c9-text-muted">3 pods healthy</span>
-            </div>
           </div>
         </div>
       </div>
