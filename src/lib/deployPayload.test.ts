@@ -39,4 +39,39 @@ describe('deployConfigForNode', () => {
     )
     expect(bogus.evictionPolicy).toBe('allkeys-lru')
   })
+
+  it('syncs proxyInstanceSize ↔ proxyResourceProfile for proxy strategies', () => {
+    const explicit = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'write-through',
+        instanceSize: 'small',
+        proxyInstanceSize: 'large',
+      }),
+    )
+    expect(explicit.proxyInstanceSize).toBe('large')
+    expect(explicit.proxyResourceProfile).toBe('large')
+    expect(explicit.instanceSize).toBe('small')
+    expect(explicit.resourceProfile).toBe('small')
+
+    const defaults = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'write-behind',
+        instanceSize: 'medium',
+      }),
+    )
+    expect(defaults.proxyInstanceSize).toBe('medium')
+    expect(defaults.proxyResourceProfile).toBe('medium')
+  })
+
+  it('omits proxy size keys for cache-aside', () => {
+    const aside = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'cache-aside',
+        proxyInstanceSize: 'large',
+        proxyResourceProfile: 'large',
+      }),
+    )
+    expect(aside.proxyInstanceSize).toBeUndefined()
+    expect(aside.proxyResourceProfile).toBeUndefined()
+  })
 })

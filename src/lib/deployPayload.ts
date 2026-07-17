@@ -5,6 +5,14 @@ import type { DeploymentDesign } from './api'
 import { ensureLoadBalancerForReplicas } from './ensureLoadBalancerForReplicas'
 import { clampAppServerReplicas, lbAlgorithmForDeploy } from './replicaConfig'
 import { normalizeRedisEvictionPolicy } from './redisEvictionPolicy'
+import {
+  isProxyOrLegacyCacheStrategy,
+} from './cacheTopologyStrategy'
+import {
+  defaultProxyResourceProfile,
+  normalizeProxyInstanceSize,
+  redisProfileFromConfig,
+} from './cacheProxyResources'
 
 /**
  * Backend topology validation and env derivation typically read `strategy` on cache
@@ -36,6 +44,29 @@ export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
     config.cacheStrategy = strat
     config.strategy = strat
     config.evictionPolicy = normalizeRedisEvictionPolicy(config.evictionPolicy)
+
+    // Sync instanceSize ↔ resourceProfile (BE normalize also does this).
+    const redisSize =
+      String(config.resourceProfile ?? '').trim() ||
+      String(config.instanceSize ?? '').trim() ||
+      'small'
+    config.instanceSize = redisSize
+    config.resourceProfile = redisSize
+
+    if (isProxyOrLegacyCacheStrategy(strat)) {
+      // Sync proxyInstanceSize ↔ proxyResourceProfile; default from Redis size.
+      const explicit =
+        String(config.proxyResourceProfile ?? '').trim() ||
+        String(config.proxyInstanceSize ?? '').trim()
+      const proxySize = explicit
+        ? normalizeProxyInstanceSize(explicit)
+        : defaultProxyResourceProfile(redisProfileFromConfig(config))
+      config.proxyInstanceSize = proxySize
+      config.proxyResourceProfile = proxySize
+    } else {
+      delete config.proxyInstanceSize
+      delete config.proxyResourceProfile
+    }
   }
   return config
 }

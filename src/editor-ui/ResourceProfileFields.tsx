@@ -1,4 +1,9 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  resolveProxyInstanceSize,
+  resolveProxyProvisionedLimits,
+  type ProxyInstanceSize,
+} from '../lib/cacheProxyResources'
 import { useResourceProfiles } from '../lib/resourceProfileStore'
 import {
   formatProvisionedLabel,
@@ -12,33 +17,57 @@ const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-m
 const RESOURCE_PROFILE_HELPER =
   'Adjusts Kubernetes CPU/memory reservations for this component.'
 
+const PROXY_SIZE_HELPER =
+  'Sizes the caching-proxy sidecar separately from Redis. CPU/RAM amounts differ from Redis profiles.'
+
+type SizeConfigKey = 'instanceSize' | 'proxyInstanceSize'
+
 export function ResourceProfileFields({
   idPrefix,
   nodeType,
   config,
   showDefaultOption = false,
   updateConfig,
+  label = 'Resource profile',
+  helperText = RESOURCE_PROFILE_HELPER,
+  configKey = 'instanceSize',
 }: {
   idPrefix: string
   nodeType: CanvasNode['type']
   config: Record<string, unknown>
   showDefaultOption?: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
+  label?: string
+  helperText?: string
+  configKey?: SizeConfigKey
 }) {
   const catalog = useResourceProfiles()
+  const isProxy = configKey === 'proxyInstanceSize'
+  const rawSize = config[configKey]
   const instanceSize = showDefaultOption
-    ? String(config.instanceSize ?? '')
-    : String(config.instanceSize ?? 'small')
-  const limits = resolveProvisionedLimits(nodeType, config, catalog)
+    ? String(rawSize ?? '')
+    : isProxy
+      ? resolveProxyInstanceSize(config)
+      : String(rawSize ?? 'small')
+
+  const limits = isProxy
+    ? resolveProxyProvisionedLimits(config)
+    : resolveProvisionedLimits(
+        nodeType,
+        configKey === 'instanceSize'
+          ? config
+          : { ...config, instanceSize: rawSize },
+        catalog,
+      )
 
   return (
     <>
       <div>
         <label className={labelClass} htmlFor={`${idPrefix}-size`}>
-          Resource profile
+          {label}
         </label>
         <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          {RESOURCE_PROFILE_HELPER}
+          {isProxy ? PROXY_SIZE_HELPER : helperText}
         </p>
         <select
           id={`${idPrefix}-size`}
@@ -46,6 +75,21 @@ export function ResourceProfileFields({
           value={instanceSize}
           onChange={(e) => {
             const v = e.target.value.trim()
+            if (isProxy) {
+              if (!v) {
+                updateConfig({
+                  proxyInstanceSize: undefined,
+                  proxyResourceProfile: undefined,
+                })
+                return
+              }
+              const size = v as ProxyInstanceSize
+              updateConfig({
+                proxyInstanceSize: size,
+                proxyResourceProfile: size,
+              })
+              return
+            }
             updateConfig(v ? { instanceSize: v } : { instanceSize: undefined })
           }}
         >

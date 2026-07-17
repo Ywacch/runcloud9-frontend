@@ -205,4 +205,78 @@ describe('sumDesignBudget', () => {
     const mq = got.breakdown.find((row) => row.label === 'RabbitMQ')
     expect(mq?.cpu).toBe('200m')
   })
+
+  it('adds cache-proxy overhead for write-through using proxy size table', () => {
+    const design: DeploymentDesign = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'url-shortener',
+      nodes: [
+        {
+          id: 'cache-1',
+          type: 'cache',
+          name: 'Redis',
+          config: {
+            strategy: 'write-through',
+            instanceSize: 'small',
+          },
+        },
+      ],
+      connections: [],
+    }
+    const got = sumDesignBudget(design, 'engineer', catalog)
+    const redis = got.breakdown.find((row) => row.label === 'Redis')
+    const proxy = got.breakdown.find((row) => row.label === 'Redis cache-proxy')
+    expect(redis?.cpu).toBe('125m')
+    expect(redis?.memory).toBe('256Mi')
+    // Default proxy for Redis small → proxy small = 250m / 512Mi
+    expect(proxy?.cpu).toBe('250m')
+    expect(proxy?.memory).toBe('512Mi')
+  })
+
+  it('uses explicit proxyInstanceSize for budget independent of Redis size', () => {
+    const design: DeploymentDesign = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'url-shortener',
+      nodes: [
+        {
+          id: 'cache-1',
+          type: 'cache',
+          name: 'Redis',
+          config: {
+            cacheStrategy: 'write-behind',
+            instanceSize: 'large',
+            proxyInstanceSize: 'small',
+          },
+        },
+      ],
+      connections: [],
+    }
+    const got = sumDesignBudget(design, 'engineer', catalog)
+    const proxy = got.breakdown.find((row) => row.label === 'Redis cache-proxy')
+    expect(proxy?.cpu).toBe('250m')
+    expect(proxy?.memory).toBe('512Mi')
+  })
+
+  it('does not add cache-proxy line for cache-aside', () => {
+    const design: DeploymentDesign = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'url-shortener',
+      nodes: [
+        {
+          id: 'cache-1',
+          type: 'cache',
+          name: 'Redis',
+          config: { strategy: 'cache-aside', instanceSize: 'small' },
+        },
+      ],
+      connections: [],
+    }
+    const got = sumDesignBudget(design, 'explorer', catalog)
+    expect(
+      got.breakdown.some((row) => row.label.includes('cache-proxy')),
+    ).toBe(false)
+  })
 })
