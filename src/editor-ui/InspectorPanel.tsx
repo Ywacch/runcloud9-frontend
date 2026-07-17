@@ -9,6 +9,7 @@ import {
 } from '../lib/cacheProxyResources'
 import {
   REDIS_EVICTION_POLICIES,
+  REDIS_EVICTION_POLICY_DESCRIPTION,
   REDIS_EVICTION_POLICY_LABEL,
   normalizeRedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
@@ -475,6 +476,11 @@ function CacheNodeInspectorFields({
           id="cache-eviction"
           className={fieldClass}
           value={normalizeRedisEvictionPolicy(c.evictionPolicy)}
+          title={
+            REDIS_EVICTION_POLICY_DESCRIPTION[
+              normalizeRedisEvictionPolicy(c.evictionPolicy)
+            ]
+          }
           onChange={(e) =>
             updateConfig({
               evictionPolicy: normalizeRedisEvictionPolicy(e.target.value),
@@ -482,7 +488,11 @@ function CacheNodeInspectorFields({
           }
         >
           {REDIS_EVICTION_POLICIES.map((p) => (
-            <option key={p} value={p}>
+            <option
+              key={p}
+              value={p}
+              title={REDIS_EVICTION_POLICY_DESCRIPTION[p]}
+            >
               {REDIS_EVICTION_POLICY_LABEL[p]}
             </option>
           ))}
