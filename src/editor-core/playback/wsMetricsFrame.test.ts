@@ -39,6 +39,8 @@ describe('componentToBucket resource sources', () => {
           cpuLimit: 0.5,
           memoryLimit: 536870912,
           redisOpsPerSec: 21000,
+          evictionsPerSec: 2.5,
+          expirationsPerSec: 0.75,
           restartCount: 5,
         },
         {
@@ -55,6 +57,25 @@ describe('componentToBucket resource sources', () => {
     expect(bucket.layers[0].id).toBe('redis-internal')
     expect(bucket.layers[1].id).toBe('cache-proxy')
     expect(bucket.layers[0].redisOpsPerSec).toBe(21000)
+    expect(bucket.layers[0].evictionsPerSec).toBe(2.5)
+    expect(bucket.layers[0].expirationsPerSec).toBe(0.75)
+    // Proxy layer must not inherit backing-store lifecycle rates.
+    expect(bucket.layers[1].evictionsPerSec).toBeUndefined()
+    expect(bucket.layers[1].expirationsPerSec).toBeUndefined()
+  })
+
+  it('maps component-level cache store lifecycle rates onto the bucket', () => {
+    const bucket = componentToBucket({
+      component: 'cache',
+      evictionsPerSec: 2.5,
+      expirationsPerSec: 0.75,
+    })
+    expect(bucket.evictionsPerSec).toBe(2.5)
+    expect(bucket.expirationsPerSec).toBe(0.75)
+
+    const empty = componentToBucket({ component: 'cache' })
+    expect(empty.evictionsPerSec).toBe(0)
+    expect(empty.expirationsPerSec).toBe(0)
   })
 })
 

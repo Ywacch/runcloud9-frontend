@@ -87,6 +87,9 @@ export interface ComponentLayerMetrics {
   redisKeyspaceHits?: number
   redisKeyspaceMisses?: number
   redisRejectedRate?: number
+  /** Engine-agnostic store rates (backing-store layer only on the wire). */
+  evictionsPerSec?: number
+  expirationsPerSec?: number
   restartCount?: number
 }
 
@@ -302,6 +305,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const redisHits = num(r.redisKeyspaceHits)
     const redisMisses = num(r.redisKeyspaceMisses)
     const redisRejected = num(r.redisRejectedRate)
+    const evictions = num(r.evictionsPerSec)
+    const expirations = num(r.expirationsPerSec)
     out.push({
       id,
       role: typeof r.role === 'string' ? r.role.trim() : '',
@@ -318,6 +323,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       redisKeyspaceHits: redisHits > 0 ? redisHits : undefined,
       redisKeyspaceMisses: redisMisses > 0 ? redisMisses : undefined,
       redisRejectedRate: redisRejected > 0 ? redisRejected : undefined,
+      evictionsPerSec: evictions > 0 ? evictions : undefined,
+      expirationsPerSec: expirations > 0 ? expirations : undefined,
       restartCount: restartCount > 0 ? restartCount : undefined,
     })
   }
