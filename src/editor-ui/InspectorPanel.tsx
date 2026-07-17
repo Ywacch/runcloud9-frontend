@@ -426,8 +426,8 @@ function CacheNodeInspectorFields({
           Eviction policy
         </label>
         <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          Maps to Redis <span className="font-mono">--maxmemory-policy</span>. Memory limit comes from
-          the resource profile (~90% reserved for Redis).
+          Redis uses this rule only when it runs out of cache memory. The Redis size below
+          sets the memory budget; Redis keeps headroom for its own process.
         </p>
         <select
           id="cache-eviction"

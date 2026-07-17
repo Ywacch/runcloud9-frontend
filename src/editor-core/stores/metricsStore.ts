@@ -66,6 +66,9 @@ export interface MetricsBucket {
   redisKeyspaceMisses?: number
   redisAvgLatency?: number
   redisConnectedClients?: number
+  /** Engine-agnostic cache store rates (Redis fills them today). */
+  evictionsPerSec?: number
+  expirationsPerSec?: number
   cacheHits: number
   cacheMisses: number
   cacheHitsLast9m: number

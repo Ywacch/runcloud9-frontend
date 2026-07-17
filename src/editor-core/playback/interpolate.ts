@@ -126,6 +126,12 @@ export function lerpMetricsBucket(
       b.redisConnectedClients ?? 0,
       t,
     ),
+    evictionsPerSec: lerpNum(a.evictionsPerSec ?? 0, b.evictionsPerSec ?? 0, t),
+    expirationsPerSec: lerpNum(
+      a.expirationsPerSec ?? 0,
+      b.expirationsPerSec ?? 0,
+      t,
+    ),
     cacheHits: lerpNum(a.cacheHits, b.cacheHits, t),
     cacheMisses: lerpNum(a.cacheMisses, b.cacheMisses, t),
     cacheHitsLast9m: lerpRound(a.cacheHitsLast9m, b.cacheHitsLast9m, t),

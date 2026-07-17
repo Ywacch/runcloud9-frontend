@@ -468,6 +468,25 @@ export function CacheLayerResourceBlock({
           }
         />
       ) : null}
+      {backing &&
+      ((layer.evictionsPerSec ?? 0) > 0 || (layer.expirationsPerSec ?? 0) > 0) ? (
+        <StatRow
+          left={
+            <StatBlock
+              label="Evictions/s"
+              value={`${fmtRate(layer.evictionsPerSec ?? 0)}/s`}
+              help="Keys the store removed because memory pressure or the eviction policy required it."
+            />
+          }
+          right={
+            <StatBlock
+              label="TTL expirations/s"
+              value={`${fmtRate(layer.expirationsPerSec ?? 0)}/s`}
+              help="Keys the store removed because their TTL ended."
+            />
+          }
+        />
+      ) : null}
       {(layer.redisRejectedRate ?? 0) > 0 ? (
         <StatBlock
           label="Rejected commands/s"
@@ -625,6 +644,24 @@ export function CacheEngineSection({
           </div>
         }
       />
+      {(m.evictionsPerSec ?? 0) > 0 || (m.expirationsPerSec ?? 0) > 0 ? (
+        <StatRow
+          left={
+            <StatBlock
+              label="Evictions/s"
+              value={`${fmtRate(m.evictionsPerSec ?? 0)}/s`}
+              help="Keys the store removed because memory pressure or the eviction policy required it."
+            />
+          }
+          right={
+            <StatBlock
+              label="TTL expirations/s"
+              value={`${fmtRate(m.expirationsPerSec ?? 0)}/s`}
+              help="Keys the store removed because their TTL ended."
+            />
+          }
+        />
+      ) : null}
       {evictionPolicy ? (
         <p className="text-[10px] text-gray-500">({evictionPolicy} eviction)</p>
       ) : null}

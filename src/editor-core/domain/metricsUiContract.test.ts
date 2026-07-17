@@ -178,6 +178,8 @@ describe('metricsUiContract', () => {
         redisKeyspaceHits: 800,
         redisKeyspaceMisses: 120,
         redisRejectedRate: 3,
+        evictionsPerSec: 2.5,
+        expirationsPerSec: 0.75,
         restartCount: 5,
       },
     ])
@@ -187,6 +189,11 @@ describe('metricsUiContract', () => {
     expect(layers[0].redisOpsPerSec).toBe(21000)
     expect(layers[0].restartCount).toBe(5)
     expect(layers[1].restartCount).toBe(1)
+    // Store lifecycle rates live on the backing-store layer only.
+    expect(layers[0].evictionsPerSec).toBe(2.5)
+    expect(layers[0].expirationsPerSec).toBe(0.75)
+    expect(layers[1].evictionsPerSec).toBeUndefined()
+    expect(layers[1].expirationsPerSec).toBeUndefined()
   })
 
   it('parseComponentLayers returns empty for missing input', () => {

@@ -134,6 +134,26 @@ export function CacheTimelinePerformanceSection({
   )
 }
 
+const REDIS_MEMORY_HELP =
+  'Memory shows Redis used memory compared with maxmemory, not the raw size of stored values.'
+
+/** Redis-backed cards: explain what the memory number actually measures. */
+function cacheMemoryHelp(m: MetricsBucket, memPercent: number): string | undefined {
+  if (m.memIsEstimated) return memoryUsageHelp(m, memPercent)
+  return REDIS_MEMORY_HELP
+}
+
+/** Engine-neutral key lifecycle rates; hidden until either rate is non-zero. */
+function lifecycleTilesFor(
+  evictionsPerSec?: number,
+  expirationsPerSec?: number,
+): { evictions: string; expirations: string } | null {
+  const ev = evictionsPerSec ?? 0
+  const ex = expirationsPerSec ?? 0
+  if (ev <= 0 && ex <= 0) return null
+  return { evictions: `${fmtRate(ev)}/s`, expirations: `${fmtRate(ex)}/s` }
+}
+
 function ReadyPill({ label, hasIssue }: { label: string; hasIssue: boolean }) {
   return (
     <span
@@ -156,6 +176,7 @@ function CacheProcessCard({
   cpuLabel,
   cpuHelp,
   commandTiles,
+  lifecycleTiles,
   footerNote,
 }: {
   title: string
@@ -165,6 +186,7 @@ function CacheProcessCard({
   cpuLabel: string
   cpuHelp?: string
   commandTiles?: { readLabel: string; readValue: string; writeLabel: string; writeValue: string } | null
+  lifecycleTiles?: { evictions: string; expirations: string } | null
   footerNote?: string
 }) {
   const health = summarizePodHealth(pods)
@@ -213,6 +235,25 @@ function CacheProcessCard({
             <div className="grid grid-cols-2 gap-3">
               <StatBlock label={commandTiles.readLabel} value={commandTiles.readValue} />
               <StatBlock label={commandTiles.writeLabel} value={commandTiles.writeValue} />
+            </div>
+          </div>
+        ) : null}
+        {lifecycleTiles ? (
+          <div className="space-y-2 border-t border-gray-800/80 pt-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              Key lifecycle
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <StatBlock
+                label="Evictions"
+                value={lifecycleTiles.evictions}
+                help="Keys the store removed because memory pressure or the eviction policy required it."
+              />
+              <StatBlock
+                label="TTL expirations"
+                value={lifecycleTiles.expirations}
+                help="Keys the store removed because their TTL ended."
+              />
             </div>
           </div>
         ) : null}
@@ -287,10 +328,19 @@ function layerProcessCard(
       title={cacheLayerCardTitle(layer)}
       pods={pods}
       memoryLabel={memLabel}
-      memoryHelp={memoryUsageHelp(layerBucket, memPercent)}
+      memoryHelp={
+        backing
+          ? cacheMemoryHelp(layerBucket, memPercent)
+          : memoryUsageHelp(layerBucket, memPercent)
+      }
       cpuLabel={cpuLabel}
       cpuHelp={resourceUsageHelp(layerBucket)}
       commandTiles={backing ? commandTilesForBucket(syntheticForIo, view) : null}
+      lifecycleTiles={
+        backing
+          ? lifecycleTilesFor(layer.evictionsPerSec, layer.expirationsPerSec)
+          : null
+      }
       footerNote={footerNote}
     />
   )
@@ -352,10 +402,11 @@ export function CacheInfrastructureSection({
         title={title}
         pods={pods}
         memoryLabel={memLabel}
-        memoryHelp={memoryUsageHelp(m, memPercent)}
+        memoryHelp={cacheMemoryHelp(m, memPercent)}
         cpuLabel={cpuLabel}
         cpuHelp={resourceUsageHelp(m)}
         commandTiles={commandTilesForBucket(m, view)}
+        lifecycleTiles={lifecycleTilesFor(m.evictionsPerSec, m.expirationsPerSec)}
         footerNote={evictionPolicy ? `${evictionPolicy} eviction` : undefined}
       />
     </section>
