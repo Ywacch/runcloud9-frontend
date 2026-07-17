@@ -4,6 +4,10 @@ import {
   isProxyCacheStrategy,
 } from '../lib/cacheTopologyStrategy'
 import {
+  defaultProxyResourceProfile,
+  redisProfileFromConfig,
+} from '../lib/cacheProxyResources'
+import {
   REDIS_EVICTION_POLICIES,
   REDIS_EVICTION_POLICY_LABEL,
   normalizeRedisEvictionPolicy,
@@ -339,6 +343,15 @@ function CacheNodeInspectorFields({
     [node.id, nodes, edges, isPremiumUser],
   )
 
+  const ambiguousTopology = available.length === 0
+  const selectValue = available.includes(strategy)
+    ? strategy
+    : available[0] ?? strategy
+  const showProxyReadThroughNote = available.some((s) => isProxyCacheStrategy(s))
+  const showProxySize = isProxyCacheStrategy(selectValue)
+  const proxyInstanceSize = String(c.proxyInstanceSize ?? '').trim()
+  const proxyResourceProfile = String(c.proxyResourceProfile ?? '').trim()
+
   useEffect(() => {
     if (strategy === 'read-through') {
       useCanvasStore.getState().updateNodeConfig(node.id, {
@@ -352,14 +365,29 @@ function CacheNodeInspectorFields({
         cacheStrategy: available[0],
         strategy: available[0],
       })
+      return
     }
-  }, [available, node.id, strategy])
-
-  const ambiguousTopology = available.length === 0
-  const selectValue = available.includes(strategy)
-    ? strategy
-    : available[0] ?? strategy
-  const showProxyReadThroughNote = available.some((s) => isProxyCacheStrategy(s))
+    // Seed proxy size when entering a proxy strategy with no explicit value.
+    if (
+      isProxyCacheStrategy(strategy) &&
+      !proxyInstanceSize &&
+      !proxyResourceProfile
+    ) {
+      const proxySize = defaultProxyResourceProfile(redisProfileFromConfig(c))
+      useCanvasStore.getState().updateNodeConfig(node.id, {
+        proxyInstanceSize: proxySize,
+        proxyResourceProfile: proxySize,
+      })
+    }
+  }, [
+    available,
+    node.id,
+    strategy,
+    proxyInstanceSize,
+    proxyResourceProfile,
+    c.instanceSize,
+    c.resourceProfile,
+  ])
 
   return (
     <>
@@ -382,12 +410,26 @@ function CacheNodeInspectorFields({
           className={fieldClass}
           value={selectValue}
           disabled={ambiguousTopology}
-          onChange={(e) =>
-            updateConfig({
-              cacheStrategy: e.target.value,
-              strategy: e.target.value,
-            })
-          }
+          onChange={(e) => {
+            const next = e.target.value
+            const patch: Partial<CanvasNode['config']> = {
+              cacheStrategy: next,
+              strategy: next,
+            }
+            if (isProxyCacheStrategy(next)) {
+              if (!proxyInstanceSize && !proxyResourceProfile) {
+                const proxySize = defaultProxyResourceProfile(
+                  redisProfileFromConfig(c),
+                )
+                patch.proxyInstanceSize = proxySize
+                patch.proxyResourceProfile = proxySize
+              }
+            } else {
+              patch.proxyInstanceSize = undefined
+              patch.proxyResourceProfile = undefined
+            }
+            updateConfig(patch)
+          }}
         >
           {ambiguousTopology ? (
             <option value={strategy}>
@@ -450,8 +492,20 @@ function CacheNodeInspectorFields({
         idPrefix="cache"
         nodeType="cache"
         config={c}
+        label="Redis size"
+        helperText="Sizes redis-internal. Memory limit for eviction comes from this profile."
         updateConfig={updateConfig}
       />
+      {showProxySize ? (
+        <ResourceProfileFields
+          idPrefix="cache-proxy"
+          nodeType="cache"
+          config={c}
+          label="Proxy size"
+          configKey="proxyInstanceSize"
+          updateConfig={updateConfig}
+        />
+      ) : null}
       {simulationMode ? (
         <>
           <div>

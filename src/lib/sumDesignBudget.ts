@@ -10,6 +10,8 @@ import {
 } from './k8sQuantity'
 import { getResourceProfilesCached } from './resourceProfileStore'
 import { resolveProvisionedLimits } from './resolveProvisionedLimits'
+import { resolveProxyProvisionedLimits } from './cacheProxyResources'
+import { isProxyOrLegacyCacheStrategy } from './cacheTopologyStrategy'
 import {
   DEFAULT_RESOURCE_TIER,
   loadgenLimits,
@@ -77,6 +79,10 @@ function addLine(
   breakdown.push({ label, cpu, memory })
 }
 
+function cacheStrategyFromConfig(config: Record<string, unknown>): string {
+  return String(config.cacheStrategy ?? config.strategy ?? 'cache-aside')
+}
+
 /** Mirrors deployer.SumDesignResources for client-side preview and 422 UX. */
 export function sumDesignBudget(
   design: DeploymentDesign,
@@ -94,13 +100,28 @@ export function sumDesignBudget(
     if (!canvasType) continue
     const replicas = replicasForBudget(node)
     const limits = resolveProvisionedLimits(canvasType, node.config, catalog)
+    const label = budgetNodeLabel(node, replicas)
     addLine(
       breakdown,
-      budgetNodeLabel(node, replicas),
+      label,
       scaleCpuMilli(limits.cpu, replicas),
       scaleMemoryBytes(limits.memory, replicas),
       totals,
     )
+    // Mirrors deployer.ProxyCacheOverhead — second main container on proxy caches.
+    if (
+      node.type === 'cache' &&
+      isProxyOrLegacyCacheStrategy(cacheStrategyFromConfig(node.config))
+    ) {
+      const proxyLimits = resolveProxyProvisionedLimits(node.config)
+      addLine(
+        breakdown,
+        `${label} cache-proxy`,
+        scaleCpuMilli(proxyLimits.cpu, replicas),
+        scaleMemoryBytes(proxyLimits.memory, replicas),
+        totals,
+      )
+    }
   }
 
   const lg = loadgenLimits(normalizedTier)
