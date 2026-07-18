@@ -8,6 +8,11 @@ import {
 } from '../lib/redisEvictionPolicy'
 import { CacheNodeInspectorFields } from './InspectorPanel'
 
+vi.mock('../product/stores/authStore', () => ({
+  useAuthStore: (selector: (state: { isPremium: boolean }) => unknown) =>
+    selector({ isPremium: true }),
+}))
+
 function renderCacheInspector(evictionPolicy: RedisEvictionPolicy): string {
   const node: CanvasNode = {
     id: 'cache',
