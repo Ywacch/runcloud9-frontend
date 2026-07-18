@@ -128,7 +128,7 @@ describe('shouldShowDbClusterUtilizationCharts', () => {
 describe('dbClusterResourceHelp', () => {
   it('prefers alloc help when estimated', () => {
     expect(dbClusterResourceHelp(bucket({ cpuIsEstimated: true }), true)).toMatch(
-      /Static CPU/,
+      /Allocated, not measured/,
     )
   })
 
@@ -137,6 +137,6 @@ describe('dbClusterResourceHelp', () => {
   })
 
   it('shows metrics API freshness after warmup', () => {
-    expect(dbClusterResourceHelp(bucket({}), false)).toMatch(/kubectl top/)
+    expect(dbClusterResourceHelp(bucket({}), false)).toMatch(/Delayed ~15–60s/)
   })
 })

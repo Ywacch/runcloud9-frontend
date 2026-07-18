@@ -297,8 +297,7 @@ function layerProcessCard(
     memIsEstimated: layer.memIsEstimated,
     cpuSource: layer.cpuSource,
     memSource: layer.memSource,
-    cpuPercent,
-    memPercent,
+    freshness: layer.freshness,
   }
   const cpuLabel = formatResourceLabels(layerBucket, cpuPercent, memPercent).cpu
   const memLabel = `${fmtBytes(layer.memoryBytes)}${

@@ -82,6 +82,56 @@ describe('componentToBucket resource sources', () => {
     expect(empty.evictionsPerSec).toBe(0)
     expect(empty.expirationsPerSec).toBe(0)
   })
+
+  it('maps component freshness onto the bucket and cache layers', () => {
+    const bucket = componentToBucket({
+      component: 'db',
+      cpuSource: 'metrics_api',
+      freshness: {
+        throughput: { tier: 'rate', nominalLagSeconds: 15, source: 'prometheus_rate' },
+        containerCpu: {
+          tier: 'metrics_api',
+          nominalLagSeconds: 45,
+          source: 'metrics_api',
+        },
+        containerMem: {
+          tier: 'metrics_api',
+          nominalLagSeconds: 45,
+          source: 'metrics_api',
+        },
+        connections: { tier: 'rate', nominalLagSeconds: 15 },
+      },
+      layers: [
+        {
+          id: 'redis-internal',
+          role: 'backing-store',
+          engine: 'redis',
+          cpuUsage: 0.1,
+          memoryUsage: 100,
+          freshness: {
+            containerCpu: {
+              tier: 'estimated',
+              nominalLagSeconds: 0,
+              source: 'kube_requests',
+            },
+            containerMem: {
+              tier: 'estimated',
+              nominalLagSeconds: 0,
+              source: 'kube_requests',
+            },
+          },
+        },
+      ],
+    })
+    expect(bucket.freshness?.containerCpu?.tier).toBe('metrics_api')
+    expect(bucket.freshness?.connections?.tier).toBe('rate')
+    expect(bucket.layers[0].freshness?.containerCpu?.tier).toBe('estimated')
+  })
+
+  it('leaves freshness undefined when absent', () => {
+    const bucket = componentToBucket({ component: 'db' })
+    expect(bucket.freshness).toBeUndefined()
+  })
 })
 
 describe('parseRecentLatenciesMs', () => {

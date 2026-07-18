@@ -2,6 +2,9 @@
  * Parsers aligned with ganymede `metrics-ui-contract.md` (WS + metrics_summary).
  */
 
+import { parseComponentFreshness } from '../../lib/metricsFreshness'
+import type { ComponentFreshness } from '../../lib/metricsFreshness'
+
 export interface LoadgenIntervalBucket {
   t: string
   p99Ms: number
@@ -91,6 +94,8 @@ export interface ComponentLayerMetrics {
   evictionsPerSec?: number
   expirationsPerSec?: number
   restartCount?: number
+  /** Layer-local containerCpu / containerMem freshness when present. */
+  freshness?: ComponentFreshness
 }
 
 /** Engine-native store signals from WS `storageIo` (metrics-ui-contract). */
@@ -326,6 +331,7 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       evictionsPerSec: evictions > 0 ? evictions : undefined,
       expirationsPerSec: expirations > 0 ? expirations : undefined,
       restartCount: restartCount > 0 ? restartCount : undefined,
+      freshness: parseComponentFreshness(r.freshness),
     })
   }
   return out.sort(

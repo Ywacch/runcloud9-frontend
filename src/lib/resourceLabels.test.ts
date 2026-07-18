@@ -113,18 +113,56 @@ describe('memoryUsageHelp', () => {
   })
 
   it('returns alloc help when estimated', () => {
-    expect(memoryUsageHelp(bucket({ memIsEstimated: true }), 0)).toMatch(/Static memory/)
+    expect(memoryUsageHelp(bucket({ memIsEstimated: true }), 0)).toMatch(
+      /Allocated, not measured/,
+    )
+  })
+
+  it('returns metrics_api hint from freshness map', () => {
+    expect(
+      memoryUsageHelp(
+        bucket({
+          freshness: {
+            containerMem: {
+              tier: 'metrics_api',
+              nominalLagSeconds: 45,
+              source: 'metrics_api',
+            },
+          },
+        }),
+        77,
+      ),
+    ).toMatch(/Delayed ~15–60s/)
   })
 })
 
 describe('resourceUsageHelp', () => {
   it('returns alloc help when estimated', () => {
-    expect(resourceUsageHelp(bucket({ cpuIsEstimated: true }))).toMatch(/Static CPU/)
+    expect(resourceUsageHelp(bucket({ cpuIsEstimated: true }))).toMatch(
+      /Allocated, not measured/,
+    )
   })
 
   it('returns metrics API freshness when source is metrics_api', () => {
     expect(
       resourceUsageHelp(bucket({ cpuSource: 'metrics_api' })),
-    ).toMatch(/kubectl top/)
+    ).toMatch(/Delayed ~15–60s/)
+  })
+
+  it('prefers freshness map over legacy cpuSource', () => {
+    expect(
+      resourceUsageHelp(
+        bucket({
+          cpuSource: 'cadvisor',
+          freshness: {
+            containerCpu: {
+              tier: 'metrics_api',
+              nominalLagSeconds: 45,
+              source: 'metrics_api',
+            },
+          },
+        }),
+      ),
+    ).toMatch(/Delayed ~15–60s/)
   })
 })

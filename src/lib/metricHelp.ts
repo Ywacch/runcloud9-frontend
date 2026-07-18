@@ -9,7 +9,9 @@ export const CPU_ALLOC_HELP =
 export const MEM_ALLOC_HELP =
   'Static memory request/limit for this pod — not live utilization. Real % appears once metrics collection starts.'
 export const METRICS_API_FRESHNESS_HELP =
-  'Container usage from the Kubernetes Metrics API (same source as kubectl top). Updates about every 15–60 seconds.'
+  'Delayed ~15–60s — container usage from the Kubernetes Metrics API (same source as kubectl top).'
+export const ALLOCATED_NOT_MEASURED_HELP =
+  'Allocated, not measured — kube request/limit placeholder, not a live observation.'
 export const TIER_C_WARMUP_HELP =
   'Kubernetes Metrics API samples can step for the first minute on Autopilot. Use query rate and storage execution above for live DB pressure.'
 

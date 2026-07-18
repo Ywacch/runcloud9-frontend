@@ -266,6 +266,7 @@ export function DbClusterResourcesSection({
           <StatBlock
             label="CPU utilization"
             value={labels.cpu}
+            help={resourceHelp}
             graph={
               showUtilizationCharts ? (
                 <MetricSeriesGraph
@@ -377,6 +378,7 @@ function syntheticBucketFromLayer(
     memIsEstimated: layer.memIsEstimated,
     cpuSource: layer.cpuSource,
     memSource: layer.memSource,
+    freshness: layer.freshness,
     cpuPercent,
     memPercent,
     storageEngine: layer.engine || component.storageEngine,

@@ -175,6 +175,14 @@ export function lerpMetricsBucket(
       t >= 0.5
         ? b.layers.map((layer) => ({ ...layer }))
         : a.layers.map((layer) => ({ ...layer })),
+    freshness:
+      t >= 0.5
+        ? b.freshness
+          ? { ...b.freshness }
+          : undefined
+        : a.freshness
+          ? { ...a.freshness }
+          : undefined,
     podCount: lerpRound(a.podCount, b.podCount, t),
     lastUpdated: playheadMs,
     qps: Math.round(lerpNum(a.requestRate, b.requestRate, t)),
