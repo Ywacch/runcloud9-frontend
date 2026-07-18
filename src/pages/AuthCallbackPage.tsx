@@ -6,6 +6,7 @@ import {
   resolveTokenHashOtpType,
 } from '../lib/authCallback'
 import { mapSupabaseOtpError } from '../lib/authErrorMessage'
+import { trackEvent } from '../lib/analytics'
 import { supabase } from '../lib/supabase'
 import { C9Card, C9SectionTitle } from '../editor-ui/c9Primitives'
 
@@ -19,6 +20,12 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const run = async () => {
+      const fail = (message: string) => {
+        setErrorMessage(message)
+        setStatus('error')
+        trackEvent('auth_failed', { errorCategory: 'unauthorized' })
+      }
+
       const { code, tokenHash, type } = mergeAuthCallbackParams(
         searchParams,
         window.location.hash,
@@ -27,15 +34,13 @@ export default function AuthCallbackPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          setErrorMessage(mapSupabaseOtpError(error))
-          setStatus('error')
+          fail(mapSupabaseOtpError(error))
           return
         }
       } else if (tokenHash) {
         const otpType = resolveTokenHashOtpType(type)
         if (!otpType) {
-          setErrorMessage('This invite link is missing a valid type. Request a new invite.')
-          setStatus('error')
+          fail('This invite link is missing a valid type. Request a new invite.')
           return
         }
         const { error } = await supabase.auth.verifyOtp({
@@ -43,18 +48,16 @@ export default function AuthCallbackPage() {
           type: otpType,
         })
         if (error) {
-          setErrorMessage(mapSupabaseOtpError(error))
-          setStatus('error')
+          fail(mapSupabaseOtpError(error))
           return
         }
       }
 
       const { data } = await supabase.auth.getSession()
       if (!data.session) {
-        setErrorMessage(
+        fail(
           'We could not start your session. Open the invite or reset link from your email again.',
         )
-        setStatus('error')
         return
       }
 

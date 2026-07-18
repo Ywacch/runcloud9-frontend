@@ -6,6 +6,8 @@ import {
   type KeyInfo,
   type KeyValue,
 } from '../lib/introspectApi'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { trackEvent } from '../lib/analytics'
 
 type RedisType = string
 
@@ -197,6 +199,8 @@ export function CacheBrowser({
         const res = await fetchKeys(deploymentId, component, pat, 0, 50)
         setKeys(res.keys)
         setNextCursor(res.cursor)
+        const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+        trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'scan_keys' })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to scan keys')
         setKeys([])
@@ -234,6 +238,8 @@ export function CacheBrowser({
       try {
         const kv = await fetchKeyValue(deploymentId, component, keyName)
         setKeyValue(kv)
+        const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+        trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'fetch_value' })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load key value')
       } finally {

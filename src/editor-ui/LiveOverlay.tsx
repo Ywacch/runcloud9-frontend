@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { startLoadGen, stopLoadGen } from '../lib/api'
 import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import { fmtInt } from '../lib/format'
+import { trackEvent } from '../lib/analytics'
 import { LoadgenMetricsPanel } from './LoadgenMetricsPanel'
 import { SystemMetricsCharts } from './SystemMetricsCharts'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -82,6 +83,11 @@ export function LiveOverlay() {
         durationSeconds: 0,
         template: snapshotTemplateId ?? '',
       })
+      trackEvent('loadgen_started', {
+        template: snapshotTemplateId ?? '',
+        rps,
+        durationSeconds: 0,
+      })
     } catch (e) {
       debugAuthError(e, 'loadgen-start')
       setError(
@@ -102,6 +108,7 @@ export function LiveOverlay() {
     setError(null)
     try {
       await stopLoadGen(deploymentId)
+      trackEvent('loadgen_stopped', { template: snapshotTemplateId ?? '' })
     } catch (e) {
       debugAuthError(e, 'loadgen-stop')
       setError(

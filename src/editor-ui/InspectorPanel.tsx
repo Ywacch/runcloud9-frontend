@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getAvailableCacheStrategies,
   isProxyCacheStrategy,
@@ -40,6 +40,7 @@ import {
   formatProvisionedShort,
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
+import { trackEvent } from '../lib/analytics'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -93,6 +94,18 @@ export function InspectorPanel() {
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
+
+  const prevInspectorNodeIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!node || (mode !== 'design' && mode !== 'live')) {
+      prevInspectorNodeIdRef.current = null
+      return
+    }
+    if (node.id === prevInspectorNodeIdRef.current) return
+    prevInspectorNodeIdRef.current = node.id
+    const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+    trackEvent('component_inspector_opened', { template, componentType: node.type })
+  }, [node, mode])
 
   useEffect(() => {
     if (!open) return
@@ -412,6 +425,7 @@ function CacheNodeInspectorFields({
           value={selectValue}
           disabled={ambiguousTopology}
           onChange={(e) => {
+            const prev = selectValue
             const next = e.target.value
             const patch: Partial<CanvasNode['config']> = {
               cacheStrategy: next,
@@ -430,6 +444,13 @@ function CacheNodeInspectorFields({
               patch.proxyResourceProfile = undefined
             }
             updateConfig(patch)
+            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+            trackEvent('design_option_changed', {
+              template,
+              optionName: 'cache_strategy',
+              previousCategory: prev,
+              newCategory: next,
+            })
           }}
         >
           {ambiguousTopology ? (
@@ -482,9 +503,18 @@ function CacheNodeInspectorFields({
             ]
           }
           onChange={(e) =>
-            updateConfig({
-              evictionPolicy: normalizeRedisEvictionPolicy(e.target.value),
-            })
+            {
+              const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
+              const next = normalizeRedisEvictionPolicy(e.target.value)
+              updateConfig({ evictionPolicy: next })
+              const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+              trackEvent('design_option_changed', {
+                template,
+                optionName: 'eviction_policy',
+                previousCategory: prev,
+                newCategory: next,
+              })
+            }
           }
         >
           {REDIS_EVICTION_POLICIES.map((p) => (
@@ -587,8 +617,16 @@ function TypeFields({
               className={fieldClass}
               value={String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')}
               onChange={(e) => {
+                const prev = String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')
                 const v = e.target.value
                 updateConfig({ algorithm: v, lbAlgorithm: v })
+                const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+                trackEvent('design_option_changed', {
+                  template,
+                  optionName: 'lb_algorithm',
+                  previousCategory: prev,
+                  newCategory: v,
+                })
               }}
             >
               {simulationMode ? (
@@ -721,11 +759,19 @@ function TypeFields({
               onChange={(e) => {
                 const n = Number(e.target.value)
                 if (!Number.isFinite(n)) return
-                const replicas = clampAppServerReplicas(n, maxAppReplicas)
-                updateConfig({ replicas })
-                if (replicas > 1) {
+                const prev = replicas
+                const next = clampAppServerReplicas(n, maxAppReplicas)
+                updateConfig({ replicas: next })
+                if (next > 1) {
                   ensureLoadBalancerForReplicas()
                 }
+                const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+                trackEvent('design_option_changed', {
+                  template,
+                  optionName: 'replicas',
+                  previousCategory: String(prev),
+                  newCategory: String(next),
+                })
               }}
             />
           </div>

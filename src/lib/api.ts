@@ -284,6 +284,61 @@ export async function listActiveDeployments(): Promise<ActiveDeploymentSummary[]
   return res.json() as Promise<ActiveDeploymentSummary[]>
 }
 
+/** Past terminated/failed deployments for the signed-in user (newest first). */
+export interface DeploymentHistoryItem {
+  id: string
+  namespace: string
+  template: string
+  archetype: string
+  status: 'terminated' | 'failed'
+  createdAt: string
+  expiresAt: string
+  terminatedAt?: string
+  durationSeconds?: number
+  peakRps?: number
+  peakP99Ms?: number
+}
+
+export async function listDeploymentHistory(
+  limit = 20,
+): Promise<DeploymentHistoryItem[]> {
+  const clamped = Math.min(50, Math.max(1, Math.floor(Number(limit) || 20)))
+  const res = await fetch(`${API_BASE}/history?limit=${clamped}`, {
+    headers: authHeader() ?? {},
+  })
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
+  const raw = (await res.json()) as unknown
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+    .map((row) => {
+      const status = row.status === 'failed' ? 'failed' : 'terminated'
+      const item: DeploymentHistoryItem = {
+        id: String(row.id ?? ''),
+        namespace: String(row.namespace ?? ''),
+        template: String(row.template ?? ''),
+        archetype: String(row.archetype ?? ''),
+        status,
+        createdAt: String(row.createdAt ?? ''),
+        expiresAt: String(row.expiresAt ?? ''),
+      }
+      if (typeof row.terminatedAt === 'string' && row.terminatedAt.trim()) {
+        item.terminatedAt = row.terminatedAt
+      }
+      const duration = Number(row.durationSeconds)
+      if (Number.isFinite(duration) && duration >= 0) item.durationSeconds = duration
+      const peakRps = Number(row.peakRps)
+      if (Number.isFinite(peakRps) && peakRps >= 0) item.peakRps = peakRps
+      const peakP99 = Number(row.peakP99Ms)
+      if (Number.isFinite(peakP99) && peakP99 >= 0) item.peakP99Ms = peakP99
+      return item
+    })
+    .filter((item) => item.id && item.namespace)
+}
+
 export async function startLoadGen(
   id: string,
   profile?: Partial<LoadProfile>

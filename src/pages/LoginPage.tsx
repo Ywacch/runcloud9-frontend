@@ -1,10 +1,18 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../product/stores/authStore'
+import { trackEvent } from '../lib/analytics'
 import { C9Card } from '../editor-ui/c9Primitives'
 import { SignInForm } from '../editor-ui/SignInForm'
 
 export default function LoginPage() {
   const session = useAuthStore((s) => s.session)
+
+  useEffect(() => {
+    if (session) return
+    trackEvent('login_viewed', {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (session) {
     return (

@@ -9,6 +9,8 @@ import {
   type RowsResult,
   type TableInfo,
 } from '../lib/introspectApi'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { trackEvent } from '../lib/analytics'
 
 const PAGE_LIMIT = 50
 const CELL_MAX = 120
@@ -188,6 +190,8 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
           ? prev
           : tList[0]?.name ?? null,
       )
+      const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+      trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'list_tables' })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load tables')
       setTables([])
@@ -217,6 +221,8 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
         ])
         setRows(r)
         setSchema(s)
+        const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+        trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'fetch_rows' })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load table data')
         setRows(null)

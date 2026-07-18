@@ -62,6 +62,7 @@ import {
   templateTitleForId,
   type TemplateSelectAction,
 } from './TemplateModal'
+import { trackEvent, deploymentAnalyticsProperties, categorizeSafeError } from '../lib/analytics'
 
 const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
@@ -274,12 +275,14 @@ export function Sidebar() {
     if (action.kind === 'preset') {
       st.loadTemplateSnapshot(action.preset(), 'design')
       setBanner(`Loaded ${templateTitleForId(action.id) ?? action.id} template`)
+      trackEvent('template_selected', { template: action.id, archetype: 'preset' })
       return
     }
     st.startFromTemplate(action.id)
     setBanner(
       `Selected ${templateTitleForId(action.id) ?? action.id} template (blank canvas)`,
     )
+    trackEvent('template_selected', { template: action.id, archetype: 'scratch' })
   }
 
   const handleAutoArrange = () => {
@@ -394,8 +397,15 @@ export function Sidebar() {
       }
 
       proceedWithDeployResult(result)
+      trackEvent('deployment_requested', deploymentAnalyticsProperties(design))
     } catch (e) {
       const friendly = mapDeployRequestError(e)
+      const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+      trackEvent('deployment_failed', {
+        template,
+        phase: 'request',
+        errorCategory: categorizeSafeError(e),
+      })
       if (friendly.actionLabel === 'Sign in') {
         setPendingDeployAfterAuth(true)
         setDeployModalMode('auth_required')

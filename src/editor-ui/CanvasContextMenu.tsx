@@ -18,6 +18,7 @@ import {
 } from '../lib/chaos'
 import { placeFromPicker } from '../lib/pickerPlacement'
 import { NODE_VISUAL } from '../lib/nodeVisual'
+import { trackEvent } from '../lib/analytics'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
@@ -171,6 +172,8 @@ export function CanvasContextMenu() {
     try {
       await triggerChaos(deploymentId, { scenario, targetComponent: target })
       registerChaos(scenario, target)
+      const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+      trackEvent('chaos_injected', { template, chaosKind: scenario, targetComponentType: target })
       close()
     } catch (e) {
       debugAuthError(e, 'context-menu-chaos')

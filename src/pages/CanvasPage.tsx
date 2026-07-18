@@ -48,6 +48,7 @@ import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
+import { trackEvent } from '../lib/analytics'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
@@ -102,6 +103,13 @@ export default function CanvasPage() {
   const [isTerminating, setIsTerminating] = useState(false)
   const [terminationMessage, setTerminationMessage] = useState<string | null>(null)
   const provisionStartRef = useRef<number>(Date.now())
+  const deploymentRunningTrackedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const st = useCanvasStore.getState()
+    const restored = Boolean(st.deploymentId || st.liveSessionEndsAt || st.snapshotTemplateId)
+    trackEvent('canvas_opened', { mode: restored ? 'restored' : 'new' })
+  }, [])
 
   const realtimeDeploymentId = mode === 'live' ? deploymentId : null
   useMetricsSync(realtimeDeploymentId)
@@ -168,6 +176,12 @@ export default function CanvasPage() {
         }
 
         if (dep.status === 'running') {
+          if (deploymentRunningTrackedRef.current !== deploymentId) {
+            deploymentRunningTrackedRef.current = deploymentId
+            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+            const elapsedSeconds = Math.floor((Date.now() - provisionStartRef.current) / 1000)
+            trackEvent('deployment_running', { template, elapsedSeconds })
+          }
           const endsAt = toMs(dep.expiresAt) ?? Date.now() + 9 * 60 * 1000
           const live = useCanvasStore.getState()
           Object.keys(live.nodes).forEach((nid) => {
@@ -210,6 +224,8 @@ export default function CanvasPage() {
           return
         }
         if (dep.status === 'failed') {
+          const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+          trackEvent('deployment_failed', { template, phase: 'provision', errorCategory: 'server' })
           setProvisioningError('Deployment failed during provisioning.')
           setIsTerminating(false)
           stopPolling()

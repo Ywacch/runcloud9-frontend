@@ -1,4 +1,5 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import {
   resolveProxyInstanceSize,
   resolveProxyProvisionedLimits,
@@ -9,6 +10,7 @@ import {
   formatProvisionedLabel,
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
+import { trackEvent } from '../lib/analytics'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -74,6 +76,7 @@ export function ResourceProfileFields({
           className={fieldClass}
           value={instanceSize}
           onChange={(e) => {
+            const prev = instanceSize
             const v = e.target.value.trim()
             if (isProxy) {
               if (!v) {
@@ -81,16 +84,23 @@ export function ResourceProfileFields({
                   proxyInstanceSize: undefined,
                   proxyResourceProfile: undefined,
                 })
-                return
+              } else {
+                const size = v as ProxyInstanceSize
+                updateConfig({
+                  proxyInstanceSize: size,
+                  proxyResourceProfile: size,
+                })
               }
-              const size = v as ProxyInstanceSize
-              updateConfig({
-                proxyInstanceSize: size,
-                proxyResourceProfile: size,
-              })
-              return
+            } else {
+              updateConfig(v ? { instanceSize: v } : { instanceSize: undefined })
             }
-            updateConfig(v ? { instanceSize: v } : { instanceSize: undefined })
+            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+            trackEvent('design_option_changed', {
+              template,
+              optionName: isProxy ? 'proxy_resource_profile' : 'resource_profile',
+              previousCategory: prev || 'default',
+              newCategory: v || 'default',
+            })
           }}
         >
           {showDefaultOption ? <option value="">Default</option> : null}
