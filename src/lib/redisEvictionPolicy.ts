@@ -12,30 +12,40 @@ export const REDIS_EVICTION_POLICIES = [
 
 export type RedisEvictionPolicy = (typeof REDIS_EVICTION_POLICIES)[number]
 
-/** Short option label — policy name only (descriptions go on hover). */
+/** Policy name plus a compact explanation; native option tooltips are inconsistent. */
 export const REDIS_EVICTION_POLICY_LABEL: Record<RedisEvictionPolicy, string> = {
-  noeviction: 'noeviction',
-  'allkeys-lru': 'allkeys-lru',
-  'volatile-lru': 'volatile-lru',
-  'allkeys-lfu': 'allkeys-lfu',
-  'volatile-lfu': 'volatile-lfu',
-  'allkeys-random': 'allkeys-random',
-  'volatile-random': 'volatile-random',
-  'volatile-ttl': 'volatile-ttl',
+  noeviction: 'noeviction — reject new writes',
+  'allkeys-lru': 'allkeys-lru — least recently used',
+  'volatile-lru': 'volatile-lru — TTL keys, least recently used',
+  'allkeys-lfu': 'allkeys-lfu — least frequently used',
+  'volatile-lfu': 'volatile-lfu — TTL keys, least frequently used',
+  'allkeys-random': 'allkeys-random — random key',
+  'volatile-random': 'volatile-random — random TTL key',
+  'volatile-ttl': 'volatile-ttl — closest to expiring',
 }
 
-/** Shown via title/tooltip when hovering an option or the closed select. */
+/** Visible below the select for the currently selected policy. */
 export const REDIS_EVICTION_POLICY_DESCRIPTION: Record<RedisEvictionPolicy, string> =
   {
-    noeviction: 'Never evict (OOM on write)',
-    'allkeys-lru': 'Drop least-recently-used keys',
-    'volatile-lru': 'LRU among keys with TTL',
-    'allkeys-lfu': 'Drop least-frequently-used keys',
-    'volatile-lfu': 'LFU among keys with TTL',
-    'allkeys-random': 'Drop random keys',
-    'volatile-random': 'Random among keys with TTL',
-    'volatile-ttl': 'Drop soonest-to-expire keys',
+    noeviction: 'Do not remove keys. New writes fail when memory is full.',
+    'allkeys-lru': 'Any key can be removed. Redis removes keys used least recently.',
+    'volatile-lru':
+      'Only keys with a TTL can be removed. Redis removes those used least recently.',
+    'allkeys-lfu': 'Any key can be removed. Redis removes keys used least often.',
+    'volatile-lfu':
+      'Only keys with a TTL can be removed. Redis removes those used least often.',
+    'allkeys-random': 'Any key can be removed. Redis chooses keys at random.',
+    'volatile-random':
+      'Only keys with a TTL can be removed. Redis chooses among them at random.',
+    'volatile-ttl':
+      'Only keys with a TTL can be removed. Redis removes those with the shortest time left.',
   }
+
+export function isVolatileRedisEvictionPolicy(
+  policy: RedisEvictionPolicy,
+): boolean {
+  return policy.startsWith('volatile-')
+}
 
 export function normalizeRedisEvictionPolicy(raw: unknown): RedisEvictionPolicy {
   const p = String(raw ?? '')

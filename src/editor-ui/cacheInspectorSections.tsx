@@ -247,7 +247,7 @@ function CacheProcessCard({
               <StatBlock
                 label="Evictions"
                 value={lifecycleTiles.evictions}
-                help="Keys the store removed because memory pressure or the eviction policy required it."
+                help="Keys Redis removed to make room after reaching its memory limit."
               />
               <StatBlock
                 label="TTL expirations"
