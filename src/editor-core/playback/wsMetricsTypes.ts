@@ -1,4 +1,8 @@
-import type { WsEvent } from '../stores/metricsStore'
+import type {
+  EventAudience,
+  WorkloadEventKind,
+  WsEvent,
+} from '../stores/metricsStore'
 
 export interface WsComponentMetrics {
   component?: string
@@ -71,6 +75,9 @@ export interface WsEventPayload {
   timestamp?: string
   type?: string
   source?: string
+  kind?: WorkloadEventKind
+  detail?: Record<string, string>
+  audience?: EventAudience
   component?: string
   rule?: string
   ruleId?: string

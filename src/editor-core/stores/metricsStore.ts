@@ -5,11 +5,20 @@ import { loadWsEventsJson } from '../../lib/wsEventsPersist'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
 
-/** Event from backend metrics stream (threshold, cascade, loadgen actions). */
+export type WorkloadEventKind = 'loadgen_start' | 'loadgen_stop' | 'chaos_inject'
+export type EventAudience = 'user' | 'ai' | 'both'
+
+/** Event from backend metrics stream (threshold, cascade, workload/runtime actions). */
 export interface WsEvent {
   timestamp: string
   type: string
   source: string
+  /** Workload anchor. Runtime actions such as pod restarts intentionally omit this. */
+  kind?: WorkloadEventKind
+  /** Workload parameters supplied by the backend. */
+  detail?: Record<string, string>
+  /** Missing means `both` for backward compatibility. */
+  audience?: EventAudience
   component?: string
   /** Rule id from backend (matches narrativeContext keys / event title). */
   rule?: string
@@ -196,6 +205,24 @@ function parsePersistedWsEvents(raw: string): WsEvent[] {
           : new Date().toISOString(),
       type: typeof r.type === 'string' ? r.type : 'action',
       source: typeof r.source === 'string' ? r.source : 'unknown',
+      kind:
+        r.kind === 'loadgen_start' ||
+        r.kind === 'loadgen_stop' ||
+        r.kind === 'chaos_inject'
+          ? r.kind
+          : undefined,
+      detail:
+        r.detail && typeof r.detail === 'object' && !Array.isArray(r.detail)
+          ? Object.fromEntries(
+              Object.entries(r.detail as Record<string, unknown>).filter(
+                (entry): entry is [string, string] => typeof entry[1] === 'string',
+              ),
+            )
+          : undefined,
+      audience:
+        r.audience === 'user' || r.audience === 'ai' || r.audience === 'both'
+          ? r.audience
+          : undefined,
       component: typeof r.component === 'string' ? r.component : undefined,
       title,
       description: typeof r.description === 'string' ? r.description : '',
