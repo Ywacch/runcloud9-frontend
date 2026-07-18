@@ -11,6 +11,7 @@ import {
   REDIS_EVICTION_POLICIES,
   REDIS_EVICTION_POLICY_DESCRIPTION,
   REDIS_EVICTION_POLICY_LABEL,
+  isVolatileRedisEvictionPolicy,
   normalizeRedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
@@ -332,7 +333,7 @@ const CACHE_STRATEGY_LABEL: Record<string, string> = {
   'read-through': 'read-through',
 }
 
-function CacheNodeInspectorFields({
+export function CacheNodeInspectorFields({
   node,
   nodes,
   edges,
@@ -365,6 +366,7 @@ function CacheNodeInspectorFields({
   const showProxySize = isProxyCacheStrategy(selectValue)
   const proxyInstanceSize = String(c.proxyInstanceSize ?? '').trim()
   const proxyResourceProfile = String(c.proxyResourceProfile ?? '').trim()
+  const evictionPolicy = normalizeRedisEvictionPolicy(c.evictionPolicy)
 
   useEffect(() => {
     if (strategy === 'read-through') {
@@ -490,18 +492,15 @@ function CacheNodeInspectorFields({
           Eviction policy
         </label>
         <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          Redis uses this rule only when it runs out of cache memory. The Redis size below
-          sets the memory budget; Redis keeps headroom for its own process.
+          When Redis reaches its memory limit, this policy decides which keys it may remove to
+          make room. TTL expiry is separate: a key disappears when its TTL ends even if memory is
+          not full.
         </p>
         <select
           id="cache-eviction"
           className={fieldClass}
-          value={normalizeRedisEvictionPolicy(c.evictionPolicy)}
-          title={
-            REDIS_EVICTION_POLICY_DESCRIPTION[
-              normalizeRedisEvictionPolicy(c.evictionPolicy)
-            ]
-          }
+          value={evictionPolicy}
+          title={REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
           onChange={(e) =>
             {
               const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
@@ -527,6 +526,15 @@ function CacheNodeInspectorFields({
             </option>
           ))}
         </select>
+        <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+          {REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
+        </p>
+        {isVolatileRedisEvictionPolicy(evictionPolicy) ? (
+          <p className="mt-2 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 px-2.5 py-2 text-[10px] leading-snug text-[var(--c9-muted)]">
+            This policy can only evict keys that have a TTL. Keys without a TTL are not candidates
+            when memory fills up.
+          </p>
+        ) : null}
       </div>
       <ResourceProfileFields
         idPrefix="cache"

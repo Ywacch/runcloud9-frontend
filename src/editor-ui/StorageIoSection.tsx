@@ -477,7 +477,7 @@ export function CacheLayerResourceBlock({
             <StatBlock
               label="Evictions/s"
               value={`${fmtRate(layer.evictionsPerSec ?? 0)}/s`}
-              help="Keys the store removed because memory pressure or the eviction policy required it."
+              help="Keys Redis removed to make room after reaching its memory limit."
             />
           }
           right={
@@ -652,7 +652,7 @@ export function CacheEngineSection({
             <StatBlock
               label="Evictions/s"
               value={`${fmtRate(m.evictionsPerSec ?? 0)}/s`}
-              help="Keys the store removed because memory pressure or the eviction policy required it."
+              help="Keys Redis removed to make room after reaching its memory limit."
             />
           }
           right={
