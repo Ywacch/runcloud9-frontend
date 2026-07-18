@@ -17,6 +17,7 @@ import {
   normalizeWriteBehindIntervalSeconds,
   showsWriteBehindIntervalControl,
 } from './writeBehindInterval'
+import { deployCacheTtlSeconds } from './cacheTtl'
 
 /**
  * Backend topology validation and env derivation typically read `strategy` on cache
@@ -82,6 +83,14 @@ export function deployConfigForNode(
       )
     } else {
       delete config.writeBehindIntervalSeconds
+    }
+
+    // Cache-node-owned TTL; omit when missing/invalid so BE uses the image default.
+    const ttl = deployCacheTtlSeconds(config.cacheTtlSeconds)
+    if (ttl === undefined) {
+      delete config.cacheTtlSeconds
+    } else {
+      config.cacheTtlSeconds = ttl
     }
   }
   return config

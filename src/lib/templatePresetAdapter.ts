@@ -2,6 +2,7 @@ import type { TemplatePreset } from './api'
 import type { CanvasEdge, CanvasNode, CanvasSnapshot } from '../editor-core/stores/canvasStore'
 import { autoArrangeByDependencyLayers } from './autoArrange'
 import { seedWriteBehindIntervalDefault } from './writeBehindInterval'
+import { seedCacheTtlSecondsDefault } from './cacheTtl'
 
 const CANVAS_NODE_TYPES = new Set<CanvasNode['type']>([
   'load_balancer',
@@ -37,7 +38,10 @@ export function templatePresetToCanvasSnapshot(
     if (!type) continue
     const config =
       type === 'cache'
-        ? seedWriteBehindIntervalDefault({ ...(n.config ?? {}) }, templateId)
+        ? seedCacheTtlSecondsDefault(
+            seedWriteBehindIntervalDefault({ ...(n.config ?? {}) }, templateId),
+            templateId,
+          )
         : { ...(n.config ?? {}) }
     nodes.push({
       id: n.id,

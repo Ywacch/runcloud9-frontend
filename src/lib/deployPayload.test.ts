@@ -118,4 +118,47 @@ describe('deployConfigForNode', () => {
     )
     expect(ecommerce.writeBehindIntervalSeconds).toBeUndefined()
   })
+
+  it('emits numeric cacheTtlSeconds when valid and omits when missing/invalid', () => {
+    const timed = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'cache-aside', cacheTtlSeconds: 300 }),
+      'url-shortener',
+    )
+    expect(timed.cacheTtlSeconds).toBe(300)
+
+    const none = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'cache-aside', cacheTtlSeconds: 0 }),
+      'social-feed',
+    )
+    expect(none.cacheTtlSeconds).toBe(0)
+
+    const missing = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'cache-aside' }),
+      'url-shortener',
+    )
+    expect(missing.cacheTtlSeconds).toBeUndefined()
+
+    const invalid = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'cache-aside', cacheTtlSeconds: 99999 }),
+      'url-shortener',
+    )
+    expect(invalid.cacheTtlSeconds).toBeUndefined()
+  })
+
+  it('does not copy cacheTtlSeconds onto non-cache nodes', () => {
+    const app = deployConfigForNode(
+      {
+        id: 'app',
+        type: 'compute',
+        label: 'App',
+        position: [0, 0, 0],
+        config: { replicas: 1, cacheTtlSeconds: 300 },
+        status: 'idle',
+      },
+      'url-shortener',
+    )
+    // Non-cache configs are not TTL-normalized; stray keys are left alone.
+    expect(app.cacheTtlSeconds).toBe(300)
+    expect(app.replicas).toBe(1)
+  })
 })

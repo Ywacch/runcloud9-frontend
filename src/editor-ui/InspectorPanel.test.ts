@@ -6,6 +6,7 @@ import {
   REDIS_EVICTION_POLICY_DESCRIPTION,
   type RedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
+import { VOLATILE_NO_EXPIRY_WARNING } from '../lib/cacheTtl'
 import { WRITE_BEHIND_INTERVAL_VALIDATION } from '../lib/writeBehindInterval'
 import { CacheNodeInspectorFields } from './InspectorPanel'
 
@@ -105,6 +106,7 @@ function renderCacheInspector(opts: {
   cacheStrategy?: string
   templateId?: string | null
   writeBehindIntervalSeconds?: number
+  cacheTtlSeconds?: number
   topology?: 'proxy' | 'aside' | 'isolated'
   updateConfig?: ReturnType<typeof vi.fn>
 }): string {
@@ -113,6 +115,7 @@ function renderCacheInspector(opts: {
     cacheStrategy = 'cache-aside',
     templateId = 'url-shortener',
     writeBehindIntervalSeconds,
+    cacheTtlSeconds = 300,
     topology = 'isolated',
     updateConfig = vi.fn(),
   } = opts
@@ -120,6 +123,7 @@ function renderCacheInspector(opts: {
   const config: CanvasNode['config'] = {
     cacheStrategy,
     evictionPolicy,
+    cacheTtlSeconds,
   }
   if (writeBehindIntervalSeconds != null) {
     config.writeBehindIntervalSeconds = writeBehindIntervalSeconds
@@ -155,24 +159,82 @@ function renderCacheInspector(opts: {
 
 describe('CacheNodeInspectorFields eviction policy copy', () => {
   it.each(['volatile-lru', 'volatile-lfu', 'volatile-random', 'volatile-ttl'] as const)(
-    'shows the selected description and volatile callout for %s',
+    'shows the selected description without amber warning for %s when TTL is set',
     (policy) => {
-      const html = renderCacheInspector({ evictionPolicy: policy })
+      const html = renderCacheInspector({
+        evictionPolicy: policy,
+        cacheTtlSeconds: 300,
+      })
 
       expect(html).toContain(`>${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}</p>`)
-      expect(html).toContain('This policy can only evict keys that have a TTL.')
+      expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
+    },
+  )
+
+  it.each(['volatile-lru', 'volatile-lfu', 'volatile-random', 'volatile-ttl'] as const)(
+    'shows amber warning for %s when No expiry is enabled',
+    (policy) => {
+      const html = renderCacheInspector({
+        evictionPolicy: policy,
+        cacheTtlSeconds: 0,
+      })
+
+      expect(html).toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )
 
   it.each(['noeviction', 'allkeys-lru', 'allkeys-lfu', 'allkeys-random'] as const)(
-    'shows the selected description without the volatile callout for %s',
+    'shows the selected description without the volatile warning for %s',
     (policy) => {
-      const html = renderCacheInspector({ evictionPolicy: policy })
+      const html = renderCacheInspector({
+        evictionPolicy: policy,
+        cacheTtlSeconds: 0,
+      })
 
       expect(html).toContain(`>${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}</p>`)
-      expect(html).not.toContain('This policy can only evict keys that have a TTL.')
+      expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )
+})
+
+describe('CacheNodeInspectorFields cache TTL', () => {
+  it('renders Cache TTL with timed value for url-shortener default', () => {
+    const html = renderCacheInspector({
+      templateId: 'url-shortener',
+      cacheTtlSeconds: 300,
+    })
+    expect(html).toContain('Cache TTL')
+    expect(html).toContain('id="cache-ttl"')
+    expect(html).toContain('value="300"')
+    expect(html).toContain('No expiry')
+    expect(html).not.toContain('checked=""')
+  })
+
+  it('hides the seconds input when No expiry is enabled', () => {
+    const html = renderCacheInspector({
+      templateId: 'social-feed',
+      cacheTtlSeconds: 0,
+    })
+    expect(html).toContain('No expiry')
+    expect(html).toContain('checked=""')
+    expect(html).not.toContain('id="cache-ttl"')
+  })
+
+  it('reads ecommerce and social-feed stored values', () => {
+    expect(
+      renderCacheInspector({
+        templateId: 'ecommerce',
+        cacheTtlSeconds: 60,
+      }),
+    ).toContain('value="60"')
+
+    expect(
+      renderCacheInspector({
+        templateId: 'social-feed',
+        cacheTtlSeconds: 0,
+      }),
+    ).toContain('checked=""')
+  })
 })
 
 describe('CacheNodeInspectorFields write-behind flush interval', () => {
