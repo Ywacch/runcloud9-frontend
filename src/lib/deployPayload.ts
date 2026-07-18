@@ -13,12 +13,19 @@ import {
   normalizeProxyInstanceSize,
   redisProfileFromConfig,
 } from './cacheProxyResources'
+import {
+  normalizeWriteBehindIntervalSeconds,
+  showsWriteBehindIntervalControl,
+} from './writeBehindInterval'
 
 /**
  * Backend topology validation and env derivation typically read `strategy` on cache
  * nodes. The canvas inspector uses `cacheStrategy`. Keep both in sync on the wire.
  */
-export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
+export function deployConfigForNode(
+  n: CanvasNode,
+  templateId?: string | null,
+): Record<string, unknown> {
   const config = { ...n.config } as Record<string, unknown>
   // Prelaunch gating: keep payloads minimal and avoid emitting inactive knobs.
   delete config.maxMemory
@@ -67,6 +74,15 @@ export function deployConfigForNode(n: CanvasNode): Record<string, unknown> {
       delete config.proxyInstanceSize
       delete config.proxyResourceProfile
     }
+
+    // URL-shortener write-behind only — omit inactive/unsupported values on the wire.
+    if (showsWriteBehindIntervalControl(templateId, strat)) {
+      config.writeBehindIntervalSeconds = normalizeWriteBehindIntervalSeconds(
+        config.writeBehindIntervalSeconds,
+      )
+    } else {
+      delete config.writeBehindIntervalSeconds
+    }
   }
   return config
 }
@@ -85,7 +101,7 @@ export function snapshotToDeploymentDesign(
       id: n.id,
       type: canvasToBackend[n.type],
       name: n.label,
-      config: deployConfigForNode(n),
+      config: deployConfigForNode(n, snapshot.templateId),
     }))
   const connections = snapshot.edges
     .filter(
