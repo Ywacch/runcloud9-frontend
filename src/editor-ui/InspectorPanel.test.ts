@@ -13,6 +13,11 @@ vi.mock('../product/stores/authStore', () => ({
     selector({ isPremium: true }),
 }))
 
+// Keep this presentational test independent of CI-only Supabase configuration.
+vi.mock('../lib/supabase', () => ({
+  supabase: {},
+}))
+
 function renderCacheInspector(evictionPolicy: RedisEvictionPolicy): string {
   const node: CanvasNode = {
     id: 'cache',
