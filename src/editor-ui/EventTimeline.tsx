@@ -21,13 +21,39 @@ function formatTime(iso: string): string {
   })
 }
 
-function pillClass(type: string, source: string): string {
-  if (source === 'chaos')
+function pillClass(event: WsEvent): string {
+  if (event.kind === 'chaos_inject' || event.source === 'chaos')
     return 'bg-violet-950/80 text-violet-100 ring-violet-700/50'
-  if (type === 'cascade') return 'bg-red-950/80 text-red-100 ring-red-800/50'
-  if (type === 'threshold')
+  if (event.kind === 'loadgen_start')
+    return 'bg-emerald-950/80 text-emerald-100 ring-emerald-700/50'
+  if (event.kind === 'loadgen_stop')
+    return 'bg-slate-900/80 text-slate-100 ring-slate-700/50'
+  if (event.type === 'cascade') return 'bg-red-950/80 text-red-100 ring-red-800/50'
+  if (event.type === 'threshold')
     return 'bg-amber-950/80 text-amber-100 ring-amber-800/50'
   return 'bg-[var(--c9-badge-bg)] text-[var(--c9-text)] ring-[var(--c9-border)]'
+}
+
+function workloadAnchorLabel(event: WsEvent): string | null {
+  switch (event.kind) {
+    case 'loadgen_start':
+      return 'load start'
+    case 'loadgen_stop':
+      return 'load stop'
+    case 'chaos_inject':
+      return 'chaos'
+    default:
+      return null
+  }
+}
+
+function eventTooltip(event: WsEvent): string {
+  const detail = event.detail
+    ? Object.entries(event.detail)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' · ')
+    : ''
+  return [event.description || event.title, detail].filter(Boolean).join('\n')
 }
 
 /**
@@ -133,30 +159,38 @@ export function EventTimeline() {
             ref={scrollRef}
             className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/85 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
           >
-            {sorted.map((e, i) => (
-              <button
-                key={`${e.timestamp}-${i}-${e.title}`}
-                type="button"
-                title={e.description || e.title}
-                onClick={() => onPillClick(e)}
-                disabled={!pillInteractive(e)}
-                className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e.type, e.source)} ${
-                  pillInteractive(e) ? 'cursor-pointer' : ''
-                }`}
-              >
-                <span className="flex flex-wrap items-center gap-1">
-                  <span className="mr-1 font-mono text-[var(--c9-muted)]">
-                    {formatTime(e.timestamp)}
-                  </span>
-                  <span className="text-[var(--c9-text)]">{e.title}</span>
-                  {isPredicted(e) ? (
-                    <span className="rounded bg-cyan-500/20 px-1 text-[8px] font-semibold uppercase text-cyan-200">
-                      predicted
+            {sorted.map((e, i) => {
+              const anchorLabel = workloadAnchorLabel(e)
+              return (
+                <button
+                  key={`${e.timestamp}-${i}-${e.title}`}
+                  type="button"
+                  title={eventTooltip(e)}
+                  onClick={() => onPillClick(e)}
+                  disabled={!pillInteractive(e)}
+                  className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e)} ${
+                    pillInteractive(e) ? 'cursor-pointer' : ''
+                  }`}
+                >
+                  <span className="flex flex-wrap items-center gap-1">
+                    <span className="mr-1 font-mono text-[var(--c9-muted)]">
+                      {formatTime(e.timestamp)}
                     </span>
-                  ) : null}
-                </span>
-              </button>
-            ))}
+                    {anchorLabel ? (
+                      <span className="rounded bg-white/10 px-1 text-[8px] font-semibold uppercase tracking-wide">
+                        {anchorLabel}
+                      </span>
+                    ) : null}
+                    <span className="text-[var(--c9-text)]">{e.title}</span>
+                    {isPredicted(e) ? (
+                      <span className="rounded bg-cyan-500/20 px-1 text-[8px] font-semibold uppercase text-cyan-200">
+                        predicted
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       ) : null}

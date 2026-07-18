@@ -151,10 +151,31 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       (typeof e.ruleId === 'string' && e.ruleId.trim() ? e.ruleId.trim() : undefined) ||
       (typeof e.rule === 'string' && e.rule.trim() ? e.rule.trim() : undefined)
     const crashContext = parseCrashContext(e.crashContext) ?? undefined
+    const kind =
+      e.kind === 'loadgen_start' ||
+      e.kind === 'loadgen_stop' ||
+      e.kind === 'chaos_inject'
+        ? e.kind
+        : undefined
+    const detail =
+      e.detail && typeof e.detail === 'object' && !Array.isArray(e.detail)
+        ? Object.fromEntries(
+            Object.entries(e.detail).filter(
+              (entry): entry is [string, string] => typeof entry[1] === 'string',
+            ),
+          )
+        : undefined
+    const audience =
+      e.audience === 'user' || e.audience === 'ai' || e.audience === 'both'
+        ? e.audience
+        : undefined
     out.push({
       timestamp: e.timestamp ?? new Date().toISOString(),
       type: e.type ?? 'action',
       source: e.source ?? 'unknown',
+      kind,
+      detail,
+      audience,
       component: e.component,
       rule,
       title,

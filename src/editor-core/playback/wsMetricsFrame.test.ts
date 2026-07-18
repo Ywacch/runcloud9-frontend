@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { parseRecentLatenciesMs, parseResourceUsageSource } from '../domain/metricsUiContract'
-import { applyWsFrameToStore, componentToBucket } from './wsMetricsFrame'
+import {
+  applyWsFrameToStore,
+  componentToBucket,
+  normalizeWsEvents,
+} from './wsMetricsFrame'
+import type { WsEventPayload } from './wsMetricsTypes'
 import { useMetricsStore } from '../stores/metricsStore'
 
 describe('parseResourceUsageSource', () => {
@@ -88,6 +93,82 @@ describe('parseRecentLatenciesMs', () => {
 
   it('returns empty array for non-array input', () => {
     expect(parseRecentLatenciesMs(null)).toEqual([])
+  })
+})
+
+describe('normalizeWsEvents workload anchors', () => {
+  it('retains all workload kinds, detail, and audience while type stays action', () => {
+    const events = normalizeWsEvents([
+      {
+        timestamp: '2026-05-01T12:00:00Z',
+        type: 'action',
+        source: 'loadgen',
+        kind: 'loadgen_start',
+        audience: 'both',
+        title: 'Load generator started',
+        description: 'rps=5',
+        detail: { template: 'url-shortener', rps: '5', durationSeconds: '30' },
+      },
+      {
+        timestamp: '2026-05-01T12:00:30Z',
+        type: 'action',
+        source: 'loadgen',
+        kind: 'loadgen_stop',
+        audience: 'user',
+        title: 'Load generator stopped',
+        detail: { template: 'url-shortener' },
+      },
+      {
+        timestamp: '2026-05-01T12:00:15Z',
+        type: 'action',
+        source: 'chaos',
+        kind: 'chaos_inject',
+        audience: 'ai',
+        title: 'Chaos injected',
+        detail: { scenario: 'pod_kill', targetComponent: 'app-server' },
+      },
+    ])
+
+    expect(events.map((event) => event.kind)).toEqual([
+      'loadgen_start',
+      'loadgen_stop',
+      'chaos_inject',
+    ])
+    expect(events[0]).toMatchObject({
+      type: 'action',
+      audience: 'both',
+      detail: { template: 'url-shortener', rps: '5', durationSeconds: '30' },
+    })
+    expect(events[2]).toMatchObject({
+      audience: 'ai',
+      detail: { scenario: 'pod_kill', targetComponent: 'app-server' },
+    })
+  })
+
+  it('keeps a legacy runtime action unchanged when kind is missing', () => {
+    const [event] = normalizeWsEvents([
+      {
+        timestamp: '2026-05-01T12:01:00Z',
+        type: 'action',
+        source: 'runtime',
+        component: 'app-server',
+        title: 'Pod restarted',
+        description: 'app-server-abc restarted',
+        // Additive unknown fields from future backends must not reject the event.
+        futureField: 'ignored',
+      } as WsEventPayload,
+    ])
+
+    expect(event).toMatchObject({
+      type: 'action',
+      source: 'runtime',
+      component: 'app-server',
+      title: 'Pod restarted',
+      description: 'app-server-abc restarted',
+    })
+    expect(event.kind).toBeUndefined()
+    expect(event.detail).toBeUndefined()
+    expect(event.audience).toBeUndefined()
   })
 })
 
