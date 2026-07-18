@@ -127,6 +127,8 @@ export interface MetricsBucket {
   runtimeHealth: RuntimeHealthSummary | null
   /** Per-process cache layers when proxy mode is active. */
   layers: ComponentLayerMetrics[]
+  /** Per-signal-group freshness from the metrics WS (optional). */
+  freshness?: import('../../lib/metricsFreshness').ComponentFreshness
 
   // Meta
   podCount: number

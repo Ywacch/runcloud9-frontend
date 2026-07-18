@@ -7,11 +7,11 @@ import {
 } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import {
-  CPU_ALLOC_HELP,
-  MEM_ALLOC_HELP,
+  ALLOCATED_NOT_MEASURED_HELP,
   METRICS_API_FRESHNESS_HELP,
   TIER_C_WARMUP_HELP,
 } from '../lib/metricHelp'
+import { containerFreshnessHint } from '../lib/metricsFreshness'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import type { RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
 import { SparkLine } from './SparkLine'
@@ -362,7 +362,15 @@ export function resourceFreshnessSuffix(_source: ResourceUsageSource | undefined
 }
 
 export function resourceUsageHelp(m: MetricsBucket): string | undefined {
-  if (m.cpuIsEstimated) return CPU_ALLOC_HELP
+  const tier = m.freshness?.containerCpu?.tier
+  if (tier === 'estimated' || (!m.freshness && m.cpuIsEstimated)) {
+    return ALLOCATED_NOT_MEASURED_HELP
+  }
+  if (tier === 'metrics_api') {
+    return containerFreshnessHint(m.freshness?.containerCpu)
+  }
+  // Legacy sessions without freshness map.
+  if (m.cpuIsEstimated) return ALLOCATED_NOT_MEASURED_HELP
   if (m.cpuSource === 'metrics_api' || m.memSource === 'metrics_api') {
     return METRICS_API_FRESHNESS_HELP
   }
@@ -371,7 +379,14 @@ export function resourceUsageHelp(m: MetricsBucket): string | undefined {
 
 /** Hover help for memory tiles — utilization % only (bytes stay in the value). */
 export function memoryUsageHelp(m: MetricsBucket, memPercent: number): string | undefined {
-  if (m.memIsEstimated) return MEM_ALLOC_HELP
+  const tier = m.freshness?.containerMem?.tier
+  if (tier === 'estimated' || (!m.freshness && m.memIsEstimated)) {
+    return ALLOCATED_NOT_MEASURED_HELP
+  }
+  if (tier === 'metrics_api') {
+    return containerFreshnessHint(m.freshness?.containerMem)
+  }
+  if (m.memIsEstimated) return ALLOCATED_NOT_MEASURED_HELP
   if (m.memoryLimit > 0) return fmtPct(memPercent)
   return undefined
 }
@@ -380,7 +395,12 @@ export function memoryUsageHelp(m: MetricsBucket, memPercent: number): string | 
 export const TIER_C_WARMUP_MS = 60_000
 
 export function isTierCResource(m: MetricsBucket): boolean {
-  return m.cpuSource === 'metrics_api' || m.memSource === 'metrics_api'
+  return (
+    m.freshness?.containerCpu?.tier === 'metrics_api' ||
+    m.freshness?.containerMem?.tier === 'metrics_api' ||
+    m.cpuSource === 'metrics_api' ||
+    m.memSource === 'metrics_api'
+  )
 }
 
 export function isTierCWarmingUp(
@@ -404,7 +424,9 @@ export function dbClusterResourceHelp(
   m: MetricsBucket,
   warmingUp: boolean,
 ): string | undefined {
-  if (m.cpuIsEstimated) return CPU_ALLOC_HELP
+  if (m.freshness?.containerCpu?.tier === 'estimated' || m.cpuIsEstimated) {
+    return ALLOCATED_NOT_MEASURED_HELP
+  }
   if (warmingUp && isTierCResource(m)) return TIER_C_WARMUP_HELP
   return resourceUsageHelp(m)
 }

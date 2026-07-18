@@ -1,5 +1,6 @@
 import { idleClientLoadgenBucket } from '../../lib/clientMetrics'
 import { chaosOverlayFromWsEvent } from '../../lib/chaos'
+import { parseComponentFreshness } from '../../lib/metricsFreshness'
 import { parseDbQuerySource } from '../../lib/storageIoDisplay'
 import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
 import { backendComponentToCanvasType } from '../../lib/typeMapping'
@@ -132,6 +133,7 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     backendReplicas: null,
     runtimeHealth: parseRuntimeHealth(cm.runtimeHealth),
     layers: parseComponentLayers(cm.layers),
+    freshness: parseComponentFreshness(cm.freshness),
     podCount: 1,
     lastUpdated: Date.now(),
     qps: Math.round(requestRate),

@@ -69,6 +69,8 @@ export interface WsComponentMetrics {
   storageIo?: unknown
   runtimeHealth?: unknown
   layers?: unknown[]
+  /** Per-signal-group freshness (throughput, containerCpu, …). */
+  freshness?: unknown
 }
 
 export interface WsEventPayload {
