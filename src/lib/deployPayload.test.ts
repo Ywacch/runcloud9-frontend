@@ -74,4 +74,48 @@ describe('deployConfigForNode', () => {
     expect(aside.proxyInstanceSize).toBeUndefined()
     expect(aside.proxyResourceProfile).toBeUndefined()
   })
+
+  it('emits a numeric writeBehindIntervalSeconds only for url-shortener write-behind', () => {
+    const active = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'write-behind',
+        writeBehindIntervalSeconds: 45,
+      }),
+      'url-shortener',
+    )
+    expect(active.writeBehindIntervalSeconds).toBe(45)
+
+    const defaults = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'write-behind' }),
+      'url-shortener',
+    )
+    expect(defaults.writeBehindIntervalSeconds).toBe(30)
+
+    const clamped = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'write-behind',
+        writeBehindIntervalSeconds: 999,
+      }),
+      'url-shortener',
+    )
+    expect(clamped.writeBehindIntervalSeconds).toBe(300)
+
+    const writeThrough = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'write-through',
+        writeBehindIntervalSeconds: 45,
+      }),
+      'url-shortener',
+    )
+    expect(writeThrough.writeBehindIntervalSeconds).toBeUndefined()
+
+    const ecommerce = deployConfigForNode(
+      cacheNode({
+        cacheStrategy: 'write-behind',
+        writeBehindIntervalSeconds: 45,
+      }),
+      'ecommerce',
+    )
+    expect(ecommerce.writeBehindIntervalSeconds).toBeUndefined()
+  })
 })

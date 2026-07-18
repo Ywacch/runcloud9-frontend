@@ -14,6 +14,17 @@ import {
   isVolatileRedisEvictionPolicy,
   normalizeRedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
+import {
+  WRITE_BEHIND_INTERVAL_DEFAULT,
+  WRITE_BEHIND_INTERVAL_MAX,
+  WRITE_BEHIND_INTERVAL_MIN,
+  WRITE_BEHIND_INTERVAL_VALIDATION,
+  commitWriteBehindIntervalDraft,
+  isValidWriteBehindInterval,
+  normalizeWriteBehindIntervalSeconds,
+  showsWriteBehindIntervalControl,
+  templateSupportsWriteBehindInterval,
+} from '../lib/writeBehindInterval'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   APP_SERVER_REPLICA_MIN,
@@ -229,6 +240,7 @@ export function InspectorPanel() {
                   nodes={nodes}
                   simulationMode={simulationMode}
                   updateConfig={(patch) => updateNodeConfig(node.id, patch)}
+                  templateId={snapshotTemplateId}
                 />
                 {simulationMode ? <LiveMetrics node={node} /> : null}
               </div>
@@ -339,12 +351,14 @@ export function CacheNodeInspectorFields({
   edges,
   simulationMode,
   updateConfig,
+  templateId,
 }: {
   node: CanvasNode
   nodes: Record<string, CanvasNode>
   edges: Record<string, CanvasEdge>
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
+  templateId?: string | null
 }) {
   const c = node.config
   const strategy = String(c.cacheStrategy ?? 'cache-aside')
@@ -367,6 +381,21 @@ export function CacheNodeInspectorFields({
   const proxyInstanceSize = String(c.proxyInstanceSize ?? '').trim()
   const proxyResourceProfile = String(c.proxyResourceProfile ?? '').trim()
   const evictionPolicy = normalizeRedisEvictionPolicy(c.evictionPolicy)
+  const showWriteBehindInterval = showsWriteBehindIntervalControl(
+    templateId,
+    selectValue,
+  )
+  const storedWriteBehindInterval = normalizeWriteBehindIntervalSeconds(
+    c.writeBehindIntervalSeconds,
+  )
+  const [writeBehindDraft, setWriteBehindDraft] = useState(
+    String(storedWriteBehindInterval),
+  )
+  const writeBehindDraftValid = isValidWriteBehindInterval(writeBehindDraft)
+
+  useEffect(() => {
+    setWriteBehindDraft(String(storedWriteBehindInterval))
+  }, [node.id, storedWriteBehindInterval])
 
   useEffect(() => {
     if (strategy === 'read-through') {
@@ -395,6 +424,16 @@ export function CacheNodeInspectorFields({
         proxyResourceProfile: proxySize,
       })
     }
+    // Seed write-behind flush interval on URL shortener when missing.
+    if (
+      templateSupportsWriteBehindInterval(templateId) &&
+      strategy === 'write-behind' &&
+      c.writeBehindIntervalSeconds == null
+    ) {
+      useCanvasStore.getState().updateNodeConfig(node.id, {
+        writeBehindIntervalSeconds: WRITE_BEHIND_INTERVAL_DEFAULT,
+      })
+    }
   }, [
     available,
     node.id,
@@ -403,6 +442,8 @@ export function CacheNodeInspectorFields({
     proxyResourceProfile,
     c.instanceSize,
     c.resourceProfile,
+    c.writeBehindIntervalSeconds,
+    templateId,
   ])
 
   return (
@@ -445,8 +486,15 @@ export function CacheNodeInspectorFields({
               patch.proxyInstanceSize = undefined
               patch.proxyResourceProfile = undefined
             }
+            if (
+              templateSupportsWriteBehindInterval(templateId) &&
+              next === 'write-behind' &&
+              c.writeBehindIntervalSeconds == null
+            ) {
+              patch.writeBehindIntervalSeconds = WRITE_BEHIND_INTERVAL_DEFAULT
+            }
             updateConfig(patch)
-            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+            const template = templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
             trackEvent('design_option_changed', {
               template,
               optionName: 'cache_strategy',
@@ -487,6 +535,54 @@ export function CacheNodeInspectorFields({
           </p>
         ) : null}
       </div>
+      {showWriteBehindInterval ? (
+        <div>
+          <label className={labelClass} htmlFor="cache-write-behind-interval">
+            Write-behind flush interval (seconds)
+          </label>
+          <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+            How often the proxy flushes pending writes to the database.
+          </p>
+          <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+            Shorter intervals reduce how long the cache can be ahead of the database. Longer
+            intervals delay database writes for longer.
+          </p>
+          <input
+            id="cache-write-behind-interval"
+            type="number"
+            min={WRITE_BEHIND_INTERVAL_MIN}
+            max={WRITE_BEHIND_INTERVAL_MAX}
+            step={1}
+            className={fieldClass}
+            value={writeBehindDraft}
+            onChange={(e) => {
+              const nextDraft = e.target.value
+              setWriteBehindDraft(nextDraft)
+              const commit = commitWriteBehindIntervalDraft(
+                nextDraft,
+                storedWriteBehindInterval,
+              )
+              if (!commit.ok || !commit.changed) return
+              updateConfig({ writeBehindIntervalSeconds: commit.next })
+              const template =
+                templateId ??
+                useCanvasStore.getState().snapshotTemplateId ??
+                'unknown'
+              trackEvent('design_option_changed', {
+                template,
+                optionName: 'write_behind_interval',
+                previousCategory: String(storedWriteBehindInterval),
+                newCategory: String(commit.next),
+              })
+            }}
+          />
+          {!writeBehindDraftValid ? (
+            <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+              {WRITE_BEHIND_INTERVAL_VALIDATION}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div>
         <label className={labelClass} htmlFor="cache-eviction">
           Eviction policy
@@ -598,12 +694,14 @@ function TypeFields({
   nodes,
   simulationMode,
   updateConfig,
+  templateId,
 }: {
   node: CanvasNode
   edges: Record<string, CanvasEdge>
   nodes: Record<string, CanvasNode>
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
+  templateId?: string | null
 }) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -904,6 +1002,7 @@ function TypeFields({
           edges={edges}
           simulationMode={simulationMode}
           updateConfig={updateConfig}
+          templateId={templateId}
         />
       )
 
