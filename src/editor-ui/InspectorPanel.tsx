@@ -11,7 +11,6 @@ import {
   REDIS_EVICTION_POLICIES,
   REDIS_EVICTION_POLICY_DESCRIPTION,
   REDIS_EVICTION_POLICY_LABEL,
-  isVolatileRedisEvictionPolicy,
   normalizeRedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
 import {
@@ -25,6 +24,18 @@ import {
   showsWriteBehindIntervalControl,
   templateSupportsWriteBehindInterval,
 } from '../lib/writeBehindInterval'
+import {
+  CACHE_TTL_HELPER,
+  CACHE_TTL_MAX,
+  CACHE_TTL_MIN,
+  CACHE_TTL_VALIDATION,
+  VOLATILE_NO_EXPIRY_WARNING,
+  commitTimedCacheTtlDraft,
+  defaultCacheTtlSecondsForTemplate,
+  isValidTimedCacheTtlSeconds,
+  parseCacheTtlSeconds,
+  showVolatileNoExpiryWarning,
+} from '../lib/cacheTtl'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   APP_SERVER_REPLICA_MIN,
@@ -393,9 +404,39 @@ export function CacheNodeInspectorFields({
   )
   const writeBehindDraftValid = isValidWriteBehindInterval(writeBehindDraft)
 
+  const templateTtlDefault = defaultCacheTtlSecondsForTemplate(templateId)
+  const storedCacheTtl = parseCacheTtlSeconds(c.cacheTtlSeconds)
+  const noExpiry = storedCacheTtl === 0
+  const initialPositiveTtl =
+    storedCacheTtl != null && storedCacheTtl > 0
+      ? storedCacheTtl
+      : templateTtlDefault != null && templateTtlDefault > 0
+        ? templateTtlDefault
+        : 300
+  const [ttlDraft, setTtlDraft] = useState(String(initialPositiveTtl))
+  const [lastPositiveTtl, setLastPositiveTtl] = useState(initialPositiveTtl)
+  const ttlDraftValid = isValidTimedCacheTtlSeconds(ttlDraft)
+  const showVolatileWarning = showVolatileNoExpiryWarning(
+    evictionPolicy,
+    storedCacheTtl,
+  )
+
   useEffect(() => {
     setWriteBehindDraft(String(storedWriteBehindInterval))
   }, [node.id, storedWriteBehindInterval])
+
+  useEffect(() => {
+    if (storedCacheTtl != null && storedCacheTtl > 0) {
+      setTtlDraft(String(storedCacheTtl))
+      setLastPositiveTtl(storedCacheTtl)
+    } else if (storedCacheTtl === 0) {
+      // Keep last positive draft while No expiry is on.
+      setTtlDraft(String(lastPositiveTtl))
+    } else if (templateTtlDefault != null && templateTtlDefault > 0) {
+      setTtlDraft(String(templateTtlDefault))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lastPositiveTtl is intentional local memory
+  }, [node.id, storedCacheTtl, templateTtlDefault])
 
   useEffect(() => {
     if (strategy === 'read-through') {
@@ -434,6 +475,12 @@ export function CacheNodeInspectorFields({
         writeBehindIntervalSeconds: WRITE_BEHIND_INTERVAL_DEFAULT,
       })
     }
+    // Seed cache TTL from the template default when missing.
+    if (c.cacheTtlSeconds == null && templateTtlDefault != null) {
+      useCanvasStore.getState().updateNodeConfig(node.id, {
+        cacheTtlSeconds: templateTtlDefault,
+      })
+    }
   }, [
     available,
     node.id,
@@ -443,7 +490,9 @@ export function CacheNodeInspectorFields({
     c.instanceSize,
     c.resourceProfile,
     c.writeBehindIntervalSeconds,
+    c.cacheTtlSeconds,
     templateId,
+    templateTtlDefault,
   ])
 
   return (
@@ -584,6 +633,98 @@ export function CacheNodeInspectorFields({
         </div>
       ) : null}
       <div>
+        <label className={labelClass} htmlFor="cache-ttl">
+          Cache TTL
+        </label>
+        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+          {CACHE_TTL_HELPER}
+        </p>
+        <label className="mb-2 flex items-center gap-2 text-xs text-[var(--c9-text)]">
+          <input
+            id="cache-ttl-no-expiry"
+            type="checkbox"
+            className="rounded border-[var(--c9-border)]"
+            checked={noExpiry}
+            onChange={(e) => {
+              const enableNoExpiry = e.target.checked
+              const template =
+                templateId ??
+                useCanvasStore.getState().snapshotTemplateId ??
+                'unknown'
+              const prev = storedCacheTtl ?? templateTtlDefault ?? lastPositiveTtl
+              if (enableNoExpiry) {
+                if (storedCacheTtl != null && storedCacheTtl > 0) {
+                  setLastPositiveTtl(storedCacheTtl)
+                  setTtlDraft(String(storedCacheTtl))
+                }
+                updateConfig({ cacheTtlSeconds: 0 })
+                if (prev !== 0) {
+                  trackEvent('design_option_changed', {
+                    template,
+                    optionName: 'cache_ttl',
+                    previousCategory: String(prev),
+                    newCategory: '0',
+                  })
+                }
+                return
+              }
+              const restored = lastPositiveTtl
+              updateConfig({ cacheTtlSeconds: restored })
+              setTtlDraft(String(restored))
+              if (prev !== restored) {
+                trackEvent('design_option_changed', {
+                  template,
+                  optionName: 'cache_ttl',
+                  previousCategory: String(prev),
+                  newCategory: String(restored),
+                })
+              }
+            }}
+          />
+          No expiry
+        </label>
+        {!noExpiry ? (
+          <>
+            <input
+              id="cache-ttl"
+              type="number"
+              min={CACHE_TTL_MIN}
+              max={CACHE_TTL_MAX}
+              step={1}
+              className={fieldClass}
+              value={ttlDraft}
+              onChange={(e) => {
+                const nextDraft = e.target.value
+                setTtlDraft(nextDraft)
+                const previous =
+                  storedCacheTtl != null && storedCacheTtl > 0
+                    ? storedCacheTtl
+                    : lastPositiveTtl
+                const commit = commitTimedCacheTtlDraft(nextDraft, previous)
+                if (!commit.ok || !commit.changed) return
+                setLastPositiveTtl(commit.next)
+                updateConfig({ cacheTtlSeconds: commit.next })
+                const template =
+                  templateId ??
+                  useCanvasStore.getState().snapshotTemplateId ??
+                  'unknown'
+                trackEvent('design_option_changed', {
+                  template,
+                  optionName: 'cache_ttl',
+                  previousCategory: String(previous),
+                  newCategory: String(commit.next),
+                })
+              }}
+            />
+            {!ttlDraftValid ? (
+              <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+                {CACHE_TTL_VALIDATION}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+      <div>
         <label className={labelClass} htmlFor="cache-eviction">
           Eviction policy
         </label>
@@ -625,10 +766,9 @@ export function CacheNodeInspectorFields({
         <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
           {REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
         </p>
-        {isVolatileRedisEvictionPolicy(evictionPolicy) ? (
-          <p className="mt-2 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 px-2.5 py-2 text-[10px] leading-snug text-[var(--c9-muted)]">
-            This policy can only evict keys that have a TTL. Keys without a TTL are not candidates
-            when memory fills up.
+        {showVolatileWarning ? (
+          <p className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-snug text-amber-700 dark:text-amber-200">
+            {VOLATILE_NO_EXPIRY_WARNING}
           </p>
         ) : null}
       </div>

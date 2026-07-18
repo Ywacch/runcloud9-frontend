@@ -6,6 +6,7 @@ import {
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
 import { seedWriteBehindIntervalDefault } from './writeBehindInterval'
+import { seedCacheTtlSecondsDefault } from './cacheTtl'
 
 const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
   compute: APP_SERVER_REPLICA_MAX,
@@ -83,7 +84,10 @@ export function placeFromPicker(params: {
   const node = createCanvasNode(nodeType, position, nodes)
   if (node.type === 'cache') {
     const templateId = useCanvasStore.getState().snapshotTemplateId
-    node.config = seedWriteBehindIntervalDefault(node.config, templateId)
+    node.config = seedCacheTtlSecondsDefault(
+      seedWriteBehindIntervalDefault(node.config, templateId),
+      templateId,
+    )
   }
   addNode(node)
   selectNode(node.id)
