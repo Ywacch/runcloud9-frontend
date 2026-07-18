@@ -23,13 +23,21 @@ export default function NavHeader() {
           Open Canvas
         </Link>
         {session ? (
-          <button
-            type="button"
-            onClick={() => void supabase.auth.signOut()}
-            className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-          >
-            Sign out
-          </button>
+          <>
+            <Link
+              to="/profile"
+              className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
+            >
+              Profile
+            </Link>
+            <button
+              type="button"
+              onClick={() => void supabase.auth.signOut()}
+              className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
+            >
+              Sign out
+            </button>
+          </>
         ) : (
           <Link
             to="/login"

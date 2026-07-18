@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildWsBaseForApi, deleteDeployment, getMe, startLoadGen, stopLoadGen } from './api'
+import {
+  buildWsBaseForApi,
+  deleteDeployment,
+  getMe,
+  listDeploymentHistory,
+  startLoadGen,
+  stopLoadGen,
+} from './api'
 import { getAccessToken } from './auth'
 
 vi.mock('./auth', () => ({
@@ -122,5 +129,82 @@ describe('buildWsBaseForApi', () => {
     expect(
       buildWsBaseForApi('https://api.runcloud9.io/deployments', current),
     ).toBe('wss://api.runcloud9.io/deployments')
+  })
+})
+
+describe('listDeploymentHistory', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sends Authorization Bearer and correct limit', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('hist-tok')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listDeploymentHistory(20)
+
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }]
+    expect(opts.headers.Authorization).toBe('Bearer hist-tok')
+    expect(url).toContain('/deployments/history')
+    expect(url).toContain('limit=20')
+  })
+
+  it('clamps limit to [1, 50]', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('tok')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listDeploymentHistory(200)
+    await listDeploymentHistory(-5)
+
+    expect(fetchMock.mock.calls[0][0] as string).toContain('limit=50')
+    expect(fetchMock.mock.calls[1][0] as string).toContain('limit=1')
+  })
+
+  it('maps optional peak fields; omitted stay undefined', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('tok')
+    const row = {
+      id: 'abc123',
+      namespace: 'ns-abc',
+      template: 'url-shortener',
+      archetype: 'standard',
+      status: 'terminated',
+      createdAt: '2026-01-01T00:00:00Z',
+      expiresAt: '2026-01-01T01:00:00Z',
+      durationSeconds: 300,
+      peakRps: 120,
+      // peakP99Ms omitted
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [row],
+    }))
+
+    const [item] = await listDeploymentHistory(20)
+    expect(item.durationSeconds).toBe(300)
+    expect(item.peakRps).toBe(120)
+    expect(item.peakP99Ms).toBeUndefined()
+  })
+
+  it('throws ApiError on failure', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('tok')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      text: async () => JSON.stringify({ error: 'access denied' }),
+    }))
+
+    await expect(listDeploymentHistory(20)).rejects.toMatchObject({
+      status: 403,
+      rawMessage: 'access denied',
+    })
   })
 })

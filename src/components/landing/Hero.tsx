@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import canvasHero from '../../assets/canvas1.PNG'
+import { trackEvent } from '../../lib/analytics'
 import { ScreenshotFrame } from './ScreenshotFrame'
 
 const GRAIN_BG =
@@ -48,6 +49,7 @@ export function Hero() {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/canvas"
+              onClick={() => trackEvent('landing_cta_clicked', { ctaName: 'start_building' })}
               className="rounded bg-c9-accent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-c9-accent-hover active:scale-[0.98]"
             >
               Start Building →

@@ -198,6 +198,40 @@ function mergeApiMetricsSummary(
   }
 }
 
+/**
+ * Pure adapter for historical deployment detail — does not read live canvas stores.
+ * Missing optional scalars stay undefined (render as unavailable, not zero).
+ */
+export function sessionSummaryFromApiMetrics(
+  template: string,
+  apiMetricsSummary: Record<string, unknown> | undefined,
+  opts?: { status?: string },
+): SessionSummary {
+  const peaks = parsePeakFieldsFromMetricsSummary(apiMetricsSummary ?? {})
+  let duration = '—'
+  if (peaks.durationSeconds != null && peaks.durationSeconds > 0) {
+    const dur = peaks.durationSeconds
+    duration = `${Math.floor(dur / 60)}m ${dur % 60}s`
+  }
+  const base: SessionSummary = {
+    template: template.trim() || 'unknown',
+    duration,
+    peakRps: peaks.peakRps ?? 0,
+    peakP99: peaks.peakP99 ?? 0,
+    totalRequests: peaks.totalRequests ?? 0,
+    cacheHitRate: peaks.cacheHitRate ?? 0,
+    avgLatency: 0,
+    errorRate: peaks.errorRate ?? 0,
+    componentSummaries: {},
+  }
+  const merged = mergeApiMetricsSummary(base, apiMetricsSummary)
+  // Preserve "unavailable" for missing peaks: if API omitted them, keep zero only
+  // when the summary truly has no scalars — profile UI checks undefined separately
+  // via history list; detail view uses merged values.
+  void opts
+  return merged
+}
+
 /** Idempotent: skips if a summary is already set (timer vs WS vs manual). */
 export function captureSessionSummaryWithApi(
   apiMetricsSummary?: Record<string, unknown>

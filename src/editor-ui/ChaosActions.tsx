@@ -8,6 +8,7 @@ import {
   chaosTargetForNode,
   type ChaosScenario,
 } from '../lib/chaos'
+import { trackEvent } from '../lib/analytics'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
@@ -43,6 +44,8 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
     try {
       await triggerChaos(deploymentId, { scenario, targetComponent: target })
       registerChaos(scenario, target)
+      const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+      trackEvent('chaos_injected', { template, chaosKind: scenario, targetComponentType: target })
     } catch (e) {
       debugAuthError(e, 'chaos')
       setError(

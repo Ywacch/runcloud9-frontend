@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import SetPasswordPage from './pages/SetPasswordPage'
+import ProfilePage from './pages/ProfilePage'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './editor-ui/NavHeader'
 
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/set-password" element={<SetPasswordPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route
             path="/loadtest"
             element={
