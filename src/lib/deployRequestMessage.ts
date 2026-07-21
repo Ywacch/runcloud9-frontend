@@ -1,6 +1,10 @@
 import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
+import {
+  isQueueFullErrorMessage,
+  isUserConcurrentDeployErrorMessage,
+} from './deployQueue'
 
 export interface DeployRequestMessage {
   title: string
@@ -63,6 +67,28 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
       return {
         title: 'Deployment request was not accepted',
         body: 'You do not have permission to perform this action.',
+        technicalDetails: raw,
+      }
+    }
+
+    if (error.status === 429) {
+      if (isQueueFullErrorMessage(raw)) {
+        return {
+          title: 'Cluster queue is full',
+          body: 'Too many deployments are waiting for capacity. Please try again in a minute.',
+          technicalDetails: raw,
+        }
+      }
+      if (isUserConcurrentDeployErrorMessage(raw)) {
+        return {
+          title: 'You already have an active deployment',
+          body: 'End or cancel your current deployment before starting another.',
+          technicalDetails: raw,
+        }
+      }
+      return {
+        title: 'Deployment request was not accepted',
+        body: 'The cluster is busy right now. Please try again shortly.',
         technicalDetails: raw,
       }
     }

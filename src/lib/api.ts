@@ -45,6 +45,10 @@ export interface DeploymentResult {
   deploymentId: string
   namespace: string
   status: string
+  /** Present when status === 'queued'. */
+  queuePosition?: number
+  /** Present when status === 'queued' (rough ETA). */
+  estimatedWaitSeconds?: number
   seeded?: boolean
   error?: string
   assessment?: {
@@ -252,6 +256,10 @@ export interface DeploymentRecord {
   status: string
   expiresAt: string
   template?: string
+  /** Present when status === 'queued'. */
+  queuePosition?: number
+  /** Present when status === 'queued' (rough ETA). */
+  estimatedWaitSeconds?: number
   /** Present after teardown; includes `session_history` and peak aggregates. */
   metricsSummary?: Record<string, unknown>
 }
