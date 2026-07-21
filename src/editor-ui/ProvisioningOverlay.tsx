@@ -1,5 +1,6 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { formatQueueWaitingDetail } from '../lib/deployQueue'
 import {
   buildOrderedComponentRows,
   parseProvisionMetrics,
@@ -342,12 +343,18 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   metricsSummary,
   nodes,
   isTerminating = false,
+  isQueued = false,
+  queuePosition = null,
+  estimatedWaitSeconds = null,
   onCancel,
 }: {
   elapsedSeconds: number
   metricsSummary: Record<string, unknown> | null
   nodes: Record<string, CanvasNode>
   isTerminating?: boolean
+  isQueued?: boolean
+  queuePosition?: number | null
+  estimatedWaitSeconds?: number | null
   onCancel?: () => void
 }) {
   const parsed = useMemo(
@@ -356,14 +363,31 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   )
   const legacyPulse = shouldUseLegacyProvisioningPulse(metricsSummary)
 
-  const provisionSubtitle =
-    isTerminating
-      ? 'Terminating deployment...'
-      : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
-      ? parsed.provisionPhase.replace(/-/g, ' ')
-      : 'Deploying infrastructure…'
+  const queueDetail = formatQueueWaitingDetail({
+    queuePosition,
+    estimatedWaitSeconds,
+  })
 
-  const showChecklist = parsed !== null && !legacyPulse
+  const panelTitle = isTerminating
+    ? 'Terminating'
+    : isQueued
+      ? 'Waiting for capacity'
+      : 'Provisioning'
+
+  const provisionSubtitle = isTerminating
+    ? 'Terminating deployment...'
+    : isQueued
+      ? queueDetail
+      : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
+        ? parsed.provisionPhase.replace(/-/g, ' ')
+        : 'Deploying infrastructure…'
+
+  const showChecklist = !isQueued && parsed !== null && !legacyPulse
+  const cancelLabel = isTerminating
+    ? 'Terminating…'
+    : isQueued
+      ? 'Leave queue'
+      : 'Cancel provisioning'
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/75 p-2 backdrop-blur-sm sm:p-3">
@@ -372,7 +396,7 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
         <div className="flex w-full flex-col justify-between border-b border-[var(--c9-border)] bg-[color-mix(in_srgb,var(--c9-surface)_50%,transparent)] px-4 py-3.5 md:w-[38%] md:border-b-0 md:border-r md:px-4 md:py-4">
           <div>
             <h2 className="mb-3 text-base font-semibold tracking-tight text-[var(--c9-accent)]">
-              Provisioning
+              {panelTitle}
             </h2>
             <VerticalProvisionerStepper provisionSubtitle={provisionSubtitle} />
           </div>
@@ -392,7 +416,7 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
         {/* Right: checklist */}
         <div className="flex w-full flex-col bg-[color-mix(in_srgb,var(--c9-bg)_40%,var(--c9-surface))] px-4 py-3.5 md:w-[62%] md:px-4 md:py-4">
           <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--c9-muted)]">
-            Infrastructure checklist
+            {isQueued ? 'Queue status' : 'Infrastructure checklist'}
           </h3>
 
           {showChecklist ? (
@@ -403,9 +427,15 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
                 <div className="h-full w-[32%] animate-pulse rounded-full bg-[var(--c9-accent)]/80" />
               </div>
               <p className="mt-2 text-[11px] leading-snug text-[var(--c9-muted)]">
-                Component detail appears when the API returns provisioning metrics (
-                <code className="text-[10px] text-[var(--c9-text)]">metricsSummary</code>
-                ).
+                {isQueued
+                  ? queueDetail
+                  : (
+                    <>
+                      Component detail appears when the API returns provisioning metrics (
+                      <code className="text-[10px] text-[var(--c9-text)]">metricsSummary</code>
+                      ).
+                    </>
+                  )}
               </p>
             </div>
           )}
@@ -417,7 +447,7 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
                 disabled={isTerminating}
                 className="rounded-md border border-[var(--c9-border)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--c9-muted)] transition-colors hover:border-red-400/45 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isTerminating ? 'Terminating…' : 'Cancel provisioning'}
+                {cancelLabel}
               </button>
             </div>
           ) : null}

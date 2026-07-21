@@ -100,10 +100,15 @@ export default function CanvasPage() {
   const [provisioningElapsed, setProvisioningElapsed] = useState(0)
   const [provisionMetricsSummary, setProvisionMetricsSummary] =
     useState<Record<string, unknown> | null>(null)
+  const [queuePosition, setQueuePosition] = useState<number | null>(null)
+  const [estimatedWaitSeconds, setEstimatedWaitSeconds] = useState<number | null>(
+    null,
+  )
   const [isTerminating, setIsTerminating] = useState(false)
   const [terminationMessage, setTerminationMessage] = useState<string | null>(null)
   const provisionStartRef = useRef<number>(Date.now())
   const deploymentRunningTrackedRef = useRef<string | null>(null)
+  const statusBeforeCancelRef = useRef<string | null>(null)
 
   useEffect(() => {
     const st = useCanvasStore.getState()
@@ -121,6 +126,8 @@ export default function CanvasPage() {
       setProvisioningError(null)
       setProvisioningElapsed(0)
       setProvisionMetricsSummary(null)
+      setQueuePosition(null)
+      setEstimatedWaitSeconds(null)
       setIsTerminating(false)
       return
     }
@@ -140,6 +147,8 @@ export default function CanvasPage() {
     setDeployStatus('provisioning')
     setProvisioningError(null)
     setProvisionMetricsSummary(null)
+    setQueuePosition(null)
+    setEstimatedWaitSeconds(null)
     const st = useCanvasStore.getState()
     Object.keys(st.nodes).forEach((nid) => {
       if (st.nodes[nid]?.type === 'client') return
@@ -156,6 +165,22 @@ export default function CanvasPage() {
         const dep = await getDeployment(deploymentId)
         if (cancelled) return
         setDeployStatus(dep.status)
+        if (dep.status === 'queued') {
+          setQueuePosition(
+            typeof dep.queuePosition === 'number' && Number.isFinite(dep.queuePosition)
+              ? dep.queuePosition
+              : null,
+          )
+          setEstimatedWaitSeconds(
+            typeof dep.estimatedWaitSeconds === 'number' &&
+              Number.isFinite(dep.estimatedWaitSeconds)
+              ? dep.estimatedWaitSeconds
+              : 240,
+          )
+        } else {
+          setQueuePosition(null)
+          setEstimatedWaitSeconds(null)
+        }
         setProvisionMetricsSummary(
           dep.metricsSummary && typeof dep.metricsSummary === 'object'
             ? (dep.metricsSummary as Record<string, unknown>)
@@ -245,7 +270,14 @@ export default function CanvasPage() {
           setIsTerminating(false)
           setDeployStatus(null)
           setProvisioningError(null)
-          setTerminationMessage('Provisioning cancelled. Deployment terminated.')
+          setQueuePosition(null)
+          setEstimatedWaitSeconds(null)
+          setTerminationMessage(
+            statusBeforeCancelRef.current === 'queued'
+              ? 'Left the queue. Deployment cancelled.'
+              : 'Provisioning cancelled. Deployment terminated.',
+          )
+          statusBeforeCancelRef.current = null
           stopPolling()
           return
         }
@@ -362,8 +394,11 @@ export default function CanvasPage() {
   const showProvisioningOverlay =
     mode !== 'live' &&
     !!deploymentId &&
-    (deployStatus === 'provisioning' || isTerminating)
+    (deployStatus === 'queued' ||
+      deployStatus === 'provisioning' ||
+      isTerminating)
   const showProvisioningError = mode !== 'live' && !!deploymentId && !!provisioningError
+  const isQueued = deployStatus === 'queued'
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -434,8 +469,15 @@ export default function CanvasPage() {
             metricsSummary={provisionMetricsSummary}
             nodes={nodes}
             isTerminating={isTerminating}
+            isQueued={isQueued}
+            queuePosition={queuePosition}
+            estimatedWaitSeconds={estimatedWaitSeconds}
             onCancel={() => {
               if (!deploymentId || isTerminating) return
+              statusBeforeCancelRef.current =
+                deployStatus === 'queued' || deployStatus === 'provisioning'
+                  ? deployStatus
+                  : 'provisioning'
               setIsTerminating(true)
               setDeployStatus('terminating')
               setTerminationMessage(null)
@@ -443,9 +485,15 @@ export default function CanvasPage() {
                 const msg =
                   err instanceof Error
                     ? err.message
-                    : 'Could not cancel provisioning. Please try again.'
+                    : statusBeforeCancelRef.current === 'queued'
+                      ? 'Could not leave the queue. Please try again.'
+                      : 'Could not cancel provisioning. Please try again.'
                 setIsTerminating(false)
-                setDeployStatus('provisioning')
+                setDeployStatus(
+                  statusBeforeCancelRef.current === 'queued'
+                    ? 'queued'
+                    : 'provisioning',
+                )
                 setTerminationMessage(msg)
               })
             }}

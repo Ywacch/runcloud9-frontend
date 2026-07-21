@@ -12,7 +12,7 @@ import { useCanvasStore } from '../stores/canvasStore'
 import { useLogStore } from '../stores/logStore'
 import { useMetricsStore } from '../stores/metricsStore'
 
-const ACTIVE_STATUSES = new Set(['running', 'provisioning'])
+const ACTIVE_STATUSES = new Set(['running', 'provisioning', 'queued'])
 
 /**
  * On mount, if sessionStorage has a live session, verify it with the API and

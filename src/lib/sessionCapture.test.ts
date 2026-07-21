@@ -18,6 +18,7 @@ describe('isTerminalDeploymentStatus', () => {
     expect(isTerminalDeploymentStatus('terminated')).toBe(true)
     expect(isTerminalDeploymentStatus('running')).toBe(false)
     expect(isTerminalDeploymentStatus('provisioning')).toBe(false)
+    expect(isTerminalDeploymentStatus('queued')).toBe(false)
     expect(isTerminalDeploymentStatus(undefined)).toBe(false)
   })
 })

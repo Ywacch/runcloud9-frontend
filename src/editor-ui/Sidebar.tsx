@@ -17,6 +17,7 @@ import {
   mapDeployRequestError,
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
+import { formatQueueWaitingDetail } from '../lib/deployQueue'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   designExceedsResourceQuota,
@@ -164,19 +165,30 @@ export function Sidebar() {
   const proceedWithDeployResult = useCallback((result: DeploymentResult) => {
     const st = useCanvasStore.getState()
     const id = result.deploymentId
+    const queued = result.status === 'queued'
+    const queueDetail = queued
+      ? formatQueueWaitingDetail({
+          queuePosition: result.queuePosition,
+          estimatedWaitSeconds: result.estimatedWaitSeconds,
+        })
+      : null
     setDeploySteps((s) =>
       s.map((step) =>
         step.id === 'provision'
           ? {
               ...step,
               state: 'active' as const,
-              detail: 'Provisioning in progress... open canvas to watch status',
+              detail: queued
+                ? `Waiting for capacity — ${queueDetail}`
+                : 'Provisioning in progress... open canvas to watch status',
             }
           : step.id === 'ready'
             ? {
                 ...step,
                 state: 'pending' as const,
-                detail: 'Waiting for infrastructure to become running',
+                detail: queued
+                  ? 'Will start once capacity is available'
+                  : 'Waiting for infrastructure to become running',
               }
             : step,
       ),
@@ -192,7 +204,11 @@ export function Sidebar() {
     st.setPendingSource(null)
     st.setPlacingNodeType(null)
     st.setDesignTool('select')
-    setBanner('Deployment submitted. Provisioning started...')
+    setBanner(
+      queued
+        ? `Waiting for capacity. ${queueDetail}`
+        : 'Deployment submitted. Provisioning started...',
+    )
     persistLiveSession(id, useCanvasStore.getState().exportJSON())
     setDeployModalOpen(false)
     setDeployModalMode('progress')

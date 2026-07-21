@@ -90,7 +90,7 @@ export function useActiveDeploymentPrompt(): {
         fin.setMode('live')
         spawnClientLoadgenNode()
         ensureClientLoadgenMetrics()
-      } else if (row.status === 'provisioning') {
+      } else if (row.status === 'provisioning' || row.status === 'queued') {
         fin.setAllEdgesAnimated(false)
         Object.keys(fin.nodes).forEach((nid) => {
           const n = fin.nodes[nid]
@@ -98,6 +98,7 @@ export function useActiveDeploymentPrompt(): {
           fin.updateNodeStatus(nid, 'provisioning')
         })
         fin.setMode('design')
+        fin.setLiveSessionEndsAt(null)
       } else {
         setPrompt(null)
         return
