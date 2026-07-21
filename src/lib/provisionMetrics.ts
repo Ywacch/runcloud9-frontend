@@ -30,6 +30,19 @@ export type ParsedProvisionMetrics = {
   loadgenStatus?: NormalizedLoadgenState
 }
 
+/** Backend doorway semaphore wait (MAX_CONCURRENT_PROVISIONS). Distinct from status=queued. */
+export const PROVISION_PHASE_WAITING_FOR_SLOT = 'waiting_for_provision_slot'
+
+export function isWaitingForProvisionSlot(
+  phase: string | null | undefined,
+): boolean {
+  return (
+    String(phase ?? '')
+      .trim()
+      .toLowerCase() === PROVISION_PHASE_WAITING_FOR_SLOT
+  )
+}
+
 function pickStr(
   m: Record<string, unknown>,
   keys: readonly string[],

@@ -3,6 +3,7 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { formatQueueWaitingDetail } from '../lib/deployQueue'
 import {
   buildOrderedComponentRows,
+  isWaitingForProvisionSlot,
   parseProvisionMetrics,
   shouldUseLegacyProvisioningPulse,
   type NormalizedComponentProvisionState,
@@ -362,6 +363,8 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     [metricsSummary],
   )
   const legacyPulse = shouldUseLegacyProvisioningPulse(metricsSummary)
+  const isDoorwayWait =
+    !isQueued && isWaitingForProvisionSlot(parsed?.provisionPhase)
 
   const queueDetail = formatQueueWaitingDetail({
     queuePosition,
@@ -372,22 +375,39 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     ? 'Terminating'
     : isQueued
       ? 'Waiting for capacity'
-      : 'Provisioning'
+      : isDoorwayWait
+        ? 'Waiting for a provision slot'
+        : 'Provisioning'
 
   const provisionSubtitle = isTerminating
     ? 'Terminating deployment...'
     : isQueued
       ? queueDetail
-      : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
-        ? parsed.provisionPhase.replace(/-/g, ' ')
-        : 'Deploying infrastructure…'
+      : isDoorwayWait
+        ? 'Other deploys are starting first'
+        : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
+          ? parsed.provisionPhase.replace(/-/g, ' ')
+          : 'Deploying infrastructure…'
 
-  const showChecklist = !isQueued && parsed !== null && !legacyPulse
+  const showChecklist =
+    !isQueued && !isDoorwayWait && parsed !== null && !legacyPulse
   const cancelLabel = isTerminating
     ? 'Terminating…'
     : isQueued
       ? 'Leave queue'
       : 'Cancel provisioning'
+
+  const rightPanelHeading = isQueued
+    ? 'Queue status'
+    : isDoorwayWait
+      ? 'Provision slot'
+      : 'Infrastructure checklist'
+
+  const waitingDetail = isQueued
+    ? queueDetail
+    : isDoorwayWait
+      ? 'Your deployment is admitted. Waiting for an open provision slot while other deploys start.'
+      : null
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/75 p-2 backdrop-blur-sm sm:p-3">
@@ -416,7 +436,7 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
         {/* Right: checklist */}
         <div className="flex w-full flex-col bg-[color-mix(in_srgb,var(--c9-bg)_40%,var(--c9-surface))] px-4 py-3.5 md:w-[62%] md:px-4 md:py-4">
           <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--c9-muted)]">
-            {isQueued ? 'Queue status' : 'Infrastructure checklist'}
+            {rightPanelHeading}
           </h3>
 
           {showChecklist ? (
@@ -427,15 +447,15 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
                 <div className="h-full w-[32%] animate-pulse rounded-full bg-[var(--c9-accent)]/80" />
               </div>
               <p className="mt-2 text-[11px] leading-snug text-[var(--c9-muted)]">
-                {isQueued
-                  ? queueDetail
-                  : (
-                    <>
-                      Component detail appears when the API returns provisioning metrics (
-                      <code className="text-[10px] text-[var(--c9-text)]">metricsSummary</code>
-                      ).
-                    </>
-                  )}
+                {waitingDetail != null ? (
+                  waitingDetail
+                ) : (
+                  <>
+                    Component detail appears when the API returns provisioning metrics (
+                    <code className="text-[10px] text-[var(--c9-text)]">metricsSummary</code>
+                    ).
+                  </>
+                )}
               </p>
             </div>
           )}
