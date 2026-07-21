@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isWaitingForProvisionSlot,
   metricsSummaryHasContractFields,
   parseProvisionMetrics,
   shouldUseLegacyProvisioningPulse,
@@ -11,6 +12,17 @@ const fullContract = {
   seeding_status: 'done',
   loadgen_status: 'ready',
 }
+
+describe('isWaitingForProvisionSlot', () => {
+  it('detects doorway wait phase from snake_case metrics', () => {
+    const parsed = parseProvisionMetrics({
+      provision_phase: 'waiting_for_provision_slot',
+    })
+    expect(isWaitingForProvisionSlot(parsed?.provisionPhase)).toBe(true)
+    expect(isWaitingForProvisionSlot('deploying')).toBe(false)
+    expect(isWaitingForProvisionSlot(undefined)).toBe(false)
+  })
+})
 
 describe('parseProvisionMetrics loadgen_status', () => {
   it('parses snake_case loadgen_status', () => {
