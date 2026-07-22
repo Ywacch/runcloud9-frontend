@@ -9,7 +9,7 @@ import {
 import {
   isChaosTrialUsedMessage,
   UPGRADE_TO_ENGINEER_LABEL,
-} from './stripeCheckout'
+} from './billingCopy'
 
 export interface DeployRequestMessage {
   title: string

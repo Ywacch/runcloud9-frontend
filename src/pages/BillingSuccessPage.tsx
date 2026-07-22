@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { refreshCurrentUser } from '../lib/auth'
 import { C9Card } from '../editor-ui/c9Primitives'
 import { useAuthStore } from '../product/stores/authStore'
-import { displayPlanTierLabel } from '../lib/stripeCheckout'
+import { displayPlanTierLabel } from '../lib/billingCopy'
 
 export default function BillingSuccessPage() {
   const session = useAuthStore((s) => s.session)

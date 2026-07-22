@@ -1,11 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError } from './apiError'
-import {
-  displayPlanTierLabel,
-  isChaosTrialUsedMessage,
-  startEngineerCheckout,
-  StripeCheckoutError,
-} from './stripeCheckout'
+import { startEngineerCheckout, StripeCheckoutError } from './stripeCheckout'
 
 vi.mock('./auth', () => ({
   getAccessToken: vi.fn(),
@@ -15,6 +9,10 @@ vi.mock('../product/stores/authStore', () => ({
   useAuthStore: {
     getState: vi.fn(),
   },
+}))
+
+vi.mock('./supabase', () => ({
+  supabase: {},
 }))
 
 import { getAccessToken } from './auth'
@@ -81,22 +79,5 @@ describe('stripeCheckout', () => {
     vi.mocked(getAccessToken).mockReturnValue(null)
     vi.mocked(useAuthStore.getState).mockReturnValue({ session: null } as never)
     await expect(startEngineerCheckout({ assign })).rejects.toThrow(/Sign in/)
-  })
-
-  it('maps plan labels without exposing internal', () => {
-    expect(displayPlanTierLabel('free')).toBe('Explorer')
-    expect(displayPlanTierLabel('engineer')).toBe('Engineer')
-    expect(displayPlanTierLabel('internal')).toBe('Engineer')
-  })
-
-  it('detects chaos trial messages', () => {
-    expect(
-      isChaosTrialUsedMessage(
-        'chaos trial already used — upgrade to continue',
-      ),
-    ).toBe(true)
-    expect(isChaosTrialUsedMessage(new ApiError(403, 'nope').message)).toBe(
-      false,
-    )
   })
 })
