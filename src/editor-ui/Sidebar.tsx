@@ -179,7 +179,7 @@ export function Sidebar() {
               ...step,
               state: 'active' as const,
               detail: queued
-                ? `Waiting for capacity — ${queueDetail}`
+                ? `Cluster is full — ${queueDetail}`
                 : 'Provisioning in progress... open canvas to watch status',
             }
           : step.id === 'ready'
@@ -187,7 +187,7 @@ export function Sidebar() {
                 ...step,
                 state: 'pending' as const,
                 detail: queued
-                  ? 'Will start once capacity is available'
+                  ? 'Will start once the cluster has room'
                   : 'Waiting for infrastructure to become running',
               }
             : step,
@@ -206,7 +206,7 @@ export function Sidebar() {
     st.setDesignTool('select')
     setBanner(
       queued
-        ? `Waiting for capacity. ${queueDetail}`
+        ? `Cluster is full. ${queueDetail}`
         : 'Deployment submitted. Provisioning started...',
     )
     persistLiveSession(id, useCanvasStore.getState().exportJSON())

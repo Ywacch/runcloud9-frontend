@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatQueueWaitEstimate,
   formatQueueWaitingDetail,
+  hasQueueWaitFields,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
@@ -20,13 +21,25 @@ describe('deployQueue helpers', () => {
         queuePosition: 2,
         estimatedWaitSeconds: 240,
       }),
-    ).toBe("You're #2 in line. Estimated wait ~4m.")
+    ).toBe('#2. About ~4m.')
     expect(
       formatQueueWaitingDetail({
         queuePosition: null,
         estimatedWaitSeconds: 90,
       }),
-    ).toBe('Waiting for capacity. Estimated wait ~1m 30s.')
+    ).toBe('About ~1m 30s.')
+  })
+
+  it('detects when queue wait fields are present', () => {
+    expect(hasQueueWaitFields({ queuePosition: 1, estimatedWaitSeconds: 40 })).toBe(
+      true,
+    )
+    expect(hasQueueWaitFields({ queuePosition: null, estimatedWaitSeconds: 0 })).toBe(
+      true,
+    )
+    expect(
+      hasQueueWaitFields({ queuePosition: null, estimatedWaitSeconds: null }),
+    ).toBe(false)
   })
 
   it('detects queue_full and concurrent messages', () => {

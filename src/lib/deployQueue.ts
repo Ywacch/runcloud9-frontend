@@ -23,9 +23,25 @@ export function formatQueueWaitingDetail(opts: {
       : null
   const eta = formatQueueWaitEstimate(opts.estimatedWaitSeconds ?? 240)
   if (pos != null) {
-    return `You're #${pos} in line. Estimated wait ${eta}.`
+    return `#${pos}. About ${eta}.`
   }
-  return `Waiting for capacity. Estimated wait ${eta}.`
+  return `About ${eta}.`
+}
+
+/** True when GET/poll returned usable queue position or wait ETA. */
+export function hasQueueWaitFields(opts: {
+  queuePosition?: number | null
+  estimatedWaitSeconds?: number | null
+}): boolean {
+  const pos =
+    typeof opts.queuePosition === 'number' &&
+    Number.isFinite(opts.queuePosition) &&
+    opts.queuePosition > 0
+  const eta =
+    typeof opts.estimatedWaitSeconds === 'number' &&
+    Number.isFinite(opts.estimatedWaitSeconds) &&
+    opts.estimatedWaitSeconds >= 0
+  return pos || eta
 }
 
 export function isQueueFullErrorMessage(raw: string): boolean {
