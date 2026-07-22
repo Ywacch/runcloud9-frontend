@@ -40,11 +40,14 @@ describe('mapDeployRequestError', () => {
     expect(msg.actionLabel).toBe('Upgrade to Engineer')
   })
 
-  it('keeps premium template 403 distinct from topology', () => {
-    const err = new ApiError(403, 'premium template required')
+  it('maps premium template 403 to upgrade CTA', () => {
+    const err = new ApiError(
+      403,
+      'premium templates require an active subscription',
+    )
     const msg = mapDeployRequestError(err)
-    expect(msg.actionLabel).toBeUndefined()
-    expect(msg.body).toContain('Premium')
+    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.title).toBe('Premium template')
   })
 
   it('maps queue_full 429 to cluster queue copy', () => {
@@ -55,14 +58,34 @@ describe('mapDeployRequestError', () => {
     expect(msg.body).not.toContain('active deployment')
   })
 
-  it('maps per-user concurrent 429 distinctly from queue_full', () => {
+  it('maps per-user concurrent 429 for paid users without upgrade CTA', () => {
     const err = new ApiError(
       429,
       'you already have an active deployment — end it before creating another',
     )
     const msg = mapDeployRequestError(err)
     expect(msg.title).toBe('You already have an active deployment')
-    expect(msg.title).not.toBe('Cluster queue is full')
+    expect(msg.actionLabel).toBeUndefined()
+  })
+
+  it('maps concurrent 429 for free users to upgrade CTA', () => {
+    const err = new ApiError(
+      429,
+      'you already have an active deployment — end it before creating another',
+    )
+    const msg = mapDeployRequestError(err, { isFreeUser: true })
+    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.body).toContain('concurrent')
+  })
+
+  it('maps chaos trial 403 to upgrade CTA', () => {
+    const err = new ApiError(
+      403,
+      'chaos trial already used — upgrade to continue',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.title).toBe('Chaos trial used')
   })
 
   it('maps design_exceeds_cluster_capacity 422 by reason', () => {

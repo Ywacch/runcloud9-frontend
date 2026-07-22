@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_POSTHOG_HOST?: string
   /** Set to "1" to log analytics event names in development without requiring PostHog. */
   readonly VITE_ANALYTICS_DEBUG?: string
+  readonly VITE_SUPABASE_URL?: string
+  readonly VITE_SUPABASE_ANON_KEY?: string
 }
 
 interface ImportMeta {

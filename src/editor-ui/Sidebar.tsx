@@ -18,6 +18,10 @@ import {
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
 import {
+  startEngineerCheckout,
+  UPGRADE_TO_ENGINEER_LABEL,
+} from '../lib/stripeCheckout'
+import {
   ROOM_QUEUE_TITLE,
   formatRoomWaitingDetail,
 } from '../lib/deployQueue'
@@ -424,7 +428,9 @@ export function Sidebar() {
         admitStatus: deployAdmitStatusFromCreate(result.status),
       })
     } catch (e) {
-      const friendly = mapDeployRequestError(e)
+      const friendly = mapDeployRequestError(e, {
+        isFreeUser: !isPremiumUser,
+      })
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
       const rejectReason = deployRejectReasonFromError(e)
       trackEvent('deployment_failed', {
@@ -456,6 +462,7 @@ export function Sidebar() {
     deploying,
     live,
     nodeCount,
+    isPremiumUser,
     proceedWithDeployResult,
     setPendingDeployAfterAuth,
   ])
@@ -768,8 +775,19 @@ export function Sidebar() {
         onRequestAction={
           deployRequestMessage?.actionLabel === 'Sign in'
             ? () => navigate('/login')
-            : deployRequestMessage?.actionLabel === 'Upgrade to Engineer'
-              ? () => navigate('/')
+            : deployRequestMessage?.actionLabel === UPGRADE_TO_ENGINEER_LABEL
+              ? () => {
+                  void startEngineerCheckout().catch((err: unknown) => {
+                    const msg =
+                      err instanceof Error
+                        ? err.message
+                        : 'Could not start checkout.'
+                    setBanner(msg)
+                    setDeployRequestMessage((prev) =>
+                      prev ? { ...prev, body: msg } : prev,
+                    )
+                  })
+                }
               : deployRequestMessage?.actionLabel
                 ? () => navigate('/login')
                 : undefined
