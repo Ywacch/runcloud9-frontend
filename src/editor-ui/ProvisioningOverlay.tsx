@@ -1,6 +1,9 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
-import { formatQueueWaitingDetail } from '../lib/deployQueue'
+import {
+  formatQueueWaitingDetail,
+  hasQueueWaitFields,
+} from '../lib/deployQueue'
 import {
   buildOrderedComponentRows,
   isWaitingForProvisionSlot,
@@ -366,17 +369,18 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   const isDoorwayWait =
     !isQueued && isWaitingForProvisionSlot(parsed?.provisionPhase)
 
-  const queueDetail = formatQueueWaitingDetail({
-    queuePosition,
-    estimatedWaitSeconds,
-  })
+  const queueFields = { queuePosition, estimatedWaitSeconds }
+  const queueDetail = formatQueueWaitingDetail(queueFields)
+  const doorwayDetail = hasQueueWaitFields(queueFields)
+    ? queueDetail
+    : 'A few deploys are starting ahead of you.'
 
   const panelTitle = isTerminating
     ? 'Terminating'
     : isQueued
-      ? 'Waiting for capacity'
+      ? 'Cluster is full'
       : isDoorwayWait
-        ? 'Waiting for a provision slot'
+        ? 'Almost ready'
         : 'Provisioning'
 
   const provisionSubtitle = isTerminating
@@ -384,7 +388,7 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     : isQueued
       ? queueDetail
       : isDoorwayWait
-        ? 'Other deploys are starting first'
+        ? doorwayDetail
         : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
           ? parsed.provisionPhase.replace(/-/g, ' ')
           : 'Deploying infrastructure…'
@@ -393,20 +397,17 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     !isQueued && !isDoorwayWait && parsed !== null && !legacyPulse
   const cancelLabel = isTerminating
     ? 'Terminating…'
-    : isQueued
-      ? 'Leave queue'
+    : isQueued || isDoorwayWait
+      ? 'Cancel'
       : 'Cancel provisioning'
 
-  const rightPanelHeading = isQueued
-    ? 'Queue status'
-    : isDoorwayWait
-      ? 'Provision slot'
-      : 'Infrastructure checklist'
+  const rightPanelHeading =
+    isQueued || isDoorwayWait ? 'Queue status' : 'Infrastructure checklist'
 
   const waitingDetail = isQueued
     ? queueDetail
     : isDoorwayWait
-      ? 'Your deployment is admitted. Waiting for an open provision slot while other deploys start.'
+      ? doorwayDetail
       : null
 
   return (
