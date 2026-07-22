@@ -38,6 +38,50 @@ describe('analytics wrappers', () => {
     })
   })
 
+  it('captures deploy wait and admit fields', () => {
+    trackEvent('deployment_requested', {
+      template: 'url-shortener',
+      hasLoadBalancer: false,
+      hasCache: false,
+      hasMessageQueue: false,
+      hasWorker: false,
+      appReplicas: 1,
+      admitStatus: 'queued',
+    })
+    expect(capture).toHaveBeenCalledWith(
+      'deployment_requested',
+      expect.objectContaining({ admitStatus: 'queued' }),
+    )
+
+    trackEvent('deploy_wait_entered', {
+      template: 'url-shortener',
+      waitKind: 'door',
+      queuePosition: 1,
+      estimatedWaitSeconds: 40,
+    })
+    trackEvent('deploy_wait_left', {
+      template: 'url-shortener',
+      waitKind: 'door',
+      outcome: 'promoted',
+      waitSeconds: 12,
+      queuePosition: 1,
+    })
+    trackEvent('deployment_failed', {
+      template: 'url-shortener',
+      phase: 'request',
+      errorCategory: 'validation',
+      rejectReason: 'design_exceeds_cluster',
+    })
+    expect(capture).toHaveBeenCalledWith(
+      'deploy_wait_entered',
+      expect.objectContaining({ waitKind: 'door', queuePosition: 1 }),
+    )
+    expect(capture).toHaveBeenCalledWith(
+      'deployment_failed',
+      expect.objectContaining({ rejectReason: 'design_exceeds_cluster' }),
+    )
+  })
+
   it('identify and reset go through wrappers', () => {
     identifyAnalyticsUser('user-123', { effectiveTier: 'engineer' })
     resetAnalytics()

@@ -67,6 +67,10 @@ import {
   type TemplateSelectAction,
 } from './TemplateModal'
 import { trackEvent, deploymentAnalyticsProperties, categorizeSafeError } from '../lib/analytics'
+import {
+  deployAdmitStatusFromCreate,
+  deployRejectReasonFromError,
+} from '../lib/deployWaitAnalytics'
 
 const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
@@ -415,14 +419,19 @@ export function Sidebar() {
       }
 
       proceedWithDeployResult(result)
-      trackEvent('deployment_requested', deploymentAnalyticsProperties(design))
+      trackEvent('deployment_requested', {
+        ...deploymentAnalyticsProperties(design),
+        admitStatus: deployAdmitStatusFromCreate(result.status),
+      })
     } catch (e) {
       const friendly = mapDeployRequestError(e)
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+      const rejectReason = deployRejectReasonFromError(e)
       trackEvent('deployment_failed', {
         template,
         phase: 'request',
         errorCategory: categorizeSafeError(e),
+        ...(rejectReason ? { rejectReason } : {}),
       })
       if (friendly.actionLabel === 'Sign in') {
         setPendingDeployAfterAuth(true)
