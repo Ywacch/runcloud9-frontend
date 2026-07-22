@@ -19,8 +19,8 @@ Keep this list in sync with Vercel / app env hosts (`VITE_SUPABASE_URL`, `VITE_P
 | Directive | Allowed |
 | --- | --- |
 | `default-src` | `'self'` |
-| `script-src` | `'self'` (bundled app + PostHog/Sentry SDKs) |
-| `style-src` | `'self'`, `https://fonts.googleapis.com` |
+| `script-src` | `'self'`, `'wasm-unsafe-eval'` (Pixi WebAssembly), `https://*.i.posthog.com` (PostHog remote config/surveys) |
+| `style-src` | `'self'`, `'unsafe-inline'` (React `style` / dynamic layout), `https://fonts.googleapis.com` |
 | `font-src` | `'self'`, `https://fonts.gstatic.com`, `data:` |
 | `img-src` | `'self'`, `data:`, `blob:` (Pixi / assets) |
 | `worker-src` / `child-src` | `'self'`, `blob:` (Sentry replay / workers) |
