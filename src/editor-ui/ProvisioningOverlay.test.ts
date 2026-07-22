@@ -19,7 +19,7 @@ describe('ProvisioningOverlay', () => {
     expect(html).toContain('Almost ready')
     expect(html).toContain('#1. About ~40s.')
     expect(html).not.toContain('Waiting for a provision slot')
-    expect(html).not.toContain('Cluster is full')
+    expect(html).not.toContain('Waiting for room')
   })
 
   it('falls back when doorway wait has no queue fields', () => {
@@ -47,8 +47,10 @@ describe('ProvisioningOverlay', () => {
         estimatedWaitSeconds: 120,
       }),
     )
-    expect(html).toContain('Cluster is full')
-    expect(html).toContain('#2. About ~2m.')
+    expect(html).toContain('Waiting for room')
+    expect(html).toContain('Smaller deploys may start first')
+    expect(html).toContain('About ~2m.')
+    expect(html).not.toContain('#2.')
     expect(html).not.toContain('Almost ready')
   })
 })

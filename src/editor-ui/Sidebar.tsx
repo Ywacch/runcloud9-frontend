@@ -17,7 +17,10 @@ import {
   mapDeployRequestError,
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
-import { formatQueueWaitingDetail } from '../lib/deployQueue'
+import {
+  ROOM_QUEUE_TITLE,
+  formatRoomWaitingDetail,
+} from '../lib/deployQueue'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   designExceedsResourceQuota,
@@ -166,9 +169,8 @@ export function Sidebar() {
     const st = useCanvasStore.getState()
     const id = result.deploymentId
     const queued = result.status === 'queued'
-    const queueDetail = queued
-      ? formatQueueWaitingDetail({
-          queuePosition: result.queuePosition,
+    const roomDetail = queued
+      ? formatRoomWaitingDetail({
           estimatedWaitSeconds: result.estimatedWaitSeconds,
         })
       : null
@@ -179,7 +181,7 @@ export function Sidebar() {
               ...step,
               state: 'active' as const,
               detail: queued
-                ? `Cluster is full — ${queueDetail}`
+                ? `${ROOM_QUEUE_TITLE} — ${roomDetail}`
                 : 'Provisioning in progress... open canvas to watch status',
             }
           : step.id === 'ready'
@@ -187,7 +189,7 @@ export function Sidebar() {
                 ...step,
                 state: 'pending' as const,
                 detail: queued
-                  ? 'Will start once the cluster has room'
+                  ? 'Smaller deploys may start first'
                   : 'Waiting for infrastructure to become running',
               }
             : step,
@@ -206,7 +208,7 @@ export function Sidebar() {
     st.setDesignTool('select')
     setBanner(
       queued
-        ? `Cluster is full. ${queueDetail}`
+        ? `${ROOM_QUEUE_TITLE}. ${roomDetail}`
         : 'Deployment submitted. Provisioning started...',
     )
     persistLiveSession(id, useCanvasStore.getState().exportJSON())

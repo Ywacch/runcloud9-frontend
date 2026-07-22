@@ -64,4 +64,31 @@ describe('mapDeployRequestError', () => {
     expect(msg.title).toBe('You already have an active deployment')
     expect(msg.title).not.toBe('Cluster queue is full')
   })
+
+  it('maps design_exceeds_cluster_capacity 422 by reason', () => {
+    const err = new ApiError(
+      422,
+      'this design needs more CPU or memory than the cluster provides',
+      'design_exceeds_cluster_capacity',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Design too large for the cluster')
+    expect(msg.body).toContain('Reduce node sizes or remove components')
+    expect(msg.resourceBudget).toBeUndefined()
+  })
+
+  it('maps design_exceeds_cluster_capacity 422 by message fallback', () => {
+    const err = new ApiError(
+      422,
+      'this design needs more CPU or memory than the cluster provides',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Design too large for the cluster')
+  })
+
+  it('keeps generic 422 as plan quota when not cluster-capacity', () => {
+    const err = new ApiError(422, 'design exceeds quota')
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Design exceeds your resource quota')
+  })
 })
