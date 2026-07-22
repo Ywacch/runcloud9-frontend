@@ -53,4 +53,38 @@ describe('ProvisioningOverlay', () => {
     expect(html).not.toContain('#2.')
     expect(html).not.toContain('Almost ready')
   })
+
+  it('puts Minimize on the expanded panel and blocks the canvas', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 3,
+        metricsSummary: null,
+        nodes: {},
+        onMinimize: () => {},
+        onExpand: () => {},
+      }),
+    )
+    expect(html).toContain('Minimize')
+    expect(html).toContain('absolute inset-0')
+    expect(html).not.toContain('Expand')
+  })
+
+  it('renders a non-blocking chip when minimized', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 9,
+        metricsSummary: null,
+        nodes: {},
+        minimized: true,
+        onMinimize: () => {},
+        onExpand: () => {},
+        onCancel: () => {},
+      }),
+    )
+    expect(html).toContain('Expand')
+    expect(html).toContain('Cancel')
+    expect(html).toContain('pointer-events-none')
+    expect(html).not.toContain('absolute inset-0')
+    expect(html).not.toContain('Minimize')
+  })
 })

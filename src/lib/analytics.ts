@@ -79,6 +79,18 @@ export type AnalyticsEventMap = {
     previousCategory: string
     newCategory: string
   }
+  overlay_minimized: {
+    template: string
+    waitKind?: 'room' | 'door' | 'provisioning'
+  }
+  overlay_expanded: {
+    template: string
+    waitKind?: 'room' | 'door' | 'provisioning'
+  }
+  deploy_tab_signal_shown: {
+    template: string
+    signalKind: 'room_to_provisioning' | 'running' | 'failed'
+  }
 }
 
 export type AnalyticsEventName = keyof AnalyticsEventMap

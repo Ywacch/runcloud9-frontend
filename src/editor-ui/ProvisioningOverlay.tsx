@@ -353,6 +353,9 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   isQueued = false,
   queuePosition = null,
   estimatedWaitSeconds = null,
+  minimized = false,
+  onMinimize,
+  onExpand,
   onCancel,
 }: {
   elapsedSeconds: number
@@ -362,6 +365,9 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
   isQueued?: boolean
   queuePosition?: number | null
   estimatedWaitSeconds?: number | null
+  minimized?: boolean
+  onMinimize?: () => void
+  onExpand?: () => void
   onCancel?: () => void
 }) {
   const parsed = useMemo(
@@ -416,12 +422,62 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
       ? doorwayDetail
       : null
 
+  if (minimized) {
+    return (
+      <div className="pointer-events-none absolute bottom-3 right-3 z-40 flex max-w-[min(100%,20rem)] justify-end p-0">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-[var(--c9-border)] bg-[color-mix(in_srgb,var(--c9-surface)_92%,transparent)] px-3 py-2 shadow-lg backdrop-blur-md">
+          <div className="min-w-0">
+            <div className="truncate text-xs font-semibold text-[var(--c9-accent)]">
+              {panelTitle}
+            </div>
+            <div
+              className="[font-family:JetBrains_Mono,ui-monospace,monospace] text-[10px] tabular-nums text-[var(--c9-muted)]"
+              aria-live="polite"
+            >
+              {formatElapsedHMS(elapsedSeconds)}
+            </div>
+          </div>
+          {onExpand ? (
+            <button
+              type="button"
+              onClick={onExpand}
+              className="rounded-md border border-[var(--c9-border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)]/45 hover:text-[var(--c9-accent)]"
+            >
+              Expand
+            </button>
+          ) : null}
+          {onCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isTerminating}
+              className="rounded-md border border-[var(--c9-border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--c9-muted)] transition-colors hover:border-red-400/45 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isTerminating ? '…' : 'Cancel'}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/75 p-2 backdrop-blur-sm sm:p-3">
       <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[var(--c9-border)] bg-[color-mix(in_srgb,var(--c9-surface)_78%,transparent)] shadow-lg backdrop-blur-md md:flex-row">
         {/* Left: stepper + timer */}
         <div className="flex w-full flex-col justify-between border-b border-[var(--c9-border)] bg-[color-mix(in_srgb,var(--c9-surface)_50%,transparent)] px-4 py-3.5 md:w-[38%] md:border-b-0 md:border-r md:px-4 md:py-4">
           <div>
+            {onMinimize ? (
+              <div className="mb-2 flex justify-start">
+                <button
+                  type="button"
+                  onClick={onMinimize}
+                  className="rounded-md border border-[var(--c9-border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--c9-muted)] transition-colors hover:border-[var(--c9-accent)]/45 hover:text-[var(--c9-accent)]"
+                >
+                  Minimize
+                </button>
+              </div>
+            ) : null}
             <h2 className="mb-3 text-base font-semibold tracking-tight text-[var(--c9-accent)]">
               {panelTitle}
             </h2>
