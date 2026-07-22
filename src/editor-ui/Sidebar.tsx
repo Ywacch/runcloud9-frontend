@@ -189,7 +189,7 @@ export function Sidebar() {
                 ...step,
                 state: 'pending' as const,
                 detail: queued
-                  ? 'Smaller deploys may start first'
+                  ? 'Will start when enough room frees up'
                   : 'Waiting for infrastructure to become running',
               }
             : step,

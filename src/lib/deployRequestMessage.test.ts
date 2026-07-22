@@ -74,6 +74,7 @@ describe('mapDeployRequestError', () => {
     const msg = mapDeployRequestError(err)
     expect(msg.title).toBe('Design too large for the cluster')
     expect(msg.body).toContain('Reduce node sizes or remove components')
+    expect(msg.technicalDetails).toBeUndefined()
     expect(msg.resourceBudget).toBeUndefined()
   })
 

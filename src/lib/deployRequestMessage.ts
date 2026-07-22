@@ -104,7 +104,6 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
         return {
           title: 'Design too large for the cluster',
           body: 'This design needs more CPU or memory than the cluster provides. Reduce node sizes or remove components.',
-          technicalDetails: raw,
         }
       }
       return {
