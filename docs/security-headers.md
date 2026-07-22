@@ -24,7 +24,7 @@ Keep this list in sync with Vercel / app env hosts (`VITE_SUPABASE_URL`, `VITE_P
 | `font-src` | `'self'`, `https://fonts.gstatic.com`, `data:` |
 | `img-src` | `'self'`, `data:`, `blob:` (Pixi / assets) |
 | `worker-src` / `child-src` | `'self'`, `blob:` (Sentry replay / workers) |
-| `connect-src` | `'self'`; Supabase `https://*.supabase.co` + `wss://*.supabase.co`; PostHog `https://*.i.posthog.com`, `https://us.posthog.com`, `https://eu.posthog.com`, `https://*.posthog.com`; Sentry `https://*.ingest.sentry.io`, `https://*.ingest.us.sentry.io`; API `https://api.runcloud9.io`, `wss://api.runcloud9.io`, `https://www.runcloud9.io`, `wss://www.runcloud9.io` |
+| `connect-src` | `'self'`, `data:`, `blob:` (Pixi ImageBitmap / worker asset probes); Supabase `https://*.supabase.co` + `wss://*.supabase.co`; PostHog `https://*.i.posthog.com`, `https://us.posthog.com`, `https://eu.posthog.com`, `https://*.posthog.com`; Sentry `https://*.ingest.sentry.io`, `https://*.ingest.us.sentry.io`; API `https://api.runcloud9.io`, `wss://api.runcloud9.io`, `https://www.runcloud9.io`, `wss://www.runcloud9.io` |
 | `form-action` | `'self'`, `https://checkout.stripe.com` (Engineer checkout redirect) |
 | `frame-ancestors` | `'none'` |
 | `base-uri` | `'self'` |
