@@ -13,6 +13,7 @@ import { fmtInt, fmtMs } from '../lib/format'
 import { C9Card } from '../editor-ui/c9Primitives'
 import {
   displayPlanTierLabel,
+  formatSessionsLeftThisMonth,
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
@@ -207,6 +208,16 @@ export default function ProfilePage() {
                   label="Max concurrent deployments"
                   value={String(limits?.maxConcurrent ?? '—')}
                 />
+                {limits?.maxSessionsPerMonth != null &&
+                currentUser.sessionsRemainingThisMonth != null ? (
+                  <LimitRow
+                    label="Sessions this month"
+                    value={formatSessionsLeftThisMonth(
+                      currentUser.sessionsRemainingThisMonth,
+                      limits.maxSessionsPerMonth,
+                    )}
+                  />
+                ) : null}
                 <LimitRow
                   label="Max app-server replicas"
                   value={String(limits?.maxAppServerReplicas ?? '—')}

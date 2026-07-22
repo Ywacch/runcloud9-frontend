@@ -22,9 +22,12 @@ import {
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
 import {
+  MONTHLY_SESSION_LIMIT,
   ROOM_QUEUE_TITLE,
   formatRoomWaitingDetail,
+  isAtMonthlySessionCap,
 } from '../lib/deployQueue'
+import { ApiError } from '../lib/apiError'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   designExceedsResourceQuota,
@@ -355,6 +358,25 @@ export function Sidebar() {
       setDeployModalMode('auth_required')
       setDeploySimulationMessage(null)
       setDeployRequestMessage(null)
+      return
+    }
+
+    const me = useAuthStore.getState().currentUser
+    if (isAtMonthlySessionCap(me)) {
+      const friendly = mapDeployRequestError(
+        new ApiError(
+          429,
+          'monthly session limit reached — upgrade or wait until next month',
+          MONTHLY_SESSION_LIMIT,
+        ),
+        { isFreeUser: me?.effectiveTier === 'free' },
+      )
+      setDeploying(false)
+      setDeployModalOpen(true)
+      setDeployModalMode('request_rejected')
+      setDeployRequestMessage(friendly)
+      setDeploySimulationMessage(null)
+      setDeployResourceBudget(null)
       return
     }
 

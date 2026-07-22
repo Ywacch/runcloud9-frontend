@@ -6,6 +6,14 @@ export function isChaosTrialUsedMessage(raw: string): boolean {
   return raw.toLowerCase().includes('chaos trial already used')
 }
 
+/** Profile / limits copy when monthly sessions are capped. */
+export function formatSessionsLeftThisMonth(
+  remaining: number,
+  max: number,
+): string {
+  return `${remaining} of ${max} left`
+}
+
 /** Plan label for UI — never expose internal. */
 export function displayPlanTierLabel(
   effectiveTier: string | null | undefined,

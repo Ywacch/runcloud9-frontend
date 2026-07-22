@@ -78,12 +78,15 @@ describe('getMe', () => {
         maxConcurrent: 1,
         sessionDefaultMins: 9,
         sessionCapMins: 15,
+        maxSessionsPerMonth: 20,
         allTemplates: true,
         maxAppServerReplicas: 3,
         allowLoadBalancer: true,
         allowMQWorker: true,
         allowProxyCache: true,
       },
+      sessionsUsedThisMonth: 2,
+      sessionsRemainingThisMonth: 18,
     }
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

@@ -83,6 +83,15 @@ describe('deployWaitAnalytics', () => {
       ),
     ).toBe('concurrent_active')
     expect(
+      deployRejectReasonFromError(
+        new ApiError(
+          429,
+          'monthly session limit reached — upgrade or wait until next month',
+          'monthly_session_limit',
+        ),
+      ),
+    ).toBe('monthly_session_limit')
+    expect(
       deployRejectReasonFromError(new ApiError(422, 'design exceeds quota')),
     ).toBeUndefined()
   })

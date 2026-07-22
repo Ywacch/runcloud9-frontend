@@ -3,6 +3,7 @@ import { useAuthStore } from '../product/stores/authStore'
 
 export {
   displayPlanTierLabel,
+  formatSessionsLeftThisMonth,
   isChaosTrialUsedMessage,
   UPGRADE_TO_ENGINEER_LABEL,
 } from './billingCopy'
