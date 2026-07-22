@@ -247,10 +247,17 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
     })
 
     expect(html).toContain('Write-behind flush interval (seconds)')
-    expect(html).toContain('How often the proxy flushes pending writes to the database.')
+    expect(html).toContain('How often the proxy flushes writes to the database.')
+    expect(html).toContain(
+      'title="Shorter keeps cache and database closer. Longer delays durable writes."',
+    )
     expect(html).toContain('id="cache-write-behind-interval"')
     expect(html).toContain('value="30"')
     expect(html).not.toContain(WRITE_BEHIND_INTERVAL_VALIDATION)
+    expect(html).toContain('Read-through (always on)')
+    expect(html).not.toContain(
+      'On miss, the proxy loads from Postgres and refills Redis.',
+    )
   })
 
   it('hides the control for cache-aside and write-through on url-shortener', () => {

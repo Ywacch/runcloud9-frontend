@@ -408,6 +408,7 @@ export function CacheNodeInspectorFields({
     String(storedWriteBehindInterval),
   )
   const writeBehindDraftValid = isValidWriteBehindInterval(writeBehindDraft)
+  const [readThroughTipOpen, setReadThroughTipOpen] = useState(false)
 
   const templateTtlDefault = defaultCacheTtlSecondsForTemplate(templateId)
   const storedCacheTtl = parseCacheTtlSeconds(c.cacheTtlSeconds)
@@ -513,8 +514,8 @@ export function CacheNodeInspectorFields({
           Cache strategy
         </label>
         <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          Options follow the canvas: proxy paths (cache→database, no direct connector→database)
-          vs cache-aside (connector→database, no cache→database).
+          Proxy needs cache-to-database. Cache-aside needs the app talking to the
+          database.
         </p>
         <select
           id="cache-strat"
@@ -570,15 +571,21 @@ export function CacheNodeInspectorFields({
           )}
         </select>
         {showProxyReadThroughNote ? (
-          <div className="mt-2 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 px-2.5 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
+          <div className="mt-2">
+            <button
+              type="button"
+              className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)] underline-offset-2 hover:text-[var(--c9-text)] hover:underline"
+              aria-expanded={readThroughTipOpen}
+              onClick={() => setReadThroughTipOpen((open) => !open)}
+            >
               Read-through (always on)
-            </p>
-            <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-              On a cache miss, the caching proxy loads from Postgres, refills Redis, and returns
-              the value. Your app never talks to the database on reads. This applies to both
-              write-through and write-behind.
-            </p>
+            </button>
+            {readThroughTipOpen ? (
+              <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+                On miss, the proxy loads from Postgres and refills Redis. The app
+                does not read the database.
+              </p>
+            ) : null}
           </div>
         ) : null}
         {ambiguousTopology ? (
@@ -595,11 +602,7 @@ export function CacheNodeInspectorFields({
             Write-behind flush interval (seconds)
           </label>
           <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-            How often the proxy flushes pending writes to the database.
-          </p>
-          <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-            Shorter intervals reduce how long the cache can be ahead of the database. Longer
-            intervals delay database writes for longer.
+            How often the proxy flushes writes to the database.
           </p>
           <input
             id="cache-write-behind-interval"
@@ -609,6 +612,7 @@ export function CacheNodeInspectorFields({
             step={1}
             className={fieldClass}
             value={writeBehindDraft}
+            title="Shorter keeps cache and database closer. Longer delays durable writes."
             onChange={(e) => {
               const nextDraft = e.target.value
               setWriteBehindDraft(nextDraft)
@@ -734,9 +738,8 @@ export function CacheNodeInspectorFields({
           Eviction policy
         </label>
         <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          When Redis reaches its memory limit, this policy decides which keys it may remove to
-          make room. TTL expiry is separate: a key disappears when its TTL ends even if memory is
-          not full.
+          When memory is full, Redis removes keys by this policy. TTL expiry still
+          runs separately.
         </p>
         <select
           id="cache-eviction"
