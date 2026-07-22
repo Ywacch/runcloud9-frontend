@@ -31,12 +31,32 @@ export type AnalyticsEventMap = {
   auth_failed: { errorCategory: string }
   canvas_opened: { mode: 'new' | 'restored' }
   template_selected: { template: string; archetype: string }
-  deployment_requested: DeploymentAnalyticsProperties
+  deployment_requested: DeploymentAnalyticsProperties & {
+    admitStatus: 'provisioning' | 'queued'
+  }
   deployment_running: { template: string; elapsedSeconds: number }
   deployment_failed: {
     template: string
     phase: 'request' | 'provision'
     errorCategory: string
+    rejectReason?:
+      | 'design_exceeds_cluster'
+      | 'queue_full'
+      | 'concurrent_active'
+      | 'resource_budget'
+  }
+  deploy_wait_entered: {
+    template: string
+    waitKind: 'room' | 'door'
+    queuePosition?: number
+    estimatedWaitSeconds?: number
+  }
+  deploy_wait_left: {
+    template: string
+    waitKind: 'room' | 'door'
+    outcome: 'promoted' | 'cancelled' | 'failed' | 'terminated'
+    waitSeconds: number
+    queuePosition?: number
   }
   session_summary_viewed: { template: string; sessionDuration: string }
   session_summary_dismissed: { template: string; visibleSeconds: number }

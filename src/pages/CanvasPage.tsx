@@ -38,6 +38,12 @@ import {
   normalizeComponentProvisionState,
   parseProvisionMetrics,
 } from '../lib/provisionMetrics'
+import {
+  deriveDeployWaitKind,
+  readDeployQueueFields,
+  shouldKeepDeployQueueFields,
+  type DeployWaitKind,
+} from '../lib/deployWaitAnalytics'
 import { clearLiveSessionPersist } from '../lib/liveSessionStorage'
 import { discardWsEventsStorage } from '../lib/wsEventsPersist'
 import {
@@ -109,6 +115,11 @@ export default function CanvasPage() {
   const provisionStartRef = useRef<number>(Date.now())
   const deploymentRunningTrackedRef = useRef<string | null>(null)
   const statusBeforeCancelRef = useRef<string | null>(null)
+  const activeWaitRef = useRef<{
+    kind: DeployWaitKind
+    enteredAt: number
+    queuePosition?: number
+  } | null>(null)
 
   useEffect(() => {
     const st = useCanvasStore.getState()
@@ -144,6 +155,8 @@ export default function CanvasPage() {
     }
 
     provisionStartRef.current = Date.now()
+    deploymentRunningTrackedRef.current = null
+    activeWaitRef.current = null
     setDeployStatus('provisioning')
     setProvisioningError(null)
     setProvisionMetricsSummary(null)
@@ -160,34 +173,125 @@ export default function CanvasPage() {
       return Number.isFinite(t) ? t : null
     }
 
+    const templateName = () =>
+      useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+
+    const leaveActiveWait = (
+      outcome: 'promoted' | 'cancelled' | 'failed' | 'terminated',
+    ) => {
+      const active = activeWaitRef.current
+      if (!active) return
+      const props: {
+        template: string
+        waitKind: DeployWaitKind
+        outcome: typeof outcome
+        waitSeconds: number
+        queuePosition?: number
+      } = {
+        template: templateName(),
+        waitKind: active.kind,
+        outcome,
+        waitSeconds: Math.max(
+          0,
+          Math.floor((Date.now() - active.enteredAt) / 1000),
+        ),
+      }
+      if (active.queuePosition != null) {
+        props.queuePosition = active.queuePosition
+      }
+      trackEvent('deploy_wait_left', props)
+      activeWaitRef.current = null
+    }
+
+    const syncWaitAnalytics = (
+      status: string,
+      provisionPhase: string | undefined,
+      fields: {
+        queuePosition: number | null
+        estimatedWaitSeconds: number | null
+      },
+    ) => {
+      const kind = deriveDeployWaitKind(status, provisionPhase)
+      const active = activeWaitRef.current
+      if (kind) {
+        if (active && active.kind !== kind) {
+          leaveActiveWait('promoted')
+        }
+        if (!activeWaitRef.current || activeWaitRef.current.kind !== kind) {
+          const enterProps: {
+            template: string
+            waitKind: DeployWaitKind
+            queuePosition?: number
+            estimatedWaitSeconds?: number
+          } = {
+            template: templateName(),
+            waitKind: kind,
+          }
+          if (fields.queuePosition != null) {
+            enterProps.queuePosition = fields.queuePosition
+          }
+          if (fields.estimatedWaitSeconds != null) {
+            enterProps.estimatedWaitSeconds = fields.estimatedWaitSeconds
+          }
+          trackEvent('deploy_wait_entered', enterProps)
+          activeWaitRef.current = {
+            kind,
+            enteredAt: Date.now(),
+            ...(fields.queuePosition != null
+              ? { queuePosition: fields.queuePosition }
+              : {}),
+          }
+        } else if (
+          fields.queuePosition != null &&
+          activeWaitRef.current.queuePosition !== fields.queuePosition
+        ) {
+          activeWaitRef.current = {
+            ...activeWaitRef.current,
+            queuePosition: fields.queuePosition,
+          }
+        }
+        return
+      }
+      if (activeWaitRef.current) {
+        if (status === 'failed') leaveActiveWait('failed')
+        else if (status === 'terminated') {
+          leaveActiveWait(
+            statusBeforeCancelRef.current ? 'cancelled' : 'terminated',
+          )
+        } else leaveActiveWait('promoted')
+      }
+    }
+
     const pollOnce = async () => {
       try {
         const dep = await getDeployment(deploymentId)
         if (cancelled) return
         setDeployStatus(dep.status)
-        if (dep.status === 'queued') {
-          setQueuePosition(
-            typeof dep.queuePosition === 'number' && Number.isFinite(dep.queuePosition)
-              ? dep.queuePosition
-              : null,
-          )
+
+        const polled = parseProvisionMetrics(dep.metricsSummary)
+        const fields = readDeployQueueFields(dep)
+        if (shouldKeepDeployQueueFields(dep.status, polled?.provisionPhase)) {
+          setQueuePosition(fields.queuePosition)
           setEstimatedWaitSeconds(
-            typeof dep.estimatedWaitSeconds === 'number' &&
-              Number.isFinite(dep.estimatedWaitSeconds)
-              ? dep.estimatedWaitSeconds
-              : 240,
+            fields.estimatedWaitSeconds != null
+              ? fields.estimatedWaitSeconds
+              : dep.status === 'queued'
+                ? 240
+                : null,
           )
         } else {
           setQueuePosition(null)
           setEstimatedWaitSeconds(null)
         }
+
         setProvisionMetricsSummary(
           dep.metricsSummary && typeof dep.metricsSummary === 'object'
             ? (dep.metricsSummary as Record<string, unknown>)
             : null,
         )
 
-        const polled = parseProvisionMetrics(dep.metricsSummary)
+        syncWaitAnalytics(dep.status, polled?.provisionPhase, fields)
+
         if (polled && Object.keys(polled.componentStatus).length > 0) {
           const stNodes = useCanvasStore.getState()
           for (const [nid, raw] of Object.entries(polled.componentStatus)) {
@@ -203,9 +307,13 @@ export default function CanvasPage() {
         if (dep.status === 'running') {
           if (deploymentRunningTrackedRef.current !== deploymentId) {
             deploymentRunningTrackedRef.current = deploymentId
-            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-            const elapsedSeconds = Math.floor((Date.now() - provisionStartRef.current) / 1000)
-            trackEvent('deployment_running', { template, elapsedSeconds })
+            const elapsedSeconds = Math.floor(
+              (Date.now() - provisionStartRef.current) / 1000,
+            )
+            trackEvent('deployment_running', {
+              template: templateName(),
+              elapsedSeconds,
+            })
           }
           const endsAt = toMs(dep.expiresAt) ?? Date.now() + 9 * 60 * 1000
           const live = useCanvasStore.getState()
@@ -249,8 +357,11 @@ export default function CanvasPage() {
           return
         }
         if (dep.status === 'failed') {
-          const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-          trackEvent('deployment_failed', { template, phase: 'provision', errorCategory: 'server' })
+          trackEvent('deployment_failed', {
+            template: templateName(),
+            phase: 'provision',
+            errorCategory: 'server',
+          })
           setProvisioningError('Deployment failed during provisioning.')
           setIsTerminating(false)
           stopPolling()
