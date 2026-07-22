@@ -6,6 +6,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import SetPasswordPage from './pages/SetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
+import BillingSuccessPage from './pages/BillingSuccessPage'
+import BillingCancelPage from './pages/BillingCancelPage'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './editor-ui/NavHeader'
 
@@ -82,6 +84,8 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/set-password" element={<SetPasswordPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/billing/success" element={<BillingSuccessPage />} />
+          <Route path="/billing/cancel" element={<BillingCancelPage />} />
           <Route
             path="/loadtest"
             element={

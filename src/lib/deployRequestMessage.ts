@@ -6,6 +6,10 @@ import {
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
+import {
+  isChaosTrialUsedMessage,
+  UPGRADE_TO_ENGINEER_LABEL,
+} from './billingCopy'
 
 export interface DeployRequestMessage {
   title: string
@@ -15,7 +19,10 @@ export interface DeployRequestMessage {
   resourceBudget?: ResourceBudgetErrorResponse
 }
 
-export function mapDeployRequestError(error: unknown): DeployRequestMessage {
+export function mapDeployRequestError(
+  error: unknown,
+  opts?: { isFreeUser?: boolean },
+): DeployRequestMessage {
   if (isResourceBudgetApiError(error)) {
     return {
       title: 'Design exceeds your resource quota',
@@ -38,11 +45,20 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
     }
 
     if (error.status === 403) {
+      if (isChaosTrialUsedMessage(raw)) {
+        return {
+          title: 'Chaos trial used',
+          body: 'You used your free chaos trial. Upgrade to Engineer for unlimited chaos.',
+          technicalDetails: raw,
+          actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+        }
+      }
       if (normalized.includes('premium')) {
         return {
-          title: 'Deployment request was not accepted',
-          body: 'This template requires RunCloud9 Premium.',
+          title: 'Premium template',
+          body: 'This template requires RunCloud9 Engineer. Upgrade to deploy it on the cluster.',
           technicalDetails: raw,
+          actionLabel: UPGRADE_TO_ENGINEER_LABEL,
         }
       }
       if (
@@ -55,7 +71,7 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
           title: 'Upgrade required for this topology',
           body: 'Load balancing, async components (message queue + worker), proxy cache strategies, and multiple app replicas are available on the Engineer plan. Adjust your design or upgrade to deploy.',
           technicalDetails: raw,
-          actionLabel: 'Upgrade to Engineer',
+          actionLabel: UPGRADE_TO_ENGINEER_LABEL,
         }
       }
       if (normalized.includes('you do not own this deployment')) {
@@ -81,6 +97,14 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
         }
       }
       if (isUserConcurrentDeployErrorMessage(raw)) {
+        if (opts?.isFreeUser) {
+          return {
+            title: 'Concurrent session limit',
+            body: 'Explorer allows one active deployment. Upgrade to Engineer for more concurrent sessions, or end your current deployment first.',
+            technicalDetails: raw,
+            actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+          }
+        }
         return {
           title: 'You already have an active deployment',
           body: 'End or cancel your current deployment before starting another.',

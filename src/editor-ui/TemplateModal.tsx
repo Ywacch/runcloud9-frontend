@@ -4,6 +4,10 @@ import { selectTemplatePreset } from '../lib/selectTemplatePreset'
 import { templateDisplayCopy } from '../lib/templateDisplayCopy'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../product/stores/authStore'
+import {
+  startEngineerCheckout,
+  UPGRADE_TO_ENGINEER_LABEL,
+} from '../lib/stripeCheckout'
 import type { UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
@@ -96,7 +100,41 @@ type ModalTemplateItem =
   | { kind: 'preset'; row: PresetTemplateRow }
   | { kind: 'remote'; row: ApiTemplateInfo }
 
-const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Premium'
+const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
+
+function PremiumUpgradeButton({ onDone }: { onDone?: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        disabled={busy}
+        title={UPGRADE_TOOLTIP}
+        onClick={() => {
+          setError(null)
+          setBusy(true)
+          void startEngineerCheckout()
+            .then(() => onDone?.())
+            .catch((err: unknown) => {
+              setError(
+                err instanceof Error ? err.message : 'Could not start checkout.',
+              )
+            })
+            .finally(() => setBusy(false))
+        }}
+        className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {busy ? 'Starting checkout…' : UPGRADE_TO_ENGINEER_LABEL}
+      </button>
+      {error ? (
+        <p className="text-[10px] text-red-400" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 const LockIconLarge = (
   <svg
@@ -183,11 +221,13 @@ function TemplatePickerCard({
   userRecord,
   isPremiumUser,
   onSelect,
+  onClose,
 }: {
   row: PresetTemplateRow
   userRecord: UserRecord | null
   isPremiumUser: boolean
   onSelect: (action: TemplateSelectAction) => boolean | void
+  onClose: () => void
 }) {
   const premiumLocked = row.premium && !isPremiumUser
   const snapshot = row.snapshot
@@ -245,34 +285,34 @@ function TemplatePickerCard({
         </p>
 
         <div className="mt-4 space-y-2">
-          <button
-            type="button"
-            disabled={premiumLocked}
-            title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
-            onClick={() => {
-              if (premiumLocked) return
-              onSelect({
-                kind: 'preset',
-                id: row.id,
-                preset: () => snapshot,
-              })
-            }}
-            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Use preset
-          </button>
-          <button
-            type="button"
-            disabled={premiumLocked}
-            title={premiumLocked ? UPGRADE_TOOLTIP : undefined}
-            onClick={() => {
-              if (premiumLocked) return
-              onSelect({ kind: 'scratch', id: row.id })
-            }}
-            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Start from scratch
-          </button>
+          {premiumLocked ? (
+            <PremiumUpgradeButton onDone={onClose} />
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect({
+                    kind: 'preset',
+                    id: row.id,
+                    preset: () => snapshot,
+                  })
+                }}
+                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              >
+                Use preset
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect({ kind: 'scratch', id: row.id })
+                }}
+                className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
+              >
+                Start from scratch
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -334,11 +374,13 @@ function RemoteTemplateCard({
         </p>
 
         <div className="mt-4">
-          {row.deployable ? (
+          {premiumLocked ? (
+            <PremiumUpgradeButton />
+          ) : row.deployable ? (
             <button
               type="button"
               disabled
-              title={premiumLocked ? UPGRADE_TOOLTIP : remotePresetTitle}
+              title={remotePresetTitle}
               className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Use template
@@ -463,6 +505,7 @@ export function TemplateModal({
                     row={item.row}
                     userRecord={userRecord}
                     isPremiumUser={isPremiumUser}
+                    onClose={onClose}
                     onSelect={(action) => {
                       if (onSelect(action) !== false) onClose()
                     }}

@@ -11,6 +11,11 @@ import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { SessionSummaryView } from '../editor-ui/SessionSummary'
 import { fmtInt, fmtMs } from '../lib/format'
 import { C9Card } from '../editor-ui/c9Primitives'
+import {
+  displayPlanTierLabel,
+  startEngineerCheckout,
+  UPGRADE_TO_ENGINEER_LABEL,
+} from '../lib/stripeCheckout'
 
 type DetailState =
   | { kind: 'summary'; summary: SessionSummary; title: string; statusLabel: string }
@@ -69,6 +74,8 @@ export default function ProfilePage() {
 
   const [detail, setDetail] = useState<DetailState | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [checkoutBusy, setCheckoutBusy] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!session) return
@@ -134,6 +141,20 @@ export default function ProfilePage() {
   }
 
   const limits = currentUser?.limits
+  const isFree = currentUser?.effectiveTier === 'free'
+  const planLabel = displayPlanTierLabel(currentUser?.effectiveTier)
+
+  const handleUpgrade = () => {
+    setCheckoutError(null)
+    setCheckoutBusy(true)
+    void startEngineerCheckout()
+      .catch((err: unknown) => {
+        setCheckoutError(
+          err instanceof Error ? err.message : 'Could not start checkout.',
+        )
+      })
+      .finally(() => setCheckoutBusy(false))
+  }
 
   return (
     <main className="min-h-[100dvh] bg-[var(--c9-bg)] px-6 pt-24 pb-16">
@@ -152,10 +173,28 @@ export default function ProfilePage() {
               <p className="text-sm text-[var(--c9-muted)]">Loading plan info…</p>
             ) : (
               <div>
-                <LimitRow
-                  label="Plan tier"
-                  value={capLabel(currentUser.effectiveTier)}
-                />
+                <LimitRow label="Plan tier" value={planLabel} />
+                {!isFree ? (
+                  <p className="py-2 text-sm text-[var(--c9-muted)]">
+                    You&apos;re on Engineer.
+                  </p>
+                ) : (
+                  <div className="space-y-2 py-3">
+                    <button
+                      type="button"
+                      disabled={checkoutBusy}
+                      onClick={handleUpgrade}
+                      className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {checkoutBusy ? 'Starting checkout…' : UPGRADE_TO_ENGINEER_LABEL}
+                    </button>
+                    {checkoutError ? (
+                      <p className="text-xs text-red-400" role="alert">
+                        {checkoutError}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
                 <LimitRow
                   label="Session default"
                   value={`${limits?.sessionDefaultMins ?? '—'} min`}
