@@ -5,7 +5,12 @@ export {
   displayPlanTierLabel,
   formatSessionsLeftThisMonth,
   isChaosTrialUsedMessage,
+  REPLICAS_HELP_FREE,
+  replicasHelpPaid,
+  RESOURCE_PROFILE_HELPER,
   UPGRADE_TO_ENGINEER_LABEL,
+  UPGRADE_TO_SCALE_REPLICAS_TOOLTIP,
+  UPGRADE_TO_UNLOCK_TOOLTIP,
 } from './billingCopy'
 
 export class StripeCheckoutError extends Error {

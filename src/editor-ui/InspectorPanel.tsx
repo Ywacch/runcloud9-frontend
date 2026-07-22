@@ -44,6 +44,11 @@ import {
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
+import {
+  REPLICAS_HELP_FREE,
+  replicasHelpPaid,
+  UPGRADE_TO_SCALE_REPLICAS_TOOLTIP,
+} from '../lib/billingCopy'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
@@ -983,6 +988,7 @@ function TypeFields({
 
     case 'compute': {
       const replicas = clampAppServerReplicas(c.replicas ?? 1, maxAppReplicas)
+      const replicasLocked = maxAppReplicas <= 1
       return (
         <>
           <div>
@@ -990,9 +996,9 @@ function TypeFields({
               Replicas
             </label>
             <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-              One app-server on the canvas; deploy scales Kubernetes pods (
-              {APP_SERVER_REPLICA_MIN}–{maxAppReplicas}). Click an
-              existing app server on the grid to add another replica slot.
+              {replicasLocked
+                ? REPLICAS_HELP_FREE
+                : replicasHelpPaid(maxAppReplicas)}
             </p>
             <input
               id="compute-replicas"
@@ -1000,9 +1006,15 @@ function TypeFields({
               min={APP_SERVER_REPLICA_MIN}
               max={maxAppReplicas}
               step={1}
-              className={fieldClass}
+              className={`${fieldClass}${replicasLocked ? ' cursor-not-allowed opacity-60' : ''}`}
               value={replicas}
+              readOnly={replicasLocked}
+              disabled={replicasLocked}
+              title={
+                replicasLocked ? UPGRADE_TO_SCALE_REPLICAS_TOOLTIP : undefined
+              }
               onChange={(e) => {
+                if (replicasLocked) return
                 const n = Number(e.target.value)
                 if (!Number.isFinite(n)) return
                 const prev = replicas

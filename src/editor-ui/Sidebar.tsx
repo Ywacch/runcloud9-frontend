@@ -28,6 +28,8 @@ import {
   isAtMonthlySessionCap,
 } from '../lib/deployQueue'
 import { ApiError } from '../lib/apiError'
+import { isEngineerOnlyNodeType } from '../lib/canvasContextMenuCatalog'
+import { UPGRADE_TO_UNLOCK_TOOLTIP } from '../lib/billingCopy'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   designExceedsResourceQuota,
@@ -661,14 +663,21 @@ export function Sidebar() {
         <ul className="space-y-2">
           {PALETTE.map(({ type, title, face }) => {
             const placing = placingNodeType === type
+            const tierLocked =
+              !isPremiumUser && isEngineerOnlyNodeType(type)
+            const disabled = live || tierLocked
             return (
               <li key={type}>
                 <button
                   type="button"
-                  draggable={!live}
-                  disabled={live}
-                  onDragStart={live ? undefined : onDragStart(type)}
-                  onClick={() => !live && togglePlace(type)}
+                  draggable={!disabled}
+                  disabled={disabled}
+                  title={tierLocked ? UPGRADE_TO_UNLOCK_TOOLTIP : undefined}
+                  onDragStart={disabled ? undefined : onDragStart(type)}
+                  onClick={() => {
+                    if (disabled) return
+                    togglePlace(type)
+                  }}
                   className={`flex w-full items-center gap-3 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 px-3 py-2.5 text-left text-sm text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
                     placing ? 'ring-2 ring-[var(--c9-accent)] ring-offset-2 ring-offset-[var(--c9-bg)]' : ''
                   }`}

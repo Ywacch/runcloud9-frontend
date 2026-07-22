@@ -3,8 +3,10 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import {
   CREATE_MENU_ROOT,
   canPlaceOnCanvas,
+  createMenuItemLockedForFree,
   filterCreateMenuItems,
   findCreateGroup,
+  isEngineerOnlyNodeType,
   nodeMenuActions,
 } from './canvasContextMenuCatalog'
 
@@ -44,6 +46,20 @@ describe('canvasContextMenuCatalog', () => {
     expect(canPlaceOnCanvas('simulate', false)).toBe(true)
     expect(canPlaceOnCanvas('live', false)).toBe(false)
     expect(canPlaceOnCanvas('design', true)).toBe(false)
+  })
+
+  it('marks LB MQ and worker as engineer-only for free locks', () => {
+    expect(isEngineerOnlyNodeType('load_balancer')).toBe(true)
+    expect(isEngineerOnlyNodeType('message_queue')).toBe(true)
+    expect(isEngineerOnlyNodeType('worker')).toBe(true)
+    expect(isEngineerOnlyNodeType('compute')).toBe(false)
+
+    const lb = CREATE_MENU_ROOT.find((i) => i.id === 'load_balancer')
+    const mq = findCreateGroup(CREATE_MENU_ROOT, 'message_queue')
+    const compute = CREATE_MENU_ROOT.find((i) => i.id === 'compute')
+    expect(lb && createMenuItemLockedForFree(lb)).toBe(true)
+    expect(mq && createMenuItemLockedForFree(mq)).toBe(true)
+    expect(compute && createMenuItemLockedForFree(compute)).toBe(false)
   })
 
   it('nodeMenuActions includes chaos only in live', () => {

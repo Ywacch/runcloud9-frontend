@@ -5,11 +5,22 @@ import {
   useCanvasStore,
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
+import { useAuthStore } from '../product/stores/authStore'
+import { maxAppServerReplicasForUser } from './userTier'
 import { seedWriteBehindIntervalDefault } from './writeBehindInterval'
 import { seedCacheTtlSecondsDefault } from './cacheTtl'
 
-const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
-  compute: APP_SERVER_REPLICA_MAX,
+function maxReplicasForType(type: CanvasNode['type']): number {
+  if (type !== 'compute') return APP_SERVER_REPLICA_MAX
+  const { currentUser, userRecord } = useAuthStore.getState()
+  return (
+    currentUser?.limits.maxAppServerReplicas ??
+    maxAppServerReplicasForUser(userRecord)
+  )
+}
+
+function canScaleByReplica(type: CanvasNode['type']): boolean {
+  return type === 'compute'
 }
 
 /**
@@ -17,10 +28,6 @@ const REPLICA_LIMITS: Partial<Record<CanvasNode['type'], number>> = {
  * doesn't have to land dead-center — anywhere roughly over the node counts.
  */
 const SNAP_RADIUS = 1.5
-
-function canScaleByReplica(type: CanvasNode['type']): boolean {
-  return type in REPLICA_LIMITS
-}
 
 function distXZ(
   a: [number, number, number],
@@ -66,7 +73,7 @@ export function placeFromPicker(params: {
   }
 
   if (existing && canScaleByReplica(nodeType)) {
-    const maxReplicas = REPLICA_LIMITS[nodeType] ?? APP_SERVER_REPLICA_MAX
+    const maxReplicas = maxReplicasForType(nodeType)
     const current = Number(existing.config.replicas ?? 1)
     const safeCurrent = Number.isFinite(current)
       ? Math.max(1, Math.floor(current))

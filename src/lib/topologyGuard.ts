@@ -21,8 +21,7 @@ export function findTopologyViolations(
     if (node.type === 'load_balancer' && !limits.allowLoadBalancer) {
       violations.push({
         kind: 'load_balancer',
-        message:
-          'Load balancers require an Engineer subscription — remove the load balancer or upgrade.',
+        message: 'Load balancers need Engineer. Remove them or upgrade.',
       })
     }
     if (
@@ -32,7 +31,7 @@ export function findTopologyViolations(
       violations.push({
         kind: 'async',
         message:
-          'Message queues and workers require an Engineer subscription — remove async components or upgrade.',
+          'Message queues and workers need Engineer. Remove them or upgrade.',
       })
     }
     if (node.type === 'cache' && !limits.allowProxyCache) {
@@ -41,7 +40,7 @@ export function findTopologyViolations(
         violations.push({
           kind: 'proxy_cache',
           message:
-            'Proxy cache strategies require an Engineer subscription — use cache-aside or timeline-store, or upgrade.',
+            'That cache strategy needs Engineer. Use cache-aside or timeline-store, or upgrade.',
         })
       }
     }
@@ -53,7 +52,7 @@ export function findTopologyViolations(
       ) {
         violations.push({
           kind: 'replicas',
-          message: `App server replicas (${replicas}) exceed your plan limit of ${limits.maxAppServerReplicas} — reduce replicas or upgrade.`,
+          message: `Your plan allows ${limits.maxAppServerReplicas} App Server replicas. Lower the count or upgrade.`,
         })
       }
     }

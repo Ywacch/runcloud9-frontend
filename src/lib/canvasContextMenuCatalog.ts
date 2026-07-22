@@ -11,8 +11,6 @@ export type CreateMenuLeaf = {
   id: string
   label: string
   nodeType: CanvasNode['type']
-  /** Optional engineer-tier hint (place still allowed; deploy may block). */
-  engineerHint?: boolean
 }
 
 export type CreateMenuGroup = {
@@ -24,11 +22,25 @@ export type CreateMenuGroup = {
 
 export type CreateMenuItem = CreateMenuLeaf | CreateMenuGroup
 
-const ENGINEER_TYPES = new Set<CanvasNode['type']>([
+const ENGINEER_ONLY_TYPES = new Set<CanvasNode['type']>([
   'load_balancer',
   'message_queue',
   'worker',
 ])
+
+/** True for components locked on Explorer (LB, MQ, worker). */
+export function isEngineerOnlyNodeType(type: CanvasNode['type']): boolean {
+  return ENGINEER_ONLY_TYPES.has(type)
+}
+
+/** True when a create-menu row should be locked for free users. */
+export function createMenuItemLockedForFree(item: CreateMenuItem): boolean {
+  if (item.kind === 'place') return isEngineerOnlyNodeType(item.nodeType)
+  return (
+    item.children.length > 0 &&
+    item.children.every((child) => isEngineerOnlyNodeType(child.nodeType))
+  )
+}
 
 /** Railway-style create catalog — only engines we actually deploy. */
 export const CREATE_MENU_ROOT: CreateMenuItem[] = [
@@ -37,7 +49,6 @@ export const CREATE_MENU_ROOT: CreateMenuItem[] = [
     id: 'load_balancer',
     label: 'Load Balancer',
     nodeType: 'load_balancer',
-    engineerHint: true,
   },
   {
     kind: 'place',
@@ -81,7 +92,6 @@ export const CREATE_MENU_ROOT: CreateMenuItem[] = [
         id: 'mq-rabbitmq',
         label: 'RabbitMQ',
         nodeType: 'message_queue',
-        engineerHint: true,
       },
     ],
   },
@@ -90,7 +100,6 @@ export const CREATE_MENU_ROOT: CreateMenuItem[] = [
     id: 'worker',
     label: 'Worker',
     nodeType: 'worker',
-    engineerHint: true,
   },
 ]
 
@@ -192,8 +201,4 @@ export function nodeMenuActions(params: {
   }
 
   return actions
-}
-
-export function createItemShowsEngineerHint(item: CreateMenuLeaf): boolean {
-  return Boolean(item.engineerHint) || ENGINEER_TYPES.has(item.nodeType)
 }
