@@ -27,6 +27,8 @@ describe('redisEvictionPolicy', () => {
   it.each(REDIS_EVICTION_POLICIES)('provides a label and description for %s', (policy) => {
     expect(REDIS_EVICTION_POLICY_LABEL[policy].trim()).not.toBe('')
     expect(REDIS_EVICTION_POLICY_DESCRIPTION[policy].trim()).not.toBe('')
+    expect(REDIS_EVICTION_POLICY_LABEL[policy]).toContain(': ')
+    expect(REDIS_EVICTION_POLICY_LABEL[policy]).not.toContain('—')
   })
 
   it.each(['allkeys-lru', 'allkeys-lfu', 'allkeys-random'] as const)(
