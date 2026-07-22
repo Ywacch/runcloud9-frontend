@@ -70,7 +70,7 @@ export function mapDeployRequestError(
       ) {
         return {
           title: 'Upgrade required for this topology',
-          body: 'Load balancing, async components (message queue + worker), proxy cache strategies, and multiple app replicas are available on the Engineer plan. Adjust your design or upgrade to deploy.',
+          body: 'Engineer unlocks load balancers, queues, workers, proxy cache, and more replicas. Change the design or upgrade.',
           technicalDetails: raw,
           actionLabel: UPGRADE_TO_ENGINEER_LABEL,
         }

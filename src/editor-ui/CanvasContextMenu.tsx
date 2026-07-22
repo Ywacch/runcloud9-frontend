@@ -4,7 +4,7 @@ import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import {
   CREATE_MENU_ROOT,
   canPlaceOnCanvas,
-  createItemShowsEngineerHint,
+  createMenuItemLockedForFree,
   filterCreateMenuItems,
   findCreateGroup,
   nodeMenuActions,
@@ -19,9 +19,11 @@ import {
 import { placeFromPicker } from '../lib/pickerPlacement'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { trackEvent } from '../lib/analytics'
+import { UPGRADE_TO_UNLOCK_TOOLTIP } from '../lib/billingCopy'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
+import { useAuthStore } from '../product/stores/authStore'
 import { subscribeCanvasViewportScreenRefresh } from '../canvas/utils/canvasViewportBridge'
 
 const MENU_W = 260
@@ -65,6 +67,7 @@ export function CanvasContextMenu() {
   const removeNode = useCanvasStore((s) => s.removeNode)
   const registerChaos = useChaosStore((s) => s.register)
   const activeChaos = useChaosStore((s) => s.active)
+  const isPremiumUser = useAuthStore((s) => s.isPremium)
 
   const [query, setQuery] = useState('')
   const [groupId, setGroupId] = useState<string | null>(null)
@@ -148,6 +151,7 @@ export function CanvasContextMenu() {
 
   const placeLeaf = (leaf: CreateMenuLeaf) => {
     if (menu.kind !== 'create') return
+    if (!isPremiumUser && createMenuItemLockedForFree(leaf)) return
     placeFromPicker({
       nodeType: leaf.nodeType,
       position: menu.position,
@@ -231,14 +235,19 @@ export function CanvasContextMenu() {
               <li className="px-3 py-2 text-[var(--c9-muted)]">No matches</li>
             ) : (
               listItems.map((item) => {
+                const locked =
+                  !isPremiumUser && createMenuItemLockedForFree(item)
                 if (item.kind === 'group') {
                   return (
                     <li key={item.id}>
                       <button
                         type="button"
                         role="menuitem"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
+                        disabled={locked}
+                        title={locked ? UPGRADE_TO_UNLOCK_TOOLTIP : undefined}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => {
+                          if (locked) return
                           setGroupId(item.id)
                           setQuery('')
                         }}
@@ -259,16 +268,13 @@ export function CanvasContextMenu() {
                     <button
                       type="button"
                       role="menuitem"
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
+                      disabled={locked}
+                      title={locked ? UPGRADE_TO_UNLOCK_TOOLTIP : undefined}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => placeLeaf(item)}
                     >
                       <FaceDot nodeType={item.nodeType} />
                       <span className="flex-1 font-medium">{item.label}</span>
-                      {createItemShowsEngineerHint(item) ? (
-                        <span className="text-[9px] uppercase tracking-wide text-[var(--c9-muted)]">
-                          Engineer
-                        </span>
-                      ) : null}
                     </button>
                   </li>
                 )

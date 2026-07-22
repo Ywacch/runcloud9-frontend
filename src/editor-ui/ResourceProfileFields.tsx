@@ -11,13 +11,11 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
+import { RESOURCE_PROFILE_HELPER } from '../lib/billingCopy'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
 const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
-
-const RESOURCE_PROFILE_HELPER =
-  'Adjusts Kubernetes CPU/memory reservations for this component.'
 
 const PROXY_SIZE_HELPER =
   'Sizes the caching-proxy sidecar separately from Redis. CPU/RAM amounts differ from Redis profiles.'

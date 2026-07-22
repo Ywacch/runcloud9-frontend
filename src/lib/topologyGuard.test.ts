@@ -23,6 +23,9 @@ describe('findTopologyViolations', () => {
       freeLimits,
     )
     expect(violations.some((v) => v.kind === 'proxy_cache')).toBe(true)
+    expect(violations.find((v) => v.kind === 'proxy_cache')?.message).toBe(
+      'That cache strategy needs Engineer. Use cache-aside or timeline-store, or upgrade.',
+    )
   })
 
   it('allows cache-aside on free tier', () => {
@@ -40,5 +43,20 @@ describe('findTopologyViolations', () => {
     }
     const violations = findTopologyViolations({ 'cache-1': node }, freeLimits)
     expect(violations.some((v) => v.kind === 'proxy_cache')).toBe(true)
+  })
+
+  it('flags load balancer with plain upgrade copy', () => {
+    const node: CanvasNode = {
+      id: 'lb-1',
+      type: 'load_balancer',
+      label: 'LB',
+      position: [0, 0, 0],
+      config: {},
+      status: 'idle',
+    }
+    const violations = findTopologyViolations({ 'lb-1': node }, freeLimits)
+    expect(violations[0]?.message).toBe(
+      'Load balancers need Engineer. Remove them or upgrade.',
+    )
   })
 })

@@ -3,12 +3,36 @@ import {
   displayPlanTierLabel,
   formatSessionsLeftThisMonth,
   isChaosTrialUsedMessage,
+  REPLICAS_HELP_FREE,
+  replicasHelpPaid,
+  RESOURCE_PROFILE_HELPER,
   UPGRADE_TO_ENGINEER_LABEL,
+  UPGRADE_TO_SCALE_REPLICAS_TOOLTIP,
+  UPGRADE_TO_UNLOCK_TOOLTIP,
 } from './billingCopy'
 
 describe('billingCopy', () => {
   it('exposes upgrade CTA label', () => {
     expect(UPGRADE_TO_ENGINEER_LABEL).toBe('Upgrade to Engineer')
+  })
+
+  it('exposes free-tier upgrade tooltips', () => {
+    expect(UPGRADE_TO_UNLOCK_TOOLTIP).toBe(
+      'Upgrade to Engineer to unlock this',
+    )
+    expect(UPGRADE_TO_SCALE_REPLICAS_TOOLTIP).toBe(
+      'Upgrade to Engineer to scale replicas up to 2 extra instances',
+    )
+  })
+
+  it('exposes resource and replicas helper copy', () => {
+    expect(RESOURCE_PROFILE_HELPER).toBe(
+      'Adjust CPU and memory for this component.',
+    )
+    expect(REPLICAS_HELP_FREE).toBe('Explorer runs one App Server pod.')
+    expect(replicasHelpPaid(3)).toBe(
+      'Deploy runs this many App Server pods (1–3). Click an App Server on the grid to add another.',
+    )
   })
 
   it('maps plan labels without exposing internal', () => {
