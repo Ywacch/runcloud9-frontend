@@ -224,13 +224,6 @@ export async function createDeployment(
   return res.json() as Promise<DeploymentResult>
 }
 
-async function parseErrorMessageFromText(
-  text: string,
-  res: Response,
-): Promise<string> {
-  return parseApiErrorBody(text, res).message
-}
-
 function parseApiErrorBody(
   text: string,
   res: Response,
