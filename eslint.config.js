@@ -19,5 +19,16 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Ban raw HTML injection; keep XSS surface to React-escaped text.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message:
+            'dangerouslySetInnerHTML is forbidden. Use React text nodes. If HTML is required, sanitize and get a security review.',
+        },
+      ],
+    },
   },
 ])
