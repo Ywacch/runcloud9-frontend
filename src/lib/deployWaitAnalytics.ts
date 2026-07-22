@@ -2,6 +2,7 @@ import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import {
   isDesignExceedsClusterCapacity,
+  isMonthlySessionLimitError,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
@@ -19,6 +20,7 @@ export type DeployRejectReason =
   | 'design_exceeds_cluster'
   | 'queue_full'
   | 'concurrent_active'
+  | 'monthly_session_limit'
   | 'resource_budget'
 
 export type DeployAdmitStatus = 'provisioning' | 'queued'
@@ -87,6 +89,14 @@ export function deployRejectReasonFromError(
   }
   if (error.status === 429) {
     if (isQueueFullErrorMessage(raw)) return 'queue_full'
+    if (
+      isMonthlySessionLimitError({
+        reason: error.reason,
+        message: raw,
+      })
+    ) {
+      return 'monthly_session_limit'
+    }
     if (isUserConcurrentDeployErrorMessage(raw)) return 'concurrent_active'
   }
   return undefined

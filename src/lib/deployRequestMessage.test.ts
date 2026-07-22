@@ -78,6 +78,42 @@ describe('mapDeployRequestError', () => {
     expect(msg.body).toContain('concurrent')
   })
 
+  it('maps monthly_session_limit 429 by reason with upgrade for free users', () => {
+    const err = new ApiError(
+      429,
+      'monthly session limit reached — upgrade or wait until next month',
+      'monthly_session_limit',
+    )
+    const msg = mapDeployRequestError(err, { isFreeUser: true })
+    expect(msg.title).toBe('Out of sessions this month')
+    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.body).toContain('Upgrade to Engineer')
+    expect(msg.body).toContain('next month')
+  })
+
+  it('maps monthly_session_limit 429 without upgrade for paid users', () => {
+    const err = new ApiError(
+      429,
+      'monthly session limit reached — upgrade or wait until next month',
+      'monthly_session_limit',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Out of sessions this month')
+    expect(msg.actionLabel).toBeUndefined()
+    expect(msg.body).toContain('Try again next month')
+    expect(msg.body).not.toContain('Upgrade')
+  })
+
+  it('keeps concurrent 429 distinct from monthly session limit', () => {
+    const err = new ApiError(
+      429,
+      'you already have an active deployment — end it before creating another',
+    )
+    const msg = mapDeployRequestError(err, { isFreeUser: true })
+    expect(msg.title).toBe('Concurrent session limit')
+    expect(msg.body).not.toContain('this month')
+  })
+
   it('maps chaos trial 403 to upgrade CTA', () => {
     const err = new ApiError(
       403,

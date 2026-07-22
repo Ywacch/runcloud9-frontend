@@ -69,6 +69,33 @@ export function isUserConcurrentDeployErrorMessage(raw: string): boolean {
   )
 }
 
+export const MONTHLY_SESSION_LIMIT = 'monthly_session_limit'
+
+export function isMonthlySessionLimitError(opts: {
+  reason?: string | null
+  message?: string | null
+}): boolean {
+  if (opts.reason === MONTHLY_SESSION_LIMIT) return true
+  const n = (opts.message ?? '').toLowerCase()
+  return (
+    n.includes(MONTHLY_SESSION_LIMIT) ||
+    n.includes('monthly session limit')
+  )
+}
+
+/** True when /me reports a monthly cap and remaining successful sessions is 0. */
+export function isAtMonthlySessionCap(me: {
+  sessionsRemainingThisMonth?: number | null
+  limits?: { maxSessionsPerMonth?: number | null }
+} | null | undefined): boolean {
+  if (!me) return false
+  if (me.limits?.maxSessionsPerMonth == null) return false
+  return (
+    typeof me.sessionsRemainingThisMonth === 'number' &&
+    me.sessionsRemainingThisMonth <= 0
+  )
+}
+
 export const DESIGN_EXCEEDS_CLUSTER_CAPACITY = 'design_exceeds_cluster_capacity'
 
 export function isDesignExceedsClusterCapacity(opts: {

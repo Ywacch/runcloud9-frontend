@@ -3,6 +3,7 @@ import { isResourceBudgetApiError } from './resourceBudgetError'
 import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
 import {
   isDesignExceedsClusterCapacity,
+  isMonthlySessionLimitError,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
@@ -93,6 +94,26 @@ export function mapDeployRequestError(
         return {
           title: 'Cluster queue is full',
           body: 'Too many deployments are waiting for capacity. Please try again in a minute.',
+          technicalDetails: raw,
+        }
+      }
+      if (
+        isMonthlySessionLimitError({
+          reason: error.reason,
+          message: raw,
+        })
+      ) {
+        if (opts?.isFreeUser) {
+          return {
+            title: 'Out of sessions this month',
+            body: 'You hit the Explorer monthly limit. Upgrade to Engineer for more sessions, or try again next month.',
+            technicalDetails: raw,
+            actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+          }
+        }
+        return {
+          title: 'Out of sessions this month',
+          body: 'You hit your monthly limit. Try again next month.',
           technicalDetails: raw,
         }
       }

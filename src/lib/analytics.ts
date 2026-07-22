@@ -43,6 +43,7 @@ export type AnalyticsEventMap = {
       | 'design_exceeds_cluster'
       | 'queue_full'
       | 'concurrent_active'
+      | 'monthly_session_limit'
       | 'resource_budget'
   }
   deploy_wait_entered: {

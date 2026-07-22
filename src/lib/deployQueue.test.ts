@@ -4,7 +4,9 @@ import {
   formatQueueWaitingDetail,
   formatRoomWaitingDetail,
   hasQueueWaitFields,
+  isAtMonthlySessionCap,
   isDesignExceedsClusterCapacity,
+  isMonthlySessionLimitError,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
@@ -87,5 +89,42 @@ describe('deployQueue helpers', () => {
     expect(isQueueFullErrorMessage('you already have an active deployment')).toBe(
       false,
     )
+  })
+
+  it('detects monthly session limit by reason or message', () => {
+    expect(
+      isMonthlySessionLimitError({ reason: 'monthly_session_limit' }),
+    ).toBe(true)
+    expect(
+      isMonthlySessionLimitError({
+        message: 'monthly session limit reached — upgrade or wait until next month',
+      }),
+    ).toBe(true)
+    expect(
+      isMonthlySessionLimitError({
+        message: 'you already have an active deployment',
+      }),
+    ).toBe(false)
+  })
+
+  it('detects when /me monthly remaining is exhausted', () => {
+    expect(
+      isAtMonthlySessionCap({
+        sessionsRemainingThisMonth: 0,
+        limits: { maxSessionsPerMonth: 5 },
+      }),
+    ).toBe(true)
+    expect(
+      isAtMonthlySessionCap({
+        sessionsRemainingThisMonth: 2,
+        limits: { maxSessionsPerMonth: 5 },
+      }),
+    ).toBe(false)
+    expect(
+      isAtMonthlySessionCap({
+        sessionsRemainingThisMonth: null,
+        limits: { maxSessionsPerMonth: null },
+      }),
+    ).toBe(false)
   })
 })

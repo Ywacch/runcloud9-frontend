@@ -151,6 +151,8 @@ export interface CurrentUserLimits {
   maxConcurrent: number
   sessionDefaultMins: number
   sessionCapMins: number
+  /** Null when unlimited (internal). */
+  maxSessionsPerMonth: number | null
   allTemplates: boolean
   maxAppServerReplicas: number
   allowLoadBalancer: boolean
@@ -166,6 +168,10 @@ export interface CurrentUserResponse {
   effectiveTier: 'free' | 'engineer' | 'internal'
   quotaTier: string
   limits: CurrentUserLimits
+  /** Successful (live) sessions this UTC month; 0 when unlimited. */
+  sessionsUsedThisMonth: number
+  /** Null when unlimited (internal). */
+  sessionsRemainingThisMonth: number | null
 }
 
 /** GET /me — authenticated caller profile (tier, quota, deployment limits). */
