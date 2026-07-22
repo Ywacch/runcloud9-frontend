@@ -35,6 +35,7 @@ import {
 } from '../editor-ui'
 import { deleteDeployment, getDeployment } from '../lib/api'
 import {
+  isWaitingForProvisionSlot,
   normalizeComponentProvisionState,
   parseProvisionMetrics,
 } from '../lib/provisionMetrics'
@@ -55,6 +56,10 @@ import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNod
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { trackEvent } from '../lib/analytics'
+import {
+  overlayWaitKindFromFlags,
+  useDeployTabSignals,
+} from '../lib/deployTabSignals'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
@@ -112,6 +117,7 @@ export default function CanvasPage() {
   )
   const [isTerminating, setIsTerminating] = useState(false)
   const [terminationMessage, setTerminationMessage] = useState<string | null>(null)
+  const [overlayMinimized, setOverlayMinimized] = useState(false)
   const provisionStartRef = useRef<number>(Date.now())
   const deploymentRunningTrackedRef = useRef<string | null>(null)
   const statusBeforeCancelRef = useRef<string | null>(null)
@@ -157,6 +163,7 @@ export default function CanvasPage() {
     provisionStartRef.current = Date.now()
     deploymentRunningTrackedRef.current = null
     activeWaitRef.current = null
+    setOverlayMinimized(false)
     setDeployStatus('provisioning')
     setProvisioningError(null)
     setProvisionMetricsSummary(null)
@@ -510,6 +517,32 @@ export default function CanvasPage() {
       isTerminating)
   const showProvisioningError = mode !== 'live' && !!deploymentId && !!provisioningError
   const isQueued = deployStatus === 'queued'
+  const provisionPhase = useMemo(
+    () => parseProvisionMetrics(provisionMetricsSummary)?.provisionPhase,
+    [provisionMetricsSummary],
+  )
+  const isDoorwayWait =
+    !isQueued && isWaitingForProvisionSlot(provisionPhase)
+  const overlayWaitKind = overlayWaitKindFromFlags({
+    isQueued,
+    isDoorwayWait,
+  })
+
+  useEffect(() => {
+    if (provisioningError) setOverlayMinimized(false)
+  }, [provisioningError])
+
+  useDeployTabSignals({
+    active: Boolean(
+      deploymentId &&
+        (showProvisioningOverlay || showProvisioningError || mode === 'live'),
+    ),
+    template: snapshotTemplateId ?? 'unknown',
+    mode,
+    deployStatus,
+    provisionPhase,
+    provisioningError,
+  })
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -583,6 +616,21 @@ export default function CanvasPage() {
             isQueued={isQueued}
             queuePosition={queuePosition}
             estimatedWaitSeconds={estimatedWaitSeconds}
+            minimized={overlayMinimized}
+            onMinimize={() => {
+              setOverlayMinimized(true)
+              trackEvent('overlay_minimized', {
+                template: snapshotTemplateId ?? 'unknown',
+                waitKind: overlayWaitKind,
+              })
+            }}
+            onExpand={() => {
+              setOverlayMinimized(false)
+              trackEvent('overlay_expanded', {
+                template: snapshotTemplateId ?? 'unknown',
+                waitKind: overlayWaitKind,
+              })
+            }}
             onCancel={() => {
               if (!deploymentId || isTerminating) return
               statusBeforeCancelRef.current =

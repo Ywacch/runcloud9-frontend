@@ -80,6 +80,23 @@ describe('analytics wrappers', () => {
       'deployment_failed',
       expect.objectContaining({ rejectReason: 'design_exceeds_cluster' }),
     )
+
+    trackEvent('overlay_minimized', {
+      template: 'url-shortener',
+      waitKind: 'room',
+    })
+    trackEvent('deploy_tab_signal_shown', {
+      template: 'url-shortener',
+      signalKind: 'running',
+    })
+    expect(capture).toHaveBeenCalledWith(
+      'overlay_minimized',
+      expect.objectContaining({ waitKind: 'room' }),
+    )
+    expect(capture).toHaveBeenCalledWith(
+      'deploy_tab_signal_shown',
+      expect.objectContaining({ signalKind: 'running' }),
+    )
   })
 
   it('identify and reset go through wrappers', () => {
