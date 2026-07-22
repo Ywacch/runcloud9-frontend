@@ -1,3 +1,4 @@
+import 'pixi.js/unsafe-eval'
 import { useEffect, useRef } from 'react'
 import { Assets, type FederatedPointerEvent } from 'pixi.js'
 import type { Viewport } from 'pixi-viewport'
