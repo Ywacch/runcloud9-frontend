@@ -231,7 +231,24 @@ export function InspectorPanel() {
                   </>
                 ) : null}
                 {liveTab === 'logs' ? <ComponentLogPanel key={node.id} node={node} /> : null}
-                {liveTab === 'config' ? <ReadOnlyConfig node={node} /> : null}
+                {liveTab === 'config' ? (
+                  <div className="space-y-4">
+                    <TypeFields
+                      node={node}
+                      edges={edges}
+                      nodes={nodes}
+                      simulationMode={false}
+                      readOnly
+                      updateConfig={() => {}}
+                      templateId={snapshotTemplateId}
+                    />
+                    {provisionedBadge(node) ? (
+                      <p className={`${badgeClass} inline-block`}>
+                        Provisioned: {provisionedBadge(node)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {liveTab === 'data' && deploymentId && node.type === 'database' ? (
                   <DataBrowser
                     deploymentId={deploymentId}
@@ -277,82 +294,6 @@ export function InspectorPanel() {
   )
 }
 
-function ReadOnlyConfig({ node }: { node: CanvasNode }) {
-  const c = node.config
-
-  return (
-    <div className="space-y-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-        Configuration
-      </h3>
-      <div className="flex flex-wrap gap-2">
-        {node.type === 'compute' ? (
-          <>
-            <span className={badgeClass}>
-              Replicas: {clampAppServerReplicas(c.replicas ?? 1)}
-            </span>
-            <span className={badgeClass}>
-              Resource profile: {String(c.instanceSize ?? 'small')}
-            </span>
-            {provisionedBadge(node) ? (
-              <span className={badgeClass}>{provisionedBadge(node)}</span>
-            ) : null}
-          </>
-        ) : null}
-        {node.type === 'database' ? (
-          <>
-            <span className={badgeClass}>Engine: PostgreSQL</span>
-            {provisionedBadge(node) ? (
-              <span className={badgeClass}>{provisionedBadge(node)}</span>
-            ) : null}
-          </>
-        ) : null}
-        {node.type === 'cache' ? (
-          <>
-            <span className={badgeClass}>
-              Strategy: {String(c.cacheStrategy ?? 'cache-aside')}
-            </span>
-            {provisionedBadge(node) ? (
-              <span className={badgeClass}>{provisionedBadge(node)}</span>
-            ) : null}
-          </>
-        ) : null}
-        {node.type === 'load_balancer' ? (
-          <>
-            <span className={badgeClass}>
-              Algorithm: {String(c.algorithm ?? 'round-robin')}
-            </span>
-            {provisionedBadge(node) ? (
-              <span className={badgeClass}>{provisionedBadge(node)}</span>
-            ) : null}
-          </>
-        ) : null}
-        {node.type === 'message_queue' ? (
-          <>
-            <span className={badgeClass}>Engine: RabbitMQ</span>
-            {provisionedBadge(node) ? (
-              <span className={badgeClass}>{provisionedBadge(node)}</span>
-            ) : null}
-          </>
-        ) : null}
-        {node.type === 'worker' ? (
-          <>
-            <span className={badgeClass}>
-              Resource profile: {String(c.instanceSize ?? 'small')}
-            </span>
-            {provisionedBadge(node) ? (
-              <span className={badgeClass}>{provisionedBadge(node)}</span>
-            ) : null}
-          </>
-        ) : null}
-        {node.type === 'client' ? (
-          <span className={badgeClass}>External traffic source (load generator)</span>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 const CACHE_STRATEGY_LABEL: Record<string, string> = {
   'cache-aside': 'cache-aside',
   'timeline-store': 'timeline-store',
@@ -368,6 +309,7 @@ export function CacheNodeInspectorFields({
   simulationMode,
   updateConfig,
   templateId,
+  readOnly = false,
 }: {
   node: CanvasNode
   nodes: Record<string, CanvasNode>
@@ -375,6 +317,7 @@ export function CacheNodeInspectorFields({
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   templateId?: string | null
+  readOnly?: boolean
 }) {
   const c = node.config
   const strategy = String(c.cacheStrategy ?? 'cache-aside')
@@ -389,10 +332,14 @@ export function CacheNodeInspectorFields({
   )
 
   const ambiguousTopology = available.length === 0
-  const selectValue = available.includes(strategy)
+  const selectValue = readOnly
     ? strategy
-    : available[0] ?? strategy
-  const showProxyReadThroughNote = available.some((s) => isProxyCacheStrategy(s))
+    : available.includes(strategy)
+      ? strategy
+      : available[0] ?? strategy
+  const showProxyReadThroughNote = readOnly
+    ? isProxyCacheStrategy(strategy)
+    : available.some((s) => isProxyCacheStrategy(s))
   const showProxySize = isProxyCacheStrategy(selectValue)
   const proxyInstanceSize = String(c.proxyInstanceSize ?? '').trim()
   const proxyResourceProfile = String(c.proxyResourceProfile ?? '').trim()
@@ -445,6 +392,7 @@ export function CacheNodeInspectorFields({
   }, [node.id, storedCacheTtl, templateTtlDefault])
 
   useEffect(() => {
+    if (readOnly) return
     if (strategy === 'read-through') {
       useCanvasStore.getState().updateNodeConfig(node.id, {
         cacheStrategy: 'write-through',
@@ -499,6 +447,7 @@ export function CacheNodeInspectorFields({
     c.cacheTtlSeconds,
     templateId,
     templateTtlDefault,
+    readOnly,
   ])
 
   return (
@@ -519,10 +468,11 @@ export function CacheNodeInspectorFields({
         </p>
         <select
           id="cache-strat"
-          className={fieldClass}
+          className={`${fieldClass}${readOnly || ambiguousTopology ? ' cursor-not-allowed opacity-60' : ''}`}
           value={selectValue}
-          disabled={ambiguousTopology}
+          disabled={readOnly || ambiguousTopology}
           onChange={(e) => {
+            if (readOnly) return
             const prev = selectValue
             const next = e.target.value
             const patch: Partial<CanvasNode['config']> = {
@@ -558,9 +508,10 @@ export function CacheNodeInspectorFields({
             })
           }}
         >
-          {ambiguousTopology ? (
+          {readOnly || ambiguousTopology ? (
             <option value={strategy}>
-              {CACHE_STRATEGY_LABEL[strategy] ?? strategy} (fix wiring)
+              {CACHE_STRATEGY_LABEL[strategy] ?? strategy}
+              {!readOnly && ambiguousTopology ? ' (fix wiring)' : ''}
             </option>
           ) : (
             available.map((v) => (
@@ -588,7 +539,7 @@ export function CacheNodeInspectorFields({
             ) : null}
           </div>
         ) : null}
-        {ambiguousTopology ? (
+        {!readOnly && ambiguousTopology ? (
           <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
             This wiring is invalid: a connector reaches this cache and the database while the cache
             also reaches the database. Remove either the direct connector→database link or the
@@ -610,10 +561,12 @@ export function CacheNodeInspectorFields({
             min={WRITE_BEHIND_INTERVAL_MIN}
             max={WRITE_BEHIND_INTERVAL_MAX}
             step={1}
-            className={fieldClass}
+            className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
             value={writeBehindDraft}
+            disabled={readOnly}
             title="Shorter keeps cache and database closer. Longer delays durable writes."
             onChange={(e) => {
+              if (readOnly) return
               const nextDraft = e.target.value
               setWriteBehindDraft(nextDraft)
               const commit = commitWriteBehindIntervalDraft(
@@ -654,7 +607,9 @@ export function CacheNodeInspectorFields({
             type="checkbox"
             className="rounded border-[var(--c9-border)]"
             checked={noExpiry}
+            disabled={readOnly}
             onChange={(e) => {
+              if (readOnly) return
               const enableNoExpiry = e.target.checked
               const template =
                 templateId ??
@@ -700,9 +655,11 @@ export function CacheNodeInspectorFields({
               min={CACHE_TTL_MIN}
               max={CACHE_TTL_MAX}
               step={1}
-              className={fieldClass}
+              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
               value={ttlDraft}
+              disabled={readOnly}
               onChange={(e) => {
+                if (readOnly) return
                 const nextDraft = e.target.value
                 setTtlDraft(nextDraft)
                 const previous =
@@ -743,11 +700,13 @@ export function CacheNodeInspectorFields({
         </p>
         <select
           id="cache-eviction"
-          className={fieldClass}
+          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
           value={evictionPolicy}
+          disabled={readOnly}
           title={REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
           onChange={(e) =>
             {
+              if (readOnly) return
               const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
               const next = normalizeRedisEvictionPolicy(e.target.value)
               updateConfig({ evictionPolicy: next })
@@ -787,6 +746,7 @@ export function CacheNodeInspectorFields({
         label="Redis size"
         helperText="Sizes redis-internal. Memory limit for eviction comes from this profile."
         updateConfig={updateConfig}
+        readOnly={readOnly}
       />
       {showProxySize ? (
         <ResourceProfileFields
@@ -796,6 +756,7 @@ export function CacheNodeInspectorFields({
           label="Proxy size"
           configKey="proxyInstanceSize"
           updateConfig={updateConfig}
+          readOnly={readOnly}
         />
       ) : null}
       {simulationMode ? (
@@ -843,6 +804,7 @@ function TypeFields({
   simulationMode,
   updateConfig,
   templateId,
+  readOnly = false,
 }: {
   node: CanvasNode
   edges: Record<string, CanvasEdge>
@@ -850,6 +812,7 @@ function TypeFields({
   simulationMode: boolean
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   templateId?: string | null
+  readOnly?: boolean
 }) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -868,9 +831,11 @@ function TypeFields({
             </label>
             <select
               id="lb-algo"
-              className={fieldClass}
+              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
               value={String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')}
+              disabled={readOnly}
               onChange={(e) => {
+                if (readOnly) return
                 const prev = String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')
                 const v = e.target.value
                 updateConfig({ algorithm: v, lbAlgorithm: v })
@@ -911,6 +876,7 @@ function TypeFields({
             config={c}
             showDefaultOption
             updateConfig={updateConfig}
+            readOnly={readOnly}
           />
           {simulationMode ? (
             <>
@@ -992,6 +958,7 @@ function TypeFields({
     case 'compute': {
       const replicas = clampAppServerReplicas(c.replicas ?? 1, maxAppReplicas)
       const replicasLocked = maxAppReplicas <= 1
+      const replicasDisabled = readOnly || replicasLocked
       return (
         <>
           <div>
@@ -1009,15 +976,17 @@ function TypeFields({
               min={APP_SERVER_REPLICA_MIN}
               max={maxAppReplicas}
               step={1}
-              className={`${fieldClass}${replicasLocked ? ' cursor-not-allowed opacity-60' : ''}`}
+              className={`${fieldClass}${replicasDisabled ? ' cursor-not-allowed opacity-60' : ''}`}
               value={replicas}
-              readOnly={replicasLocked}
-              disabled={replicasLocked}
+              readOnly={replicasDisabled}
+              disabled={replicasDisabled}
               title={
-                replicasLocked ? UPGRADE_TO_SCALE_REPLICAS_TOOLTIP : undefined
+                !readOnly && replicasLocked
+                  ? UPGRADE_TO_SCALE_REPLICAS_TOOLTIP
+                  : undefined
               }
               onChange={(e) => {
-                if (replicasLocked) return
+                if (replicasDisabled) return
                 const n = Number(e.target.value)
                 if (!Number.isFinite(n)) return
                 const prev = replicas
@@ -1041,6 +1010,7 @@ function TypeFields({
             nodeType="compute"
             config={c}
             updateConfig={updateConfig}
+            readOnly={readOnly}
           />
           {simulationMode ? (
             <div>
@@ -1092,6 +1062,7 @@ function TypeFields({
             nodeType="database"
             config={c}
             updateConfig={updateConfig}
+            readOnly={readOnly}
           />
           {simulationMode ? (
             <>
@@ -1158,6 +1129,7 @@ function TypeFields({
           simulationMode={simulationMode}
           updateConfig={updateConfig}
           templateId={templateId}
+          readOnly={readOnly}
         />
       )
 
@@ -1176,6 +1148,7 @@ function TypeFields({
             config={c}
             showDefaultOption
             updateConfig={updateConfig}
+            readOnly={readOnly}
           />
           {simulationMode ? (
             <>
@@ -1240,6 +1213,7 @@ function TypeFields({
             nodeType="worker"
             config={c}
             updateConfig={updateConfig}
+            readOnly={readOnly}
           />
           {simulationMode ? (
             <div>
@@ -1276,6 +1250,13 @@ function TypeFields({
         </>
       )
     }
+
+    case 'client':
+      return (
+        <p className="text-xs text-[var(--c9-muted)]">
+          External traffic source (load generator)
+        </p>
+      )
 
     default:
       return null
