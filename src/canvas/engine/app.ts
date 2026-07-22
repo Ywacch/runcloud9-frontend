@@ -1,3 +1,4 @@
+import 'pixi.js/unsafe-eval'
 import { Application } from 'pixi.js'
 
 let _app: Application | null = null
