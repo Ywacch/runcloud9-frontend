@@ -218,8 +218,8 @@ export async function createDeployment(
         if (error instanceof ResourceBudgetApiError) throw error
       }
     }
-    const message = text ? await parseErrorMessageFromText(text, res) : res.statusText
-    throw new ApiError(res.status, message)
+    const { message, reason } = parseApiErrorBody(text, res)
+    throw new ApiError(res.status, message, reason)
   }
   return res.json() as Promise<DeploymentResult>
 }
@@ -228,14 +228,23 @@ async function parseErrorMessageFromText(
   text: string,
   res: Response,
 ): Promise<string> {
-  if (!text) return res.statusText || `HTTP ${res.status}`
+  return parseApiErrorBody(text, res).message
+}
+
+function parseApiErrorBody(
+  text: string,
+  res: Response,
+): { message: string; reason?: string } {
+  if (!text) return { message: res.statusText || `HTTP ${res.status}` }
   try {
-    const j = JSON.parse(text) as { error?: string }
-    if (typeof j.error === 'string') return j.error
+    const j = JSON.parse(text) as { error?: string; reason?: string }
+    const message =
+      typeof j.error === 'string' ? j.error : text.slice(0, 200)
+    const reason = typeof j.reason === 'string' ? j.reason : undefined
+    return { message, reason }
   } catch {
-    /* not JSON */
+    return { message: text.slice(0, 200) }
   }
-  return text.slice(0, 200)
 }
 
 export async function deleteDeployment(id: string): Promise<void> {

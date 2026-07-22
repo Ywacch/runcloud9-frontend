@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   formatQueueWaitEstimate,
   formatQueueWaitingDetail,
+  formatRoomWaitingDetail,
   hasQueueWaitFields,
+  isDesignExceedsClusterCapacity,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
@@ -15,7 +17,7 @@ describe('deployQueue helpers', () => {
     expect(formatQueueWaitEstimate(150)).toBe('~2m 30s')
   })
 
-  it('formats waiting detail with position and ETA', () => {
+  it('formats doorway waiting detail with position and ETA', () => {
     expect(
       formatQueueWaitingDetail({
         queuePosition: 2,
@@ -30,6 +32,17 @@ describe('deployQueue helpers', () => {
     ).toBe('About ~1m 30s.')
   })
 
+  it('formats room waiting detail without leading position', () => {
+    expect(
+      formatRoomWaitingDetail({
+        estimatedWaitSeconds: 120,
+      }),
+    ).toBe(
+      'Needs more free capacity than is available. Smaller deploys may start first. About ~2m.',
+    )
+    expect(formatRoomWaitingDetail({})).not.toMatch(/#\d/)
+  })
+
   it('detects when queue wait fields are present', () => {
     expect(hasQueueWaitFields({ queuePosition: 1, estimatedWaitSeconds: 40 })).toBe(
       true,
@@ -39,6 +52,25 @@ describe('deployQueue helpers', () => {
     )
     expect(
       hasQueueWaitFields({ queuePosition: null, estimatedWaitSeconds: null }),
+    ).toBe(false)
+  })
+
+  it('detects design_exceeds_cluster_capacity by reason or message', () => {
+    expect(
+      isDesignExceedsClusterCapacity({
+        reason: 'design_exceeds_cluster_capacity',
+      }),
+    ).toBe(true)
+    expect(
+      isDesignExceedsClusterCapacity({
+        message:
+          'this design needs more CPU or memory than the cluster provides',
+      }),
+    ).toBe(true)
+    expect(
+      isDesignExceedsClusterCapacity({
+        message: 'Design exceeds your resource quota',
+      }),
     ).toBe(false)
   })
 

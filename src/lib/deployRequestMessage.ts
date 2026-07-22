@@ -2,6 +2,7 @@ import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
 import {
+  isDesignExceedsClusterCapacity,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
@@ -94,6 +95,18 @@ export function mapDeployRequestError(error: unknown): DeployRequestMessage {
     }
 
     if (error.status === 422) {
+      if (
+        isDesignExceedsClusterCapacity({
+          reason: error.reason,
+          message: raw,
+        })
+      ) {
+        return {
+          title: 'Design too large for the cluster',
+          body: 'This design needs more CPU or memory than the cluster provides. Reduce node sizes or remove components.',
+          technicalDetails: raw,
+        }
+      }
       return {
         title: 'Design exceeds your resource quota',
         body: 'This design needs more CPU and memory than your plan allows. Downsize nodes, reduce replicas, or remove components before deploying.',

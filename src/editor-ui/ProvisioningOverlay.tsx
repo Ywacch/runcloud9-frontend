@@ -1,7 +1,10 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import {
+  DOOR_WAIT_TITLE,
+  ROOM_QUEUE_TITLE,
   formatQueueWaitingDetail,
+  formatRoomWaitingDetail,
   hasQueueWaitFields,
 } from '../lib/deployQueue'
 import {
@@ -370,23 +373,26 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     !isQueued && isWaitingForProvisionSlot(parsed?.provisionPhase)
 
   const queueFields = { queuePosition, estimatedWaitSeconds }
-  const queueDetail = formatQueueWaitingDetail(queueFields)
+  const doorDetail = formatQueueWaitingDetail(queueFields)
+  const roomDetail = formatRoomWaitingDetail({
+    estimatedWaitSeconds,
+  })
   const doorwayDetail = hasQueueWaitFields(queueFields)
-    ? queueDetail
+    ? doorDetail
     : 'A few deploys are starting ahead of you.'
 
   const panelTitle = isTerminating
     ? 'Terminating'
     : isQueued
-      ? 'Cluster is full'
+      ? ROOM_QUEUE_TITLE
       : isDoorwayWait
-        ? 'Almost ready'
+        ? DOOR_WAIT_TITLE
         : 'Provisioning'
 
   const provisionSubtitle = isTerminating
     ? 'Terminating deployment...'
     : isQueued
-      ? queueDetail
+      ? roomDetail
       : isDoorwayWait
         ? doorwayDetail
         : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
@@ -405,7 +411,7 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     isQueued || isDoorwayWait ? 'Queue status' : 'Infrastructure checklist'
 
   const waitingDetail = isQueued
-    ? queueDetail
+    ? roomDetail
     : isDoorwayWait
       ? doorwayDetail
       : null
