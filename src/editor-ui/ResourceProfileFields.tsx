@@ -31,6 +31,7 @@ export function ResourceProfileFields({
   label = 'Resource profile',
   helperText = RESOURCE_PROFILE_HELPER,
   configKey = 'instanceSize',
+  readOnly = false,
 }: {
   idPrefix: string
   nodeType: CanvasNode['type']
@@ -40,6 +41,7 @@ export function ResourceProfileFields({
   label?: string
   helperText?: string
   configKey?: SizeConfigKey
+  readOnly?: boolean
 }) {
   const catalog = useResourceProfiles()
   const isProxy = configKey === 'proxyInstanceSize'
@@ -71,9 +73,11 @@ export function ResourceProfileFields({
         </p>
         <select
           id={`${idPrefix}-size`}
-          className={fieldClass}
+          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
           value={instanceSize}
+          disabled={readOnly}
           onChange={(e) => {
+            if (readOnly) return
             const prev = instanceSize
             const v = e.target.value.trim()
             if (isProxy) {

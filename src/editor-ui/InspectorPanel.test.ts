@@ -109,6 +109,7 @@ function renderCacheInspector(opts: {
   cacheTtlSeconds?: number
   topology?: 'proxy' | 'aside' | 'isolated'
   updateConfig?: ReturnType<typeof vi.fn>
+  readOnly?: boolean
 }): string {
   const {
     evictionPolicy = 'allkeys-lru',
@@ -118,6 +119,7 @@ function renderCacheInspector(opts: {
     cacheTtlSeconds = 300,
     topology = 'isolated',
     updateConfig = vi.fn(),
+    readOnly = false,
   } = opts
 
   const config: CanvasNode['config'] = {
@@ -153,6 +155,7 @@ function renderCacheInspector(opts: {
       simulationMode: false,
       updateConfig,
       templateId,
+      readOnly,
     }),
   )
 }
@@ -300,5 +303,32 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
       topology: 'proxy',
     })
     expect(html).toContain('value="120"')
+  })
+})
+
+describe('CacheNodeInspectorFields readOnly (live Config)', () => {
+  it('shows full cache fields with controls disabled', () => {
+    const html = renderCacheInspector({
+      cacheStrategy: 'write-behind',
+      templateId: 'url-shortener',
+      writeBehindIntervalSeconds: 30,
+      cacheTtlSeconds: 300,
+      evictionPolicy: 'volatile-lru',
+      topology: 'proxy',
+      readOnly: true,
+    })
+
+    expect(html).toContain('Redis')
+    expect(html).toContain('Cache strategy')
+    expect(html).toContain('write-behind')
+    expect(html).toContain('Cache TTL')
+    expect(html).toContain('id="cache-ttl"')
+    expect(html).toContain('Eviction policy')
+    expect(html).toContain(REDIS_EVICTION_POLICY_DESCRIPTION['volatile-lru'])
+    expect(html).toContain('Write-behind flush interval (seconds)')
+    expect(html).toContain('Redis size')
+    expect(html).toContain('Proxy size')
+    expect(html).toContain('disabled=""')
+    expect(html).not.toContain('(fix wiring)')
   })
 })
