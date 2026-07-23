@@ -10,10 +10,12 @@ import BillingSuccessPage from './pages/BillingSuccessPage'
 import BillingCancelPage from './pages/BillingCancelPage'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './editor-ui/NavHeader'
+import { InternalOnlyRoute } from './product/InternalOnlyRoute'
 
 const LoadtestPage = lazy(() => import('./pages/LoadtestPage'))
 
 const CanvasPage = lazy(() => import('./pages/CanvasPage'))
+const SvgCanvasPage = lazy(() => import('./pages/SvgCanvasPage'))
 
 function CanvasRouteFallback() {
   return (
@@ -104,6 +106,16 @@ export default function App() {
               <Suspense fallback={<CanvasRouteFallback />}>
                 <CanvasPage />
               </Suspense>
+            }
+          />
+          <Route
+            path="/canvas-svg"
+            element={
+              <InternalOnlyRoute>
+                <Suspense fallback={<CanvasRouteFallback />}>
+                  <SvgCanvasPage />
+                </Suspense>
+              </InternalOnlyRoute>
             }
           />
         </Routes>

@@ -5,7 +5,8 @@ import { useAuthStore } from '../product/stores/authStore'
 export default function NavHeader() {
   const { pathname } = useLocation()
   const session = useAuthStore((s) => s.session)
-  if (pathname === '/' || pathname === '/canvas') return null
+  if (pathname === '/' || pathname === '/canvas' || pathname === '/canvas-svg')
+    return null
 
   return (
     <header className="fixed top-0 z-50 flex w-full items-center justify-between border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/90 px-6 py-3 backdrop-blur-sm">
