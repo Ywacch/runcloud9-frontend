@@ -17,6 +17,7 @@ export function useSvgCanvasKeyboard(): void {
         return
       }
 
+      const store = useSvgCanvasStore.getState()
       const {
         clearPlacementAndSelection,
         selectAllNodes,
@@ -26,9 +27,22 @@ export function useSvgCanvasKeyboard(): void {
         copySelected,
         pasteClipboard,
         selectedIds,
-      } = useSvgCanvasStore.getState()
+        selectedEdgeIds,
+        connectSourceId,
+        connectMode,
+        setConnectSourceId,
+        setConnectMode,
+      } = store
 
       if (e.key === 'Escape') {
+        if (connectSourceId) {
+          setConnectSourceId(null)
+          return
+        }
+        if (connectMode) {
+          setConnectMode(false)
+          return
+        }
         clearPlacementAndSelection()
         return
       }
@@ -69,7 +83,7 @@ export function useSvgCanvasKeyboard(): void {
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedIds.length === 0) return
+        if (selectedEdgeIds.length === 0 && selectedIds.length === 0) return
         e.preventDefault()
         removeSelected()
       }
