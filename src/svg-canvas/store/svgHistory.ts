@@ -1,8 +1,8 @@
-import type { SvgNode } from './svgTypes'
-import { cloneSvgNode } from './svgTypes'
+import { cloneSvgEdge, cloneSvgNode, type SvgEdge, type SvgNode } from './svgTypes'
 
 export type SvgHistorySnapshot = {
   nodes: SvgNode[]
+  edges: SvgEdge[]
   labelSeq: number
 }
 
@@ -14,6 +14,7 @@ let redoStack: SvgHistorySnapshot[] = []
 function cloneSnapshot(s: SvgHistorySnapshot): SvgHistorySnapshot {
   return {
     nodes: s.nodes.map(cloneSvgNode),
+    edges: s.edges.map(cloneSvgEdge),
     labelSeq: s.labelSeq,
   }
 }

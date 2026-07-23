@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { HALF_H, HALF_W, isoToScreen, snapWorld } from '../math/iso'
+import { attachPoint } from '../routing/attach'
+import { routeIsoManhattan } from '../routing/isoManhattan'
 import {
   clearSvgHistory,
   popSvgRedo,
@@ -8,30 +10,42 @@ import {
   type SvgHistorySnapshot,
 } from './svgHistory'
 import {
+  cloneSvgEdge,
   cloneSvgNode,
+  defaultEdgeStyle,
   emptyConfig,
   type Archetype,
+  type SvgEdge,
   type SvgNode,
 } from './svgTypes'
 
-export type { Archetype, SvgNode } from './svgTypes'
+export type { Archetype, SvgEdge, SvgNode } from './svgTypes'
 
 /** In-memory clipboard — deep clones including `config` for future inspector fields. */
 let clipboard: SvgNode[] = []
 
 type SvgCanvasState = {
   nodes: SvgNode[]
+  edges: SvgEdge[]
   selectedIds: string[]
+  selectedEdgeIds: string[]
   placingArchetype: Archetype | null
+  connectMode: boolean
+  connectSourceId: string | null
   labelSeq: number
   setPlacingArchetype: (a: Archetype | null) => void
   togglePlacingArchetype: (a: Archetype) => void
+  setConnectMode: (on: boolean) => void
+  setConnectSourceId: (id: string | null) => void
   placeNodeAt: (x: number, y: number) => void
   selectOnly: (id: string | null) => void
   toggleInSelection: (id: string) => void
   selectAllNodes: () => void
   setSelectedIds: (ids: string[]) => void
+  selectEdgesOnly: (ids: string[]) => void
+  addEdge: (sourceId: string, targetId: string) => void
   moveNodes: (updates: { id: string; x: number; y: number }[]) => void
+  rerouteEdgesForNodes: (nodeIds: string[]) => void
   removeSelected: () => void
   copySelected: () => void
   pasteClipboard: () => void
@@ -44,8 +58,30 @@ function nextLabel(seq: number): { label: string; labelSeq: number } {
   return { label: `T${seq}`, labelSeq: seq + 1 }
 }
 
-function snapshotOf(s: { nodes: SvgNode[]; labelSeq: number }): SvgHistorySnapshot {
-  return { nodes: s.nodes, labelSeq: s.labelSeq }
+function snapshotOf(s: {
+  nodes: SvgNode[]
+  edges: SvgEdge[]
+  labelSeq: number
+}): SvgHistorySnapshot {
+  return { nodes: s.nodes, edges: s.edges, labelSeq: s.labelSeq }
+}
+
+function routeBetween(
+  nodes: SvgNode[],
+  sourceId: string,
+  targetId: string,
+): { x: number; y: number }[] {
+  const source = nodes.find((n) => n.id === sourceId)
+  const target = nodes.find((n) => n.id === targetId)
+  if (!source || !target) return []
+  const obstacleAnchors = nodes
+    .filter((n) => n.id !== sourceId && n.id !== targetId)
+    .map((n) => ({ x: n.x, y: n.y }))
+  return routeIsoManhattan({
+    source: attachPoint(source),
+    target: attachPoint(target),
+    obstacleAnchors,
+  })
 }
 
 const seedPos = isoToScreen(0.5, -0.5)
@@ -65,16 +101,39 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
       config: emptyConfig(),
     },
   ],
+  edges: [],
   selectedIds: [],
+  selectedEdgeIds: [],
   placingArchetype: null,
+  connectMode: false,
+  connectSourceId: null,
   labelSeq: seed.labelSeq,
 
-  setPlacingArchetype: (placingArchetype) => set({ placingArchetype }),
+  setPlacingArchetype: (placingArchetype) =>
+    set({
+      placingArchetype,
+      ...(placingArchetype
+        ? { connectMode: false, connectSourceId: null }
+        : {}),
+    }),
 
   togglePlacingArchetype: (a) =>
-    set((s) => ({
-      placingArchetype: s.placingArchetype === a ? null : a,
-    })),
+    set((s) => {
+      const next = s.placingArchetype === a ? null : a
+      return {
+        placingArchetype: next,
+        ...(next ? { connectMode: false, connectSourceId: null } : {}),
+      }
+    }),
+
+  setConnectMode: (on) =>
+    set({
+      connectMode: on,
+      connectSourceId: null,
+      ...(on ? { placingArchetype: null } : {}),
+    }),
+
+  setConnectSourceId: (connectSourceId) => set({ connectSourceId }),
 
   placeNodeAt: (x, y) => {
     const state = get()
@@ -93,11 +152,16 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     set({
       nodes: [...state.nodes, node],
       selectedIds: [node.id],
+      selectedEdgeIds: [],
       labelSeq: next,
     })
   },
 
-  selectOnly: (id) => set({ selectedIds: id ? [id] : [] }),
+  selectOnly: (id) =>
+    set({
+      selectedIds: id ? [id] : [],
+      selectedEdgeIds: [],
+    }),
 
   toggleInSelection: (id) =>
     set((s) => {
@@ -106,16 +170,54 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
         selectedIds: has
           ? s.selectedIds.filter((sid) => sid !== id)
           : [...s.selectedIds, id],
+        selectedEdgeIds: [],
       }
     }),
 
   selectAllNodes: () =>
     set((s) => {
       if (s.nodes.length === 0) return s
-      return { selectedIds: s.nodes.map((n) => n.id) }
+      return {
+        selectedIds: s.nodes.map((n) => n.id),
+        selectedEdgeIds: [],
+      }
     }),
 
-  setSelectedIds: (selectedIds) => set({ selectedIds }),
+  setSelectedIds: (selectedIds) =>
+    set({ selectedIds, selectedEdgeIds: [] }),
+
+  selectEdgesOnly: (selectedEdgeIds) =>
+    set({ selectedEdgeIds, selectedIds: [] }),
+
+  addEdge: (sourceId, targetId) => {
+    if (sourceId === targetId) return
+    const state = get()
+    const exists = state.edges.some(
+      (e) => e.sourceNodeId === sourceId && e.targetNodeId === targetId,
+    )
+    if (exists) {
+      set({ connectSourceId: null })
+      return
+    }
+    const source = state.nodes.find((n) => n.id === sourceId)
+    const target = state.nodes.find((n) => n.id === targetId)
+    if (!source || !target) return
+    pushSvgHistory(snapshotOf(state))
+    const waypoints = routeBetween(state.nodes, sourceId, targetId)
+    const edge: SvgEdge = {
+      id: crypto.randomUUID(),
+      sourceNodeId: sourceId,
+      targetNodeId: targetId,
+      waypoints,
+      style: defaultEdgeStyle(),
+    }
+    set({
+      edges: [...state.edges, edge],
+      selectedEdgeIds: [edge.id],
+      selectedIds: [],
+      connectSourceId: null,
+    })
+  },
 
   moveNodes: (updates) => {
     if (updates.length === 0) return
@@ -127,22 +229,57 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
         return [u.id, snapped] as const
       }),
     )
+    const nodes = state.nodes.map((n) => {
+      const next = byId.get(n.id)
+      return next ? { ...n, x: next.x, y: next.y } : n
+    })
+    const moved = new Set(byId.keys())
+    const edges = state.edges.map((e) => {
+      if (!moved.has(e.sourceNodeId) && !moved.has(e.targetNodeId)) return e
+      return {
+        ...e,
+        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
+      }
+    })
+    set({ nodes, edges })
+  },
+
+  rerouteEdgesForNodes: (nodeIds) => {
+    if (nodeIds.length === 0) return
+    const state = get()
+    const moved = new Set(nodeIds)
     set({
-      nodes: state.nodes.map((n) => {
-        const next = byId.get(n.id)
-        return next ? { ...n, x: next.x, y: next.y } : n
+      edges: state.edges.map((e) => {
+        if (!moved.has(e.sourceNodeId) && !moved.has(e.targetNodeId)) return e
+        return {
+          ...e,
+          waypoints: routeBetween(state.nodes, e.sourceNodeId, e.targetNodeId),
+        }
       }),
     })
   },
 
   removeSelected: () => {
     const state = get()
+    if (state.selectedEdgeIds.length > 0) {
+      const remove = new Set(state.selectedEdgeIds)
+      pushSvgHistory(snapshotOf(state))
+      set({
+        edges: state.edges.filter((e) => !remove.has(e.id)),
+        selectedEdgeIds: [],
+      })
+      return
+    }
     if (state.selectedIds.length === 0) return
     const remove = new Set(state.selectedIds)
     pushSvgHistory(snapshotOf(state))
     set({
       nodes: state.nodes.filter((n) => !remove.has(n.id)),
+      edges: state.edges.filter(
+        (e) => !remove.has(e.sourceNodeId) && !remove.has(e.targetNodeId),
+      ),
       selectedIds: [],
+      selectedEdgeIds: [],
     })
   },
 
@@ -157,7 +294,6 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (clipboard.length === 0) return
     const state = get()
     pushSvgHistory(snapshotOf(state))
-    // Offset by one half-cell so pastes don't stack on the source.
     const ox = HALF_W
     const oy = HALF_H
     let seq = state.labelSeq
@@ -174,8 +310,6 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
         label,
       })
     }
-    // Next paste stacks further if clipboard unchanged — bump clipboard positions
-    // so repeated Ctrl+V keeps stepping (Cloudcraft-like).
     clipboard = clipboard.map((n) => ({
       ...cloneSvgNode(n),
       x: n.x + ox,
@@ -184,12 +318,18 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     set({
       nodes: [...state.nodes, ...created],
       selectedIds: created.map((n) => n.id),
+      selectedEdgeIds: [],
       labelSeq: seq,
     })
   },
 
   clearPlacementAndSelection: () =>
-    set({ placingArchetype: null, selectedIds: [] }),
+    set({
+      placingArchetype: null,
+      selectedIds: [],
+      selectedEdgeIds: [],
+      connectSourceId: null,
+    }),
 
   undo: () => {
     const state = get()
@@ -197,8 +337,11 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (!prev) return
     set({
       nodes: prev.nodes.map(cloneSvgNode),
+      edges: prev.edges.map(cloneSvgEdge),
       labelSeq: prev.labelSeq,
       selectedIds: [],
+      selectedEdgeIds: [],
+      connectSourceId: null,
     })
   },
 
@@ -208,8 +351,11 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (!next) return
     set({
       nodes: next.nodes.map(cloneSvgNode),
+      edges: next.edges.map(cloneSvgEdge),
       labelSeq: next.labelSeq,
       selectedIds: [],
+      selectedEdgeIds: [],
+      connectSourceId: null,
     })
   },
 }))

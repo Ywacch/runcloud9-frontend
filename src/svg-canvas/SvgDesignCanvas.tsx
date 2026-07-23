@@ -8,11 +8,14 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { AppServerGlyph } from './components/AppServerGlyph'
+import { ConnectToggle } from './components/ConnectToggle'
+import { EdgeLayer } from './components/EdgeLayer'
 import { Floor, type GridMode } from './components/Floor'
 import { GridPatterns } from './components/GridPatterns'
 import { MiniPalette } from './components/MiniPalette'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
+import { attachPoint } from './routing/attach'
 import { useSvgCanvasStore } from './store/svgCanvasStore'
 
 const MIN_VIEW = 400
@@ -80,6 +83,7 @@ export default function SvgDesignCanvas() {
   const [panning, setPanning] = useState(false)
   const [drag, setDrag] = useState<DragSession | null>(null)
   const [marquee, setMarquee] = useState<Marquee | null>(null)
+  const [rubberTip, setRubberTip] = useState<WorldPoint | null>(null)
   const panLast = useRef<{ x: number; y: number } | null>(null)
   const panOrigin = useRef<{ x: number; y: number } | null>(null)
   const panMoved = useRef(false)
@@ -88,15 +92,26 @@ export default function SvgDesignCanvas() {
   const marqueeActive = useRef(false)
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
+  const edges = useSvgCanvasStore((s) => s.edges)
   const selectedIds = useSvgCanvasStore((s) => s.selectedIds)
+  const selectedEdgeIds = useSvgCanvasStore((s) => s.selectedEdgeIds)
   const placingArchetype = useSvgCanvasStore((s) => s.placingArchetype)
+  const connectMode = useSvgCanvasStore((s) => s.connectMode)
+  const connectSourceId = useSvgCanvasStore((s) => s.connectSourceId)
   const placeNodeAt = useSvgCanvasStore((s) => s.placeNodeAt)
   const selectOnly = useSvgCanvasStore((s) => s.selectOnly)
   const toggleInSelection = useSvgCanvasStore((s) => s.toggleInSelection)
   const setSelectedIds = useSvgCanvasStore((s) => s.setSelectedIds)
+  const selectEdgesOnly = useSvgCanvasStore((s) => s.selectEdgesOnly)
+  const setConnectSourceId = useSvgCanvasStore((s) => s.setConnectSourceId)
+  const addEdge = useSvgCanvasStore((s) => s.addEdge)
   const moveNodes = useSvgCanvasStore((s) => s.moveNodes)
 
   useSvgCanvasKeyboard()
+
+  useEffect(() => {
+    if (!connectSourceId) setRubberTip(null)
+  }, [connectSourceId])
 
   useEffect(() => {
     const host = hostRef.current
@@ -177,12 +192,25 @@ export default function SvgDesignCanvas() {
       const svg = svgRef.current
       if (!svg) return
 
+      const state = useSvgCanvasStore.getState()
+      if (state.connectMode) {
+        if (state.connectSourceId == null) {
+          setConnectSourceId(nodeId)
+        } else if (state.connectSourceId === nodeId) {
+          setConnectSourceId(null)
+          setRubberTip(null)
+        } else {
+          addEdge(state.connectSourceId, nodeId)
+          setRubberTip(null)
+        }
+        return
+      }
+
       if (e.ctrlKey || e.metaKey) {
         toggleInSelection(nodeId)
         return
       }
 
-      const state = useSvgCanvasStore.getState()
       const node = state.nodes.find((n) => n.id === nodeId)
       if (!node) return
 
@@ -196,7 +224,6 @@ export default function SvgDesignCanvas() {
         const n = state.nodes.find((x) => x.id === id)
         if (n) origins[id] = { x: n.x, y: n.y }
       }
-      // ensure primary is present even if selection race
       origins[nodeId] = { x: node.x, y: node.y }
 
       const session: DragSession = {
@@ -211,7 +238,16 @@ export default function SvgDesignCanvas() {
       setDrag(session)
       svg.setPointerCapture(e.pointerId)
     },
-    [spaceDown, selectOnly, toggleInSelection],
+    [spaceDown, selectOnly, toggleInSelection, setConnectSourceId, addEdge],
+  )
+
+  const onEdgePointerDown = useCallback(
+    (edgeId: string, e: ReactPointerEvent<SVGElement>) => {
+      if (e.button !== 0 || spaceDown) return
+      e.stopPropagation()
+      selectEdgesOnly([edgeId])
+    },
+    [spaceDown, selectEdgesOnly],
   )
 
   const onPointerDown = useCallback(
@@ -249,8 +285,12 @@ export default function SvgDesignCanvas() {
       const svg = svgRef.current
       if (!svg) return
 
+      const world = clientToWorld(svg, e.clientX, e.clientY)
+      if (useSvgCanvasStore.getState().connectSourceId) {
+        setRubberTip(world)
+      }
+
       if (marqueeActive.current && marqueeRef.current) {
-        const world = clientToWorld(svg, e.clientX, e.clientY)
         const m = {
           ...marqueeRef.current,
           x1: world.x,
@@ -283,7 +323,6 @@ export default function SvgDesignCanvas() {
 
       const session = dragRef.current
       if (!session) return
-      const world = clientToWorld(svg, e.clientX, e.clientY)
       const updated: DragSession = {
         ...session,
         dx: world.x - session.grabWorld.x,
@@ -353,8 +392,11 @@ export default function SvgDesignCanvas() {
 
         if (wasClick && svg) {
           const world = clientToWorld(svg, e.clientX, e.clientY)
-          const placing = useSvgCanvasStore.getState().placingArchetype
-          if (placing) {
+          const st = useSvgCanvasStore.getState()
+          if (st.connectMode) {
+            setConnectSourceId(null)
+            setRubberTip(null)
+          } else if (st.placingArchetype) {
             placeNodeAt(world.x, world.y)
           } else {
             selectOnly(null)
@@ -362,7 +404,15 @@ export default function SvgDesignCanvas() {
         }
       }
     },
-    [panning, spaceDown, moveNodes, placeNodeAt, selectOnly, setSelectedIds],
+    [
+      panning,
+      spaceDown,
+      moveNodes,
+      placeNodeAt,
+      selectOnly,
+      setSelectedIds,
+      setConnectSourceId,
+    ],
   )
 
   const zoomBy = useCallback(
@@ -398,11 +448,19 @@ export default function SvgDesignCanvas() {
   }, [drag])
 
   const latticeHint = useMemo(() => {
+    if (connectMode) {
+      return connectSourceId
+        ? `connect: pick target · ${edges.length} edges`
+        : `connect: pick source · ${edges.length} edges`
+    }
     const nSel = selectedIds.length
     if (placingArchetype) {
       return `placing ${placingArchetype} · ${nodes.length} nodes`
     }
-    if (nSel === 0) return `${nodes.length} nodes`
+    if (selectedEdgeIds.length > 0) {
+      return `${selectedEdgeIds.length} edge(s) · ${edges.length} total`
+    }
+    if (nSel === 0) return `${nodes.length} nodes · ${edges.length} edges`
     if (nSel === 1) {
       const id = selectedIds[0]
       const node = nodes.find((n) => n.id === id)
@@ -413,7 +471,23 @@ export default function SvgDesignCanvas() {
       return `${drag ? 'glide' : 'rest'} ${node.label} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
     }
     return `${nSel} selected · ${nodes.length} nodes`
-  }, [nodes, selectedIds, drag, placingArchetype, liveById])
+  }, [
+    nodes,
+    edges.length,
+    selectedIds,
+    selectedEdgeIds,
+    drag,
+    placingArchetype,
+    liveById,
+    connectMode,
+    connectSourceId,
+  ])
+
+  const rubberFrom = useMemo(() => {
+    if (!connectSourceId) return null
+    const n = nodes.find((x) => x.id === connectSourceId)
+    return n ? attachPoint(n) : null
+  }, [connectSourceId, nodes])
 
   const viewBoxStr = `${view.x} ${view.y} ${view.w} ${view.h}`
   const cursor = drag || marquee
@@ -422,7 +496,7 @@ export default function SvgDesignCanvas() {
       : 'cursor-crosshair'
     : panning && panMoved.current
       ? 'cursor-grabbing'
-      : placingArchetype
+      : placingArchetype || connectMode
         ? 'cursor-crosshair'
         : 'cursor-grab'
 
@@ -441,9 +515,10 @@ export default function SvgDesignCanvas() {
         <span className="font-medium text-zinc-900">SVG canvas spike</span>
         <span className="text-zinc-300">|</span>
         <span className="text-zinc-500">
-          Ctrl+A / C / V · marquee · undo Ctrl+Z · drag empty to pan
+          Connect · Ctrl+A/C/V · undo Ctrl+Z · drag empty to pan
         </span>
         <MiniPalette />
+        <ConnectToggle />
         <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
           <button
             type="button"
@@ -517,6 +592,23 @@ export default function SvgDesignCanvas() {
             viewW={view.w}
             viewH={view.h}
           />
+          <EdgeLayer
+            edges={edges}
+            selectedEdgeIds={selectedEdgeIds}
+            onEdgePointerDown={onEdgePointerDown}
+          />
+          {rubberFrom && rubberTip ? (
+            <line
+              x1={rubberFrom.x}
+              y1={rubberFrom.y}
+              x2={rubberTip.x}
+              y2={rubberTip.y}
+              stroke="#3b82f6"
+              strokeWidth={1.5}
+              strokeDasharray="6 4"
+              style={{ pointerEvents: 'none' }}
+            />
+          ) : null}
           {sortedNodes.map((node) => {
             const live = liveById?.get(node.id) ?? { x: node.x, y: node.y }
             return (
@@ -525,7 +617,9 @@ export default function SvgDesignCanvas() {
                 x={live.x}
                 y={live.y}
                 label={node.label}
-                selected={selectedSet.has(node.id)}
+                selected={
+                  selectedSet.has(node.id) || node.id === connectSourceId
+                }
                 interactive={!spaceDown && !panning && !marquee}
                 onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
               />
