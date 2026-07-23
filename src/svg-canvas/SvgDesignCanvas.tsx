@@ -7,18 +7,27 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
-import { DemoCube } from './components/DemoCube'
+import { AppServerGlyph } from './components/AppServerGlyph'
 import { Floor, type GridMode } from './components/Floor'
 import { GridPatterns } from './components/GridPatterns'
-import { isoToScreen, screenToIso, snapWorld, type WorldPoint } from './math/iso'
+import { MiniPalette } from './components/MiniPalette'
+import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
+import { useSvgCanvasStore } from './store/svgCanvasStore'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
 const ZOOM_FACTOR = 1.12
+/** Below this screen-px travel, empty pointer-up is a click (place/deselect), not a pan. */
+const CLICK_SLOP_PX = 5
 
 type ViewBox = { x: number; y: number; w: number; h: number }
 
-/** Closer default zoom so ~a handful of major cells fill the viewport (Cloudcraft-like). */
+type DragSession = {
+  id: string
+  grabOffset: WorldPoint
+  livePos: WorldPoint
+}
+
 function initialViewBox(hostW: number, hostH: number): ViewBox {
   const aspect = hostW > 0 && hostH > 0 ? hostW / hostH : 16 / 9
   const h = 780
@@ -45,20 +54,25 @@ export default function SvgDesignCanvas() {
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
   const [mode, setMode] = useState<GridMode>('infinite')
-  /** Committed (snapped) rest position. */
-  const [cube, setCube] = useState<WorldPoint>(() => isoToScreen(0.5, -0.5))
-  /** Live drag position — continuous while dragging (Cloudcraft glide). */
-  const [dragPos, setDragPos] = useState<WorldPoint | null>(null)
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
-  const [dragging, setDragging] = useState(false)
+  const [drag, setDrag] = useState<DragSession | null>(null)
   const panLast = useRef<{ x: number; y: number } | null>(null)
-  const grabOffset = useRef<WorldPoint>({ x: 0, y: 0 })
-  const dragPosRef = useRef<WorldPoint | null>(null)
+  const panOrigin = useRef<{ x: number; y: number } | null>(null)
+  const panMoved = useRef(false)
+  const dragRef = useRef<DragSession | null>(null)
 
-  const displayCube = dragPos ?? cube
+  const nodes = useSvgCanvasStore((s) => s.nodes)
+  const selectedId = useSvgCanvasStore((s) => s.selectedId)
+  const placingArchetype = useSvgCanvasStore((s) => s.placingArchetype)
+  const placeNodeAt = useSvgCanvasStore((s) => s.placeNodeAt)
+  const selectNode = useSvgCanvasStore((s) => s.selectNode)
+  const moveNode = useSvgCanvasStore((s) => s.moveNode)
+  const removeSelected = useSvgCanvasStore((s) => s.removeSelected)
+  const clearPlacementAndSelection = useSvgCanvasStore(
+    (s) => s.clearPlacementAndSelection,
+  )
 
-  // Resize → keep world center, match aspect
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
@@ -82,9 +96,24 @@ export default function SvgDesignCanvas() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      const target = e.target as HTMLElement | null
+      const typing =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      if (e.code === 'Space' && !typing) {
         e.preventDefault()
         setSpaceDown(true)
+        return
+      }
+      if (e.key === 'Escape') {
+        clearPlacementAndSelection()
+        return
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !typing) {
+        e.preventDefault()
+        removeSelected()
       }
     }
     const onKeyUp = (e: KeyboardEvent) => {
@@ -96,7 +125,7 @@ export default function SvgDesignCanvas() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [])
+  }, [clearPlacementAndSelection, removeSelected])
 
   const zoomAround = useCallback((factor: number, worldX: number, worldY: number) => {
     setView((v) => {
@@ -125,31 +154,37 @@ export default function SvgDesignCanvas() {
     [zoomAround],
   )
 
-  const beginCubeDrag = useCallback(
-    (e: ReactPointerEvent<SVGGElement>) => {
+  const beginNodeDrag = useCallback(
+    (nodeId: string, e: ReactPointerEvent<SVGGElement>) => {
       if (e.button !== 0 || spaceDown) return
       e.stopPropagation()
       const svg = svgRef.current
       if (!svg) return
+      const node = useSvgCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+      if (!node) return
       const world = clientToWorld(svg, e.clientX, e.clientY)
-      grabOffset.current = { x: displayCube.x - world.x, y: displayCube.y - world.y }
-      dragPosRef.current = displayCube
-      setDragging(true)
-      setDragPos(displayCube)
+      selectNode(nodeId)
+      const session: DragSession = {
+        id: nodeId,
+        grabOffset: { x: node.x - world.x, y: node.y - world.y },
+        livePos: { x: node.x, y: node.y },
+      }
+      dragRef.current = session
+      setDrag(session)
       svg.setPointerCapture(e.pointerId)
     },
-    [displayCube, spaceDown],
+    [spaceDown, selectNode],
   )
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       const svg = svgRef.current
       if (!svg) return
-      // Empty-canvas pan: left-drag, middle-drag, or Space+drag (Cloudcraft-style).
-      // Cube drag uses stopPropagation so it never reaches here.
       if (e.button !== 0 && e.button !== 1) return
       if (e.button === 1) e.preventDefault()
       setPanning(true)
+      panMoved.current = false
+      panOrigin.current = { x: e.clientX, y: e.clientY }
       panLast.current = { x: e.clientX, y: e.clientY }
       svg.setPointerCapture(e.pointerId)
     },
@@ -164,39 +199,46 @@ export default function SvgDesignCanvas() {
       if (panning && panLast.current) {
         const dx = e.clientX - panLast.current.x
         const dy = e.clientY - panLast.current.y
+        if (panOrigin.current) {
+          const ox = e.clientX - panOrigin.current.x
+          const oy = e.clientY - panOrigin.current.y
+          if (Math.hypot(ox, oy) > CLICK_SLOP_PX) panMoved.current = true
+        }
         panLast.current = { x: e.clientX, y: e.clientY }
-        const rect = svg.getBoundingClientRect()
-        setView((v) => ({
-          ...v,
-          x: v.x - (dx / rect.width) * v.w,
-          y: v.y - (dy / rect.height) * v.h,
-        }))
+        if (panMoved.current) {
+          const rect = svg.getBoundingClientRect()
+          setView((v) => ({
+            ...v,
+            x: v.x - (dx / rect.width) * v.w,
+            y: v.y - (dy / rect.height) * v.h,
+          }))
+        }
         return
       }
 
-      if (!dragging) return
-
+      const session = dragRef.current
+      if (!session) return
       const world = clientToWorld(svg, e.clientX, e.clientY)
       const next = {
-        x: world.x + grabOffset.current.x,
-        y: world.y + grabOffset.current.y,
+        x: world.x + session.grabOffset.x,
+        y: world.y + session.grabOffset.y,
       }
-      // Glide with the pointer — no snap while moving.
-      dragPosRef.current = next
-      setDragPos(next)
+      const updated = { ...session, livePos: next }
+      dragRef.current = updated
+      setDrag(updated)
     },
-    [panning, dragging],
+    [panning],
   )
 
   const endPointer = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
-      if (dragging) {
-        const live = dragPosRef.current ?? cube
-        const landed = snapWorld(live.x, live.y)
-        dragPosRef.current = null
-        setCube(landed)
-        setDragPos(null)
-        setDragging(false)
+      const svg = svgRef.current
+
+      if (dragRef.current) {
+        const session = dragRef.current
+        moveNode(session.id, session.livePos.x, session.livePos.y)
+        dragRef.current = null
+        setDrag(null)
         try {
           e.currentTarget.releasePointerCapture(e.pointerId)
         } catch {
@@ -204,17 +246,30 @@ export default function SvgDesignCanvas() {
         }
         return
       }
+
       if (panning) {
+        const wasClick = !panMoved.current && e.button === 0 && !spaceDown
         setPanning(false)
         panLast.current = null
+        panOrigin.current = null
         try {
           e.currentTarget.releasePointerCapture(e.pointerId)
         } catch {
           /* ignore */
         }
+
+        if (wasClick && svg) {
+          const world = clientToWorld(svg, e.clientX, e.clientY)
+          const placing = useSvgCanvasStore.getState().placingArchetype
+          if (placing) {
+            placeNodeAt(world.x, world.y)
+          } else {
+            selectNode(null)
+          }
+        }
       }
     },
-    [dragging, cube, panning],
+    [panning, spaceDown, moveNode, placeNodeAt, selectNode],
   )
 
   const zoomBy = useCallback(
@@ -233,20 +288,39 @@ export default function SvgDesignCanvas() {
     setView(initialViewBox(width, height))
   }, [])
 
+  const sortedNodes = useMemo(() => {
+    return [...nodes].sort((a, b) => a.y - b.y || a.x - b.x)
+  }, [nodes])
+
   const latticeHint = useMemo(() => {
-    const p = displayCube
-    const snapped = snapWorld(p.x, p.y)
+    const selected = nodes.find((n) => n.id === selectedId)
+    const live =
+      drag && selectedId === drag.id
+        ? drag.livePos
+        : selected
+          ? { x: selected.x, y: selected.y }
+          : null
+    if (!live) {
+      return placingArchetype
+        ? `placing ${placingArchetype} · ${nodes.length} nodes`
+        : `${nodes.length} nodes`
+    }
+    const snapped = snapWorld(live.x, live.y)
     const iso = screenToIso(snapped.x, snapped.y)
-    const live = dragging ? 'glide' : 'rest'
-    return `${live} ${p.x.toFixed(0)},${p.y.toFixed(0)} → snap (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
-  }, [displayCube, dragging])
+    const modeHint = drag ? 'glide' : 'rest'
+    return `${modeHint} ${selected?.label ?? ''} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
+  }, [nodes, selectedId, drag, placingArchetype])
 
   const viewBoxStr = `${view.x} ${view.y} ${view.w} ${view.h}`
-  const cursor = panning || dragging
+  const cursor = drag
     ? 'cursor-grabbing'
-    : spaceDown
-      ? 'cursor-grab'
-      : 'cursor-grab'
+    : panning && panMoved.current
+      ? 'cursor-grabbing'
+      : placingArchetype
+        ? 'cursor-crosshair'
+        : spaceDown
+          ? 'cursor-grab'
+          : 'cursor-grab'
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col bg-[#f4f5f7]">
@@ -254,8 +328,9 @@ export default function SvgDesignCanvas() {
         <span className="font-medium text-zinc-900">SVG canvas spike</span>
         <span className="text-zinc-300">|</span>
         <span className="text-zinc-500">
-          Drag empty to pan · drag cube to move · wheel zoom
+          Place · select · drag snaps on drop · drag empty to pan
         </span>
+        <MiniPalette />
         <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
           <button
             type="button"
@@ -329,12 +404,21 @@ export default function SvgDesignCanvas() {
             viewW={view.w}
             viewH={view.h}
           />
-          <DemoCube
-            x={displayCube.x}
-            y={displayCube.y}
-            interactive={!panning && !spaceDown}
-            onPointerDown={beginCubeDrag}
-          />
+          {sortedNodes.map((node) => {
+            const live =
+              drag && drag.id === node.id ? drag.livePos : { x: node.x, y: node.y }
+            return (
+              <AppServerGlyph
+                key={node.id}
+                x={live.x}
+                y={live.y}
+                label={node.label}
+                selected={node.id === selectedId}
+                interactive={!spaceDown && !panning}
+                onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
+              />
+            )
+          })}
         </svg>
       </div>
     </div>
