@@ -11,22 +11,31 @@ import { AppServerGlyph } from './components/AppServerGlyph'
 import { Floor, type GridMode } from './components/Floor'
 import { GridPatterns } from './components/GridPatterns'
 import { MiniPalette } from './components/MiniPalette'
+import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { useSvgCanvasStore } from './store/svgCanvasStore'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
 const ZOOM_FACTOR = 1.12
-/** Below this screen-px travel, empty pointer-up is a click (place/deselect), not a pan. */
 const CLICK_SLOP_PX = 5
 
 type ViewBox = { x: number; y: number; w: number; h: number }
 
 type DragSession = {
-  id: string
-  grabOffset: WorldPoint
-  livePos: WorldPoint
+  /** Primary grab node (under pointer). */
+  primaryId: string
+  /** All node ids moving with this drag. */
+  ids: string[]
+  /** Origins at drag start, keyed by id. */
+  origins: Record<string, WorldPoint>
+  grabWorld: WorldPoint
+  /** Live delta from grab. */
+  dx: number
+  dy: number
 }
+
+type Marquee = { x0: number; y0: number; x1: number; y1: number }
 
 function initialViewBox(hostW: number, hostH: number): ViewBox {
   const aspect = hostW > 0 && hostH > 0 ? hostW / hostH : 16 / 9
@@ -49,6 +58,19 @@ function clientToWorld(
   return { x: local.x, y: local.y }
 }
 
+function anchorsInMarquee(
+  nodes: { id: string; x: number; y: number }[],
+  m: Marquee,
+): string[] {
+  const minX = Math.min(m.x0, m.x1)
+  const maxX = Math.max(m.x0, m.x1)
+  const minY = Math.min(m.y0, m.y1)
+  const maxY = Math.max(m.y0, m.y1)
+  return nodes
+    .filter((n) => n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY)
+    .map((n) => n.id)
+}
+
 export default function SvgDesignCanvas() {
   const hostRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -57,21 +79,24 @@ export default function SvgDesignCanvas() {
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
   const [drag, setDrag] = useState<DragSession | null>(null)
+  const [marquee, setMarquee] = useState<Marquee | null>(null)
   const panLast = useRef<{ x: number; y: number } | null>(null)
   const panOrigin = useRef<{ x: number; y: number } | null>(null)
   const panMoved = useRef(false)
   const dragRef = useRef<DragSession | null>(null)
+  const marqueeRef = useRef<Marquee | null>(null)
+  const marqueeActive = useRef(false)
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
-  const selectedId = useSvgCanvasStore((s) => s.selectedId)
+  const selectedIds = useSvgCanvasStore((s) => s.selectedIds)
   const placingArchetype = useSvgCanvasStore((s) => s.placingArchetype)
   const placeNodeAt = useSvgCanvasStore((s) => s.placeNodeAt)
-  const selectNode = useSvgCanvasStore((s) => s.selectNode)
-  const moveNode = useSvgCanvasStore((s) => s.moveNode)
-  const removeSelected = useSvgCanvasStore((s) => s.removeSelected)
-  const clearPlacementAndSelection = useSvgCanvasStore(
-    (s) => s.clearPlacementAndSelection,
-  )
+  const selectOnly = useSvgCanvasStore((s) => s.selectOnly)
+  const toggleInSelection = useSvgCanvasStore((s) => s.toggleInSelection)
+  const setSelectedIds = useSvgCanvasStore((s) => s.setSelectedIds)
+  const moveNodes = useSvgCanvasStore((s) => s.moveNodes)
+
+  useSvgCanvasKeyboard()
 
   useEffect(() => {
     const host = hostRef.current
@@ -105,15 +130,6 @@ export default function SvgDesignCanvas() {
       if (e.code === 'Space' && !typing) {
         e.preventDefault()
         setSpaceDown(true)
-        return
-      }
-      if (e.key === 'Escape') {
-        clearPlacementAndSelection()
-        return
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !typing) {
-        e.preventDefault()
-        removeSelected()
       }
     }
     const onKeyUp = (e: KeyboardEvent) => {
@@ -125,7 +141,7 @@ export default function SvgDesignCanvas() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [clearPlacementAndSelection, removeSelected])
+  }, [])
 
   const zoomAround = useCallback((factor: number, worldX: number, worldY: number) => {
     setView((v) => {
@@ -160,20 +176,42 @@ export default function SvgDesignCanvas() {
       e.stopPropagation()
       const svg = svgRef.current
       if (!svg) return
-      const node = useSvgCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+
+      if (e.ctrlKey || e.metaKey) {
+        toggleInSelection(nodeId)
+        return
+      }
+
+      const state = useSvgCanvasStore.getState()
+      const node = state.nodes.find((n) => n.id === nodeId)
       if (!node) return
+
+      const already = state.selectedIds.includes(nodeId)
+      const ids = already ? [...state.selectedIds] : [nodeId]
+      if (!already) selectOnly(nodeId)
+
       const world = clientToWorld(svg, e.clientX, e.clientY)
-      selectNode(nodeId)
+      const origins: Record<string, WorldPoint> = {}
+      for (const id of ids) {
+        const n = state.nodes.find((x) => x.id === id)
+        if (n) origins[id] = { x: n.x, y: n.y }
+      }
+      // ensure primary is present even if selection race
+      origins[nodeId] = { x: node.x, y: node.y }
+
       const session: DragSession = {
-        id: nodeId,
-        grabOffset: { x: node.x - world.x, y: node.y - world.y },
-        livePos: { x: node.x, y: node.y },
+        primaryId: nodeId,
+        ids: Object.keys(origins),
+        origins,
+        grabWorld: world,
+        dx: 0,
+        dy: 0,
       }
       dragRef.current = session
       setDrag(session)
       svg.setPointerCapture(e.pointerId)
     },
-    [spaceDown, selectNode],
+    [spaceDown, selectOnly, toggleInSelection],
   )
 
   const onPointerDown = useCallback(
@@ -182,19 +220,46 @@ export default function SvgDesignCanvas() {
       if (!svg) return
       if (e.button !== 0 && e.button !== 1) return
       if (e.button === 1) e.preventDefault()
+
+      const world = clientToWorld(svg, e.clientX, e.clientY)
+      const wantMarquee =
+        e.button === 0 && (e.ctrlKey || e.metaKey) && !spaceDown
+
+      if (wantMarquee) {
+        marqueeActive.current = true
+        const m = { x0: world.x, y0: world.y, x1: world.x, y1: world.y }
+        marqueeRef.current = m
+        setMarquee(m)
+        svg.setPointerCapture(e.pointerId)
+        return
+      }
+
+      marqueeActive.current = false
       setPanning(true)
       panMoved.current = false
       panOrigin.current = { x: e.clientX, y: e.clientY }
       panLast.current = { x: e.clientX, y: e.clientY }
       svg.setPointerCapture(e.pointerId)
     },
-    [],
+    [spaceDown],
   )
 
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       const svg = svgRef.current
       if (!svg) return
+
+      if (marqueeActive.current && marqueeRef.current) {
+        const world = clientToWorld(svg, e.clientX, e.clientY)
+        const m = {
+          ...marqueeRef.current,
+          x1: world.x,
+          y1: world.y,
+        }
+        marqueeRef.current = m
+        setMarquee(m)
+        return
+      }
 
       if (panning && panLast.current) {
         const dx = e.clientX - panLast.current.x
@@ -219,11 +284,11 @@ export default function SvgDesignCanvas() {
       const session = dragRef.current
       if (!session) return
       const world = clientToWorld(svg, e.clientX, e.clientY)
-      const next = {
-        x: world.x + session.grabOffset.x,
-        y: world.y + session.grabOffset.y,
+      const updated: DragSession = {
+        ...session,
+        dx: world.x - session.grabWorld.x,
+        dy: world.y - session.grabWorld.y,
       }
-      const updated = { ...session, livePos: next }
       dragRef.current = updated
       setDrag(updated)
     },
@@ -236,13 +301,41 @@ export default function SvgDesignCanvas() {
 
       if (dragRef.current) {
         const session = dragRef.current
-        moveNode(session.id, session.livePos.x, session.livePos.y)
+        const updates = session.ids.map((id) => {
+          const o = session.origins[id]
+          return {
+            id,
+            x: o.x + session.dx,
+            y: o.y + session.dy,
+          }
+        })
+        moveNodes(updates)
         dragRef.current = null
         setDrag(null)
         try {
           e.currentTarget.releasePointerCapture(e.pointerId)
         } catch {
           /* ignore */
+        }
+        return
+      }
+
+      if (marqueeActive.current) {
+        const m = marqueeRef.current
+        marqueeActive.current = false
+        marqueeRef.current = null
+        setMarquee(null)
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        } catch {
+          /* ignore */
+        }
+        if (m) {
+          const ids = anchorsInMarquee(
+            useSvgCanvasStore.getState().nodes,
+            m,
+          )
+          setSelectedIds(ids)
         }
         return
       }
@@ -264,12 +357,12 @@ export default function SvgDesignCanvas() {
           if (placing) {
             placeNodeAt(world.x, world.y)
           } else {
-            selectNode(null)
+            selectOnly(null)
           }
         }
       }
     },
-    [panning, spaceDown, moveNode, placeNodeAt, selectNode],
+    [panning, spaceDown, moveNodes, placeNodeAt, selectOnly, setSelectedIds],
   )
 
   const zoomBy = useCallback(
@@ -292,35 +385,55 @@ export default function SvgDesignCanvas() {
     return [...nodes].sort((a, b) => a.y - b.y || a.x - b.x)
   }, [nodes])
 
-  const latticeHint = useMemo(() => {
-    const selected = nodes.find((n) => n.id === selectedId)
-    const live =
-      drag && selectedId === drag.id
-        ? drag.livePos
-        : selected
-          ? { x: selected.x, y: selected.y }
-          : null
-    if (!live) {
-      return placingArchetype
-        ? `placing ${placingArchetype} · ${nodes.length} nodes`
-        : `${nodes.length} nodes`
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+
+  const liveById = useMemo(() => {
+    if (!drag) return null as Map<string, WorldPoint> | null
+    const map = new Map<string, WorldPoint>()
+    for (const id of drag.ids) {
+      const o = drag.origins[id]
+      map.set(id, { x: o.x + drag.dx, y: o.y + drag.dy })
     }
-    const snapped = snapWorld(live.x, live.y)
-    const iso = screenToIso(snapped.x, snapped.y)
-    const modeHint = drag ? 'glide' : 'rest'
-    return `${modeHint} ${selected?.label ?? ''} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
-  }, [nodes, selectedId, drag, placingArchetype])
+    return map
+  }, [drag])
+
+  const latticeHint = useMemo(() => {
+    const nSel = selectedIds.length
+    if (placingArchetype) {
+      return `placing ${placingArchetype} · ${nodes.length} nodes`
+    }
+    if (nSel === 0) return `${nodes.length} nodes`
+    if (nSel === 1) {
+      const id = selectedIds[0]
+      const node = nodes.find((n) => n.id === id)
+      const live = liveById?.get(id) ?? (node ? { x: node.x, y: node.y } : null)
+      if (!live || !node) return `1 selected · ${nodes.length} nodes`
+      const snapped = snapWorld(live.x, live.y)
+      const iso = screenToIso(snapped.x, snapped.y)
+      return `${drag ? 'glide' : 'rest'} ${node.label} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
+    }
+    return `${nSel} selected · ${nodes.length} nodes`
+  }, [nodes, selectedIds, drag, placingArchetype, liveById])
 
   const viewBoxStr = `${view.x} ${view.y} ${view.w} ${view.h}`
-  const cursor = drag
-    ? 'cursor-grabbing'
+  const cursor = drag || marquee
+    ? drag
+      ? 'cursor-grabbing'
+      : 'cursor-crosshair'
     : panning && panMoved.current
       ? 'cursor-grabbing'
       : placingArchetype
         ? 'cursor-crosshair'
-        : spaceDown
-          ? 'cursor-grab'
-          : 'cursor-grab'
+        : 'cursor-grab'
+
+  const marqueeRect = marquee
+    ? {
+        x: Math.min(marquee.x0, marquee.x1),
+        y: Math.min(marquee.y0, marquee.y1),
+        w: Math.abs(marquee.x1 - marquee.x0),
+        h: Math.abs(marquee.y1 - marquee.y0),
+      }
+    : null
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col bg-[#f4f5f7]">
@@ -328,7 +441,7 @@ export default function SvgDesignCanvas() {
         <span className="font-medium text-zinc-900">SVG canvas spike</span>
         <span className="text-zinc-300">|</span>
         <span className="text-zinc-500">
-          Place · select · drag snaps on drop · drag empty to pan
+          Ctrl+A / C / V · marquee · undo Ctrl+Z · drag empty to pan
         </span>
         <MiniPalette />
         <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
@@ -405,20 +518,31 @@ export default function SvgDesignCanvas() {
             viewH={view.h}
           />
           {sortedNodes.map((node) => {
-            const live =
-              drag && drag.id === node.id ? drag.livePos : { x: node.x, y: node.y }
+            const live = liveById?.get(node.id) ?? { x: node.x, y: node.y }
             return (
               <AppServerGlyph
                 key={node.id}
                 x={live.x}
                 y={live.y}
                 label={node.label}
-                selected={node.id === selectedId}
-                interactive={!spaceDown && !panning}
+                selected={selectedSet.has(node.id)}
+                interactive={!spaceDown && !panning && !marquee}
                 onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
               />
             )
           })}
+          {marqueeRect && marqueeRect.w + marqueeRect.h > 0 ? (
+            <rect
+              x={marqueeRect.x}
+              y={marqueeRect.y}
+              width={marqueeRect.w}
+              height={marqueeRect.h}
+              fill="rgba(59, 130, 246, 0.12)"
+              stroke="#3b82f6"
+              strokeWidth={1}
+              style={{ pointerEvents: 'none' }}
+            />
+          ) : null}
         </svg>
       </div>
     </div>
