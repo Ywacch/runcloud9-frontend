@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
+import { syncZoneForNode, unitObstacleAnchors } from '../compose/syncZoneForNode'
 import { HALF_H, HALF_W, isoToScreen, snapWorld } from '../math/iso'
 import { attachPoint } from '../routing/attach'
 import { routeIsoManhattan } from '../routing/isoManhattan'
@@ -12,21 +14,24 @@ import {
 import {
   cloneSvgEdge,
   cloneSvgNode,
+  cloneSvgZone,
   defaultEdgeStyle,
+  defaultTopology,
   emptyConfig,
   type Archetype,
   type SvgEdge,
   type SvgNode,
+  type SvgZone,
 } from './svgTypes'
 
-export type { Archetype, SvgEdge, SvgNode } from './svgTypes'
+export type { Archetype, SvgEdge, SvgNode, SvgZone } from './svgTypes'
 
-/** In-memory clipboard — deep clones including `config` for future inspector fields. */
 let clipboard: SvgNode[] = []
 
 type SvgCanvasState = {
   nodes: SvgNode[]
   edges: SvgEdge[]
+  zones: SvgZone[]
   selectedIds: string[]
   selectedEdgeIds: string[]
   placingArchetype: Archetype | null
@@ -43,6 +48,7 @@ type SvgCanvasState = {
   selectAllNodes: () => void
   setSelectedIds: (ids: string[]) => void
   selectEdgesOnly: (ids: string[]) => void
+  setNodeReplicas: (id: string, replicas: number) => void
   addEdge: (sourceId: string, targetId: string) => void
   moveNodes: (updates: { id: string; x: number; y: number }[]) => void
   rerouteEdgesForNodes: (nodeIds: string[]) => void
@@ -61,9 +67,19 @@ function nextLabel(seq: number): { label: string; labelSeq: number } {
 function snapshotOf(s: {
   nodes: SvgNode[]
   edges: SvgEdge[]
+  zones: SvgZone[]
   labelSeq: number
 }): SvgHistorySnapshot {
-  return { nodes: s.nodes, edges: s.edges, labelSeq: s.labelSeq }
+  return { nodes: s.nodes, edges: s.edges, zones: s.zones, labelSeq: s.labelSeq }
+}
+
+function rebuildZones(nodes: SvgNode[]): SvgZone[] {
+  const zones: SvgZone[] = []
+  for (const n of nodes) {
+    const z = syncZoneForNode(n)
+    if (z) zones.push(z)
+  }
+  return zones
 }
 
 function routeBetween(
@@ -76,7 +92,7 @@ function routeBetween(
   if (!source || !target) return []
   const obstacleAnchors = nodes
     .filter((n) => n.id !== sourceId && n.id !== targetId)
-    .map((n) => ({ x: n.x, y: n.y }))
+    .flatMap((n) => unitObstacleAnchors(n))
   return routeIsoManhattan({
     source: attachPoint(source),
     target: attachPoint(target),
@@ -99,9 +115,11 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
       y: seedPos.y,
       label: seed.label,
       config: emptyConfig(),
+      topology: defaultTopology(),
     },
   ],
   edges: [],
+  zones: [],
   selectedIds: [],
   selectedEdgeIds: [],
   placingArchetype: null,
@@ -148,9 +166,12 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
       y: snapped.y,
       label,
       config: emptyConfig(),
+      topology: defaultTopology(),
     }
+    const nodes = [...state.nodes, node]
     set({
-      nodes: [...state.nodes, node],
+      nodes,
+      zones: rebuildZones(nodes),
       selectedIds: [node.id],
       selectedEdgeIds: [],
       labelSeq: next,
@@ -188,6 +209,29 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
 
   selectEdgesOnly: (selectedEdgeIds) =>
     set({ selectedEdgeIds, selectedIds: [] }),
+
+  setNodeReplicas: (id, replicas) => {
+    const state = get()
+    const node = state.nodes.find((n) => n.id === id)
+    if (!node) return
+    const nextN = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
+    if (nextN === node.topology.replicas) return
+    pushSvgHistory(snapshotOf(state))
+    const nodes = state.nodes.map((n) =>
+      n.id === id
+        ? { ...n, topology: { ...n.topology, replicas: nextN } }
+        : n,
+    )
+    const zones = rebuildZones(nodes)
+    const edges = state.edges.map((e) => {
+      if (e.sourceNodeId !== id && e.targetNodeId !== id) return e
+      return {
+        ...e,
+        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
+      }
+    })
+    set({ nodes, zones, edges })
+  },
 
   addEdge: (sourceId, targetId) => {
     if (sourceId === targetId) return
@@ -241,7 +285,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
         waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
       }
     })
-    set({ nodes, edges })
+    set({ nodes, edges, zones: rebuildZones(nodes) })
   },
 
   rerouteEdgesForNodes: (nodeIds) => {
@@ -273,8 +317,10 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (state.selectedIds.length === 0) return
     const remove = new Set(state.selectedIds)
     pushSvgHistory(snapshotOf(state))
+    const nodes = state.nodes.filter((n) => !remove.has(n.id))
     set({
-      nodes: state.nodes.filter((n) => !remove.has(n.id)),
+      nodes,
+      zones: rebuildZones(nodes),
       edges: state.edges.filter(
         (e) => !remove.has(e.sourceNodeId) && !remove.has(e.targetNodeId),
       ),
@@ -315,8 +361,10 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
       x: n.x + ox,
       y: n.y + oy,
     }))
+    const nodes = [...state.nodes, ...created]
     set({
-      nodes: [...state.nodes, ...created],
+      nodes,
+      zones: rebuildZones(nodes),
       selectedIds: created.map((n) => n.id),
       selectedEdgeIds: [],
       labelSeq: seq,
@@ -338,6 +386,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     set({
       nodes: prev.nodes.map(cloneSvgNode),
       edges: prev.edges.map(cloneSvgEdge),
+      zones: prev.zones.map(cloneSvgZone),
       labelSeq: prev.labelSeq,
       selectedIds: [],
       selectedEdgeIds: [],
@@ -352,6 +401,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     set({
       nodes: next.nodes.map(cloneSvgNode),
       edges: next.edges.map(cloneSvgEdge),
+      zones: next.zones.map(cloneSvgZone),
       labelSeq: next.labelSeq,
       selectedIds: [],
       selectedEdgeIds: [],

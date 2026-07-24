@@ -13,6 +13,10 @@ import { EdgeLayer } from './components/EdgeLayer'
 import { Floor, type GridMode } from './components/Floor'
 import { GridPatterns } from './components/GridPatterns'
 import { MiniPalette } from './components/MiniPalette'
+import { ReplicasStepper } from './components/ReplicasStepper'
+import { ZoneLayer } from './components/ZoneLayer'
+import { composeAppServerUnits } from './compose/composeAppServer'
+import { syncZoneForNode } from './compose/syncZoneForNode'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
@@ -93,6 +97,7 @@ export default function SvgDesignCanvas() {
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
+  const zones = useSvgCanvasStore((s) => s.zones)
   const selectedIds = useSvgCanvasStore((s) => s.selectedIds)
   const selectedEdgeIds = useSvgCanvasStore((s) => s.selectedEdgeIds)
   const placingArchetype = useSvgCanvasStore((s) => s.placingArchetype)
@@ -239,6 +244,15 @@ export default function SvgDesignCanvas() {
       svg.setPointerCapture(e.pointerId)
     },
     [spaceDown, selectOnly, toggleInSelection, setConnectSourceId, addEdge],
+  )
+
+  const onZonePointerDown = useCallback(
+    (ownerNodeId: string, e: ReactPointerEvent<SVGElement>) => {
+      if (e.button !== 0 || spaceDown) return
+      e.stopPropagation()
+      beginNodeDrag(ownerNodeId, e as unknown as ReactPointerEvent<SVGGElement>)
+    },
+    [spaceDown, beginNodeDrag],
   )
 
   const onEdgePointerDown = useCallback(
@@ -447,6 +461,16 @@ export default function SvgDesignCanvas() {
     return map
   }, [drag])
 
+  const liveZones = useMemo(() => {
+    if (!liveById) return zones
+    return nodes.flatMap((n) => {
+      const live = liveById.get(n.id)
+      const node = live ? { ...n, x: live.x, y: live.y } : n
+      const z = syncZoneForNode(node)
+      return z ? [z] : []
+    })
+  }, [zones, nodes, liveById])
+
   const latticeHint = useMemo(() => {
     if (connectMode) {
       return connectSourceId
@@ -519,6 +543,7 @@ export default function SvgDesignCanvas() {
         </span>
         <MiniPalette />
         <ConnectToggle />
+        <ReplicasStepper />
         <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
           <button
             type="button"
@@ -592,6 +617,11 @@ export default function SvgDesignCanvas() {
             viewW={view.w}
             viewH={view.h}
           />
+          <ZoneLayer
+            zones={liveZones}
+            selectedOwnerIds={selectedIds}
+            onZonePointerDown={onZonePointerDown}
+          />
           <EdgeLayer
             edges={edges}
             selectedEdgeIds={selectedEdgeIds}
@@ -617,6 +647,7 @@ export default function SvgDesignCanvas() {
                 x={live.x}
                 y={live.y}
                 label={node.label}
+                units={composeAppServerUnits(node.topology.replicas)}
                 selected={
                   selectedSet.has(node.id) || node.id === connectSourceId
                 }
