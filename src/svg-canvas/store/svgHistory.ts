@@ -1,8 +1,16 @@
-import { cloneSvgEdge, cloneSvgNode, type SvgEdge, type SvgNode } from './svgTypes'
+import {
+  cloneSvgEdge,
+  cloneSvgNode,
+  cloneSvgZone,
+  type SvgEdge,
+  type SvgNode,
+  type SvgZone,
+} from './svgTypes'
 
 export type SvgHistorySnapshot = {
   nodes: SvgNode[]
   edges: SvgEdge[]
+  zones: SvgZone[]
   labelSeq: number
 }
 
@@ -15,6 +23,7 @@ function cloneSnapshot(s: SvgHistorySnapshot): SvgHistorySnapshot {
   return {
     nodes: s.nodes.map(cloneSvgNode),
     edges: s.edges.map(cloneSvgEdge),
+    zones: s.zones.map(cloneSvgZone),
     labelSeq: s.labelSeq,
   }
 }
@@ -24,7 +33,6 @@ export function clearSvgHistory(): void {
   redoStack = []
 }
 
-/** Push current state before a mutating edit. Clears redo. */
 export function pushSvgHistory(current: SvgHistorySnapshot): void {
   undoStack.push(cloneSnapshot(current))
   if (undoStack.length > MAX_STACK) undoStack.shift()

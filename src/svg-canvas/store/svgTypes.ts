@@ -2,6 +2,16 @@ import type { WorldPoint } from '../math/iso'
 
 export type Archetype = 'app-server'
 
+/** How multi-replica units are laid out. Zone boundary only for `fan`. */
+export type ReplicaPacking = 'stack' | 'fan'
+
+export type NodeTopology = {
+  replicas: number
+  shards: number
+  /** Default `stack` = vertical shelf, no zone. `fan` = in-plane + zone. */
+  packing: ReplicaPacking
+}
+
 /**
  * Design-scene node. `config` holds engine/inspector fields when wired;
  * copy/paste and undo deep-clone it so configs survive duplication.
@@ -13,6 +23,19 @@ export type SvgNode = {
   y: number
   label: string
   config: Record<string, unknown>
+  topology: NodeTopology
+}
+
+/** Auto composition boundary for replicas (not a user-placed Area). */
+export type SvgZone = {
+  id: string
+  ownerNodeId: string
+  kind: 'replicas'
+  originI: number
+  originJ: number
+  cols: number
+  rows: number
+  label: string
 }
 
 export type SvgEdgeStyle = {
@@ -31,10 +54,15 @@ export type SvgEdge = {
   style: SvgEdgeStyle
 }
 
+export function defaultTopology(): NodeTopology {
+  return { replicas: 1, shards: 1, packing: 'stack' }
+}
+
 export function cloneSvgNode(node: SvgNode): SvgNode {
   return {
     ...node,
     config: structuredClone(node.config),
+    topology: { ...node.topology },
   }
 }
 
@@ -44,6 +72,10 @@ export function cloneSvgEdge(edge: SvgEdge): SvgEdge {
     waypoints: edge.waypoints.map((p) => ({ ...p })),
     style: { ...edge.style },
   }
+}
+
+export function cloneSvgZone(zone: SvgZone): SvgZone {
+  return { ...zone }
 }
 
 export function emptyConfig(): Record<string, unknown> {
