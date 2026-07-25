@@ -10,8 +10,12 @@ export type EngineSkin = {
   engine: string
   archetype: Archetype
   label: string
+  /**
+   * Face colors for procedural / tint paths.
+   * Image sprites use accent from `top` only (see brandTintFilter.ts).
+   */
   brandTint: BrandTint
-  /** Logo id under assets/logos, or null → letter chip. */
+  /** Logo id under assets/logos (see logos.ts), or null → letter chip. */
   logoId: string | null
   /** Redis only: body *is* the brand mark. */
   brandBody?: 'redis'
@@ -29,21 +33,21 @@ export const ENGINE_SKINS: EngineSkin[] = [
     archetype: 'app-server',
     label: 'Generic',
     brandTint: GREY,
-    logoId: null,
+    logoId: 'go',
   },
   {
     engine: 'generic',
     archetype: 'worker',
     label: 'Generic',
     brandTint: { top: '#e4d4f5', left: '#c9b0e8', right: '#b396d9' },
-    logoId: null,
+    logoId: 'gopher',
   },
   {
     engine: 'generic',
     archetype: 'load-balancer',
     label: 'Generic',
     brandTint: { top: '#c8f0e6', left: '#9fdccf', right: '#7ec4b5' },
-    logoId: null,
+    logoId: 'nginx',
   },
   {
     engine: 'postgresql',
@@ -80,6 +84,13 @@ export const ENGINE_SKINS: EngineSkin[] = [
     label: 'Kafka',
     brandTint: { top: '#f5f5f5', left: '#e0e0e0', right: '#c8c8c8' },
     logoId: 'kafka',
+  },
+  {
+    engine: 'rabbitmq',
+    archetype: 'message-queue',
+    label: 'RabbitMQ',
+    brandTint: { top: '#f5a623', left: '#e09218', right: '#c47d12' },
+    logoId: 'rabbitmq',
   },
   {
     engine: 'nats',

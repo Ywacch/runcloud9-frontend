@@ -6,6 +6,7 @@ import {
 } from '../compose/cloudcraftRedisBrand'
 import type { UnitOffset } from '../compose/composeAppServer'
 import { compareUnitPaintOrder } from '../compose/composePacking'
+import { RedisFaceMarks } from './RedisFaceMarks'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type RedisBrandGlyphProps = {
@@ -29,7 +30,6 @@ function RedisMark({
   const side = CC_REDIS_SIDE_H
   const slabs = composeRedisBrandSlabs()
   // Anchor = left tip of bottom slab top face at (0,0) in local space.
-  // Cloudcraft paths used left tip at varying Y; we place bottom tip at 0,0.
   return (
     <g>
       {slabs.map((s, i) => {
@@ -51,21 +51,8 @@ function RedisMark({
           </g>
         )
       })}
-      {/* Simplified white mark on top slab */}
-      <g transform={`translate(0 ${slabs[slabs.length - 1].dy})`}>
-        <circle cx={hw} cy={-4} r={7} fill="#fff" opacity={0.95} />
-        <text
-          x={hw}
-          y={0}
-          textAnchor="middle"
-          fontSize={8}
-          fontWeight={700}
-          fill="#d82f27"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-        >
-          R
-        </text>
-      </g>
+      {/* Cloudcraft-measured face marks (not a stamped logo image). */}
+      <RedisFaceMarks />
     </g>
   )
 }

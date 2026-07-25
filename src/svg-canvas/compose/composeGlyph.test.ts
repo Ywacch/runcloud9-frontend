@@ -78,17 +78,29 @@ describe('composeGlyph', () => {
     expect(c.packing).toBe('stack')
   })
 
-  it('database shards 4 → diamond nest (shard-cluster)', () => {
+  it('database shards 3 → diamond nest (shard-cluster)', () => {
     const c = composeGlyph(
       node({
         archetype: 'database',
         engine: 'postgres',
-        topology: { replicas: 1, shards: 4, packing: 'fan' },
+        topology: { replicas: 1, shards: 3, packing: 'fan' },
       }),
     )
-    expect(c.units).toHaveLength(4)
-    expect(c.tubeCount).toBe(4)
+    expect(c.units).toHaveLength(3)
+    expect(c.tubeCount).toBe(3)
     expect(c.packing).toBe('fan')
+  })
+
+  it('database shards capped at DB_SHARD_MAX (3)', () => {
+    const c = composeGlyph(
+      node({
+        archetype: 'database',
+        engine: 'postgres',
+        topology: { replicas: 1, shards: 9, packing: 'fan' },
+      }),
+    )
+    expect(c.units).toHaveLength(3)
+    expect(c.tubeCount).toBe(3)
   })
 
   it('database shards × replicas → mini-stack per shard', () => {

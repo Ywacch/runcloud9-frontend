@@ -2,7 +2,8 @@
  * Measured from Cloudcraft export:
  * `Caching Cluster Architecture (1).svg` (ElastiCache / Redis brand body).
  *
- * One logical instance = three thin red slabs + logo badge.
+ * One logical instance = three thin red slabs + face marks
+ * (`RedisFaceMarks.tsx` — native paths from the same export).
  * replicas = N → N full marks (never 3N slabs). See architecture §3.3.
  */
 

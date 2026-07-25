@@ -1,57 +1,36 @@
 import { HALF_W, HALF_H } from '../math/iso'
-import { logoDataUrl } from '../skins/logos'
+import { IsoFaceLogo } from './IsoFaceLogo'
 
 type EngineBadgeProps = {
   cx: number
   cy: number
   size?: number
   logoId: string | null
-  letter: string
+  /** @deprecated Unused — letter chips removed; kept for call-site compat. */
+  letter?: string
+  leftFace?: { cx: number; cy: number; width: number; height: number } | null
 }
 
-/** Face badge: vendored/stand-in logo or letter chip. */
+/**
+ * Engine mark seated on the isometric top face (and optional left wall).
+ * No letter-chip fallback — missing logoId renders nothing.
+ */
 export function EngineBadge({
   cx,
   cy,
-  size = 22,
+  size = 56,
   logoId,
-  letter,
+  leftFace = null,
 }: EngineBadgeProps) {
-  const href = logoId ? logoDataUrl(logoId) : null
-  if (href) {
-    return (
-      <image
-        href={href}
-        x={cx - size / 2}
-        y={cy - size / 2}
-        width={size}
-        height={size}
-        style={{ pointerEvents: 'none' }}
-      />
-    )
-  }
   return (
-    <>
-      <circle
-        cx={cx}
-        cy={cy}
-        r={size / 2}
-        fill="#3b82f6"
-        style={{ pointerEvents: 'none' }}
-      />
-      <text
-        x={cx}
-        y={cy + 4}
-        textAnchor="middle"
-        fontSize={10}
-        fontFamily="ui-sans-serif, system-ui, sans-serif"
-        fill="#fff"
-        fontWeight={700}
-        style={{ pointerEvents: 'none' }}
-      >
-        {letter.slice(0, 2)}
-      </text>
-    </>
+    <IsoFaceLogo
+      cx={cx}
+      cy={cy}
+      size={size}
+      shape="diamond"
+      logoId={logoId}
+      leftFace={leftFace}
+    />
   )
 }
 

@@ -1,6 +1,9 @@
+import { useId } from 'react'
 import type { UnitOffset } from '../compose/composeAppServer'
 import { compareUnitPaintOrder } from '../compose/composePacking'
-import { EngineBadge } from './EngineBadge'
+import type { BrandTint } from '../skins/engineSkins'
+import { tintColorMatrixValues } from '../skins/brandTintFilter'
+import { IsoFaceLogo } from './IsoFaceLogo'
 import { SPRITE_METRICS, type SpriteKind } from './spriteMetrics'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -16,7 +19,9 @@ type SpriteBackedGlyphProps = {
   /** Replica / shard offsets in node space. */
   units?: UnitOffset[]
   logoId?: string | null
-  /** When false, skip EngineBadge (e.g. locked MQ trough). Default true. */
+  /** Engine accent; greyscale sprites get a single-channel feColorMatrix. */
+  tint?: BrandTint | null
+  /** When false, skip face logo (rare). Default true — still no-ops if logoId null. */
   showBadge?: boolean
   selected?: boolean
   interactive?: boolean
@@ -28,9 +33,10 @@ export function SpriteBackedGlyph({
   kind,
   x,
   y,
-  label,
+  label: _label,
   units = [{ dx: 0, dy: 0 }],
   logoId = null,
+  tint = null,
   showBadge = true,
   selected = false,
   interactive = false,
@@ -38,7 +44,6 @@ export function SpriteBackedGlyph({
 }: SpriteBackedGlyphProps) {
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
-  const topUnit = ordered[ordered.length - 1]
   // Multi-unit in-plane nests use ZoneLayer — not per-unit boxes.
   const perUnitSelect =
     selected &&
@@ -48,6 +53,10 @@ export function SpriteBackedGlyph({
     )
   const stroke = perUnitSelect ? '#3b82f6' : 'transparent'
   const strokeWidth = perUnitSelect ? 2.5 : 0
+  const matrix = tintColorMatrixValues(tint)
+  const rawId = useId().replace(/:/g, '')
+  const filterId = matrix ? `sprite-tint-${rawId}` : null
+  const seat = spec.faceLogo
 
   return (
     <g
@@ -57,6 +66,13 @@ export function SpriteBackedGlyph({
       data-unit-asset="true"
       data-replicas={units.length}
     >
+      {filterId && matrix ? (
+        <defs>
+          <filter id={filterId} colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values={matrix} />
+          </filter>
+        </defs>
+      ) : null}
       <g
         style={{
           pointerEvents: interactive ? 'auto' : 'none',
@@ -81,6 +97,7 @@ export function SpriteBackedGlyph({
               y={-spec.tipY}
               width={spec.w}
               height={spec.h}
+              filter={filterId ? `url(#${filterId})` : undefined}
               style={{ pointerEvents: 'none' }}
             />
             {strokeWidth > 0 ? (
@@ -96,13 +113,13 @@ export function SpriteBackedGlyph({
                 style={{ pointerEvents: 'none' }}
               />
             ) : null}
-            {showBadge && u === topUnit ? (
-              <EngineBadge
-                cx={spec.w / 2 - spec.tipX}
-                cy={8 - spec.tipY}
+            {showBadge && logoId ? (
+              <IsoFaceLogo
+                cx={seat.cx}
+                cy={seat.cy}
+                size={seat.size}
+                shape={seat.shape}
                 logoId={logoId}
-                letter={label}
-                size={20}
               />
             ) : null}
           </g>
