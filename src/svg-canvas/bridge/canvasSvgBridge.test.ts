@@ -60,4 +60,33 @@ describe('canvasSvgBridge', () => {
     expect(useCanvasStore.getState().selectedId).toBe(node.id)
     expect(useCanvasStore.getState().selectedIds).toEqual([node.id])
   })
+
+  it('preserves healthVisual across canvas sync', () => {
+    const node = createCanvasNode('compute', isoToNode(0, 0), {})
+    useCanvasStore.getState().addNode(node)
+    installCanvasSvgBridge()
+    useSvgCanvasStore.getState().setNodeHealthVisual([node.id], 'warning')
+    useCanvasStore.getState().updateNodeLabel(node.id, 'Renamed')
+    const svg = useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+    expect(svg?.healthVisual).toBe('warning')
+    expect(svg?.label).toBe('Renamed')
+  })
+
+  it('projects CanvasEdge.animated as trafficEnabled', () => {
+    const a = createCanvasNode('compute', isoToNode(0, 0), {})
+    const b = createCanvasNode('database', isoToNode(2, 0), {})
+    useCanvasStore.getState().addNode(a)
+    useCanvasStore.getState().addNode(b)
+    const edge = {
+      id: crypto.randomUUID(),
+      sourceId: a.id,
+      targetId: b.id,
+      protocol: 'http' as const,
+      animated: true,
+    }
+    useCanvasStore.getState().addEdge(edge)
+    installCanvasSvgBridge()
+    const svgEdge = useSvgCanvasStore.getState().edges.find((e) => e.id === edge.id)
+    expect(svgEdge?.trafficEnabled).toBe(true)
+  })
 })

@@ -21,10 +21,12 @@ import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
+import { FxDemoControls } from './components/FxDemoControls'
 import { GridPatterns } from './components/GridPatterns'
 import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
 import { ShardsStepper } from './components/ShardsStepper'
+import { TrafficLayer } from './components/TrafficLayer'
 import { ZoneLayer } from './components/ZoneLayer'
 import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
 import { syncZoneForNode } from './compose/syncZoneForNode'
@@ -662,6 +664,7 @@ export default function SvgDesignCanvas({
           <ReplicasStepper />
           <ShardsStepper />
           <EngineSelect />
+          <FxDemoControls />
           <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
             <button
               type="button"
@@ -707,6 +710,7 @@ export default function SvgDesignCanvas({
         </div>
       ) : (
         <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
+          <FxDemoControls compact />
           <div className="pointer-events-auto flex rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
             <button
               type="button"
@@ -791,6 +795,7 @@ export default function SvgDesignCanvas({
             selectedEdgeIds={selectedEdgeIds}
             onEdgePointerDown={onEdgePointerDown}
           />
+          <TrafficLayer edges={edges} />
           {rubberFrom && rubberTip ? (
             <line
               x1={rubberFrom.x}

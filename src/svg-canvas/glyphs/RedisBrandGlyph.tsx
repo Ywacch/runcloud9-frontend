@@ -1,3 +1,4 @@
+import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import {
   CC_HALF_H,
   CC_HALF_W,
@@ -6,6 +7,11 @@ import {
 } from '../compose/cloudcraftRedisBrand'
 import type { UnitOffset } from '../compose/composeAppServer'
 import { compareUnitPaintOrder } from '../compose/composePacking'
+import {
+  resolveRimStyle,
+  rimCssColor,
+  usePulsingAlpha,
+} from '../fx/healthRimCss'
 import { RedisFaceMarks } from './RedisFaceMarks'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -14,6 +20,7 @@ type RedisBrandGlyphProps = {
   y: number
   units?: UnitOffset[]
   selected?: boolean
+  healthVisual?: HealthVisualState
   interactive?: boolean
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
 }
@@ -21,9 +28,13 @@ type RedisBrandGlyphProps = {
 function RedisMark({
   stroke,
   strokeWidth,
+  rimColor,
+  rimAlpha,
 }: {
   stroke: string
   strokeWidth: number
+  rimColor: string | null
+  rimAlpha: number
 }) {
   const hw = CC_HALF_W
   const hh = CC_HALF_H
@@ -32,6 +43,20 @@ function RedisMark({
   // Anchor = left tip of bottom slab top face at (0,0) in local space.
   return (
     <g>
+      {rimColor ? (
+        <ellipse
+          data-health-rim
+          cx={hw}
+          cy={hh * 0.35}
+          rx={hw * 1.35}
+          ry={hh * 2.4 + side}
+          fill="none"
+          stroke={rimColor}
+          strokeWidth={3}
+          opacity={rimAlpha}
+          style={{ pointerEvents: 'none' }}
+        />
+      ) : null}
       {slabs.map((s, i) => {
         const y = s.dy
         const left = `0 ${y} ${hw} ${y + hh} ${hw} ${y + hh + side} 0 ${y + side}`
@@ -63,6 +88,7 @@ export function RedisBrandGlyph({
   y,
   units = [{ dx: 0, dy: 0 }],
   selected = false,
+  healthVisual = 'off',
   interactive = false,
   onPointerDown,
 }: RedisBrandGlyphProps) {
@@ -70,6 +96,9 @@ export function RedisBrandGlyph({
   const multi = units.length > 1
   const stroke = selected && !multi ? '#3b82f6' : '#2b0908'
   const strokeWidth = selected && !multi ? 2 : 1
+  const rimStyle = resolveRimStyle(healthVisual)
+  const rimAlpha = usePulsingAlpha(rimStyle)
+  const rimColor = rimStyle ? rimCssColor(rimStyle.color) : null
   // Shelf: top last. Diamond nest: back first so front marks occlude correctly.
   const ordered = [...units].sort(compareUnitPaintOrder)
 
@@ -80,6 +109,7 @@ export function RedisBrandGlyph({
       data-archetype="cache"
       data-engine="redis"
       data-replicas={units.length}
+      data-health={healthVisual}
     >
       <g
         style={{
@@ -90,7 +120,12 @@ export function RedisBrandGlyph({
       >
         {ordered.map((u, i) => (
           <g key={i} transform={`translate(${u.dx} ${u.dy})`}>
-            <RedisMark stroke={stroke} strokeWidth={strokeWidth} />
+            <RedisMark
+              stroke={stroke}
+              strokeWidth={strokeWidth}
+              rimColor={rimColor}
+              rimAlpha={rimAlpha}
+            />
           </g>
         ))}
       </g>
