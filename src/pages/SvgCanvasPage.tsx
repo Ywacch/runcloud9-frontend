@@ -17,6 +17,7 @@ import {
   Sidebar,
   WalkthroughOverlay,
 } from '../editor-ui'
+import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import SvgDesignCanvas from '../svg-canvas/SvgDesignCanvas'
@@ -67,17 +68,22 @@ export default function SvgCanvasPage() {
     }
   }, [])
 
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
-    () => getJourneys(storytelling),
-    [storytelling],
+    () => getJourneys(snapshotTemplateId, topology, storytelling),
+    [snapshotTemplateId, topology, storytelling],
   )
-  const designActiveJourney = useMemo(
-    () =>
-      designJourneyUi.id
-        ? journeyById(designJourneys, designJourneyUi.id)
-        : null,
-    [designJourneyUi.id, designJourneys],
-  )
+  const designActiveJourney = useMemo(() => {
+    if (!designJourneyUi.open || designJourneyUi.overview || !designJourneyUi.id) {
+      return null
+    }
+    return journeyById(
+      snapshotTemplateId,
+      designJourneyUi.id,
+      topology,
+      storytelling,
+    )
+  }, [designJourneyUi, snapshotTemplateId, topology, storytelling])
 
   const closeDesignJourney = useCallback(() => {
     setDesignJourneyUi({ open: false, overview: false, id: null })
