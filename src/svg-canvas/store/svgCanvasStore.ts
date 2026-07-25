@@ -24,6 +24,7 @@ import {
   emptyConfig,
   packingForEngine,
   type Archetype,
+  type ReplicaPacking,
   type SvgEdge,
   type SvgNode,
   type SvgZone,
@@ -286,7 +287,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     const next = clampShards(shards)
     if (next === node.topology.shards) return
     pushSvgHistory(snapshotOf(state))
-    const packing =
+    const packing: ReplicaPacking =
       (node.archetype === 'message-queue' || node.archetype === 'database') &&
       next > 1
         ? 'fan'
