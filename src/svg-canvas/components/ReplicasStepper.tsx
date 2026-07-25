@@ -1,5 +1,7 @@
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
+import { backendSupportsReplicas } from '../../lib/backendCapabilities'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
+import { archetypeToCanvasType } from '../bridge/canvasSvgAdapter'
 
 export function ReplicasStepper() {
   const selectedIds = useSvgCanvasStore((s) => s.selectedIds)
@@ -9,8 +11,7 @@ export function ReplicasStepper() {
   if (selectedIds.length !== 1) return null
   const node = nodes.find((n) => n.id === selectedIds[0])
   if (!node) return null
-  if (node.archetype === 'load-balancer' || node.archetype === 'client')
-    return null
+  if (!backendSupportsReplicas(archetypeToCanvasType(node.archetype))) return null
   const n = node.topology.replicas
 
   return (
