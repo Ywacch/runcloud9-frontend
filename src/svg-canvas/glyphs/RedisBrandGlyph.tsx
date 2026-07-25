@@ -1,0 +1,112 @@
+import {
+  CC_HALF_H,
+  CC_HALF_W,
+  CC_REDIS_SIDE_H,
+  composeRedisBrandSlabs,
+} from '../compose/cloudcraftRedisBrand'
+import type { UnitOffset } from '../compose/composeAppServer'
+import { compareUnitPaintOrder } from '../compose/composePacking'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+
+type RedisBrandGlyphProps = {
+  x: number
+  y: number
+  units?: UnitOffset[]
+  selected?: boolean
+  interactive?: boolean
+  onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
+}
+
+function RedisMark({
+  stroke,
+  strokeWidth,
+}: {
+  stroke: string
+  strokeWidth: number
+}) {
+  const hw = CC_HALF_W
+  const hh = CC_HALF_H
+  const side = CC_REDIS_SIDE_H
+  const slabs = composeRedisBrandSlabs()
+  // Anchor = left tip of bottom slab top face at (0,0) in local space.
+  // Cloudcraft paths used left tip at varying Y; we place bottom tip at 0,0.
+  return (
+    <g>
+      {slabs.map((s, i) => {
+        const y = s.dy
+        const left = `0 ${y} ${hw} ${y + hh} ${hw} ${y + hh + side} 0 ${y + side}`
+        const right = `${hw * 2} ${y} ${hw} ${y + hh} ${hw} ${y + hh + side} ${hw * 2} ${y + side}`
+        const top = `0 ${y} ${hw} ${y - hh} ${hw * 2} ${y} ${hw} ${y + hh}`
+        const fills =
+          i === slabs.length - 1
+            ? { top: '#d82f27', left: '#ad261f', right: '#821c17' }
+            : i === 1
+              ? { top: '#c42a23', left: '#9a221c', right: '#751913' }
+              : { top: '#a8241e', left: '#851c18', right: '#641410' }
+        return (
+          <g key={i}>
+            <polygon points={left} fill={fills.left} stroke={stroke} strokeWidth={strokeWidth} />
+            <polygon points={right} fill={fills.right} stroke={stroke} strokeWidth={strokeWidth} />
+            <polygon points={top} fill={fills.top} stroke={stroke} strokeWidth={strokeWidth} />
+          </g>
+        )
+      })}
+      {/* Simplified white mark on top slab */}
+      <g transform={`translate(0 ${slabs[slabs.length - 1].dy})`}>
+        <circle cx={hw} cy={-4} r={7} fill="#fff" opacity={0.95} />
+        <text
+          x={hw}
+          y={0}
+          textAnchor="middle"
+          fontSize={8}
+          fontWeight={700}
+          fill="#d82f27"
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          R
+        </text>
+      </g>
+    </g>
+  )
+}
+
+/** One Redis brand mark = 3 thin slabs (logo art). units = whole-mark fan for replicas. */
+export function RedisBrandGlyph({
+  x,
+  y,
+  units = [{ dx: 0, dy: 0 }],
+  selected = false,
+  interactive = false,
+  onPointerDown,
+}: RedisBrandGlyphProps) {
+  // Multi-replica nest uses ZoneLayer for selection — not per-mark outlines.
+  const multi = units.length > 1
+  const stroke = selected && !multi ? '#3b82f6' : '#2b0908'
+  const strokeWidth = selected && !multi ? 2 : 1
+  // Shelf: top last. Diamond nest: back first so front marks occlude correctly.
+  const ordered = [...units].sort(compareUnitPaintOrder)
+
+  return (
+    <g
+      transform={`translate(${x} ${y})`}
+      style={{ pointerEvents: 'none' }}
+      data-archetype="cache"
+      data-engine="redis"
+      data-replicas={units.length}
+    >
+      <g
+        style={{
+          pointerEvents: interactive ? 'auto' : 'none',
+          cursor: interactive ? 'grab' : undefined,
+        }}
+        onPointerDown={interactive ? onPointerDown : undefined}
+      >
+        {ordered.map((u, i) => (
+          <g key={i} transform={`translate(${u.dx} ${u.dy})`}>
+            <RedisMark stroke={stroke} strokeWidth={strokeWidth} />
+          </g>
+        ))}
+      </g>
+    </g>
+  )
+}

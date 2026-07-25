@@ -1,6 +1,12 @@
 import type { WorldPoint } from '../math/iso'
 
-export type Archetype = 'app-server'
+export type Archetype =
+  | 'app-server'
+  | 'database'
+  | 'cache'
+  | 'message-queue'
+  | 'load-balancer'
+  | 'worker'
 
 /** How multi-replica units are laid out. Zone boundary only for `fan`. */
 export type ReplicaPacking = 'stack' | 'fan'
@@ -13,12 +19,13 @@ export type NodeTopology = {
 }
 
 /**
- * Design-scene node. `config` holds engine/inspector fields when wired;
- * copy/paste and undo deep-clone it so configs survive duplication.
+ * Design-scene node. `engine` drives skin / Redis brand-body.
+ * `config` holds inspector fields when wired; copy/paste and undo deep-clone it.
  */
 export type SvgNode = {
   id: string
   archetype: Archetype
+  engine: string
   x: number
   y: number
   label: string
@@ -58,9 +65,20 @@ export function defaultTopology(): NodeTopology {
   return { replicas: 1, shards: 1, packing: 'stack' }
 }
 
+/** Packing for Redis multi-replica = in-plane fan + zone; else stack. */
+export function packingForEngine(
+  engine: string,
+  replicas: number,
+  _archetype?: SvgNode['archetype'],
+): ReplicaPacking {
+  if (engine === 'redis' && replicas > 1) return 'fan'
+  return 'stack'
+}
+
 export function cloneSvgNode(node: SvgNode): SvgNode {
   return {
     ...node,
+    engine: node.engine,
     config: structuredClone(node.config),
     topology: { ...node.topology },
   }

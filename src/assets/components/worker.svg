@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<!-- Extrusion height scaled to 65% of original; top face / footprint unchanged. -->
+
+<svg
+   width="36.531021mm"
+   height="25.35mm"
+   viewBox="0 0 36.531021 25.35"
+   version="1.1"
+   id="svg1"
+   xml:space="preserve"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   sodipodi:docname="worker.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.9349327"
+     inkscape:cx="109.04772"
+     inkscape:cy="55.557489"
+     inkscape:window-width="1366"
+     inkscape:window-height="745"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" /><defs
+     id="defs1" /><g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-86.73449,-134.01803)"><g
+       id="g2"><g
+         id="g1"
+         transform="matrix(0.26458333,0,0,0.26458333,85.15625,128.65625)"><polygon
+           class="cls-0"
+           points="142.7,75.68 75,114.95 75,89.6 142.8,50.2 "
+           id="polygon1" /><polygon
+           class="cls-1"
+           points="7,50.2 58.5,21.4 92.2,21.4 142.9,50.2 75,89.6 "
+           id="polygon2" /><polygon
+           class="cls-2"
+           points="74.9,114.95 75,89.6 7.1,50.4 7.3,75.75 "
+           id="polygon3" /><polyline
+           class="cls-4"
+           points="7.1 50.2 58.5 21.4 92.2 21.4 142.9 50.2 142.8 75.68 75 114.95 7.3 75.75 7.1 50.2"
+           id="polyline3" /><polyline
+           class="cls-3"
+           points="7.7 50.4 75 89.6 142.3 50.6"
+           id="polyline4" /><line
+           class="cls-3"
+           x1="74.800003"
+           x2="74.800003"
+           y1="114.72"
+           y2="89.5"
+           id="line4" /></g></g></g><style
+     type="text/css"
+     id="style1">.cls-0 {fill:#A7A9AC;}
+.cls-1 {fill:#E6E7E8;}
+.cls-2 {fill:#C7C8CB;}
+.cls-3 {fill:none;stroke:#000000;stroke-width:1.42;stroke-linejoin:round;}
+.cls-4 {fill:none;stroke:#000000;stroke-width:2.27;stroke-linecap:round;stroke-linejoin:round;}</style></svg>
