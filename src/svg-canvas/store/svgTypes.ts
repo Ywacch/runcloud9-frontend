@@ -40,6 +40,7 @@ export type SvgZone = {
   kind: 'replicas'
   originI: number
   originJ: number
+  /** Footprint size in half-cell lattice units (same as originI/J). */
   cols: number
   rows: number
   label: string

@@ -45,6 +45,30 @@ describe('syncZoneForNode', () => {
     expect(z!.rows).toBeGreaterThanOrEqual(1)
   })
 
+  it('keeps Redis ×3 zone compact (≤3.5 half-cells per side)', () => {
+    const z = syncZoneForNode(node(3, 'fan', 'redis'))
+    expect(z).not.toBeNull()
+    // Half-cell footprint — was ~6×6 before (3×3 major).
+    expect(z!.cols).toBeLessThanOrEqual(3.5)
+    expect(z!.rows).toBeLessThanOrEqual(3.5)
+  })
+
+  it('keeps DB ×3 shard zone compact', () => {
+    const z = syncZoneForNode(node(1, 'fan', 'postgresql', 3, 'database'))
+    expect(z).not.toBeNull()
+    expect(z!.label).toBe('×3')
+    expect(z!.cols).toBeLessThanOrEqual(3.5)
+    expect(z!.rows).toBeLessThanOrEqual(3.5)
+  })
+
+  it('keeps MQ ×4 shard zone compact', () => {
+    const z = syncZoneForNode(node(1, 'fan', 'kafka', 4, 'message-queue'))
+    expect(z).not.toBeNull()
+    expect(z!.label).toBe('×4')
+    expect(z!.cols).toBeLessThanOrEqual(4)
+    expect(z!.rows).toBeLessThanOrEqual(4)
+  })
+
   it('returns null for worker shelf stack (no group boundary)', () => {
     expect(
       syncZoneForNode(node(3, 'stack', 'generic', 1, 'worker')),

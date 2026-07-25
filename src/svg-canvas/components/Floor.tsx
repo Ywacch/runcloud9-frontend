@@ -16,14 +16,16 @@ type FloorProps = {
 
 /**
  * Bounded slab in major (outer) cells. Each major = one 2×2 of inner boxes.
- * Origin is half-integer so the diamond rim lies on major edges — not through
- * tile corners (which bisect outer boxes along the minor X).
+ * More rows than cols elongates the NW–SE edges so the iso parallelogram
+ * reads as a wide, flat table (Cloudcraft-style), not a tall diamond.
+ * Origin is half-integer so the rim lies on major edges.
  */
-export const BOUNDED_MAJOR = 6
-export const BOUNDED_COLS = BOUNDED_MAJOR * 2
-export const BOUNDED_ROWS = BOUNDED_MAJOR * 2
-const BOUNDED_ORIGIN_I = -BOUNDED_MAJOR + 0.5
-const BOUNDED_ORIGIN_J = -BOUNDED_MAJOR + 0.5
+export const BOUNDED_MAJOR_COLS = 5
+export const BOUNDED_MAJOR_ROWS = 9
+export const BOUNDED_COLS = BOUNDED_MAJOR_COLS * 2
+export const BOUNDED_ROWS = BOUNDED_MAJOR_ROWS * 2
+const BOUNDED_ORIGIN_I = -BOUNDED_MAJOR_COLS + 0.5
+const BOUNDED_ORIGIN_J = -BOUNDED_MAJOR_ROWS + 0.5
 const SLAB_THICKNESS = 16
 
 type FloorPaintProps = {

@@ -17,8 +17,8 @@ import { resolveSkin, MQ_SHARD_MAX } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
 import { packingForEngine } from '../store/svgTypes'
 
-/** DB shard cap — same diamond nest as `shard-cluster.svg` (max 4). */
-export const DB_SHARD_MAX = 4
+/** DB shard cap — diamond nest max 3 (Redis replicas also max 3). */
+export const DB_SHARD_MAX = 3
 
 export type ComposedGlyph = {
   units: UnitOffset[]

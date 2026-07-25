@@ -24,8 +24,8 @@ export function ZoneLayer({
         const pts = isoFootprintDiamond(
           zone.originI,
           zone.originJ,
-          zone.cols * 2,
-          zone.rows * 2,
+          zone.cols,
+          zone.rows,
         )
         const isSel = selected.has(zone.ownerNodeId)
         const top = pts[0]
