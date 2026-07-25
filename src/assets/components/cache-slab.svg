@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="36.720539mm"
+   height="26.475267mm"
+   viewBox="0 0 36.720539 26.475267"
+   version="1.1"
+   id="svg1"
+   xml:space="preserve"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   sodipodi:docname="cache-slab.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.368204"
+     inkscape:cx="7.3088516"
+     inkscape:cy="49.334748"
+     inkscape:window-width="1366"
+     inkscape:window-height="745"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" /><defs
+     id="defs1" /><g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-86.639729,-135.26236)"><g
+       id="g1"
+       transform="matrix(0.26458333,0,0,0.26458333,85.15625,135.29729)"><polygon
+         class="cls-0"
+         points="75,99.3 75,79.4 6.7,40.1 6.7,59.7 "
+         id="polygon1" /><polygon
+         class="cls-1"
+         points="143.3,59.7 75,99.3 75,79.4 143.3,40.1 "
+         id="polygon2" /><polygon
+         class="cls-2"
+         points="143.3,40.1 75,79.4 6.7,40.1 75,0.5 "
+         id="polygon3" /><polyline
+         class="cls-3"
+         points="6.7 40.1 6.7 59.7 75 99.3 143.3 59.7 143.3 40.1"
+         id="polyline3" /><polyline
+         class="cls-3"
+         points="6.7 40.1 75 79.4 75 99.3"
+         id="polyline4" /><path
+         class="cls-3"
+         d="m 75,79.4 68.3,-39"
+         id="path4" /></g></g><style
+     type="text/css"
+     id="style1">.cls-0 {fill:#C7C8CB;}
+.cls-1 {fill:#B1B3B6;}
+.cls-2 {fill:#F4F3EB;stroke:#050101;stroke-width:1.0935;stroke-miterlimit:10;}
+.cls-3 {fill:none;stroke:#050101;stroke-width:1.0935;stroke-miterlimit:10;}</style></svg>

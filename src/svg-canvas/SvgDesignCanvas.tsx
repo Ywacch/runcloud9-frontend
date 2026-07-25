@@ -7,16 +7,17 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
-import { AppServerGlyph } from './components/AppServerGlyph'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
+import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { GridPatterns } from './components/GridPatterns'
 import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
+import { ShardsStepper } from './components/ShardsStepper'
 import { ZoneLayer } from './components/ZoneLayer'
-import { composeAppServerUnits } from './compose/composeAppServer'
 import { syncZoneForNode } from './compose/syncZoneForNode'
+import { NodeGlyph } from './glyphs/NodeGlyph'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
@@ -544,6 +545,8 @@ export default function SvgDesignCanvas() {
         <MiniPalette />
         <ConnectToggle />
         <ReplicasStepper />
+        <ShardsStepper />
+        <EngineSelect />
         <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
           <button
             type="button"
@@ -642,12 +645,11 @@ export default function SvgDesignCanvas() {
           {sortedNodes.map((node) => {
             const live = liveById?.get(node.id) ?? { x: node.x, y: node.y }
             return (
-              <AppServerGlyph
+              <NodeGlyph
                 key={node.id}
+                node={node}
                 x={live.x}
                 y={live.y}
-                label={node.label}
-                units={composeAppServerUnits(node.topology.replicas)}
                 selected={
                   selectedSet.has(node.id) || node.id === connectSourceId
                 }

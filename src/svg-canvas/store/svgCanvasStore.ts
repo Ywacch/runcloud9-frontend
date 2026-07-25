@@ -1,9 +1,13 @@
 import { create } from 'zustand'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
+import { clampShards } from '../compose/composeGlyph'
 import { syncZoneForNode, unitObstacleAnchors } from '../compose/syncZoneForNode'
 import { HALF_H, HALF_W, isoToScreen, snapWorld } from '../math/iso'
 import { attachPoint } from '../routing/attach'
 import { routeIsoManhattan } from '../routing/isoManhattan'
+import {
+  defaultEngineForArchetype,
+} from '../skins/engineSkins'
 import {
   clearSvgHistory,
   popSvgRedo,
@@ -18,7 +22,9 @@ import {
   defaultEdgeStyle,
   defaultTopology,
   emptyConfig,
+  packingForEngine,
   type Archetype,
+  type ReplicaPacking,
   type SvgEdge,
   type SvgNode,
   type SvgZone,
@@ -49,6 +55,8 @@ type SvgCanvasState = {
   setSelectedIds: (ids: string[]) => void
   selectEdgesOnly: (ids: string[]) => void
   setNodeReplicas: (id: string, replicas: number) => void
+  setNodeEngine: (id: string, engine: string) => void
+  setNodeShards: (id: string, shards: number) => void
   addEdge: (sourceId: string, targetId: string) => void
   moveNodes: (updates: { id: string; x: number; y: number }[]) => void
   rerouteEdgesForNodes: (nodeIds: string[]) => void
@@ -111,6 +119,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     {
       id: crypto.randomUUID(),
       archetype: 'app-server',
+      engine: 'generic',
       x: seedPos.x,
       y: seedPos.y,
       label: seed.label,
@@ -159,14 +168,22 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     pushSvgHistory(snapshotOf(state))
     const snapped = snapWorld(x, y)
     const { label, labelSeq: next } = nextLabel(state.labelSeq)
+    const engine = defaultEngineForArchetype(state.placingArchetype)
+    const topology = defaultTopology()
+    topology.packing = packingForEngine(
+      engine,
+      topology.replicas,
+      state.placingArchetype,
+    )
     const node: SvgNode = {
       id: crypto.randomUUID(),
       archetype: state.placingArchetype,
+      engine,
       x: snapped.x,
       y: snapped.y,
       label,
       config: emptyConfig(),
-      topology: defaultTopology(),
+      topology,
     }
     const nodes = [...state.nodes, node]
     set({
@@ -217,9 +234,13 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     const nextN = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
     if (nextN === node.topology.replicas) return
     pushSvgHistory(snapshotOf(state))
+    const packing = packingForEngine(node.engine, nextN, node.archetype)
     const nodes = state.nodes.map((n) =>
       n.id === id
-        ? { ...n, topology: { ...n.topology, replicas: nextN } }
+        ? {
+            ...n,
+            topology: { ...n.topology, replicas: nextN, packing },
+          }
         : n,
     )
     const zones = rebuildZones(nodes)
@@ -231,6 +252,59 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
       }
     })
     set({ nodes, zones, edges })
+  },
+
+  setNodeEngine: (id, engine) => {
+    const state = get()
+    const node = state.nodes.find((n) => n.id === id)
+    if (!node || node.engine === engine) return
+    pushSvgHistory(snapshotOf(state))
+    const packing = packingForEngine(
+      engine,
+      node.topology.replicas,
+      node.archetype,
+    )
+    const nodes = state.nodes.map((n) =>
+      n.id === id
+        ? { ...n, engine, topology: { ...n.topology, packing } }
+        : n,
+    )
+    const zones = rebuildZones(nodes)
+    const edges = state.edges.map((e) => {
+      if (e.sourceNodeId !== id && e.targetNodeId !== id) return e
+      return {
+        ...e,
+        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
+      }
+    })
+    set({ nodes, zones, edges })
+  },
+
+  setNodeShards: (id, shards) => {
+    const state = get()
+    const node = state.nodes.find((n) => n.id === id)
+    if (!node) return
+    const next = clampShards(shards)
+    if (next === node.topology.shards) return
+    pushSvgHistory(snapshotOf(state))
+    const packing: ReplicaPacking =
+      (node.archetype === 'message-queue' || node.archetype === 'database') &&
+      next > 1
+        ? 'fan'
+        : 'stack'
+    const nodes = state.nodes.map((n) =>
+      n.id === id
+        ? { ...n, topology: { ...n.topology, shards: next, packing } }
+        : n,
+    )
+    const edges = state.edges.map((e) => {
+      if (e.sourceNodeId !== id && e.targetNodeId !== id) return e
+      return {
+        ...e,
+        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
+      }
+    })
+    set({ nodes, edges, zones: rebuildZones(nodes) })
   },
 
   addEdge: (sourceId, targetId) => {
