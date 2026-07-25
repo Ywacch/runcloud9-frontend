@@ -7,6 +7,7 @@ export type Archetype =
   | 'message-queue'
   | 'load-balancer'
   | 'worker'
+  | 'client'
 
 /** How multi-replica units are laid out. Zone boundary only for `fan`. */
 export type ReplicaPacking = 'stack' | 'fan'

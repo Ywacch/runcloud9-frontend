@@ -109,7 +109,9 @@ export function defaultEngineForArchetype(archetype: Archetype): string {
     case 'cache':
       return 'redis'
     case 'message-queue':
-      return 'kafka'
+      return 'rabbitmq'
+    case 'client':
+      return 'generic'
     default:
       return 'generic'
   }
