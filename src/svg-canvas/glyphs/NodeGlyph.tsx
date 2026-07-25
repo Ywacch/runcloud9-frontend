@@ -46,6 +46,7 @@ export function NodeGlyph({
           kind="database"
           units={composed.units}
           logoId={skin.logoId}
+          tint={skin.brandTint}
         />
       )
     case 'cache':
@@ -55,6 +56,7 @@ export function NodeGlyph({
           kind="cache"
           units={composed.units}
           logoId={skin.logoId}
+          tint={skin.brandTint}
         />
       )
     case 'message-queue':
@@ -63,8 +65,8 @@ export function NodeGlyph({
           {...common}
           kind="message-queue"
           units={composed.units}
-          logoId={null}
-          showBadge={false}
+          logoId={skin.logoId}
+          tint={skin.brandTint}
         />
       )
     case 'load-balancer':
@@ -74,6 +76,7 @@ export function NodeGlyph({
           kind="load-balancer"
           units={[{ dx: 0, dy: 0 }]}
           logoId={skin.logoId}
+          tint={skin.brandTint}
         />
       )
     case 'worker':
@@ -83,6 +86,7 @@ export function NodeGlyph({
           kind="worker"
           units={composed.units}
           logoId={skin.logoId}
+          tint={skin.brandTint}
         />
       )
     case 'app-server':
@@ -93,6 +97,7 @@ export function NodeGlyph({
           kind="app-server"
           units={composed.units}
           logoId={skin.logoId}
+          tint={skin.brandTint}
         />
       )
   }

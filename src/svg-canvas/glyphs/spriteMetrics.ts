@@ -13,12 +13,26 @@ export type SpriteKind =
   | 'load-balancer'
   | 'message-queue'
 
+/** Box tops → diamond shear; drum lids → ellipse squash. */
+export type FaceShape = 'diamond' | 'ellipse'
+
+/** Logo seat in tip-local space (left tip of primary top face = 0,0). */
+export type FaceLogoSeat = {
+  /** Top-face center. */
+  cx: number
+  cy: number
+  /** Full width of the face plate (logo fills ~72–78% inside). */
+  size: number
+  shape: FaceShape
+}
+
 export type SpriteMetric = {
   url: string
   w: number
   h: number
   tipX: number
   tipY: number
+  faceLogo: FaceLogoSeat
 }
 
 /**
@@ -34,6 +48,7 @@ export const SPRITE_METRICS: Record<SpriteKind, SpriteMetric> = {
     h: 113,
     tipX: 10,
     tipY: 48,
+    faceLogo: { cx: 56, cy: 0, size: 96, shape: 'diamond' },
   },
   cache: {
     url: cacheSlabUrl,
@@ -41,6 +56,7 @@ export const SPRITE_METRICS: Record<SpriteKind, SpriteMetric> = {
     h: 95,
     tipX: 8,
     tipY: 42,
+    faceLogo: { cx: 58, cy: 0, size: 76, shape: 'diamond' },
   },
   database: {
     url: databaseUrl,
@@ -50,6 +66,7 @@ export const SPRITE_METRICS: Record<SpriteKind, SpriteMetric> = {
     h: 76,
     tipX: 1,
     tipY: 26,
+    faceLogo: { cx: 44, cy: -1, size: 84, shape: 'ellipse' },
   },
   worker: {
     url: workerUrl,
@@ -57,6 +74,7 @@ export const SPRITE_METRICS: Record<SpriteKind, SpriteMetric> = {
     h: 92,
     tipX: 12,
     tipY: 46,
+    faceLogo: { cx: 54, cy: 0, size: 92, shape: 'diamond' },
   },
   'load-balancer': {
     url: loadBalancerUrl,
@@ -64,6 +82,7 @@ export const SPRITE_METRICS: Record<SpriteKind, SpriteMetric> = {
     h: 123,
     tipX: 14,
     tipY: 44,
+    faceLogo: { cx: 50, cy: 0, size: 88, shape: 'diamond' },
   },
   'message-queue': {
     url: messageQueueUrl,
@@ -71,5 +90,6 @@ export const SPRITE_METRICS: Record<SpriteKind, SpriteMetric> = {
     h: 115,
     tipX: 8,
     tipY: 58,
+    faceLogo: { cx: 68, cy: -6, size: 64, shape: 'diamond' },
   },
 }
