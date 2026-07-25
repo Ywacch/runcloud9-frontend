@@ -9,7 +9,8 @@ export function ReplicasStepper() {
   if (selectedIds.length !== 1) return null
   const node = nodes.find((n) => n.id === selectedIds[0])
   if (!node) return null
-  if (node.archetype === 'load-balancer') return null
+  if (node.archetype === 'load-balancer' || node.archetype === 'client')
+    return null
   const n = node.topology.replicas
 
   return (

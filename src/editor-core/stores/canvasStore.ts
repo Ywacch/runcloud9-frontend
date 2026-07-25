@@ -162,6 +162,8 @@ interface CanvasState {
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
+  /** Multi-select setter (SVG host / marquee). Clears selectedId unless exactly one id. */
+  setSelectedIds: (ids: string[]) => void
   selectAllNodes: () => void
   setMode: (mode: CanvasMode) => void
   setDeploymentId: (id: string | null) => void
@@ -395,6 +397,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       selectedId,
       selectedIds: selectedId ? [selectedId] : [],
+    }),
+
+  setSelectedIds: (selectedIds) =>
+    set({
+      selectedIds,
+      selectedId: selectedIds.length === 1 ? selectedIds[0] : null,
     }),
 
   selectAllNodes: () =>

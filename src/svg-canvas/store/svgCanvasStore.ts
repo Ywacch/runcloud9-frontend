@@ -1,30 +1,34 @@
+/**
+ * SVG design-scene store — projection + UI façade over product `canvasStore`.
+ * Nodes/edges/selection/placement are owned by canvasStore; waypoints/zones are derived.
+ */
 import { create } from 'zustand'
+import {
+  canMutateCanvasTopology,
+  useCanvasStore,
+  type CanvasNode,
+} from '../../editor-core/stores/canvasStore'
+import { isoToNode } from '../../canvas/utils/positionAdapter'
+import {
+  recordCanvasHistory,
+  withoutCanvasHistoryRecording,
+} from '../../lib/canvasHistory'
+import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
+import { createCanvasNode } from '../../lib/nodeFactory'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
-import { clampShards } from '../compose/composeGlyph'
-import { syncZoneForNode, unitObstacleAnchors } from '../compose/syncZoneForNode'
-import { HALF_H, HALF_W, isoToScreen, snapWorld } from '../math/iso'
-import { attachPoint } from '../routing/attach'
-import { routeIsoManhattan } from '../routing/isoManhattan'
 import {
-  defaultEngineForArchetype,
-} from '../skins/engineSkins'
+  archetypeToCanvasType,
+  canvasTypeToArchetype,
+  configPatchForEngine,
+  configPatchForReplicas,
+  configPatchForShards,
+  svgWorldToCanvasPosition,
+} from '../bridge/canvasSvgAdapter'
+import { projectSvgScene } from '../bridge/projectSvgScene'
+import { HALF_H, HALF_W, snapWorld } from '../math/iso'
 import {
-  clearSvgHistory,
-  popSvgRedo,
-  popSvgUndo,
-  pushSvgHistory,
-  type SvgHistorySnapshot,
-} from './svgHistory'
-import {
-  cloneSvgEdge,
   cloneSvgNode,
-  cloneSvgZone,
-  defaultEdgeStyle,
-  defaultTopology,
-  emptyConfig,
-  packingForEngine,
   type Archetype,
-  type ReplicaPacking,
   type SvgEdge,
   type SvgNode,
   type SvgZone,
@@ -33,6 +37,9 @@ import {
 export type { Archetype, SvgEdge, SvgNode, SvgZone } from './svgTypes'
 
 let clipboard: SvgNode[] = []
+let bridgeInstalled = false
+let seedAttempted = false
+let unsubscribeCanvas: (() => void) | null = null
 
 type SvgCanvasState = {
   nodes: SvgNode[]
@@ -43,6 +50,7 @@ type SvgCanvasState = {
   placingArchetype: Archetype | null
   connectMode: boolean
   connectSourceId: string | null
+  /** @deprecated Kept for keyboard paste sequencing; labels come from createCanvasNode. */
   labelSeq: number
   setPlacingArchetype: (a: Archetype | null) => void
   togglePlacingArchetype: (a: Archetype) => void
@@ -68,65 +76,82 @@ type SvgCanvasState = {
   redo: () => void
 }
 
-function nextLabel(seq: number): { label: string; labelSeq: number } {
-  return { label: `T${seq}`, labelSeq: seq + 1 }
+function selectionFromCanvas(): string[] {
+  const c = useCanvasStore.getState()
+  if (c.selectedIds.length > 0) return c.selectedIds
+  return c.selectedId ? [c.selectedId] : []
 }
 
-function snapshotOf(s: {
-  nodes: SvgNode[]
-  edges: SvgEdge[]
-  zones: SvgZone[]
-  labelSeq: number
-}): SvgHistorySnapshot {
-  return { nodes: s.nodes, edges: s.edges, zones: s.zones, labelSeq: s.labelSeq }
-}
-
-function rebuildZones(nodes: SvgNode[]): SvgZone[] {
-  const zones: SvgZone[] = []
-  for (const n of nodes) {
-    const z = syncZoneForNode(n)
-    if (z) zones.push(z)
-  }
-  return zones
-}
-
-function routeBetween(
-  nodes: SvgNode[],
-  sourceId: string,
-  targetId: string,
-): { x: number; y: number }[] {
-  const source = nodes.find((n) => n.id === sourceId)
-  const target = nodes.find((n) => n.id === targetId)
-  if (!source || !target) return []
-  const obstacleAnchors = nodes
-    .filter((n) => n.id !== sourceId && n.id !== targetId)
-    .flatMap((n) => unitObstacleAnchors(n))
-  return routeIsoManhattan({
-    source: attachPoint(source),
-    target: attachPoint(target),
-    obstacleAnchors,
+function syncFromCanvas(): void {
+  const c = useCanvasStore.getState()
+  const projected = projectSvgScene(c.nodes, c.edges)
+  const prev = useSvgCanvasStore.getState()
+  const edgeIds = new Set(projected.edges.map((e) => e.id))
+  useSvgCanvasStore.setState({
+    nodes: projected.nodes,
+    edges: projected.edges,
+    zones: projected.zones,
+    selectedIds: selectionFromCanvas(),
+    selectedEdgeIds: prev.selectedEdgeIds.filter((id) => edgeIds.has(id)),
+    placingArchetype: c.placingNodeType
+      ? canvasTypeToArchetype(c.placingNodeType)
+      : null,
+    connectMode: c.designTool === 'connect',
+    connectSourceId: c.pendingSourceId,
   })
 }
 
-const seedPos = isoToScreen(0.5, -0.5)
-const seed = nextLabel(2)
+/** Seed one compute node when canvas is empty so /canvas-svg is usable alone. */
+function ensureDemoSeed(): void {
+  if (seedAttempted) return
+  seedAttempted = true
+  const c = useCanvasStore.getState()
+  if (Object.keys(c.nodes).length > 0) return
+  if (!canMutateCanvasTopology(c)) return
+  const node = createCanvasNode('compute', isoToNode(0, 0), {})
+  node.label = 'T2'
+  useCanvasStore.getState().addNode(node)
+}
 
-clearSvgHistory()
-clipboard = []
+/**
+ * Subscribe SVG projection to product canvasStore. Safe to call multiple times.
+ * Call from SvgDesignCanvas mount.
+ */
+export function installCanvasSvgBridge(): void {
+  ensureDemoSeed()
+  if (bridgeInstalled) {
+    syncFromCanvas()
+    return
+  }
+  bridgeInstalled = true
+  syncFromCanvas()
+  unsubscribeCanvas = useCanvasStore.subscribe(() => {
+    syncFromCanvas()
+  })
+}
+
+/** Test helper: reset bridge + local UI (does not clear canvasStore). */
+export function resetCanvasSvgBridgeForTests(): void {
+  unsubscribeCanvas?.()
+  unsubscribeCanvas = null
+  bridgeInstalled = false
+  seedAttempted = false
+  clipboard = []
+  useSvgCanvasStore.setState({
+    nodes: [],
+    edges: [],
+    zones: [],
+    selectedIds: [],
+    selectedEdgeIds: [],
+    placingArchetype: null,
+    connectMode: false,
+    connectSourceId: null,
+    labelSeq: 2,
+  })
+}
 
 export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
-  nodes: [
-    {
-      id: crypto.randomUUID(),
-      archetype: 'app-server',
-      engine: 'generic',
-      x: seedPos.x,
-      y: seedPos.y,
-      label: seed.label,
-      config: emptyConfig(),
-      topology: defaultTopology(),
-    },
-  ],
+  nodes: [],
   edges: [],
   zones: [],
   selectedIds: [],
@@ -134,273 +159,176 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
   placingArchetype: null,
   connectMode: false,
   connectSourceId: null,
-  labelSeq: seed.labelSeq,
+  labelSeq: 2,
 
-  setPlacingArchetype: (placingArchetype) =>
-    set({
-      placingArchetype,
-      ...(placingArchetype
-        ? { connectMode: false, connectSourceId: null }
-        : {}),
-    }),
-
-  togglePlacingArchetype: (a) =>
-    set((s) => {
-      const next = s.placingArchetype === a ? null : a
-      return {
-        placingArchetype: next,
-        ...(next ? { connectMode: false, connectSourceId: null } : {}),
-      }
-    }),
-
-  setConnectMode: (on) =>
-    set({
-      connectMode: on,
-      connectSourceId: null,
-      ...(on ? { placingArchetype: null } : {}),
-    }),
-
-  setConnectSourceId: (connectSourceId) => set({ connectSourceId }),
-
-  placeNodeAt: (x, y) => {
-    const state = get()
-    if (!state.placingArchetype) return
-    pushSvgHistory(snapshotOf(state))
-    const snapped = snapWorld(x, y)
-    const { label, labelSeq: next } = nextLabel(state.labelSeq)
-    const engine = defaultEngineForArchetype(state.placingArchetype)
-    const topology = defaultTopology()
-    topology.packing = packingForEngine(
-      engine,
-      topology.replicas,
-      state.placingArchetype,
-    )
-    const node: SvgNode = {
-      id: crypto.randomUUID(),
-      archetype: state.placingArchetype,
-      engine,
-      x: snapped.x,
-      y: snapped.y,
-      label,
-      config: emptyConfig(),
-      topology,
+  setPlacingArchetype: (placingArchetype) => {
+    const type = placingArchetype
+      ? archetypeToCanvasType(placingArchetype)
+      : null
+    const canvas = useCanvasStore.getState()
+    canvas.setPlacingNodeType(type)
+    if (type) {
+      canvas.setDesignTool('select')
+      canvas.setPendingSource(null)
     }
-    const nodes = [...state.nodes, node]
-    set({
-      nodes,
-      zones: rebuildZones(nodes),
-      selectedIds: [node.id],
-      selectedEdgeIds: [],
-      labelSeq: next,
-    })
   },
 
-  selectOnly: (id) =>
-    set({
-      selectedIds: id ? [id] : [],
-      selectedEdgeIds: [],
-    }),
+  togglePlacingArchetype: (a) => {
+    const cur = get().placingArchetype
+    get().setPlacingArchetype(cur === a ? null : a)
+  },
 
-  toggleInSelection: (id) =>
-    set((s) => {
-      const has = s.selectedIds.includes(id)
-      return {
-        selectedIds: has
-          ? s.selectedIds.filter((sid) => sid !== id)
-          : [...s.selectedIds, id],
-        selectedEdgeIds: [],
-      }
-    }),
+  setConnectMode: (on) => {
+    const canvas = useCanvasStore.getState()
+    if (on) {
+      canvas.setPlacingNodeType(null)
+      canvas.setDesignTool('connect')
+      canvas.setPendingSource(null)
+    } else {
+      canvas.setDesignTool('select')
+      canvas.setPendingSource(null)
+    }
+  },
 
-  selectAllNodes: () =>
-    set((s) => {
-      if (s.nodes.length === 0) return s
-      return {
-        selectedIds: s.nodes.map((n) => n.id),
-        selectedEdgeIds: [],
-      }
-    }),
+  setConnectSourceId: (connectSourceId) => {
+    useCanvasStore.getState().setPendingSource(connectSourceId)
+  },
 
-  setSelectedIds: (selectedIds) =>
-    set({ selectedIds, selectedEdgeIds: [] }),
+  placeNodeAt: (x, y) => {
+    const canvas = useCanvasStore.getState()
+    if (!canMutateCanvasTopology(canvas)) return
+    const archetype = get().placingArchetype
+    if (!archetype || archetype === 'client') return
+    const type = archetypeToCanvasType(archetype)
+    const position = svgWorldToCanvasPosition(x, y)
+    const node = createCanvasNode(type, position, canvas.nodes)
+    canvas.addNode(node)
+    canvas.setSelectedIds([node.id])
+    canvas.setPlacingNodeType(null)
+  },
 
-  selectEdgesOnly: (selectedEdgeIds) =>
-    set({ selectedEdgeIds, selectedIds: [] }),
+  selectOnly: (id) => {
+    useCanvasStore.getState().selectNode(id)
+    set({ selectedEdgeIds: [] })
+  },
+
+  toggleInSelection: (id) => {
+    const ids = selectionFromCanvas()
+    const has = ids.includes(id)
+    const next = has ? ids.filter((sid) => sid !== id) : [...ids, id]
+    useCanvasStore.getState().setSelectedIds(next)
+    set({ selectedEdgeIds: [] })
+  },
+
+  selectAllNodes: () => {
+    useCanvasStore.getState().selectAllNodes()
+    set({ selectedEdgeIds: [] })
+  },
+
+  setSelectedIds: (selectedIds) => {
+    useCanvasStore.getState().setSelectedIds(selectedIds)
+    set({ selectedEdgeIds: [] })
+  },
+
+  selectEdgesOnly: (selectedEdgeIds) => {
+    useCanvasStore.getState().setSelectedIds([])
+    set({ selectedEdgeIds, selectedIds: [] })
+  },
 
   setNodeReplicas: (id, replicas) => {
-    const state = get()
-    const node = state.nodes.find((n) => n.id === id)
-    if (!node) return
-    const nextN = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
-    if (nextN === node.topology.replicas) return
-    pushSvgHistory(snapshotOf(state))
-    const packing = packingForEngine(node.engine, nextN, node.archetype)
-    const nodes = state.nodes.map((n) =>
-      n.id === id
-        ? {
-            ...n,
-            topology: { ...n.topology, replicas: nextN, packing },
-          }
-        : n,
-    )
-    const zones = rebuildZones(nodes)
-    const edges = state.edges.map((e) => {
-      if (e.sourceNodeId !== id && e.targetNodeId !== id) return e
-      return {
-        ...e,
-        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
-      }
-    })
-    set({ nodes, zones, edges })
+    const canvas = useCanvasStore.getState()
+    const node = canvas.nodes[id]
+    if (!node || !canMutateCanvasTopology(canvas)) return
+    const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
+    const patch = configPatchForReplicas(node.type, next)
+    if (Object.keys(patch).length === 0) return
+    canvas.updateNodeConfig(id, patch)
   },
 
   setNodeEngine: (id, engine) => {
-    const state = get()
-    const node = state.nodes.find((n) => n.id === id)
-    if (!node || node.engine === engine) return
-    pushSvgHistory(snapshotOf(state))
-    const packing = packingForEngine(
-      engine,
-      node.topology.replicas,
-      node.archetype,
-    )
-    const nodes = state.nodes.map((n) =>
-      n.id === id
-        ? { ...n, engine, topology: { ...n.topology, packing } }
-        : n,
-    )
-    const zones = rebuildZones(nodes)
-    const edges = state.edges.map((e) => {
-      if (e.sourceNodeId !== id && e.targetNodeId !== id) return e
-      return {
-        ...e,
-        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
-      }
-    })
-    set({ nodes, zones, edges })
+    const canvas = useCanvasStore.getState()
+    const node = canvas.nodes[id]
+    if (!node || !canMutateCanvasTopology(canvas)) return
+    const patch = configPatchForEngine(node.type, engine)
+    if (Object.keys(patch).length === 0) return
+    canvas.updateNodeConfig(id, patch)
   },
 
   setNodeShards: (id, shards) => {
-    const state = get()
-    const node = state.nodes.find((n) => n.id === id)
-    if (!node) return
-    const next = clampShards(shards)
-    if (next === node.topology.shards) return
-    pushSvgHistory(snapshotOf(state))
-    const packing: ReplicaPacking =
-      (node.archetype === 'message-queue' || node.archetype === 'database') &&
-      next > 1
-        ? 'fan'
-        : 'stack'
-    const nodes = state.nodes.map((n) =>
-      n.id === id
-        ? { ...n, topology: { ...n.topology, shards: next, packing } }
-        : n,
-    )
-    const edges = state.edges.map((e) => {
-      if (e.sourceNodeId !== id && e.targetNodeId !== id) return e
-      return {
-        ...e,
-        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
-      }
-    })
-    set({ nodes, edges, zones: rebuildZones(nodes) })
+    const canvas = useCanvasStore.getState()
+    const node = canvas.nodes[id]
+    if (!node || !canMutateCanvasTopology(canvas)) return
+    if (node.type !== 'database' && node.type !== 'message_queue') return
+    canvas.updateNodeConfig(id, configPatchForShards(shards))
   },
 
   addEdge: (sourceId, targetId) => {
     if (sourceId === targetId) return
-    const state = get()
-    const exists = state.edges.some(
-      (e) => e.sourceNodeId === sourceId && e.targetNodeId === targetId,
+    const canvas = useCanvasStore.getState()
+    if (!canMutateCanvasTopology(canvas)) return
+    const source = canvas.nodes[sourceId]
+    const target = canvas.nodes[targetId]
+    if (!source || !target) return
+    const exists = Object.values(canvas.edges).some(
+      (e) => e.sourceId === sourceId && e.targetId === targetId,
     )
     if (exists) {
-      set({ connectSourceId: null })
+      canvas.setPendingSource(null)
       return
     }
-    const source = state.nodes.find((n) => n.id === sourceId)
-    const target = state.nodes.find((n) => n.id === targetId)
-    if (!source || !target) return
-    pushSvgHistory(snapshotOf(state))
-    const waypoints = routeBetween(state.nodes, sourceId, targetId)
-    const edge: SvgEdge = {
+    const edge = {
       id: crypto.randomUUID(),
-      sourceNodeId: sourceId,
-      targetNodeId: targetId,
-      waypoints,
-      style: defaultEdgeStyle(),
+      sourceId,
+      targetId,
+      protocol: defaultEdgeProtocol(source.type, target.type),
+      animated: false,
     }
-    set({
-      edges: [...state.edges, edge],
-      selectedEdgeIds: [edge.id],
-      selectedIds: [],
-      connectSourceId: null,
-    })
+    canvas.addEdge(edge)
+    canvas.setPendingSource(null)
+    canvas.setSelectedIds([])
+    set({ selectedEdgeIds: [edge.id], selectedIds: [] })
   },
 
   moveNodes: (updates) => {
     if (updates.length === 0) return
-    const state = get()
-    pushSvgHistory(snapshotOf(state))
-    const byId = new Map(
-      updates.map((u) => {
+    const canvas = useCanvasStore.getState()
+    if (!canMutateCanvasTopology(canvas) || canvas.movementLocked) return
+    recordCanvasHistory(canvas.nodes, canvas.edges)
+    withoutCanvasHistoryRecording(() => {
+      const st = useCanvasStore.getState()
+      for (const u of updates) {
+        if (!st.nodes[u.id]) continue
         const snapped = snapWorld(u.x, u.y)
-        return [u.id, snapped] as const
-      }),
-    )
-    const nodes = state.nodes.map((n) => {
-      const next = byId.get(n.id)
-      return next ? { ...n, x: next.x, y: next.y } : n
-    })
-    const moved = new Set(byId.keys())
-    const edges = state.edges.map((e) => {
-      if (!moved.has(e.sourceNodeId) && !moved.has(e.targetNodeId)) return e
-      return {
-        ...e,
-        waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
+        st.updateNodePosition(u.id, svgWorldToCanvasPosition(snapped.x, snapped.y))
       }
     })
-    set({ nodes, edges, zones: rebuildZones(nodes) })
   },
 
   rerouteEdgesForNodes: (nodeIds) => {
+    // Waypoints are derived on every canvas sync; keep for API compatibility.
     if (nodeIds.length === 0) return
-    const state = get()
-    const moved = new Set(nodeIds)
-    set({
-      edges: state.edges.map((e) => {
-        if (!moved.has(e.sourceNodeId) && !moved.has(e.targetNodeId)) return e
-        return {
-          ...e,
-          waypoints: routeBetween(state.nodes, e.sourceNodeId, e.targetNodeId),
-        }
-      }),
-    })
+    syncFromCanvas()
   },
 
   removeSelected: () => {
     const state = get()
+    const canvas = useCanvasStore.getState()
+    if (!canMutateCanvasTopology(canvas)) return
     if (state.selectedEdgeIds.length > 0) {
-      const remove = new Set(state.selectedEdgeIds)
-      pushSvgHistory(snapshotOf(state))
-      set({
-        edges: state.edges.filter((e) => !remove.has(e.id)),
-        selectedEdgeIds: [],
+      const remove = [...state.selectedEdgeIds]
+      recordCanvasHistory(canvas.nodes, canvas.edges)
+      withoutCanvasHistoryRecording(() => {
+        for (const id of remove) {
+          useCanvasStore.getState().removeEdge(id)
+        }
       })
+      set({ selectedEdgeIds: [] })
       return
     }
     if (state.selectedIds.length === 0) return
-    const remove = new Set(state.selectedIds)
-    pushSvgHistory(snapshotOf(state))
-    const nodes = state.nodes.filter((n) => !remove.has(n.id))
-    set({
-      nodes,
-      zones: rebuildZones(nodes),
-      edges: state.edges.filter(
-        (e) => !remove.has(e.sourceNodeId) && !remove.has(e.targetNodeId),
-      ),
-      selectedIds: [],
-      selectedEdgeIds: [],
-    })
+    canvas.setSelectedIds(state.selectedIds)
+    canvas.removeSelectedNodes()
+    set({ selectedEdgeIds: [] })
   },
 
   copySelected: () => {
@@ -412,74 +340,59 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
 
   pasteClipboard: () => {
     if (clipboard.length === 0) return
-    const state = get()
-    pushSvgHistory(snapshotOf(state))
+    const canvas = useCanvasStore.getState()
+    if (!canMutateCanvasTopology(canvas)) return
     const ox = HALF_W
     const oy = HALF_H
-    let seq = state.labelSeq
-    const created: SvgNode[] = []
-    for (const src of clipboard) {
-      const { label, labelSeq: next } = nextLabel(seq)
-      seq = next
-      const snapped = snapWorld(src.x + ox, src.y + oy)
-      created.push({
-        ...cloneSvgNode(src),
-        id: crypto.randomUUID(),
-        x: snapped.x,
-        y: snapped.y,
-        label,
-      })
-    }
-    clipboard = clipboard.map((n) => ({
-      ...cloneSvgNode(n),
-      x: n.x + ox,
-      y: n.y + oy,
-    }))
-    const nodes = [...state.nodes, ...created]
-    set({
-      nodes,
-      zones: rebuildZones(nodes),
-      selectedIds: created.map((n) => n.id),
-      selectedEdgeIds: [],
-      labelSeq: seq,
+    const createdIds: string[] = []
+    recordCanvasHistory(canvas.nodes, canvas.edges)
+    withoutCanvasHistoryRecording(() => {
+      let nodes: Record<string, CanvasNode> = {
+        ...useCanvasStore.getState().nodes,
+      }
+      for (const src of clipboard) {
+        if (src.archetype === 'client') continue
+        const type = archetypeToCanvasType(src.archetype)
+        const position = svgWorldToCanvasPosition(src.x + ox, src.y + oy)
+        const node = createCanvasNode(type, position, nodes)
+        node.config = {
+          ...node.config,
+          ...src.config,
+          ...configPatchForEngine(type, src.engine),
+          ...configPatchForReplicas(type, src.topology.replicas),
+          ...configPatchForShards(src.topology.shards),
+        }
+        useCanvasStore.getState().addNode(node)
+        nodes = { ...nodes, [node.id]: node }
+        createdIds.push(node.id)
+      }
+      clipboard = clipboard.map((n) => ({
+        ...cloneSvgNode(n),
+        x: n.x + ox,
+        y: n.y + oy,
+      }))
     })
+    if (createdIds.length > 0) {
+      useCanvasStore.getState().setSelectedIds(createdIds)
+    }
   },
 
-  clearPlacementAndSelection: () =>
-    set({
-      placingArchetype: null,
-      selectedIds: [],
-      selectedEdgeIds: [],
-      connectSourceId: null,
-    }),
+  clearPlacementAndSelection: () => {
+    const canvas = useCanvasStore.getState()
+    canvas.setPlacingNodeType(null)
+    canvas.setPendingSource(null)
+    canvas.setDesignTool('select')
+    canvas.setSelectedIds([])
+    set({ selectedEdgeIds: [], connectSourceId: null })
+  },
 
   undo: () => {
-    const state = get()
-    const prev = popSvgUndo(snapshotOf(state))
-    if (!prev) return
-    set({
-      nodes: prev.nodes.map(cloneSvgNode),
-      edges: prev.edges.map(cloneSvgEdge),
-      zones: prev.zones.map(cloneSvgZone),
-      labelSeq: prev.labelSeq,
-      selectedIds: [],
-      selectedEdgeIds: [],
-      connectSourceId: null,
-    })
+    useCanvasStore.getState().undo()
+    set({ selectedEdgeIds: [], connectSourceId: null })
   },
 
   redo: () => {
-    const state = get()
-    const next = popSvgRedo(snapshotOf(state))
-    if (!next) return
-    set({
-      nodes: next.nodes.map(cloneSvgNode),
-      edges: next.edges.map(cloneSvgEdge),
-      zones: next.zones.map(cloneSvgZone),
-      labelSeq: next.labelSeq,
-      selectedIds: [],
-      selectedEdgeIds: [],
-      connectSourceId: null,
-    })
+    useCanvasStore.getState().redo()
+    set({ selectedEdgeIds: [], connectSourceId: null })
   },
 }))

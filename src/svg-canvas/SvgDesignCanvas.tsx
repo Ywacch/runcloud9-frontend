@@ -21,7 +21,10 @@ import { NodeGlyph } from './glyphs/NodeGlyph'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
-import { useSvgCanvasStore } from './store/svgCanvasStore'
+import {
+  installCanvasSvgBridge,
+  useSvgCanvasStore,
+} from './store/svgCanvasStore'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -114,6 +117,10 @@ export default function SvgDesignCanvas() {
   const moveNodes = useSvgCanvasStore((s) => s.moveNodes)
 
   useSvgCanvasKeyboard()
+
+  useEffect(() => {
+    installCanvasSvgBridge()
+  }, [])
 
   useEffect(() => {
     if (!connectSourceId) setRubberTip(null)
