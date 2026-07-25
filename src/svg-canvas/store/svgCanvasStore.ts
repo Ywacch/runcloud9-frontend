@@ -15,6 +15,7 @@ import {
 } from '../../lib/canvasHistory'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import { createCanvasNode } from '../../lib/nodeFactory'
+import { placeFromPicker } from '../../lib/pickerPlacement'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
 import {
   archetypeToCanvasType,
@@ -196,14 +197,18 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
 
   placeNodeAt: (x, y) => {
     const canvas = useCanvasStore.getState()
-    if (!canMutateCanvasTopology(canvas)) return
-    const archetype = get().placingArchetype
-    if (!archetype || archetype === 'client') return
-    const type = archetypeToCanvasType(archetype)
+    if (!canMutateCanvasTopology(canvas) || canvas.movementLocked) return
+    const type = canvas.placingNodeType
+    if (!type || type === 'client') return
     const position = svgWorldToCanvasPosition(x, y)
-    const node = createCanvasNode(type, position, canvas.nodes)
-    canvas.addNode(node)
-    canvas.setSelectedIds([node.id])
+    placeFromPicker({
+      nodeType: type,
+      position,
+      nodes: canvas.nodes,
+      addNode: canvas.addNode,
+      updateNodeConfig: canvas.updateNodeConfig,
+      selectNode: canvas.selectNode,
+    })
     canvas.setPlacingNodeType(null)
   },
 

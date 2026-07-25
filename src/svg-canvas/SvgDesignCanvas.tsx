@@ -7,6 +7,16 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
+import {
+  registerCanvasFitScheduler,
+  unregisterCanvasFitScheduler,
+} from '../canvas/utils/canvasFitBridge'
+import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
+import { placeFromPicker } from '../lib/pickerPlacement'
+import {
+  SPAWN_AT_SCREEN,
+  type SpawnAtScreenDetail,
+} from '../lib/spawnEvents'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
 import { EngineSelect } from './components/EngineSelect'
@@ -16,6 +26,7 @@ import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
 import { ShardsStepper } from './components/ShardsStepper'
 import { ZoneLayer } from './components/ZoneLayer'
+import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
 import { syncZoneForNode } from './compose/syncZoneForNode'
 import { NodeGlyph } from './glyphs/NodeGlyph'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
@@ -55,6 +66,69 @@ function initialViewBox(hostW: number, hostH: number): ViewBox {
   return { x: -w / 2, y: -h / 2, w, h }
 }
 
+function fitViewToNodes(
+  nodeList: { x: number; y: number }[],
+  hostW: number,
+  hostH: number,
+): ViewBox {
+  if (nodeList.length === 0) return initialViewBox(hostW, hostH)
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const n of nodeList) {
+    minX = Math.min(minX, n.x)
+    minY = Math.min(minY, n.y)
+    maxX = Math.max(maxX, n.x)
+    maxY = Math.max(maxY, n.y)
+  }
+  const pad = 320
+  const contentW = Math.max(maxX - minX, 160) + pad * 2
+  const contentH = Math.max(maxY - minY, 160) + pad * 2
+  const aspect = hostW > 0 && hostH > 0 ? hostW / hostH : 16 / 9
+  let w = contentW
+  let h = contentH
+  if (w / h > aspect) h = w / aspect
+  else w = h * aspect
+  w = Math.min(MAX_VIEW, Math.max(MIN_VIEW, w))
+  h = w / aspect
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  return { x: cx - w / 2, y: cy - h / 2, w, h }
+}
+
+const PALETTE_TYPES = new Set<CanvasNode['type']>([
+  'load_balancer',
+  'compute',
+  'database',
+  'cache',
+  'message_queue',
+  'worker',
+])
+
+function isPaletteNodeType(raw: string): raw is CanvasNode['type'] {
+  return PALETTE_TYPES.has(raw as CanvasNode['type'])
+}
+
+function placePickerAtWorld(x: number, y: number, nodeType: CanvasNode['type']): void {
+  const state = useCanvasStore.getState()
+  if (state.movementLocked || state.mode === 'live') return
+  placeFromPicker({
+    nodeType,
+    position: svgWorldToCanvasPosition(x, y),
+    nodes: state.nodes,
+    addNode: state.addNode,
+    updateNodeConfig: state.updateNodeConfig,
+    selectNode: state.selectNode,
+  })
+  state.setPlacingNodeType(null)
+}
+
+type SvgDesignCanvasProps = {
+  /** When true, product sidebar/inspector own palette + tools; slim local chrome. */
+  chromeMounted?: boolean
+}
+
 function clientToWorld(
   svg: SVGSVGElement,
   clientX: number,
@@ -82,7 +156,9 @@ function anchorsInMarquee(
     .map((n) => n.id)
 }
 
-export default function SvgDesignCanvas() {
+export default function SvgDesignCanvas({
+  chromeMounted = false,
+}: SvgDesignCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
@@ -98,6 +174,7 @@ export default function SvgDesignCanvas() {
   const dragRef = useRef<DragSession | null>(null)
   const marqueeRef = useRef<Marquee | null>(null)
   const marqueeActive = useRef(false)
+  const nodesRef = useRef(useSvgCanvasStore.getState().nodes)
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
@@ -115,11 +192,39 @@ export default function SvgDesignCanvas() {
   const setConnectSourceId = useSvgCanvasStore((s) => s.setConnectSourceId)
   const addEdge = useSvgCanvasStore((s) => s.addEdge)
   const moveNodes = useSvgCanvasStore((s) => s.moveNodes)
-
   useSvgCanvasKeyboard()
 
   useEffect(() => {
+    nodesRef.current = nodes
+  }, [nodes])
+
+  useEffect(() => {
     installCanvasSvgBridge()
+  }, [])
+
+  const fitDefault = useCallback(() => {
+    const host = hostRef.current
+    if (!host) return
+    const { width, height } = host.getBoundingClientRect()
+    setView(fitViewToNodes(nodesRef.current, width, height))
+  }, [])
+
+  useEffect(() => {
+    registerCanvasFitScheduler(fitDefault)
+    return () => unregisterCanvasFitScheduler()
+  }, [fitDefault])
+
+  useEffect(() => {
+    const onSpawn = (event: Event) => {
+      const detail = (event as CustomEvent<SpawnAtScreenDetail>).detail
+      if (!detail || !isPaletteNodeType(detail.nodeType)) return
+      const svg = svgRef.current
+      if (!svg) return
+      const world = clientToWorld(svg, detail.clientX, detail.clientY)
+      placePickerAtWorld(world.x, world.y, detail.nodeType)
+    }
+    window.addEventListener(SPAWN_AT_SCREEN, onSpawn)
+    return () => window.removeEventListener(SPAWN_AT_SCREEN, onSpawn)
   }, [])
 
   useEffect(() => {
@@ -206,6 +311,13 @@ export default function SvgDesignCanvas() {
       if (!svg) return
 
       const state = useSvgCanvasStore.getState()
+      const canvas = useCanvasStore.getState()
+      if (canvas.designTool === 'erase') {
+        canvas.setSelectedIds([nodeId])
+        canvas.removeSelectedNodes()
+        return
+      }
+
       if (state.connectMode) {
         if (state.connectSourceId == null) {
           setConnectSourceId(nodeId)
@@ -230,6 +342,8 @@ export default function SvgDesignCanvas() {
       const already = state.selectedIds.includes(nodeId)
       const ids = already ? [...state.selectedIds] : [nodeId]
       if (!already) selectOnly(nodeId)
+
+      if (canvas.movementLocked) return
 
       const world = clientToWorld(svg, e.clientX, e.clientY)
       const origins: Record<string, WorldPoint> = {}
@@ -446,13 +560,6 @@ export default function SvgDesignCanvas() {
     [view, zoomAround],
   )
 
-  const fitDefault = useCallback(() => {
-    const host = hostRef.current
-    if (!host) return
-    const { width, height } = host.getBoundingClientRect()
-    setView(initialViewBox(width, height))
-  }, [])
-
   const sortedNodes = useMemo(() => {
     return [...nodes].sort((a, b) => a.y - b.y || a.x - b.x)
   }, [nodes])
@@ -543,60 +650,107 @@ export default function SvgDesignCanvas() {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col bg-[#f4f5f7]">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zinc-200 bg-white/95 px-3 py-2 text-sm text-zinc-600">
-        <span className="font-medium text-zinc-900">SVG canvas spike</span>
-        <span className="text-zinc-300">|</span>
-        <span className="text-zinc-500">
-          Connect · Ctrl+A/C/V · undo Ctrl+Z · drag empty to pan
-        </span>
-        <MiniPalette />
-        <ConnectToggle />
-        <ReplicasStepper />
-        <ShardsStepper />
-        <EngineSelect />
-        <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
-          <button
-            type="button"
-            className={`rounded px-2 py-1 text-xs ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-            onClick={() => setMode('infinite')}
-          >
-            Infinite
-          </button>
-          <button
-            type="button"
-            className={`rounded px-2 py-1 text-xs ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-            onClick={() => setMode('bounded')}
-          >
-            Bounded
-          </button>
+      {!chromeMounted ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zinc-200 bg-white/95 px-3 py-2 text-sm text-zinc-600">
+          <span className="font-medium text-zinc-900">SVG canvas spike</span>
+          <span className="text-zinc-300">|</span>
+          <span className="text-zinc-500">
+            Connect · Ctrl+A/C/V · undo Ctrl+Z · drag empty to pan
+          </span>
+          <MiniPalette />
+          <ConnectToggle />
+          <ReplicasStepper />
+          <ShardsStepper />
+          <EngineSelect />
+          <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
+            <button
+              type="button"
+              className={`rounded px-2 py-1 text-xs ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
+              onClick={() => setMode('infinite')}
+            >
+              Infinite
+            </button>
+            <button
+              type="button"
+              className={`rounded px-2 py-1 text-xs ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
+              onClick={() => setMode('bounded')}
+            >
+              Bounded
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
+              onClick={() => zoomBy(ZOOM_FACTOR)}
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
+              onClick={() => zoomBy(1 / ZOOM_FACTOR)}
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
+              onClick={fitDefault}
+            >
+              Reset view
+            </button>
+          </div>
+          <span className="ml-auto text-xs text-zinc-500">{latticeHint}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
-            onClick={() => zoomBy(ZOOM_FACTOR)}
-            aria-label="Zoom out"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
-            onClick={() => zoomBy(1 / ZOOM_FACTOR)}
-            aria-label="Zoom in"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
-            onClick={fitDefault}
-          >
-            Reset view
-          </button>
+      ) : (
+        <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
+          <div className="pointer-events-auto flex rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
+            <button
+              type="button"
+              className={`rounded px-2 py-1 text-[10px] ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
+              onClick={() => setMode('infinite')}
+            >
+              Infinite
+            </button>
+            <button
+              type="button"
+              className={`rounded px-2 py-1 text-[10px] ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
+              onClick={() => setMode('bounded')}
+            >
+              Bounded
+            </button>
+          </div>
+          <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100"
+              onClick={() => zoomBy(ZOOM_FACTOR)}
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100"
+              onClick={() => zoomBy(1 / ZOOM_FACTOR)}
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100"
+              onClick={fitDefault}
+              title="Fit (F)"
+            >
+              Fit
+            </button>
+          </div>
         </div>
-        <span className="ml-auto text-xs text-zinc-500">{latticeHint}</span>
-      </div>
+      )}
 
       <div ref={hostRef} className="relative min-h-0 flex-1">
         <svg
