@@ -13,6 +13,11 @@ import {
   recordCanvasHistory,
   withoutCanvasHistoryRecording,
 } from '../../lib/canvasHistory'
+import {
+  BACKEND_SUPPORTS_SHARDING,
+  backendSupportsReplicas,
+  isBackendSupportedEngine,
+} from '../../lib/backendCapabilities'
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import { createCanvasNode } from '../../lib/nodeFactory'
 import { placeFromPicker } from '../../lib/pickerPlacement'
@@ -256,6 +261,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     const canvas = useCanvasStore.getState()
     const node = canvas.nodes[id]
     if (!node || !canMutateCanvasTopology(canvas)) return
+    if (!backendSupportsReplicas(node.type)) return
     const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
     const patch = configPatchForReplicas(node.type, next)
     if (Object.keys(patch).length === 0) return
@@ -266,12 +272,14 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     const canvas = useCanvasStore.getState()
     const node = canvas.nodes[id]
     if (!node || !canMutateCanvasTopology(canvas)) return
+    if (!isBackendSupportedEngine(node.type, engine)) return
     const patch = configPatchForEngine(node.type, engine)
     if (Object.keys(patch).length === 0) return
     canvas.updateNodeConfig(id, patch)
   },
 
   setNodeShards: (id, shards) => {
+    if (!BACKEND_SUPPORTS_SHARDING) return
     const canvas = useCanvasStore.getState()
     const node = canvas.nodes[id]
     if (!node || !canMutateCanvasTopology(canvas)) return

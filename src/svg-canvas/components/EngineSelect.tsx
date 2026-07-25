@@ -1,4 +1,4 @@
-import { enginesForArchetype } from '../skins/engineSkins'
+import { backendSupportedEnginesForArchetype } from '../skins/engineSkins'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
 
 export function EngineSelect() {
@@ -9,7 +9,7 @@ export function EngineSelect() {
   if (selectedIds.length !== 1) return null
   const node = nodes.find((n) => n.id === selectedIds[0])
   if (!node) return null
-  const options = enginesForArchetype(node.archetype)
+  const options = backendSupportedEnginesForArchetype(node.archetype)
   if (options.length <= 1) return null
 
   return (

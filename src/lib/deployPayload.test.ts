@@ -161,4 +161,97 @@ describe('deployConfigForNode', () => {
     expect(app.cacheTtlSeconds).toBe(300)
     expect(app.replicas).toBe(1)
   })
+
+  it('strips shards — the deployer provisions one instance per component', () => {
+    const db = deployConfigForNode({
+      id: 'db',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: { engine: 'postgresql', shards: 3 },
+      status: 'idle',
+    })
+    expect(db.shards).toBeUndefined()
+    expect(db.engine).toBe('postgresql')
+  })
+
+  it('falls back to the provisioned engine when an unsupported one is set', () => {
+    const db = deployConfigForNode({
+      id: 'db',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: { engine: 'mongodb' },
+      status: 'idle',
+    })
+    expect(db.engine).toBe('postgresql')
+
+    const mq = deployConfigForNode({
+      id: 'mq',
+      type: 'message_queue',
+      label: 'MQ',
+      position: [0, 0, 0],
+      config: { engine: 'kafka' },
+      status: 'idle',
+    })
+    expect(mq.engine).toBe('rabbitmq')
+
+    const cache = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'cache-aside', cacheEngine: 'memcached' }),
+    )
+    expect(cache.engine).toBe('redis')
+    expect(cache.cacheEngine).toBe('redis')
+  })
+
+  it('omits engine keys for types with no engine choice', () => {
+    const app = deployConfigForNode({
+      id: 'app',
+      type: 'compute',
+      label: 'App',
+      position: [0, 0, 0],
+      config: { replicas: 2, engine: 'weird' },
+      status: 'idle',
+    })
+    expect(app.engine).toBeUndefined()
+  })
+
+  it('strips cache, database, and worker replica counts from the deploy wire', () => {
+    const cache = deployConfigForNode(
+      cacheNode({ cacheStrategy: 'cache-aside', replicas: 3 }),
+    )
+    expect(cache.replicas).toBeUndefined()
+
+    const db = deployConfigForNode({
+      id: 'db',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: { engine: 'postgresql', replicas: 2, readReplicas: 2 },
+      status: 'idle',
+    })
+    expect(db.replicas).toBeUndefined()
+    expect(db.readReplicas).toBeUndefined()
+
+    const worker = deployConfigForNode({
+      id: 'worker',
+      type: 'worker',
+      label: 'Worker',
+      position: [0, 0, 0],
+      config: { replicas: 4 },
+      status: 'idle',
+    })
+    expect(worker.replicas).toBeUndefined()
+  })
+
+  it('keeps clamped compute replicas on the deploy wire', () => {
+    const app = deployConfigForNode({
+      id: 'app',
+      type: 'compute',
+      label: 'App',
+      position: [0, 0, 0],
+      config: { replicas: 2 },
+      status: 'idle',
+    })
+    expect(app.replicas).toBe(2)
+  })
 })

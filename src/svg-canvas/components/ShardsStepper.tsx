@@ -1,3 +1,4 @@
+import { BACKEND_SUPPORTS_SHARDING } from '../../lib/backendCapabilities'
 import { DB_SHARD_MAX } from '../compose/composeGlyph'
 import { MQ_SHARD_MAX } from '../skins/engineSkins'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
@@ -13,6 +14,8 @@ export function ShardsStepper() {
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const setNodeShards = useSvgCanvasStore((s) => s.setNodeShards)
 
+  // Packing code stays for demos/tests; the control is hidden until BE provisions shards.
+  if (!BACKEND_SUPPORTS_SHARDING) return null
   if (selectedIds.length !== 1) return null
   const node = nodes.find((n) => n.id === selectedIds[0])
   if (

@@ -18,6 +18,7 @@ import {
   type SvgNode,
 } from '../store/svgTypes'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
+import { backendSupportsReplicas } from '../../lib/backendCapabilities'
 import { clampShards } from '../compose/composeGlyph'
 
 export type CanvasNodeType = CanvasNode['type']
@@ -120,11 +121,8 @@ export function configPatchForReplicas(
   type: CanvasNodeType,
   replicas: number,
 ): Record<string, unknown> {
+  if (!backendSupportsReplicas(type)) return {}
   const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
-  if (type === 'database') {
-    return { readReplicas: Math.max(0, next - 1) }
-  }
-  if (type === 'load_balancer' || type === 'client') return {}
   return { replicas: next }
 }
 

@@ -1,3 +1,8 @@
+import {
+  backendEngineOrDefault,
+  backendSupportsReplicas,
+  BACKEND_SUPPORTS_SHARDING,
+} from './backendCapabilities'
 import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
 import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -37,8 +42,24 @@ export function deployConfigForNode(
   delete config.storageSize
   delete config.storageGB
   delete config.maxConnections
+  // Sharding is an SVG packing visual; the deployer provisions one instance.
+  if (!BACKEND_SUPPORTS_SHARDING) {
+    delete config.shards
+  }
+  const engine = backendEngineOrDefault(n.type, config.engine ?? config.cacheEngine)
+  if (engine === undefined) {
+    delete config.engine
+    delete config.cacheEngine
+  } else {
+    config.engine = engine
+    if (n.type === 'cache') config.cacheEngine = engine
+  }
   if (n.type === 'compute') {
     config.replicas = clampAppServerReplicas(config.replicas ?? 1)
+  } else if (!backendSupportsReplicas(n.type)) {
+    // Force single instance on the wire; SVG packing may still show multi-unit demos.
+    delete config.replicas
+    delete config.readReplicas
   }
   if (n.type === 'load_balancer') {
     const algo = lbAlgorithmForDeploy(config.algorithm ?? config.lbAlgorithm)

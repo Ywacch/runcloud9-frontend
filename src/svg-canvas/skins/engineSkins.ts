@@ -1,3 +1,5 @@
+import type { CanvasNode } from '../../editor-core/stores/canvasStore'
+import { isBackendSupportedEngine } from '../../lib/backendCapabilities'
 import type { Archetype } from '../store/svgTypes'
 
 export type BrandTint = {
@@ -140,6 +142,30 @@ export function resolveSkin(
 
 export function enginesForArchetype(archetype: Archetype): EngineSkin[] {
   return ENGINE_SKINS.filter((s) => s.archetype === archetype)
+}
+
+/** Local archetype→canvas type map; avoids importing the bridge (circular). */
+const CANVAS_TYPE_BY_ARCHETYPE: Record<Archetype, CanvasNode['type']> = {
+  'app-server': 'compute',
+  database: 'database',
+  cache: 'cache',
+  'load-balancer': 'load_balancer',
+  'message-queue': 'message_queue',
+  worker: 'worker',
+  client: 'client',
+}
+
+/**
+ * Skins the deployer can actually provision. Unsupported engines stay in
+ * `ENGINE_SKINS` for later, but never reach the picker.
+ */
+export function backendSupportedEnginesForArchetype(
+  archetype: Archetype,
+): EngineSkin[] {
+  const type = CANVAS_TYPE_BY_ARCHETYPE[archetype]
+  return enginesForArchetype(archetype).filter((s) =>
+    isBackendSupportedEngine(type, s.engine),
+  )
 }
 
 export const MQ_SHARD_MAX = 4

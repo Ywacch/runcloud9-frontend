@@ -1096,24 +1096,6 @@ function TypeFields({
                   }}
                 />
               </div>
-              <div>
-                <label className={labelClass} htmlFor="db-replicas">
-                  Read replicas
-                </label>
-                <input
-                  id="db-replicas"
-                  type="number"
-                  min={0}
-                  max={10}
-                  className={fieldClass}
-                  value={Number(c.readReplicas ?? 0)}
-                  onChange={(e) =>
-                    updateConfig({
-                      readReplicas: clamp(Number(e.target.value) || 0, 0, 10),
-                    })
-                  }
-                />
-              </div>
             </>
           ) : null}
         </>
