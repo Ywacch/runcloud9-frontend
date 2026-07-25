@@ -53,6 +53,7 @@ export function projectSvgScene(
       targetNodeId: e.targetId,
       waypoints: routeBetween(nodes, e.sourceId, e.targetId),
       style: defaultEdgeStyle(),
+      trafficEnabled: e.animated === true,
     }))
   return { nodes, edges, zones: rebuildZones(nodes) }
 }

@@ -34,6 +34,7 @@ import {
   type SvgNode,
   type SvgZone,
 } from './svgTypes'
+import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 
 export type { Archetype, SvgEdge, SvgNode, SvgZone } from './svgTypes'
 
@@ -66,6 +67,11 @@ type SvgCanvasState = {
   setNodeReplicas: (id: string, replicas: number) => void
   setNodeEngine: (id: string, engine: string) => void
   setNodeShards: (id: string, shards: number) => void
+  setNodeHealthVisual: (
+    ids: string[],
+    healthVisual: HealthVisualState,
+  ) => void
+  setEdgesTrafficEnabled: (ids: string[] | 'all', enabled: boolean) => void
   addEdge: (sourceId: string, targetId: string) => void
   moveNodes: (updates: { id: string; x: number; y: number }[]) => void
   rerouteEdgesForNodes: (nodeIds: string[]) => void
@@ -87,9 +93,15 @@ function syncFromCanvas(): void {
   const c = useCanvasStore.getState()
   const projected = projectSvgScene(c.nodes, c.edges)
   const prev = useSvgCanvasStore.getState()
+  const prevHealth = new Map(
+    prev.nodes.map((n) => [n.id, n.healthVisual] as const),
+  )
   const edgeIds = new Set(projected.edges.map((e) => e.id))
   useSvgCanvasStore.setState({
-    nodes: projected.nodes,
+    nodes: projected.nodes.map((n) => {
+      const healthVisual = prevHealth.get(n.id)
+      return healthVisual !== undefined ? { ...n, healthVisual } : n
+    }),
     edges: projected.edges,
     zones: projected.zones,
     selectedIds: selectionFromCanvas(),
@@ -265,6 +277,27 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (!node || !canMutateCanvasTopology(canvas)) return
     if (node.type !== 'database' && node.type !== 'message_queue') return
     canvas.updateNodeConfig(id, configPatchForShards(shards))
+  },
+
+  setNodeHealthVisual: (ids, healthVisual) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    set((s) => ({
+      nodes: s.nodes.map((n) =>
+        idSet.has(n.id) ? { ...n, healthVisual } : n,
+      ),
+    }))
+  },
+
+  setEdgesTrafficEnabled: (ids, enabled) => {
+    const canvas = useCanvasStore.getState()
+    if (ids === 'all') {
+      canvas.setAllEdgesAnimated(enabled)
+      return
+    }
+    for (const id of ids) {
+      if (canvas.edges[id]) canvas.setEdgeAnimated(id, enabled)
+    }
   },
 
   addEdge: (sourceId, targetId) => {

@@ -1,3 +1,4 @@
+import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import type { WorldPoint } from '../math/iso'
 
 export type Archetype =
@@ -32,6 +33,8 @@ export type SvgNode = {
   label: string
   config: Record<string, unknown>
   topology: NodeTopology
+  /** Live overlay; omit / `off` in design-only. Survives canvas sync when set. */
+  healthVisual?: HealthVisualState
 }
 
 /** Auto composition boundary for replicas (not a user-placed Area). */
@@ -61,6 +64,8 @@ export type SvgEdge = {
   targetNodeId: string
   waypoints: WorldPoint[]
   style: SvgEdgeStyle
+  /** Particles along waypoints; projected from CanvasEdge.animated. */
+  trafficEnabled?: boolean
 }
 
 export function defaultTopology(): NodeTopology {
@@ -83,6 +88,7 @@ export function cloneSvgNode(node: SvgNode): SvgNode {
     engine: node.engine,
     config: structuredClone(node.config),
     topology: { ...node.topology },
+    healthVisual: node.healthVisual,
   }
 }
 
@@ -91,6 +97,7 @@ export function cloneSvgEdge(edge: SvgEdge): SvgEdge {
     ...edge,
     waypoints: edge.waypoints.map((p) => ({ ...p })),
     style: { ...edge.style },
+    trafficEnabled: edge.trafficEnabled,
   }
 }
 

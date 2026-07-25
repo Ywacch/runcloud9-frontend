@@ -1,6 +1,12 @@
 import { useId } from 'react'
+import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import type { UnitOffset } from '../compose/composeAppServer'
 import { compareUnitPaintOrder } from '../compose/composePacking'
+import {
+  resolveRimStyle,
+  rimCssColor,
+  usePulsingAlpha,
+} from '../fx/healthRimCss'
 import type { BrandTint } from '../skins/engineSkins'
 import { tintColorMatrixValues } from '../skins/brandTintFilter'
 import { IsoFaceLogo } from './IsoFaceLogo'
@@ -24,6 +30,7 @@ type SpriteBackedGlyphProps = {
   /** When false, skip face logo (rare). Default true — still no-ops if logoId null. */
   showBadge?: boolean
   selected?: boolean
+  healthVisual?: HealthVisualState
   interactive?: boolean
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
 }
@@ -39,12 +46,14 @@ export function SpriteBackedGlyph({
   tint = null,
   showBadge = true,
   selected = false,
+  healthVisual = 'off',
   interactive = false,
   onPointerDown,
 }: SpriteBackedGlyphProps) {
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
-  // Multi-unit in-plane nests use ZoneLayer — not per-unit boxes.
+  // Multi-unit in-plane nests use ZoneLayer — not per-unit boxes for selection.
+  // Health rims still paint per unit so stacks and fans both show FX.
   const perUnitSelect =
     selected &&
     !(
@@ -53,6 +62,9 @@ export function SpriteBackedGlyph({
     )
   const stroke = perUnitSelect ? '#3b82f6' : 'transparent'
   const strokeWidth = perUnitSelect ? 2.5 : 0
+  const rimStyle = resolveRimStyle(healthVisual)
+  const rimAlpha = usePulsingAlpha(rimStyle)
+  const rimColor = rimStyle ? rimCssColor(rimStyle.color) : null
   const matrix = tintColorMatrixValues(tint)
   const rawId = useId().replace(/:/g, '')
   const filterId = matrix ? `sprite-tint-${rawId}` : null
@@ -65,6 +77,7 @@ export function SpriteBackedGlyph({
       data-archetype={kind}
       data-unit-asset="true"
       data-replicas={units.length}
+      data-health={healthVisual}
     >
       {filterId && matrix ? (
         <defs>
@@ -82,7 +95,6 @@ export function SpriteBackedGlyph({
       >
         {ordered.map((u, i) => (
           <g key={i} transform={`translate(${u.dx} ${u.dy})`}>
-            {/* Invisible hit target — <image> alone often ignores pointer events. */}
             <rect
               x={-spec.tipX}
               y={-spec.tipY}
@@ -100,6 +112,35 @@ export function SpriteBackedGlyph({
               filter={filterId ? `url(#${filterId})` : undefined}
               style={{ pointerEvents: 'none' }}
             />
+            {rimColor ? (
+              <rect
+                x={-spec.tipX - 1}
+                y={-spec.tipY - 1}
+                width={spec.w + 2}
+                height={spec.h + 2}
+                fill="none"
+                stroke={rimColor}
+                strokeWidth={5}
+                rx={3}
+                opacity={rimAlpha * 0.45}
+                style={{ pointerEvents: 'none' }}
+              />
+            ) : null}
+            {rimColor ? (
+              <rect
+                data-health-rim
+                x={-spec.tipX}
+                y={-spec.tipY}
+                width={spec.w}
+                height={spec.h}
+                fill="none"
+                stroke={rimColor}
+                strokeWidth={2.5}
+                rx={2}
+                opacity={rimAlpha}
+                style={{ pointerEvents: 'none' }}
+              />
+            ) : null}
             {strokeWidth > 0 ? (
               <rect
                 x={-spec.tipX}

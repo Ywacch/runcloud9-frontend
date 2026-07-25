@@ -1,6 +1,8 @@
 import { composeGlyph } from '../compose/composeGlyph'
+import { useUnitOffsetsTween } from '../hooks/useUnitOffsetsTween'
 import { resolveSkin } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
+import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import { RedisBrandGlyph } from './RedisBrandGlyph'
 import { SpriteBackedGlyph } from './SpriteBackedGlyph'
 import type { PointerEvent as ReactPointerEvent } from 'react'
@@ -11,6 +13,8 @@ type NodeGlyphProps = {
   y: number
   selected?: boolean
   interactive?: boolean
+  /** Demo / live overlay; falls back to node.healthVisual. */
+  healthVisual?: HealthVisualState
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
@@ -20,22 +24,26 @@ export function NodeGlyph({
   y,
   selected,
   interactive,
+  healthVisual,
   onPointerDown,
 }: NodeGlyphProps) {
   const skin = resolveSkin(node.archetype, node.engine)
   const composed = composeGlyph(node)
+  const units = useUnitOffsetsTween(composed.units)
+  const health = healthVisual ?? node.healthVisual ?? 'off'
   const common = {
     x,
     y,
     label: node.label,
     selected,
     interactive,
+    healthVisual: health,
     onPointerDown,
   }
 
   // Redis keeps the measured brand 3-slab mark for now.
   if (composed.brandBody === 'redis') {
-    return <RedisBrandGlyph {...common} units={composed.units} />
+    return <RedisBrandGlyph {...common} units={units} />
   }
 
   switch (node.archetype) {
@@ -44,7 +52,7 @@ export function NodeGlyph({
         <SpriteBackedGlyph
           {...common}
           kind="database"
-          units={composed.units}
+          units={units}
           logoId={skin.logoId}
           tint={skin.brandTint}
         />
@@ -54,7 +62,7 @@ export function NodeGlyph({
         <SpriteBackedGlyph
           {...common}
           kind="cache"
-          units={composed.units}
+          units={units}
           logoId={skin.logoId}
           tint={skin.brandTint}
         />
@@ -64,7 +72,7 @@ export function NodeGlyph({
         <SpriteBackedGlyph
           {...common}
           kind="message-queue"
-          units={composed.units}
+          units={units}
           logoId={skin.logoId}
           tint={skin.brandTint}
         />
@@ -84,7 +92,7 @@ export function NodeGlyph({
         <SpriteBackedGlyph
           {...common}
           kind="worker"
-          units={composed.units}
+          units={units}
           logoId={skin.logoId}
           tint={skin.brandTint}
         />
@@ -95,7 +103,7 @@ export function NodeGlyph({
         <SpriteBackedGlyph
           {...common}
           kind="app-server"
-          units={composed.units}
+          units={units}
           logoId={skin.logoId}
           tint={skin.brandTint}
         />
