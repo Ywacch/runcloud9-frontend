@@ -1,10 +1,17 @@
 import { Link } from 'react-router-dom'
-import canvasHero from '../../assets/canvas1.PNG'
 import { trackEvent } from '../../lib/analytics'
-import { ScreenshotFrame } from './ScreenshotFrame'
+import { InteractiveCanvasHero } from './InteractiveCanvasHero'
 
 const GRAIN_BG =
   "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
+
+const HERO_SVG_STYLE = {
+  filter: 'drop-shadow(0 24px 48px rgba(0,0,0,0.45))',
+  maskImage:
+    'radial-gradient(ellipse 88% 88% at 50% 50%, black 62%, transparent 92%)',
+  WebkitMaskImage:
+    'radial-gradient(ellipse 88% 88% at 50% 50%, black 62%, transparent 92%)',
+} as const
 
 export function Hero() {
   return (
@@ -29,13 +36,8 @@ export function Hero() {
         aria-hidden
       />
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] grid-cols-1 items-center gap-16 px-6 py-16 lg:grid-cols-2 lg:gap-16 lg:px-10 lg:py-24">
+      <div className="relative z-10 mx-auto grid w-full max-w-[1360px] grid-cols-1 items-center gap-16 px-6 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10 lg:px-10 lg:py-24">
         <div className="flex flex-col justify-center gap-6">
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-c9-accent/30 bg-c9-accent-subtle px-3 py-1 text-xs font-medium text-c9-accent">
-            <span className="h-1.5 w-1.5 rounded-full bg-c9-accent" aria-hidden />
-            Systems architecture lab
-          </span>
-
           <h1 className="font-serif text-4xl font-medium leading-tight text-c9-text-heading md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
             Design and deploy live architecture on a canvas.
           </h1>
@@ -49,7 +51,9 @@ export function Hero() {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/canvas"
-              onClick={() => trackEvent('landing_cta_clicked', { ctaName: 'start_building' })}
+              onClick={() =>
+                trackEvent('landing_cta_clicked', { ctaName: 'start_building' })
+              }
               className="rounded bg-c9-accent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-c9-accent-hover active:scale-[0.98]"
             >
               Start Building →
@@ -64,18 +68,16 @@ export function Hero() {
         </div>
 
         <div className="relative flex w-full items-center justify-center">
-          <div className="relative mx-auto w-full max-w-lg">
+          <div className="group relative mx-auto w-full cursor-default lg:w-[118%] lg:max-w-none lg:-mr-[12%]">
             <div
-              className="absolute inset-4 z-0 rounded-xl blur-2xl"
-              style={{ background: 'rgba(89, 73, 122, 0.12)' }}
+              className="pointer-events-none absolute inset-8 z-0 rounded-full blur-3xl transition-opacity duration-500 group-hover:opacity-100"
+              style={{ background: 'rgba(89, 73, 122, 0.16)' }}
               aria-hidden
             />
-            <div
-              className="relative z-10"
-              style={{ filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.5))' }}
-            >
-              <ScreenshotFrame screenshotSrc={canvasHero} />
-            </div>
+            <InteractiveCanvasHero
+              className="relative z-10 transition-transform duration-500 ease-out will-change-transform group-hover:-translate-y-3"
+              imgStyle={HERO_SVG_STYLE}
+            />
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import canvasDesign from '../../assets/canvas2.PNG'
+import canvasDesign from '../../assets/canvas-hero.svg'
 import canvasDeploy from '../../assets/canvas1.PNG'
 import canvasObserve from '../../assets/canvas3.png'
 import { ScreenshotFrame } from './ScreenshotFrame'
@@ -56,7 +56,35 @@ const FEATURE_BLOCKS: FeatureBlockConfig[] = [
   },
 ]
 
-function FeatureVisual({ screenshotSrc }: { screenshotSrc: string }) {
+function FeatureVisual({
+  screenshotSrc,
+  alt,
+  framed = true,
+}: {
+  screenshotSrc: string
+  alt?: string
+  framed?: boolean
+}) {
+  if (!framed) {
+    return (
+      <div className="relative w-full overflow-hidden">
+        <img
+          src={screenshotSrc}
+          alt={alt ?? ''}
+          className="mx-auto block h-auto w-full max-w-2xl object-contain select-none"
+          style={{
+            maskImage:
+              'radial-gradient(ellipse 70% 70% at 50% 50%, black 40%, transparent 78%)',
+            WebkitMaskImage:
+              'radial-gradient(ellipse 70% 70% at 50% 50%, black 40%, transparent 78%)',
+          }}
+          decoding="async"
+          draggable={false}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="relative w-full">
       <div
@@ -68,7 +96,11 @@ function FeatureVisual({ screenshotSrc }: { screenshotSrc: string }) {
         className="relative z-10"
         style={{ filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.5))' }}
       >
-        <ScreenshotFrame screenshotSrc={screenshotSrc} className="w-full" />
+        <ScreenshotFrame
+          screenshotSrc={screenshotSrc}
+          alt={alt}
+          className="w-full"
+        />
       </div>
     </div>
   )
@@ -116,7 +148,7 @@ export function Features() {
       className="py-32"
       style={{ background: '#08070C' }}
     >
-      <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
+      <div className="mx-auto max-w-[1360px] px-6 lg:px-10">
         <header className="mb-20 text-center">
           <p className="text-xs font-medium uppercase tracking-widest text-c9-accent">
             What you can do
@@ -134,23 +166,23 @@ export function Features() {
           {FEATURE_BLOCKS.map((block) => (
             <article
               key={block.category}
-              className="grid grid-cols-1 items-center gap-16 py-20 lg:grid-cols-2"
+              className="grid grid-cols-1 items-center gap-12 py-20 lg:grid-cols-12 lg:gap-16"
               style={{ borderTop: '1px solid var(--c9-border)' }}
             >
               {block.visualFirst ? (
                 <>
-                  <FeatureVisual screenshotSrc={block.screenshotSrc} />
-                  <FeatureCopy
-                    category={block.category}
-                    categoryClass={block.categoryClass}
-                    title={block.title}
-                    body={block.body}
-                    bullets={block.bullets}
-                  />
-                </>
-              ) : (
-                <>
-                  <div className="lg:order-1">
+                  <div className="lg:col-span-8 lg:order-1">
+                    <FeatureVisual
+                      screenshotSrc={block.screenshotSrc}
+                      framed={block.category === 'Design' ? false : true}
+                      alt={
+                        block.category === 'Design'
+                          ? 'RunCloud9 isometric architecture canvas'
+                          : `${block.title} preview`
+                      }
+                    />
+                  </div>
+                  <div className="lg:col-span-4 lg:order-2">
                     <FeatureCopy
                       category={block.category}
                       categoryClass={block.categoryClass}
@@ -159,8 +191,23 @@ export function Features() {
                       bullets={block.bullets}
                     />
                   </div>
-                  <div className="lg:order-2">
-                    <FeatureVisual screenshotSrc={block.screenshotSrc} />
+                </>
+              ) : (
+                <>
+                  <div className="lg:col-span-4 lg:order-1">
+                    <FeatureCopy
+                      category={block.category}
+                      categoryClass={block.categoryClass}
+                      title={block.title}
+                      body={block.body}
+                      bullets={block.bullets}
+                    />
+                  </div>
+                  <div className="lg:col-span-8 lg:order-2">
+                    <FeatureVisual
+                      screenshotSrc={block.screenshotSrc}
+                      alt={`${block.title} preview`}
+                    />
                   </div>
                 </>
               )}
