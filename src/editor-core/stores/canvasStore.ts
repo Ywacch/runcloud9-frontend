@@ -308,12 +308,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   removeSelectedNodes: () =>
     set((s) => {
       if (!canMutateCanvasTopology(s)) return s
-      const ids =
+      const rawIds =
         s.selectedIds.length > 0
           ? s.selectedIds
           : s.selectedId
             ? [s.selectedId]
             : []
+      // Traffic-source / loadgen is system-owned (Pixi parity).
+      const ids = rawIds.filter((id) => s.nodes[id]?.type !== 'client')
       if (ids.length === 0) return s
 
       recordCanvasHistory(s.nodes, s.edges)

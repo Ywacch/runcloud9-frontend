@@ -14,9 +14,11 @@ function unitHalfPad(node: SvgNode, brandBody: 'redis' | null): number {
   if (brandBody === 'redis') {
     return CC_HALF_W / HALF_W // ≈ 0.98
   }
-  const kind = node.archetype as SpriteKind
-  const metric = SPRITE_METRICS[kind]
-  if (metric) return metric.w / (2 * HALF_W)
+  if (node.archetype in SPRITE_METRICS) {
+    const metric = SPRITE_METRICS[node.archetype as SpriteKind]
+    return metric.w / (2 * HALF_W)
+  }
+  // Client / unknown procedural — compact pad.
   return 0.85
 }
 

@@ -146,7 +146,17 @@ export function composeGlyph(node: SvgNode): ComposedGlyph {
     }
   }
 
-  // LB / fallback
+  // Client / loadgen + LB — single procedural unit (never stacks).
+  if (node.archetype === 'client' || node.archetype === 'load-balancer') {
+    return {
+      units: [{ dx: 0, dy: 0 }],
+      tubeCount: 1,
+      brandBody: null,
+      packing: 'stack',
+    }
+  }
+
+  // Fallback
   return {
     units: composeAppServerUnits(1),
     tubeCount: 1,

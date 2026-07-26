@@ -113,4 +113,18 @@ describe('canvasSvgAdapter config projection', () => {
     expect(svg.topology.replicas).toBe(2)
     expect(svg.x).toBe(canvasPositionToSvgWorld(isoToNode(1, 0)).x)
   })
+
+  it('projects the traffic-source client into archetype client', () => {
+    const svg = canvasNodeToSvgNode(
+      node({
+        id: 'client-loadgen',
+        type: 'client',
+        label: 'Traffic Source',
+        position: isoToNode(0, 0),
+      }),
+    )
+    expect(svg.archetype).toBe('client')
+    expect(svg.engine).toBe('generic')
+    expect(svg.topology.replicas).toBe(1)
+  })
 })

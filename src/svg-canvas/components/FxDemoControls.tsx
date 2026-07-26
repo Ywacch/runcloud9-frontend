@@ -1,4 +1,8 @@
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
+import {
+  CLIENT_LOADGEN_ID,
+  spawnClientLoadgenNode,
+} from '../../lib/spawnClientNode'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
 
 const HEALTH_OPTIONS: { value: HealthVisualState; label: string }[] = [
@@ -23,6 +27,9 @@ export function FxDemoControls({ compact = false }: { compact?: boolean }) {
     selectedIds.length === 1
       ? (nodes.find((n) => n.id === selectedIds[0])?.healthVisual ?? 'off')
       : 'off'
+  const hasClient = nodes.some(
+    (n) => n.archetype === 'client' || n.id === CLIENT_LOADGEN_ID,
+  )
 
   const btn = compact
     ? 'rounded px-1.5 py-0.5 text-[10px]'
@@ -96,6 +103,19 @@ export function FxDemoControls({ compact = false }: { compact?: boolean }) {
           onClick={() => setEdgesTrafficEnabled('all', false)}
         >
           All off
+        </button>
+        <button
+          type="button"
+          className={`${btn} text-zinc-500 hover:text-zinc-800`}
+          disabled={hasClient}
+          title={
+            hasClient
+              ? 'Traffic source already on canvas'
+              : 'Spawn client / loadgen node (edges to LB or first compute)'
+          }
+          onClick={() => spawnClientLoadgenNode()}
+        >
+          + Client
         </button>
       </div>
     </div>

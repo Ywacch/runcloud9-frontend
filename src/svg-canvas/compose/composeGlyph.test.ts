@@ -169,6 +169,31 @@ describe('composeGlyph', () => {
       ).packing,
     ).toBe('stack')
   })
+
+  it('client / loadgen is a single procedural unit (never stacks)', () => {
+    const c = composeGlyph(
+      node({
+        archetype: 'client',
+        engine: 'generic',
+        topology: { replicas: 5, shards: 3, packing: 'fan' },
+      }),
+    )
+    expect(c.units).toEqual([{ dx: 0, dy: 0 }])
+    expect(c.packing).toBe('stack')
+    expect(c.brandBody).toBeNull()
+  })
+
+  it('load-balancer is a single unit', () => {
+    expect(
+      composeGlyph(
+        node({
+          archetype: 'load-balancer',
+          engine: 'generic',
+          topology: { replicas: 2, shards: 1, packing: 'stack' },
+        }),
+      ).units,
+    ).toEqual([{ dx: 0, dy: 0 }])
+  })
 })
 
 describe('composeMqParallelUnits', () => {
