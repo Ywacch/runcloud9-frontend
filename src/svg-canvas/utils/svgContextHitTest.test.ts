@@ -38,8 +38,8 @@ describe('svgContextHitTest', () => {
   })
 
   it('prefers topmost overlapping art box by paint order', () => {
-    const back = node({ id: 'back', archetype: 'compute', x: 100, y: 100 })
-    const front = node({ id: 'front', archetype: 'compute', x: 100, y: 140 })
+    const back = node({ id: 'back', archetype: 'app-server', x: 100, y: 100 })
+    const front = node({ id: 'front', archetype: 'app-server', x: 100, y: 140 })
     const frontBox = walkthroughGlyphArtBox(front)
     const hit = findSvgNodeIdAtWorldPoint(
       [back, front],
