@@ -1,25 +1,30 @@
 import type { CanvasEdge, CanvasNode } from '../../editor-core/stores/canvasStore'
-import { syncZoneForNode, unitObstacleAnchors } from '../compose/syncZoneForNode'
-import { attachPoint } from '../routing/attach'
+import { syncZoneForNode } from '../compose/syncZoneForNode'
+import { attachPair } from '../routing/attach'
 import { routeIsoManhattan } from '../routing/isoManhattan'
+import { collectObstacleCells } from '../routing/obstacles'
 import { defaultEdgeStyle, type SvgEdge, type SvgNode, type SvgZone } from '../store/svgTypes'
 import { canvasNodeToSvgNode } from './canvasSvgAdapter'
 
 function routeBetween(
   nodes: SvgNode[],
+  zones: SvgZone[],
   sourceId: string,
   targetId: string,
 ): { x: number; y: number }[] {
   const source = nodes.find((n) => n.id === sourceId)
   const target = nodes.find((n) => n.id === targetId)
   if (!source || !target) return []
-  const obstacleAnchors = nodes
-    .filter((n) => n.id !== sourceId && n.id !== targetId)
-    .flatMap((n) => unitObstacleAnchors(n))
+  const ports = attachPair(source, target)
+  const obstacleCells = collectObstacleCells(
+    nodes,
+    zones,
+    new Set([sourceId, targetId]),
+  )
   return routeIsoManhattan({
-    source: attachPoint(source),
-    target: attachPoint(target),
-    obstacleAnchors,
+    source: ports.source,
+    target: ports.target,
+    obstacleCells,
   })
 }
 
@@ -45,18 +50,19 @@ export function projectSvgScene(
 ): ProjectedSvgScene {
   const nodes = Object.values(canvasNodes).map(canvasNodeToSvgNode)
   const byId = new Set(nodes.map((n) => n.id))
+  const zones = rebuildZones(nodes)
   const edges: SvgEdge[] = Object.values(canvasEdges)
     .filter((e) => byId.has(e.sourceId) && byId.has(e.targetId))
     .map((e) => ({
       id: e.id,
       sourceNodeId: e.sourceId,
       targetNodeId: e.targetId,
-      waypoints: routeBetween(nodes, e.sourceId, e.targetId),
+      waypoints: routeBetween(nodes, zones, e.sourceId, e.targetId),
       style: defaultEdgeStyle(),
       trafficEnabled: e.animated === true,
       protocol: e.protocol === 'tcp' ? ('tcp' as const) : ('http' as const),
     }))
-  return { nodes, edges, zones: rebuildZones(nodes) }
+  return { nodes, edges, zones }
 }
 
 export function rerouteSvgEdgesForNodes(
@@ -66,11 +72,12 @@ export function rerouteSvgEdgesForNodes(
 ): SvgEdge[] {
   if (nodeIds.length === 0) return edges
   const moved = new Set(nodeIds)
+  const zones = rebuildZones(nodes)
   return edges.map((e) => {
     if (!moved.has(e.sourceNodeId) && !moved.has(e.targetNodeId)) return e
     return {
       ...e,
-      waypoints: routeBetween(nodes, e.sourceNodeId, e.targetNodeId),
+      waypoints: routeBetween(nodes, zones, e.sourceNodeId, e.targetNodeId),
     }
   })
 }
