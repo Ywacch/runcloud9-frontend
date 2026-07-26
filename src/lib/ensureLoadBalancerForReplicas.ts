@@ -1,8 +1,6 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
-import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
-import { autoArrangeByDependencyLayers } from './autoArrange'
-import { withoutCanvasHistoryRecording } from './canvasHistory'
+import { applyAutoArrange } from './applyAutoArrange'
 import { defaultEdgeProtocol } from './defaultEdgeProtocol'
 import { createCanvasNode } from './nodeFactory'
 import { clampAppServerReplicas } from './replicaConfig'
@@ -91,17 +89,5 @@ export function ensureLoadBalancerForReplicas(): void {
 }
 
 function autoArrangeCanvasAfterLbInject(): void {
-  const st = useCanvasStore.getState()
-  const nodeList = Object.values(st.nodes)
-  if (nodeList.length === 0) return
-  const nextPositions = autoArrangeByDependencyLayers(
-    nodeList,
-    Object.values(st.edges),
-  )
-  withoutCanvasHistoryRecording(() => {
-    for (const [id, pos] of Object.entries(nextPositions)) {
-      st.updateNodePosition(id, pos)
-    }
-  })
-  requestCanvasFit()
+  applyAutoArrange({ recordHistory: false })
 }

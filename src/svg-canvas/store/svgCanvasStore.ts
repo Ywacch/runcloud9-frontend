@@ -21,6 +21,10 @@ import {
 import { defaultEdgeProtocol } from '../../lib/defaultEdgeProtocol'
 import { createCanvasNode } from '../../lib/nodeFactory'
 import { placeFromPicker } from '../../lib/pickerPlacement'
+import {
+  canMoveOnCanvas,
+  canPlaceOnCanvas,
+} from '../../lib/canvasContextMenuCatalog'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
 import {
   archetypeToCanvasType,
@@ -214,7 +218,12 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
 
   placeNodeAt: (x, y) => {
     const canvas = useCanvasStore.getState()
-    if (!canMutateCanvasTopology(canvas) || canvas.movementLocked) return
+    if (
+      !canMutateCanvasTopology(canvas) ||
+      !canPlaceOnCanvas(canvas.mode, canvas.movementLocked)
+    ) {
+      return
+    }
     const type = canvas.placingNodeType
     if (!type || type === 'client') return
     const position = svgWorldToCanvasPosition(x, y)
@@ -338,7 +347,12 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
   moveNodes: (updates) => {
     if (updates.length === 0) return
     const canvas = useCanvasStore.getState()
-    if (!canMutateCanvasTopology(canvas) || canvas.movementLocked) return
+    if (
+      !canMutateCanvasTopology(canvas) ||
+      !canMoveOnCanvas(canvas.movementLocked)
+    ) {
+      return
+    }
     recordCanvasHistory(canvas.nodes, canvas.edges)
     withoutCanvasHistoryRecording(() => {
       const st = useCanvasStore.getState()
@@ -387,7 +401,12 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
   pasteClipboard: () => {
     if (clipboard.length === 0) return
     const canvas = useCanvasStore.getState()
-    if (!canMutateCanvasTopology(canvas)) return
+    if (
+      !canMutateCanvasTopology(canvas) ||
+      !canPlaceOnCanvas(canvas.mode, canvas.movementLocked)
+    ) {
+      return
+    }
     const ox = HALF_W
     const oy = HALF_H
     const createdIds: string[] = []

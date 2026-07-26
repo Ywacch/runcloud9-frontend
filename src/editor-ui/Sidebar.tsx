@@ -45,15 +45,10 @@ import {
 } from '../lib/liveSessionStorage'
 import { discardWsEventsStorage } from '../lib/wsEventsPersist'
 import { captureSessionSummaryWithApi } from '../lib/sessionCapture'
+import { applyAutoArrange } from '../lib/applyAutoArrange'
 import {
   CLIENT_LOADGEN_ID,
 } from '../lib/spawnClientNode'
-import { autoArrangeByDependencyLayers } from '../lib/autoArrange'
-import {
-  recordCanvasHistory,
-  withoutCanvasHistoryRecording,
-} from '../lib/canvasHistory'
-import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useAuthStore } from '../product/stores/authStore'
@@ -322,18 +317,7 @@ export function Sidebar() {
   }
 
   const handleAutoArrange = () => {
-    const st = useCanvasStore.getState()
-    const nodeList = Object.values(st.nodes)
-    if (nodeList.length === 0) return
-    const edgeList = Object.values(st.edges)
-    const nextPositions = autoArrangeByDependencyLayers(nodeList, edgeList)
-    recordCanvasHistory(st.nodes, st.edges)
-    withoutCanvasHistoryRecording(() => {
-      for (const [id, pos] of Object.entries(nextPositions)) {
-        st.updateNodePosition(id, pos)
-      }
-    })
-    requestCanvasFit()
+    if (!applyAutoArrange()) return
     setBanner('Auto-arranged by dependency depth.')
   }
 
