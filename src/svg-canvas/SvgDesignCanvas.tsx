@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
@@ -16,6 +17,7 @@ import {
   useCanvasStore,
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
+import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
 import {
   canMoveOnCanvas,
   canPlaceOnCanvas,
@@ -60,6 +62,7 @@ import {
   registerSvgViewport,
   unregisterSvgViewport,
 } from './utils/svgViewportBridge'
+import { findSvgNodeIdAtWorldPoint } from './utils/svgContextHitTest'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -343,6 +346,34 @@ export default function SvgDesignCanvas({
     },
     [zoomAround],
   )
+
+  const onContextMenu = useCallback((e: ReactMouseEvent<SVGSVGElement>) => {
+    e.preventDefault()
+    const svg = svgRef.current
+    if (!svg) return
+    const world = clientToWorld(svg, e.clientX, e.clientY)
+    const svgNodes = useSvgCanvasStore.getState().nodes
+    const hitId = findSvgNodeIdAtWorldPoint(svgNodes, world.x, world.y)
+    const menuStore = useCanvasContextMenuStore.getState()
+    if (hitId) {
+      menuStore.openNode({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        nodeId: hitId,
+      })
+      return
+    }
+    const canvas = useCanvasStore.getState()
+    if (!canPlaceOnCanvas(canvas.mode, canvas.movementLocked)) {
+      menuStore.close()
+      return
+    }
+    menuStore.openCreate({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      position: svgWorldToCanvasPosition(world.x, world.y),
+    })
+  }, [])
 
   const beginNodeDrag = useCallback(
     (nodeId: string, e: ReactPointerEvent<SVGGElement>) => {
@@ -844,6 +875,7 @@ export default function SvgDesignCanvas({
           onPointerMove={onPointerMove}
           onPointerUp={endPointer}
           onPointerCancel={endPointer}
+          onContextMenu={onContextMenu}
           role="img"
           aria-label="Isometric SVG design canvas"
         >
