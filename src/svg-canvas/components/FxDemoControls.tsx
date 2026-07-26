@@ -1,5 +1,9 @@
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import {
+  isMetricsViewportMode,
+  useCanvasStore,
+} from '../../editor-core/stores/canvasStore'
+import {
   CLIENT_LOADGEN_ID,
   spawnClientLoadgenNode,
 } from '../../lib/spawnClientNode'
@@ -22,6 +26,8 @@ export function FxDemoControls({ compact = false }: { compact?: boolean }) {
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const setNodeHealthVisual = useSvgCanvasStore((s) => s.setNodeHealthVisual)
   const setEdgesTrafficEnabled = useSvgCanvasStore((s) => s.setEdgesTrafficEnabled)
+  const mode = useCanvasStore((s) => s.mode)
+  const healthFromLive = isMetricsViewportMode(mode)
 
   const selectedHealth =
     selectedIds.length === 1
@@ -53,11 +59,13 @@ export function FxDemoControls({ compact = false }: { compact?: boolean }) {
                 ? 'bg-zinc-800 text-white'
                 : 'text-zinc-500 hover:text-zinc-800'
             }`}
-            disabled={selectedIds.length === 0}
+            disabled={selectedIds.length === 0 || healthFromLive}
             title={
-              selectedIds.length === 0
-                ? 'Select a node first'
-                : `Set health to ${opt.value}`
+              healthFromLive
+                ? 'Health rims follow live/sim metrics'
+                : selectedIds.length === 0
+                  ? 'Select a node first'
+                  : `Set health to ${opt.value}`
             }
             onClick={() => setNodeHealthVisual(selectedIds, opt.value)}
           >

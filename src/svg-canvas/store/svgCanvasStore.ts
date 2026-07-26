@@ -5,9 +5,13 @@
 import { create } from 'zustand'
 import {
   canMutateCanvasTopology,
+  isMetricsViewportMode,
   useCanvasStore,
+  type CanvasMode,
   type CanvasNode,
 } from '../../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../../editor-core/stores/metricsStore'
+import { useChaosStore } from '../../editor-core/stores/chaosStore'
 import { isoToNode } from '../../canvas/utils/positionAdapter'
 import {
   recordCanvasHistory,
@@ -35,6 +39,7 @@ import {
   svgWorldToCanvasPosition,
 } from '../bridge/canvasSvgAdapter'
 import { projectSvgScene } from '../bridge/projectSvgScene'
+import { mapSvgNodesWithLiveHealth } from '../fx/syncLiveHealth'
 import { HALF_H, HALF_W, snapWorld } from '../math/iso'
 import {
   cloneSvgNode,
@@ -51,6 +56,10 @@ let clipboard: SvgNode[] = []
 let bridgeInstalled = false
 let seedAttempted = false
 let unsubscribeCanvas: (() => void) | null = null
+let unsubscribeMetrics: (() => void) | null = null
+let unsubscribeChaos: (() => void) | null = null
+/** Last canvas mode seen by syncFromCanvas — used to clear rims leaving live/sim. */
+let lastSyncedMode: CanvasMode | null = null
 
 type SvgCanvasState = {
   nodes: SvgNode[]
@@ -105,12 +114,27 @@ function syncFromCanvas(): void {
   const prevHealth = new Map(
     prev.nodes.map((n) => [n.id, n.healthVisual] as const),
   )
+  const leftMetricsMode =
+    lastSyncedMode != null &&
+    isMetricsViewportMode(lastSyncedMode) &&
+    !isMetricsViewportMode(c.mode)
+  lastSyncedMode = c.mode
+
+  const metrics = useMetricsStore.getState().metrics
+  const isTargetActive = useChaosStore.getState().isTargetActive
+  const nodes = mapSvgNodesWithLiveHealth(
+    projected.nodes,
+    c.nodes,
+    c.mode,
+    metrics,
+    isTargetActive,
+    prevHealth,
+    leftMetricsMode,
+  )
+
   const edgeIds = new Set(projected.edges.map((e) => e.id))
   useSvgCanvasStore.setState({
-    nodes: projected.nodes.map((n) => {
-      const healthVisual = prevHealth.get(n.id)
-      return healthVisual !== undefined ? { ...n, healthVisual } : n
-    }),
+    nodes,
     edges: projected.edges,
     zones: projected.zones,
     selectedIds: selectionFromCanvas(),
@@ -121,6 +145,28 @@ function syncFromCanvas(): void {
     connectMode: c.designTool === 'connect',
     connectSourceId: c.pendingSourceId,
   })
+}
+
+/** Metrics/chaos-only patch — avoids full topology reproject on every sample. */
+function patchLiveHealthVisuals(): void {
+  const c = useCanvasStore.getState()
+  if (!isMetricsViewportMode(c.mode)) return
+  const metrics = useMetricsStore.getState().metrics
+  const isTargetActive = useChaosStore.getState().isTargetActive
+  const prev = useSvgCanvasStore.getState().nodes
+  const prevHealth = new Map(prev.map((n) => [n.id, n.healthVisual] as const))
+  const nodes = mapSvgNodesWithLiveHealth(
+    prev,
+    c.nodes,
+    c.mode,
+    metrics,
+    isTargetActive,
+    prevHealth,
+    false,
+  )
+  if (nodes.some((n, i) => n !== prev[i])) {
+    useSvgCanvasStore.setState({ nodes })
+  }
 }
 
 /** Seed one compute node when canvas is empty so /canvas-svg is usable alone. */
@@ -150,14 +196,25 @@ export function installCanvasSvgBridge(): void {
   unsubscribeCanvas = useCanvasStore.subscribe(() => {
     syncFromCanvas()
   })
+  unsubscribeMetrics = useMetricsStore.subscribe((state, prev) => {
+    if (state.metrics !== prev.metrics) patchLiveHealthVisuals()
+  })
+  unsubscribeChaos = useChaosStore.subscribe(() => {
+    patchLiveHealthVisuals()
+  })
 }
 
 /** Test helper: reset bridge + local UI (does not clear canvasStore). */
 export function resetCanvasSvgBridgeForTests(): void {
   unsubscribeCanvas?.()
   unsubscribeCanvas = null
+  unsubscribeMetrics?.()
+  unsubscribeMetrics = null
+  unsubscribeChaos?.()
+  unsubscribeChaos = null
   bridgeInstalled = false
   seedAttempted = false
+  lastSyncedMode = null
   clipboard = []
   useSvgCanvasStore.setState({
     nodes: [],
@@ -298,6 +355,8 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
 
   setNodeHealthVisual: (ids, healthVisual) => {
     if (ids.length === 0) return
+    // Live/sim rims come from metrics + chaos — demo toggles are design-only.
+    if (isMetricsViewportMode(useCanvasStore.getState().mode)) return
     const idSet = new Set(ids)
     set((s) => ({
       nodes: s.nodes.map((n) =>
