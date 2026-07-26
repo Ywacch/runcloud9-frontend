@@ -294,11 +294,12 @@ export default function SvgDesignCanvas({
     setExporting(true)
     try {
       const { width, height } = host.getBoundingClientRect()
-      const aspect =
-        width > 0 && height > 0 ? width / height : 16 / 9
       const text = await serializeSvgScene(svg, {
         nodes: useSvgCanvasStore.getState().nodes,
-        aspect,
+        frame: 'viewport',
+        width: Math.max(1, Math.round(width)),
+        height: Math.max(1, Math.round(height)),
+        background: floorTheme.hostBg,
       })
       downloadSvgString(text)
     } catch (err) {
@@ -306,7 +307,7 @@ export default function SvgDesignCanvas({
     } finally {
       setExporting(false)
     }
-  }, [exporting])
+  }, [exporting, floorTheme.hostBg])
 
   useEffect(() => {
     registerCanvasFitScheduler(fitDefault)
@@ -912,7 +913,7 @@ export default function SvgDesignCanvas({
               className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
               onClick={() => void exportSvg()}
               disabled={exporting}
-              title="Download design as SVG (includes grid)"
+              title="Download the full on-screen canvas as SVG"
             >
               {exporting ? '…' : 'SVG'}
             </button>

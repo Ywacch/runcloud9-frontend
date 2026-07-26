@@ -1,7 +1,9 @@
 import { EXPORT_STRIP_QUERY } from './exportStrip'
 import {
-  computeExportViewBox,
+  readSvgViewBox,
+  resolveExportViewBox,
   viewBoxAttr,
+  type ExportFrame,
   type ExportViewBox,
 } from './exportViewBox'
 import {
@@ -10,19 +12,26 @@ import {
 } from './inlineImages'
 
 export type SerializeSvgSceneOptions = {
-  /** Node tips used to fit the export viewBox. */
+  /** Node tips used when frame is `content`, or as fallback. */
   nodes: readonly { x: number; y: number }[]
-  /** Width / height aspect for the fitted viewBox (host aspect). Default 16/9. */
+  /**
+   * `viewport` (default) = live camera / full on-screen canvas.
+   * `content` = crop around node tips.
+   */
+  frame?: ExportFrame
+  /** Width / height aspect for content framing fallback. Default 16/9. */
   aspect?: number
-  /** Pixel size written on the root SVG (defaults from viewBox). */
+  /** Pixel size written on the root SVG (defaults to host size or viewBox). */
   width?: number
   height?: number
+  /** Host / page fill behind the floor diamond (matches canvas floor theme). */
+  background?: string
   fetchBytes?: FetchBytes
 }
 
 /**
  * Clone a live design SVG into a standalone file string (grid/floor included).
- * Strips interaction + transient FX; inlines <image> assets as data URIs.
+ * Default framing matches the live camera so the download is the full canvas.
  */
 export async function serializeSvgScene(
   source: SVGSVGElement,
@@ -31,8 +40,14 @@ export async function serializeSvgScene(
   const clone = source.cloneNode(true) as SVGSVGElement
   stripExportNoise(clone)
 
-  const vb = computeExportViewBox(options.nodes, options.aspect ?? 16 / 9)
+  const vb = resolveExportViewBox({
+    frame: options.frame,
+    liveViewBox: readSvgViewBox(source),
+    nodes: options.nodes,
+    aspect: options.aspect,
+  })
   applyRootAttrs(clone, vb, options.width, options.height)
+  ensureExportBackground(clone, vb, options.background)
 
   await inlineCloneImages(clone, options.fetchBytes)
 
@@ -63,6 +78,33 @@ function applyRootAttrs(
   svg.setAttribute('height', String(h))
   svg.removeAttribute('class')
   svg.removeAttribute('style')
+}
+
+/** Full-rect host fill so export matches the in-app canvas (not transparent corners). */
+export function ensureExportBackground(
+  svg: SVGSVGElement,
+  vb: ExportViewBox,
+  fill?: string,
+): void {
+  if (!fill) return
+  svg.querySelectorAll('[data-export-bg]').forEach((el) => el.remove())
+  const rect = svg.ownerDocument.createElementNS(
+    'http://www.w3.org/2000/svg',
+    'rect',
+  )
+  rect.setAttribute('data-export-bg', '')
+  rect.setAttribute('x', String(vb.x))
+  rect.setAttribute('y', String(vb.y))
+  rect.setAttribute('width', String(vb.w))
+  rect.setAttribute('height', String(vb.h))
+  rect.setAttribute('fill', fill)
+
+  const floor = svg.querySelector('[data-floor]')
+  if (floor?.parentNode) {
+    floor.parentNode.insertBefore(rect, floor)
+  } else {
+    svg.insertBefore(rect, svg.firstChild)
+  }
 }
 
 async function inlineCloneImages(
