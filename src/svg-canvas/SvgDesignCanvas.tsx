@@ -43,6 +43,7 @@ import { ShardsStepper } from './components/ShardsStepper'
 import { SvgNodeTooltipOverlay } from './components/SvgNodeTooltipOverlay'
 import { TrafficLayer } from './components/TrafficLayer'
 import { WalkthroughNodeOverlay } from './components/WalkthroughNodeOverlay'
+import { NodeLabelChrome } from './components/NodeLabelChrome'
 import { ZoneLayer } from './components/ZoneLayer'
 import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
 import { syncZoneForNode } from './compose/syncZoneForNode'
@@ -909,6 +910,11 @@ export default function SvgDesignCanvas({
               </g>
             )
           })}
+          <NodeLabelChrome
+            nodes={sortedNodes}
+            liveById={liveById ?? undefined}
+            opacityById={walkthroughOpacityById ?? undefined}
+          />
           <WalkthroughNodeOverlay
             nodes={sortedNodes}
             liveById={liveById ?? undefined}

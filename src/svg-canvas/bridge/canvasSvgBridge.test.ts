@@ -89,4 +89,22 @@ describe('canvasSvgBridge', () => {
     const svgEdge = useSvgCanvasStore.getState().edges.find((e) => e.id === edge.id)
     expect(svgEdge?.trafficEnabled).toBe(true)
   })
+
+  it('projects CanvasEdge.protocol onto SvgEdge', () => {
+    const a = createCanvasNode('compute', isoToNode(0, 0), {})
+    const b = createCanvasNode('cache', isoToNode(2, 0), {})
+    useCanvasStore.getState().addNode(a)
+    useCanvasStore.getState().addNode(b)
+    const edge = {
+      id: crypto.randomUUID(),
+      sourceId: a.id,
+      targetId: b.id,
+      protocol: 'tcp' as const,
+      animated: false,
+    }
+    useCanvasStore.getState().addEdge(edge)
+    installCanvasSvgBridge()
+    const svgEdge = useSvgCanvasStore.getState().edges.find((e) => e.id === edge.id)
+    expect(svgEdge?.protocol).toBe('tcp')
+  })
 })
