@@ -37,6 +37,7 @@ import { EdgeLayer } from './components/EdgeLayer'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FxDemoControls } from './components/FxDemoControls'
+import { GridModeToggle } from './components/GridModeToggle'
 import { GridPatterns } from './components/GridPatterns'
 import { HealthRimFilters } from './fx/HealthRimFilters'
 import { MiniPalette } from './components/MiniPalette'
@@ -63,6 +64,10 @@ import {
   unregisterSvgViewport,
 } from './utils/svgViewportBridge'
 import { findSvgNodeIdAtWorldPoint } from './utils/svgContextHitTest'
+import {
+  readStoredGridMode,
+  writeStoredGridMode,
+} from './utils/gridModePreference'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -189,7 +194,11 @@ export default function SvgDesignCanvas({
   const hostRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
-  const [mode, setMode] = useState<GridMode>('infinite')
+  const [mode, setMode] = useState<GridMode>(() => readStoredGridMode())
+  const setGridMode = useCallback((next: GridMode) => {
+    setMode(next)
+    writeStoredGridMode(next)
+  }, [])
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
   const [drag, setDrag] = useState<DragSession | null>(null)
@@ -774,21 +783,8 @@ export default function SvgDesignCanvas({
           <ShardsStepper />
           <EngineSelect />
           <FxDemoControls />
-          <div className="ml-2 flex rounded-md border border-zinc-300 p-0.5">
-            <button
-              type="button"
-              className={`rounded px-2 py-1 text-xs ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-              onClick={() => setMode('infinite')}
-            >
-              Infinite
-            </button>
-            <button
-              type="button"
-              className={`rounded px-2 py-1 text-xs ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-              onClick={() => setMode('bounded')}
-            >
-              Bounded
-            </button>
+          <div className="ml-2">
+            <GridModeToggle mode={mode} onChange={setGridMode} />
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -819,27 +815,8 @@ export default function SvgDesignCanvas({
         </div>
       ) : (
         <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
-          {import.meta.env.DEV ? (
-            <>
-              <FxDemoControls compact />
-              <div className="pointer-events-auto flex rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
-                <button
-                  type="button"
-                  className={`rounded px-2 py-1 text-[10px] ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-                  onClick={() => setMode('infinite')}
-                >
-                  Infinite
-                </button>
-                <button
-                  type="button"
-                  className={`rounded px-2 py-1 text-[10px] ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-                  onClick={() => setMode('bounded')}
-                >
-                  Bounded
-                </button>
-              </div>
-            </>
-          ) : null}
+          {import.meta.env.DEV ? <FxDemoControls compact /> : null}
+          <GridModeToggle mode={mode} onChange={setGridMode} compact />
           <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
             <button
               type="button"

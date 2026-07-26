@@ -4,7 +4,7 @@ import {
   pointsAttr,
 } from '../math/iso'
 
-export type GridMode = 'infinite' | 'bounded'
+export type GridMode = 'infinite' | 'bounded' | 'off'
 
 type FloorProps = {
   mode: GridMode
@@ -42,13 +42,13 @@ function FloorPaint({ points }: FloorPaintProps) {
 }
 
 export function Floor({ mode, viewX, viewY, viewW, viewH }: FloorProps) {
-  if (mode === 'infinite') {
+  if (mode === 'infinite' || mode === 'off') {
     const diamond = infiniteFloorDiamond(viewX, viewY, viewW, viewH)
     const pts = pointsAttr(diamond)
     return (
-      <g data-floor="infinite">
+      <g data-floor={mode}>
         <polygon points={pts} fill="#ffffff" />
-        <FloorPaint points={pts} />
+        {mode === 'infinite' ? <FloorPaint points={pts} /> : null}
       </g>
     )
   }
