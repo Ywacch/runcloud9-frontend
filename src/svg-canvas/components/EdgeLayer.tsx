@@ -15,6 +15,7 @@ import {
   EDGE_JUNCTION_R,
   approachTip,
   arrowPolygon,
+  clearanceForArchetype,
   junctionPoints,
   paintedSegmentEnds,
 } from '../fx/edgePaint'
@@ -23,6 +24,7 @@ import {
   type EdgeStylePresetId,
 } from '../fx/edgePresets'
 import { walkthroughCssColor } from '../fx/walkthroughChrome'
+import { useSvgCanvasStore } from '../store/svgCanvasStore'
 import type { FloorThemeId } from '../theme/floorTheme'
 import type { SvgEdge } from '../store/svgTypes'
 
@@ -51,12 +53,18 @@ export function EdgeLayer({
   useCanvasStore((s) => s.walkthroughParticipatingNodeIds)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
+  const svgNodes = useSvgCanvasStore((s) => s.nodes)
   const canvas = useCanvasStore.getState()
   const walkthrough = isWalkthroughRunning(canvas)
   const topologyIssues = useMemo(
     () => getCacheTopologyEdgeIssues(canvasNodes, canvasEdges),
     [canvasNodes, canvasEdges],
   )
+  const archetypeById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const n of svgNodes) map.set(n.id, n.archetype)
+    return map
+  }, [svgNodes])
 
   return (
     <g data-edge-layer>
@@ -99,11 +107,17 @@ export function EdgeLayer({
           : null
         const elbows = base.showJunctions ? junctionPoints(pts) : []
         const lastSeg = pts.length - 2
+        const clearStart = clearanceForArchetype(
+          archetypeById.get(edge.sourceNodeId),
+        )
+        const clearEnd = clearanceForArchetype(
+          archetypeById.get(edge.targetNodeId),
+        )
         const endTip = hasEndArrow
-          ? approachTip(pts[pts.length - 1], pts[pts.length - 2])
+          ? approachTip(pts[pts.length - 1], pts[pts.length - 2], clearEnd)
           : null
         const startTip = hasStartArrow
-          ? approachTip(pts[0], pts[1])
+          ? approachTip(pts[0], pts[1], clearStart)
           : null
 
         return (
@@ -117,6 +131,8 @@ export function EdgeLayer({
                 insetEnd: isLast && hasEndArrow,
                 nodeClearanceStart: isFirst,
                 nodeClearanceEnd: isLast,
+                clearanceStart: clearStart,
+                clearanceEnd: clearEnd,
               })
               return (
                 <g key={`${edge.id}-${i}`}>

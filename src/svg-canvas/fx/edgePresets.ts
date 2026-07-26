@@ -11,7 +11,19 @@ export type ResolvedEdgePaint = {
   showJunctions: boolean
 }
 
-const FLOW_DEFAULT_COLOR = '#54626f'
+/** Legacy / light-floor flow stroke (also the projected default). */
+export const FLOW_COLOR_LIGHT = '#54626f'
+/** Brighter slate so Flow stays readable on the dark floor. */
+export const FLOW_COLOR_DARK = '#b4bcc8'
+
+function isThemeableFlowColor(color: string): boolean {
+  return (
+    !color ||
+    color === FLOW_COLOR_LIGHT ||
+    color === FLOW_COLOR_DARK ||
+    color === '#54626f'
+  )
+}
 
 /**
  * Resolve paint for an edge given the scene preset and floor theme.
@@ -31,9 +43,15 @@ export function resolveEdgePaint(
     }
   }
 
+  const color = isThemeableFlowColor(style.color)
+    ? floorTheme === 'dark'
+      ? FLOW_COLOR_DARK
+      : FLOW_COLOR_LIGHT
+    : style.color
+
   return {
-    color: style.color || FLOW_DEFAULT_COLOR,
-    width: style.width,
+    color,
+    width: floorTheme === 'dark' ? Math.max(2.25, style.width) : style.width,
     dash: style.dash === 'none' ? undefined : style.dash,
     showJunctions: true,
   }
@@ -54,7 +72,7 @@ export function defaultEdgeStyleForPreset(
     }
   }
   return {
-    color: FLOW_DEFAULT_COLOR,
+    color: floorTheme === 'dark' ? FLOW_COLOR_DARK : FLOW_COLOR_LIGHT,
     width: 2,
     dash: 'none',
     startStyle: 'none',
