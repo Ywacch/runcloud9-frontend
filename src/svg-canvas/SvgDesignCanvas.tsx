@@ -64,6 +64,10 @@ import {
   registerSvgViewport,
   unregisterSvgViewport,
 } from './utils/svgViewportBridge'
+import {
+  downloadSvgString,
+  serializeSvgScene,
+} from './export/serializeSvgScene'
 import { findSvgNodeIdAtWorldPoint } from './utils/svgContextHitTest'
 import {
   readStoredFloorTheme,
@@ -281,6 +285,28 @@ export default function SvgDesignCanvas({
       fitViewToNodes(useSvgCanvasStore.getState().nodes, width, height),
     )
   }, [])
+
+  const [exporting, setExporting] = useState(false)
+  const exportSvg = useCallback(async () => {
+    const svg = svgRef.current
+    const host = hostRef.current
+    if (!svg || !host || exporting) return
+    setExporting(true)
+    try {
+      const { width, height } = host.getBoundingClientRect()
+      const aspect =
+        width > 0 && height > 0 ? width / height : 16 / 9
+      const text = await serializeSvgScene(svg, {
+        nodes: useSvgCanvasStore.getState().nodes,
+        aspect,
+      })
+      downloadSvgString(text)
+    } catch (err) {
+      console.error('SVG export failed', err)
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting])
 
   useEffect(() => {
     registerCanvasFitScheduler(fitDefault)
@@ -836,6 +862,14 @@ export default function SvgDesignCanvas({
             >
               Reset view
             </button>
+            <button
+              type="button"
+              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50"
+              onClick={() => void exportSvg()}
+              disabled={exporting}
+            >
+              {exporting ? 'Exporting…' : 'Export SVG'}
+            </button>
           </div>
           <span className="ml-auto text-xs text-zinc-500">{latticeHint}</span>
         </div>
@@ -872,6 +906,15 @@ export default function SvgDesignCanvas({
               title="Fit (F)"
             >
               Fit
+            </button>
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
+              onClick={() => void exportSvg()}
+              disabled={exporting}
+              title="Download design as SVG (includes grid)"
+            >
+              {exporting ? '…' : 'SVG'}
             </button>
           </div>
         </div>
@@ -925,6 +968,7 @@ export default function SvgDesignCanvas({
           <TrafficLayer edges={edges} />
           {rubberFrom && rubberTip ? (
             <line
+              data-export-strip=""
               x1={rubberFrom.x}
               y1={rubberFrom.y}
               x2={rubberTip.x}
@@ -966,6 +1010,7 @@ export default function SvgDesignCanvas({
           />
           {marqueeRect && marqueeRect.w + marqueeRect.h > 0 ? (
             <rect
+              data-export-strip=""
               x={marqueeRect.x}
               y={marqueeRect.y}
               width={marqueeRect.w}
