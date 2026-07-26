@@ -3,11 +3,13 @@ import {
   isoFootprintDiamond,
   pointsAttr,
 } from '../math/iso'
+import type { FloorThemeTokens } from '../theme/floorTheme'
 
 export type GridMode = 'infinite' | 'bounded' | 'off'
 
 type FloorProps = {
   mode: GridMode
+  theme: FloorThemeTokens
   viewX: number
   viewY: number
   viewW: number
@@ -41,13 +43,20 @@ function FloorPaint({ points }: FloorPaintProps) {
   )
 }
 
-export function Floor({ mode, viewX, viewY, viewW, viewH }: FloorProps) {
+export function Floor({
+  mode,
+  theme,
+  viewX,
+  viewY,
+  viewW,
+  viewH,
+}: FloorProps) {
   if (mode === 'infinite' || mode === 'off') {
     const diamond = infiniteFloorDiamond(viewX, viewY, viewW, viewH)
     const pts = pointsAttr(diamond)
     return (
-      <g data-floor={mode}>
-        <polygon points={pts} fill="#ffffff" />
+      <g data-floor={mode} data-floor-theme={theme.id}>
+        <polygon points={pts} fill={theme.floorFill} />
         {mode === 'infinite' ? <FloorPaint points={pts} /> : null}
       </g>
     )
@@ -74,13 +83,13 @@ export function Floor({ mode, viewX, viewY, viewW, viewH }: FloorProps) {
   const topPts = pointsAttr(top)
 
   return (
-    <g data-floor="bounded">
-      <polygon points={pointsAttr(sideFront)} fill="#d4d4d8" />
-      <polygon points={pointsAttr(sideRight)} fill="#a1a1aa" />
+    <g data-floor="bounded" data-floor-theme={theme.id}>
+      <polygon points={pointsAttr(sideFront)} fill={theme.slabSideFront} />
+      <polygon points={pointsAttr(sideRight)} fill={theme.slabSideRight} />
       <polygon
         points={topPts}
-        fill="#ffffff"
-        stroke="#54626f"
+        fill={theme.floorFill}
+        stroke={theme.slabRim}
         strokeWidth={2}
       />
       <FloorPaint points={topPts} />
