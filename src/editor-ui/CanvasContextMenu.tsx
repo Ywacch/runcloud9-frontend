@@ -5,6 +5,7 @@ import {
   CREATE_MENU_ROOT,
   canPlaceOnCanvas,
   createMenuItemLockedForFree,
+  explorerComponentLocksActive,
   filterCreateMenuItems,
   findCreateGroup,
   nodeMenuActions,
@@ -151,7 +152,13 @@ export function CanvasContextMenu() {
 
   const placeLeaf = (leaf: CreateMenuLeaf) => {
     if (menu.kind !== 'create') return
-    if (!isPremiumUser && createMenuItemLockedForFree(leaf)) return
+    if (
+      explorerComponentLocksActive() &&
+      !isPremiumUser &&
+      createMenuItemLockedForFree(leaf)
+    ) {
+      return
+    }
     placeFromPicker({
       nodeType: leaf.nodeType,
       position: menu.position,
@@ -236,7 +243,9 @@ export function CanvasContextMenu() {
             ) : (
               listItems.map((item) => {
                 const locked =
-                  !isPremiumUser && createMenuItemLockedForFree(item)
+                  explorerComponentLocksActive() &&
+                  !isPremiumUser &&
+                  createMenuItemLockedForFree(item)
                 if (item.kind === 'group') {
                   return (
                     <li key={item.id}>

@@ -9,11 +9,12 @@ import type { UnitOffset } from '../compose/composeAppServer'
 import { compareUnitPaintOrder } from '../compose/composePacking'
 import {
   resolveRimStyle,
-  rimCssColor,
   usePulsingAlpha,
 } from '../fx/healthRimCss'
-import { redisBrandHealthRimPoints } from '../fx/glyphHealthRim'
-import { HealthRimOverlay } from '../fx/HealthRimOverlay'
+import {
+  healthRimFilterId,
+  healthRimLayerOpacity,
+} from '../fx/healthRimFilter'
 import { RedisFaceMarks } from './RedisFaceMarks'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -27,25 +28,17 @@ type RedisBrandGlyphProps = {
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
-function RedisMark({
+function RedisSlabs({
   stroke,
   strokeWidth,
-  rimColor,
-  rimAlpha,
 }: {
   stroke: string
   strokeWidth: number
-  rimColor: string | null
-  rimAlpha: number
 }) {
   const hw = CC_HALF_W
   const hh = CC_HALF_H
   const side = CC_REDIS_SIDE_H
   const slabs = composeRedisBrandSlabs()
-  // Anchor = left tip of bottom slab top face at (0,0) in local space.
-  // Health rim paints AFTER the slabs and traces the full 3-slab outer hex
-  // (same idea as Pixi's iso box silhouette), not a floor diamond.
-  const rimPoints = rimColor ? redisBrandHealthRimPoints() : null
   return (
     <g>
       {slabs.map((s, i) => {
@@ -67,15 +60,38 @@ function RedisMark({
           </g>
         )
       })}
+    </g>
+  )
+}
+
+function RedisMark({
+  stroke,
+  strokeWidth,
+  rimFilter,
+  rimOpacity,
+}: {
+  stroke: string
+  strokeWidth: number
+  rimFilter: string | null
+  rimOpacity: number
+}) {
+  // Anchor = left tip of bottom slab top face at (0,0) in local space.
+  // Rim layer reuses the slab geometry so feMorphology traces exact alpha.
+  return (
+    <g>
+      {rimFilter ? (
+        <g
+          filter={`url(#${rimFilter})`}
+          opacity={rimOpacity}
+          data-health-rim
+          style={{ pointerEvents: 'none' }}
+        >
+          <RedisSlabs stroke="none" strokeWidth={0} />
+        </g>
+      ) : null}
+      <RedisSlabs stroke={stroke} strokeWidth={strokeWidth} />
       {/* Cloudcraft-measured face marks (not a stamped logo image). */}
       <RedisFaceMarks />
-      {rimColor && rimPoints ? (
-        <HealthRimOverlay
-          points={rimPoints}
-          color={rimColor}
-          alpha={rimAlpha}
-        />
-      ) : null}
     </g>
   )
 }
@@ -96,7 +112,8 @@ export function RedisBrandGlyph({
   const strokeWidth = selected && !multi ? 2 : 1
   const rimStyle = resolveRimStyle(healthVisual)
   const rimAlpha = usePulsingAlpha(rimStyle)
-  const rimColor = rimStyle ? rimCssColor(rimStyle.color) : null
+  const rimFilter = healthRimFilterId(healthVisual)
+  const rimOpacity = rimFilter ? healthRimLayerOpacity(rimAlpha) : 0
   // Shelf: top last. Diamond nest: back first so front marks occlude correctly.
   const ordered = [...units].sort(compareUnitPaintOrder)
 
@@ -121,8 +138,8 @@ export function RedisBrandGlyph({
             <RedisMark
               stroke={stroke}
               strokeWidth={strokeWidth}
-              rimColor={rimColor}
-              rimAlpha={rimAlpha}
+              rimFilter={rimFilter}
+              rimOpacity={rimOpacity}
             />
           </g>
         ))}

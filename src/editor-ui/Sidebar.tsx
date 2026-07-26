@@ -28,7 +28,10 @@ import {
   isAtMonthlySessionCap,
 } from '../lib/deployQueue'
 import { ApiError } from '../lib/apiError'
-import { isEngineerOnlyNodeType } from '../lib/canvasContextMenuCatalog'
+import {
+  explorerComponentLocksActive,
+  isEngineerOnlyNodeType,
+} from '../lib/canvasContextMenuCatalog'
 import { UPGRADE_TO_UNLOCK_TOOLTIP } from '../lib/billingCopy'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
@@ -261,6 +264,8 @@ export function Sidebar() {
 
   const topologyViolations = useMemo(() => {
     if (live || simulate || isPremiumUser) return []
+    // DEV: allow placing Engineer-only nodes without the free-tier banner.
+    if (!explorerComponentLocksActive()) return []
     return findTopologyViolations(nodes, topologyLimits)
   }, [live, simulate, isPremiumUser, nodes, topologyLimits])
   const simRunning = useSimulationStore((s) => s.running)
@@ -664,7 +669,9 @@ export function Sidebar() {
           {PALETTE.map(({ type, title, face }) => {
             const placing = placingNodeType === type
             const tierLocked =
-              !isPremiumUser && isEngineerOnlyNodeType(type)
+              explorerComponentLocksActive() &&
+              !isPremiumUser &&
+              isEngineerOnlyNodeType(type)
             const disabled = live || tierLocked
             return (
               <li key={type}>

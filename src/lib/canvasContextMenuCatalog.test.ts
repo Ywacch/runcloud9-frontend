@@ -4,6 +4,7 @@ import {
   CREATE_MENU_ROOT,
   canPlaceOnCanvas,
   createMenuItemLockedForFree,
+  explorerComponentLocksActive,
   filterCreateMenuItems,
   findCreateGroup,
   isEngineerOnlyNodeType,
@@ -60,6 +61,11 @@ describe('canvasContextMenuCatalog', () => {
     expect(lb && createMenuItemLockedForFree(lb)).toBe(true)
     expect(mq && createMenuItemLockedForFree(mq)).toBe(true)
     expect(compute && createMenuItemLockedForFree(compute)).toBe(false)
+  })
+
+  it('disables explorer component locks in Vite DEV', () => {
+    // Vitest runs under Vite DEV, matching local `pnpm dev` unlock behavior.
+    expect(explorerComponentLocksActive()).toBe(false)
   })
 
   it('nodeMenuActions includes chaos only in live', () => {

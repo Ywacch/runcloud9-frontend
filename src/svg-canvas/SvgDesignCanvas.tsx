@@ -23,6 +23,7 @@ import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FxDemoControls } from './components/FxDemoControls'
 import { GridPatterns } from './components/GridPatterns'
+import { HealthRimFilters } from './fx/HealthRimFilters'
 import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
 import { ShardsStepper } from './components/ShardsStepper'
@@ -770,6 +771,7 @@ export default function SvgDesignCanvas({
           aria-label="Isometric SVG design canvas"
         >
           <GridPatterns />
+          <HealthRimFilters />
           <rect
             id="interactionLayer"
             x={view.x}

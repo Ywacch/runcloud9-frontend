@@ -4,11 +4,12 @@ import type { UnitOffset } from '../compose/composeAppServer'
 import { compareUnitPaintOrder } from '../compose/composePacking'
 import {
   resolveRimStyle,
-  rimCssColor,
   usePulsingAlpha,
 } from '../fx/healthRimCss'
-import { glyphHealthRimPoints } from '../fx/glyphHealthRim'
-import { HealthRimOverlay } from '../fx/HealthRimOverlay'
+import {
+  healthRimFilterId,
+  healthRimLayerOpacity,
+} from '../fx/healthRimFilter'
 import type { BrandTint } from '../skins/engineSkins'
 import { tintColorMatrixValues } from '../skins/brandTintFilter'
 import { IsoFaceLogo } from './IsoFaceLogo'
@@ -65,12 +66,12 @@ export function SpriteBackedGlyph({
   const strokeWidth = perUnitSelect ? 2.5 : 0
   const rimStyle = resolveRimStyle(healthVisual)
   const rimAlpha = usePulsingAlpha(rimStyle)
-  const rimColor = rimStyle ? rimCssColor(rimStyle.color) : null
+  const rimFilter = healthRimFilterId(healthVisual)
+  const rimOpacity = rimFilter ? healthRimLayerOpacity(rimAlpha) : 0
   const matrix = tintColorMatrixValues(tint)
   const rawId = useId().replace(/:/g, '')
   const filterId = matrix ? `sprite-tint-${rawId}` : null
   const seat = spec.faceLogo
-  const rimPoints = rimColor ? glyphHealthRimPoints(kind) : null
 
   return (
     <g
@@ -105,6 +106,20 @@ export function SpriteBackedGlyph({
               fill="transparent"
               style={{ pointerEvents: interactive ? 'fill' : 'none' }}
             />
+            {/* Silhouette rim from dilated sprite alpha (shared feMorphology). */}
+            {rimFilter ? (
+              <image
+                href={spec.url}
+                x={-spec.tipX}
+                y={-spec.tipY}
+                width={spec.w}
+                height={spec.h}
+                filter={`url(#${rimFilter})`}
+                opacity={rimOpacity}
+                data-health-rim
+                style={{ pointerEvents: 'none' }}
+              />
+            ) : null}
             <image
               href={spec.url}
               x={-spec.tipX}
@@ -114,13 +129,6 @@ export function SpriteBackedGlyph({
               filter={filterId ? `url(#${filterId})` : undefined}
               style={{ pointerEvents: 'none' }}
             />
-            {rimColor && rimPoints ? (
-              <HealthRimOverlay
-                points={rimPoints}
-                color={rimColor}
-                alpha={rimAlpha}
-              />
-            ) : null}
             {strokeWidth > 0 ? (
               <rect
                 x={-spec.tipX}
