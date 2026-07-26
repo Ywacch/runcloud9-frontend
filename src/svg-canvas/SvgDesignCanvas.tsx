@@ -36,6 +36,7 @@ import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
+import { FloorThemeToggle } from './components/FloorThemeToggle'
 import { FxDemoControls } from './components/FxDemoControls'
 import { GridModeToggle } from './components/GridModeToggle'
 import { GridPatterns } from './components/GridPatterns'
@@ -65,9 +66,17 @@ import {
 } from './utils/svgViewportBridge'
 import { findSvgNodeIdAtWorldPoint } from './utils/svgContextHitTest'
 import {
+  readStoredFloorTheme,
+  writeStoredFloorTheme,
+} from './utils/floorThemePreference'
+import {
   readStoredGridMode,
   writeStoredGridMode,
 } from './utils/gridModePreference'
+import {
+  floorThemeTokens,
+  type FloorThemeId,
+} from './theme/floorTheme'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -199,6 +208,17 @@ export default function SvgDesignCanvas({
     setMode(next)
     writeStoredGridMode(next)
   }, [])
+  const [floorThemeId, setFloorThemeId] = useState<FloorThemeId>(() =>
+    readStoredFloorTheme(),
+  )
+  const setFloorTheme = useCallback((next: FloorThemeId) => {
+    setFloorThemeId(next)
+    writeStoredFloorTheme(next)
+  }, [])
+  const floorTheme = useMemo(
+    () => floorThemeTokens(floorThemeId),
+    [floorThemeId],
+  )
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
   const [drag, setDrag] = useState<DragSession | null>(null)
@@ -769,7 +789,10 @@ export default function SvgDesignCanvas({
     : null
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col bg-[#f4f5f7]">
+    <div
+      className="relative flex h-full min-h-0 w-full flex-col"
+      style={{ backgroundColor: floorTheme.hostBg }}
+    >
       {!chromeMounted ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zinc-200 bg-white/95 px-3 py-2 text-sm text-zinc-600">
           <span className="font-medium text-zinc-900">SVG canvas spike</span>
@@ -785,6 +808,9 @@ export default function SvgDesignCanvas({
           <FxDemoControls />
           <div className="ml-2">
             <GridModeToggle mode={mode} onChange={setGridMode} />
+          </div>
+          <div className="ml-2">
+            <FloorThemeToggle theme={floorThemeId} onChange={setFloorTheme} />
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -817,6 +843,11 @@ export default function SvgDesignCanvas({
         <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
           {import.meta.env.DEV ? <FxDemoControls compact /> : null}
           <GridModeToggle mode={mode} onChange={setGridMode} compact />
+          <FloorThemeToggle
+            theme={floorThemeId}
+            onChange={setFloorTheme}
+            compact
+          />
           <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
             <button
               type="button"
@@ -860,7 +891,7 @@ export default function SvgDesignCanvas({
           role="img"
           aria-label="Isometric SVG design canvas"
         >
-          <GridPatterns />
+          <GridPatterns theme={floorTheme} />
           <HealthRimFilters />
           <rect
             id="interactionLayer"
@@ -872,6 +903,7 @@ export default function SvgDesignCanvas({
           />
           <Floor
             mode={mode}
+            theme={floorTheme}
             viewX={view.x}
             viewY={view.y}
             viewW={view.w}
