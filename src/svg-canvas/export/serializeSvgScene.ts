@@ -1,9 +1,12 @@
+import type { GridMode } from '../components/Floor'
+import {
+  infiniteFloorDiamond,
+  pointsAttr,
+} from '../math/iso'
 import { EXPORT_STRIP_QUERY } from './exportStrip'
 import {
-  readSvgViewBox,
   resolveExportViewBox,
   viewBoxAttr,
-  type ExportFrame,
   type ExportViewBox,
 } from './exportViewBox'
 import {
@@ -12,26 +15,22 @@ import {
 } from './inlineImages'
 
 export type SerializeSvgSceneOptions = {
-  /** Node tips used when frame is `content`, or as fallback. */
   nodes: readonly { x: number; y: number }[]
-  /**
-   * `viewport` (default) = live camera / full on-screen canvas.
-   * `content` = crop around node tips.
-   */
-  frame?: ExportFrame
-  /** Width / height aspect for content framing fallback. Default 16/9. */
-  aspect?: number
-  /** Pixel size written on the root SVG (defaults to host size or viewBox). */
+  /** Current grid mode — drives zoom-independent framing. */
+  gridMode: GridMode
+  /** Pixel size on the root SVG (defaults from viewBox). */
   width?: number
   height?: number
-  /** Host / page fill behind the floor diamond (matches canvas floor theme). */
+  /** Host fill behind the floor (matches canvas floor theme). */
   background?: string
   fetchBytes?: FetchBytes
 }
 
 /**
- * Clone a live design SVG into a standalone file string (grid/floor included).
- * Default framing matches the live camera so the download is the full canvas.
+ * Clone a live design SVG into a standalone file.
+ * Framing ignores zoom:
+ * - bounded → full floor slab + contents
+ * - infinite / off → design + padding (floor retargeted to that frame)
  */
 export async function serializeSvgScene(
   source: SVGSVGElement,
@@ -41,13 +40,12 @@ export async function serializeSvgScene(
   stripExportNoise(clone)
 
   const vb = resolveExportViewBox({
-    frame: options.frame,
-    liveViewBox: readSvgViewBox(source),
+    gridMode: options.gridMode,
     nodes: options.nodes,
-    aspect: options.aspect,
   })
   applyRootAttrs(clone, vb, options.width, options.height)
   ensureExportBackground(clone, vb, options.background)
+  retargetCameraFloor(clone, options.gridMode, vb)
 
   await inlineCloneImages(clone, options.fetchBytes)
 
@@ -80,7 +78,7 @@ function applyRootAttrs(
   svg.removeAttribute('style')
 }
 
-/** Full-rect host fill so export matches the in-app canvas (not transparent corners). */
+/** Full-rect host fill so export matches the in-app canvas. */
 export function ensureExportBackground(
   svg: SVGSVGElement,
   vb: ExportViewBox,
@@ -105,6 +103,26 @@ export function ensureExportBackground(
   } else {
     svg.insertBefore(rect, svg.firstChild)
   }
+}
+
+/**
+ * Infinite / off floors are painted for the live camera — rewrite their
+ * polygons so the export frame still has a proper floor under the design.
+ */
+export function retargetCameraFloor(
+  svg: SVGSVGElement,
+  gridMode: GridMode,
+  vb: ExportViewBox,
+): void {
+  if (gridMode === 'bounded') return
+  const floor = svg.querySelector(`[data-floor="${gridMode}"]`)
+  if (!floor) return
+  const pts = pointsAttr(
+    infiniteFloorDiamond(vb.x, vb.y, vb.w, vb.h),
+  )
+  floor.querySelectorAll('polygon').forEach((poly) => {
+    poly.setAttribute('points', pts)
+  })
 }
 
 async function inlineCloneImages(
