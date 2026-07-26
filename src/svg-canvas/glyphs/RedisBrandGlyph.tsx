@@ -12,6 +12,8 @@ import {
   rimCssColor,
   usePulsingAlpha,
 } from '../fx/healthRimCss'
+import { redisBrandHealthRimPoints } from '../fx/glyphHealthRim'
+import { HealthRimOverlay } from '../fx/HealthRimOverlay'
 import { RedisFaceMarks } from './RedisFaceMarks'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -41,22 +43,11 @@ function RedisMark({
   const side = CC_REDIS_SIDE_H
   const slabs = composeRedisBrandSlabs()
   // Anchor = left tip of bottom slab top face at (0,0) in local space.
+  // Health rim paints AFTER the slabs and traces the full 3-slab outer hex
+  // (same idea as Pixi's iso box silhouette), not a floor diamond.
+  const rimPoints = rimColor ? redisBrandHealthRimPoints() : null
   return (
     <g>
-      {rimColor ? (
-        <ellipse
-          data-health-rim
-          cx={hw}
-          cy={hh * 0.35}
-          rx={hw * 1.35}
-          ry={hh * 2.4 + side}
-          fill="none"
-          stroke={rimColor}
-          strokeWidth={3}
-          opacity={rimAlpha}
-          style={{ pointerEvents: 'none' }}
-        />
-      ) : null}
       {slabs.map((s, i) => {
         const y = s.dy
         const left = `0 ${y} ${hw} ${y + hh} ${hw} ${y + hh + side} 0 ${y + side}`
@@ -78,6 +69,13 @@ function RedisMark({
       })}
       {/* Cloudcraft-measured face marks (not a stamped logo image). */}
       <RedisFaceMarks />
+      {rimColor && rimPoints ? (
+        <HealthRimOverlay
+          points={rimPoints}
+          color={rimColor}
+          alpha={rimAlpha}
+        />
+      ) : null}
     </g>
   )
 }

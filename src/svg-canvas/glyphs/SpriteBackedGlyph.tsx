@@ -7,6 +7,8 @@ import {
   rimCssColor,
   usePulsingAlpha,
 } from '../fx/healthRimCss'
+import { glyphHealthRimPoints } from '../fx/glyphHealthRim'
+import { HealthRimOverlay } from '../fx/HealthRimOverlay'
 import type { BrandTint } from '../skins/engineSkins'
 import { tintColorMatrixValues } from '../skins/brandTintFilter'
 import { IsoFaceLogo } from './IsoFaceLogo'
@@ -40,7 +42,6 @@ export function SpriteBackedGlyph({
   kind,
   x,
   y,
-  label: _label,
   units = [{ dx: 0, dy: 0 }],
   logoId = null,
   tint = null,
@@ -69,6 +70,7 @@ export function SpriteBackedGlyph({
   const rawId = useId().replace(/:/g, '')
   const filterId = matrix ? `sprite-tint-${rawId}` : null
   const seat = spec.faceLogo
+  const rimPoints = rimColor ? glyphHealthRimPoints(kind) : null
 
   return (
     <g
@@ -112,33 +114,11 @@ export function SpriteBackedGlyph({
               filter={filterId ? `url(#${filterId})` : undefined}
               style={{ pointerEvents: 'none' }}
             />
-            {rimColor ? (
-              <rect
-                x={-spec.tipX - 1}
-                y={-spec.tipY - 1}
-                width={spec.w + 2}
-                height={spec.h + 2}
-                fill="none"
-                stroke={rimColor}
-                strokeWidth={5}
-                rx={3}
-                opacity={rimAlpha * 0.45}
-                style={{ pointerEvents: 'none' }}
-              />
-            ) : null}
-            {rimColor ? (
-              <rect
-                data-health-rim
-                x={-spec.tipX}
-                y={-spec.tipY}
-                width={spec.w}
-                height={spec.h}
-                fill="none"
-                stroke={rimColor}
-                strokeWidth={2.5}
-                rx={2}
-                opacity={rimAlpha}
-                style={{ pointerEvents: 'none' }}
+            {rimColor && rimPoints ? (
+              <HealthRimOverlay
+                points={rimPoints}
+                color={rimColor}
+                alpha={rimAlpha}
               />
             ) : null}
             {strokeWidth > 0 ? (

@@ -1,8 +1,11 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import { fitStorePositionsToGrid } from '../canvas/utils/positionAdapter'
 
-const COL_STEP = 6 // x per layer → iso col step of 3
-const ROW_STEP = 8 // z per sibling → iso row step of 4
+// SVG host uses the Cloudcraft projector (x=(i-j)·64, y=(i+j)·37). To read
+// bottom-left → top-right, dependency layers must advance NE (right + up),
+// which is -j / -store.z. Siblings fan along the perpendicular ±i / store.x.
+const LAYER_STEP = 6 // store.z per layer → iso row step of 3 (negated for NE)
+const SIBLING_STEP = 8 // store.x per sibling → iso col step of 4
 const UPSTREAM_TYPES: Partial<Record<CanvasNode['type'], CanvasNode['type']>> = {
   worker: 'message_queue',
 }
@@ -10,7 +13,7 @@ const UPSTREAM_TYPES: Partial<Record<CanvasNode['type'], CanvasNode['type']>> = 
 function centerSpread(index: number, count: number): number {
   if (count <= 1) return 0
   const mid = (count - 1) / 2
-  return Math.round((index - mid) * ROW_STEP)
+  return Math.round((index - mid) * SIBLING_STEP)
 }
 
 function computeDependencyLayers(nodes: CanvasNode[], edges: CanvasEdge[]): Map<string, number> {
@@ -104,7 +107,8 @@ export function autoArrangeByDependencyLayers(
         if ((layers.get(neighborId) ?? 0) !== layer - 1) continue
         const neighborPos = positions[neighborId]
         if (!neighborPos) continue
-        sum += neighborPos[2]
+        // Siblings spread on store.x now, so order against the same axis.
+        sum += neighborPos[0]
         count += 1
       }
       if (count === 0) return null
@@ -121,7 +125,12 @@ export function autoArrangeByDependencyLayers(
     })
     for (let i = 0; i < bucket.length; i++) {
       const n = bucket[i]
-      positions[n.id] = [layer * COL_STEP, n.position[1], centerSpread(i, bucket.length)]
+      // Layer advances NE via -store.z; siblings fan on store.x.
+      positions[n.id] = [
+        centerSpread(i, bucket.length),
+        n.position[1],
+        -layer * LAYER_STEP,
+      ]
     }
   }
 

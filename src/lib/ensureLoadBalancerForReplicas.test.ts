@@ -6,6 +6,7 @@ import {
   ensureLoadBalancerForReplicas,
 } from './ensureLoadBalancerForReplicas'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
+import { canvasPositionToSvgWorld } from '../svg-canvas/bridge/canvasSvgAdapter'
 
 function computeNode(
   id: string,
@@ -60,10 +61,13 @@ describe('ensureLoadBalancerForReplicas', () => {
           e.sourceId === AUTO_LOAD_BALANCER_ID && e.targetId === 'app-1',
       ),
     ).toBe(true)
-    // Dependency-layer arrange places LB upstream of compute (lower x).
-    expect(nodes[AUTO_LOAD_BALANCER_ID]!.position[0]).toBeLessThan(
-      nodes['app-1']!.position[0],
+    // Dependency-layer arrange advances NE, so the upstream LB sits SW of
+    // compute on the SVG projector (lower screen x).
+    const lbWorld = canvasPositionToSvgWorld(
+      nodes[AUTO_LOAD_BALANCER_ID]!.position,
     )
+    const appWorld = canvasPositionToSvgWorld(nodes['app-1']!.position)
+    expect(lbWorld.x).toBeLessThan(appWorld.x)
   })
 
   it('is unchanged when an LB already exists', () => {

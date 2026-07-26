@@ -4,7 +4,7 @@ import { spriteBodyBounds, type SpriteLayout } from './spriteLayout'
  * Normalized silhouette vertex (0–1 within the sprite body AABB). Fractions are
  * traced from each SVG's outer stroke path in src/assets/sprites/.
  */
-type RimVertex = { nx: number; ny: number }
+export type RimVertex = { nx: number; ny: number }
 
 /** SLAB-STACK — server.svg outer path M0 32 … L64 104 … (h=104). */
 const SLAB_SERVER: RimVertex[] = [
@@ -78,6 +78,12 @@ const RIM_VERTICES: Record<string, RimVertex[]> = {
   database_base: DISC_DATABASE,
   loadbalancer_base: HEX_PRISM_LB,
   queue_base: HEX_TUBE_QUEUE,
+}
+
+/** Normalized outer-stroke verts for an atlas frame (shared by Pixi + SVG hosts). */
+export function normalizedHealthRimVerts(frame: string): RimVertex[] | null {
+  const verts = RIM_VERTICES[frame]
+  return verts ? verts.map((v) => ({ ...v })) : null
 }
 
 /** Screen-space outline polygon for a sprite health rim, per archetype silhouette. */
