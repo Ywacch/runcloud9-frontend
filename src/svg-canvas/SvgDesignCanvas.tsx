@@ -34,6 +34,7 @@ import {
 } from '../canvas/utils/walkthroughVisual'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
+import { EdgeStylePresetToggle } from './components/EdgeStylePresetToggle'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FloorThemeToggle } from './components/FloorThemeToggle'
@@ -74,6 +75,10 @@ import {
   writeStoredFloorTheme,
 } from './utils/floorThemePreference'
 import {
+  readStoredEdgeStylePreset,
+  writeStoredEdgeStylePreset,
+} from './utils/edgeStylePreference'
+import {
   readStoredGridMode,
   writeStoredGridMode,
 } from './utils/gridModePreference'
@@ -81,6 +86,7 @@ import {
   floorThemeTokens,
   type FloorThemeId,
 } from './theme/floorTheme'
+import type { EdgeStylePresetId } from './fx/edgePresets'
 import { exportBrandKey } from './skins/engineSkins'
 
 const MIN_VIEW = 400
@@ -224,6 +230,12 @@ export default function SvgDesignCanvas({
     () => floorThemeTokens(floorThemeId),
     [floorThemeId],
   )
+  const [edgeStylePreset, setEdgeStylePresetState] =
+    useState<EdgeStylePresetId>(() => readStoredEdgeStylePreset())
+  const setEdgeStylePreset = useCallback((next: EdgeStylePresetId) => {
+    setEdgeStylePresetState(next)
+    writeStoredEdgeStylePreset(next)
+  }, [])
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
   const [drag, setDrag] = useState<DragSession | null>(null)
@@ -837,6 +849,12 @@ export default function SvgDesignCanvas({
           <div className="ml-2">
             <FloorThemeToggle theme={floorThemeId} onChange={setFloorTheme} />
           </div>
+          <div className="ml-2">
+            <EdgeStylePresetToggle
+              preset={edgeStylePreset}
+              onChange={setEdgeStylePreset}
+            />
+          </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -879,6 +897,11 @@ export default function SvgDesignCanvas({
           <FloorThemeToggle
             theme={floorThemeId}
             onChange={setFloorTheme}
+            compact
+          />
+          <EdgeStylePresetToggle
+            preset={edgeStylePreset}
+            onChange={setEdgeStylePreset}
             compact
           />
           <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
@@ -962,6 +985,8 @@ export default function SvgDesignCanvas({
           <EdgeLayer
             edges={edges}
             selectedEdgeIds={selectedEdgeIds}
+            edgeStylePreset={edgeStylePreset}
+            floorTheme={floorThemeId}
             onEdgePointerDown={onEdgePointerDown}
           />
           <TrafficLayer edges={edges} />

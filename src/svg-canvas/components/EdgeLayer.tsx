@@ -18,7 +18,12 @@ import {
   junctionPoints,
   paintedSegmentEnds,
 } from '../fx/edgePaint'
+import {
+  resolveEdgePaint,
+  type EdgeStylePresetId,
+} from '../fx/edgePresets'
 import { walkthroughCssColor } from '../fx/walkthroughChrome'
+import type { FloorThemeId } from '../theme/floorTheme'
 import type { SvgEdge } from '../store/svgTypes'
 
 const TOPOLOGY_STROKE = '#b91c1c'
@@ -26,12 +31,16 @@ const TOPOLOGY_STROKE = '#b91c1c'
 type EdgeLayerProps = {
   edges: SvgEdge[]
   selectedEdgeIds: string[]
+  edgeStylePreset: EdgeStylePresetId
+  floorTheme: FloorThemeId
   onEdgePointerDown: (edgeId: string, e: ReactPointerEvent<SVGElement>) => void
 }
 
 export function EdgeLayer({
   edges,
   selectedEdgeIds,
+  edgeStylePreset,
+  floorTheme,
   onEdgePointerDown,
 }: EdgeLayerProps) {
   const selected = new Set(selectedEdgeIds)
@@ -56,9 +65,11 @@ export function EdgeLayer({
         if (pts.length < 2) return null
         const isSel = selected.has(edge.id)
         const topologyIssue = topologyIssues[edge.id]
+        const preset = edge.style.preset ?? edgeStylePreset
+        const base = resolveEdgePaint(edge.style, preset, floorTheme)
 
-        let color = isSel ? '#3b82f6' : edge.style.color
-        let width = isSel ? edge.style.width + 1 : edge.style.width
+        let color = isSel ? '#3b82f6' : base.color
+        let width = isSel ? base.width + 1 : base.width
         let opacity = 1
         let highlighted = false
         if (walkthrough && !isSel) {
@@ -78,8 +89,7 @@ export function EdgeLayer({
           width = Math.max(width, 4)
         }
 
-        const dash =
-          edge.style.dash === 'none' ? undefined : edge.style.dash
+        const dash = base.dash
         const hasStartArrow = edge.style.startStyle === 'arrow'
         const hasEndArrow = edge.style.endStyle === 'arrow'
         const protocol = edge.protocol ?? 'http'
@@ -87,7 +97,7 @@ export function EdgeLayer({
         const badge = mid
           ? protocolBadgeLayout(protocol, topologyIssue)
           : null
-        const elbows = junctionPoints(pts)
+        const elbows = base.showJunctions ? junctionPoints(pts) : []
         const lastSeg = pts.length - 2
         const endTip = hasEndArrow
           ? approachTip(pts[pts.length - 1], pts[pts.length - 2])
@@ -105,8 +115,6 @@ export function EdgeLayer({
               const painted = paintedSegmentEnds(a, b, {
                 insetStart: isFirst && hasStartArrow,
                 insetEnd: isLast && hasEndArrow,
-                // Always clear the glyph at terminals; arrows sit outside
-                // and point in. Lines without arrows also stop short.
                 nodeClearanceStart: isFirst,
                 nodeClearanceEnd: isLast,
               })

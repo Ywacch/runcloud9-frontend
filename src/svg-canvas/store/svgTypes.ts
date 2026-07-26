@@ -56,6 +56,8 @@ export type SvgEdgeStyle = {
   dash: 'none' | '8,6'
   startStyle: 'none' | 'arrow'
   endStyle: 'none' | 'arrow'
+  /** Optional per-edge hint; scene preset usually wins at paint time. */
+  preset?: 'flow' | 'schematic'
 }
 
 export type SvgEdge = {
@@ -119,5 +121,6 @@ export function defaultEdgeStyle(): SvgEdgeStyle {
     dash: 'none',
     startStyle: 'none',
     endStyle: 'arrow',
+    preset: 'flow',
   }
 }
