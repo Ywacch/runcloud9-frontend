@@ -11,13 +11,14 @@ export function ScreenshotFrame({
 }: ScreenshotFrameProps) {
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-[var(--c9-border)] ring-1 ring-[var(--c9-border)] shadow-2xl shadow-indigo-950/40 ${className ?? ''}`}
+      className={`overflow-hidden rounded-xl border border-[var(--c9-border)] ring-1 ring-[var(--c9-border)] shadow-2xl shadow-black/40 ${className ?? ''}`}
     >
       {screenshotSrc ? (
         <img
           src={screenshotSrc}
           alt={alt}
-          className="block h-auto w-full bg-[var(--c9-bg)]"
+          className="block h-auto w-full bg-[var(--c9-bg-surface)] object-contain"
+          decoding="async"
         />
       ) : (
         <div className="flex aspect-video flex-col items-center justify-center gap-2 bg-[var(--c9-bg)] p-4">

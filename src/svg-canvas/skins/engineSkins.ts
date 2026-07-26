@@ -140,6 +140,16 @@ export function resolveSkin(
   }
 }
 
+/**
+ * Brand key for export / landing tooltips. Generic skins use their face logo
+ * (nginx, go, …) so metadata isn't just "generic".
+ */
+export function exportBrandKey(archetype: Archetype, engine: string): string {
+  if (engine && engine !== 'generic') return engine
+  const skin = resolveSkin(archetype, engine)
+  return skin.brandBody ?? skin.logoId ?? engine
+}
+
 export function enginesForArchetype(archetype: Archetype): EngineSkin[] {
   return ENGINE_SKINS.filter((s) => s.archetype === archetype)
 }

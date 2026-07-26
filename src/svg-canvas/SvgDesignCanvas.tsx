@@ -81,6 +81,7 @@ import {
   floorThemeTokens,
   type FloorThemeId,
 } from './theme/floorTheme'
+import { exportBrandKey } from './skins/engineSkins'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -980,7 +981,15 @@ export default function SvgDesignCanvas({
             const live = liveById?.get(node.id) ?? { x: node.x, y: node.y }
             const opacity = walkthroughOpacityById?.get(node.id) ?? 1
             return (
-              <g key={node.id} opacity={opacity}>
+              <g
+                key={node.id}
+                opacity={opacity}
+                data-export-node=""
+                data-node-id={node.id}
+                data-node-label={node.label}
+                data-node-archetype={node.archetype}
+                data-node-engine={exportBrandKey(node.archetype, node.engine)}
+              >
                 <NodeGlyph
                   node={node}
                   x={live.x}

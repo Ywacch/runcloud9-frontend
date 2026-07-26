@@ -38,6 +38,12 @@ describe('exportStrip', () => {
     ).toBe(true)
   })
 
+  it('keeps node label chrome for normal canvas downloads', () => {
+    expect(
+      shouldStripFromExport(el({ attrs: { 'data-node-label-chrome': 'true' } })),
+    ).toBe(false)
+  })
+
   it('keeps floor and diagram content', () => {
     expect(
       shouldStripFromExport(
