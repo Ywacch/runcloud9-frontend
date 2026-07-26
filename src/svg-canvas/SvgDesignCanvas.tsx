@@ -11,7 +11,11 @@ import {
   registerCanvasFitScheduler,
   unregisterCanvasFitScheduler,
 } from '../canvas/utils/canvasFitBridge'
-import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  isMetricsViewportMode,
+  useCanvasStore,
+  type CanvasNode,
+} from '../editor-core/stores/canvasStore'
 import {
   canMoveOnCanvas,
   canPlaceOnCanvas,
@@ -31,6 +35,7 @@ import { HealthRimFilters } from './fx/HealthRimFilters'
 import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
 import { ShardsStepper } from './components/ShardsStepper'
+import { SvgNodeTooltipOverlay } from './components/SvgNodeTooltipOverlay'
 import { TrafficLayer } from './components/TrafficLayer'
 import { ZoneLayer } from './components/ZoneLayer'
 import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
@@ -43,6 +48,11 @@ import {
   installCanvasSvgBridge,
   useSvgCanvasStore,
 } from './store/svgCanvasStore'
+import {
+  notifySvgViewportScreenRefresh,
+  registerSvgViewport,
+  unregisterSvgViewport,
+} from './utils/svgViewportBridge'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -204,6 +214,24 @@ export default function SvgDesignCanvas({
     installCanvasSvgBridge()
   }, [])
 
+  useEffect(() => {
+    const svg = svgRef.current
+    const host = hostRef.current
+    if (!svg || !host) return
+    registerSvgViewport(svg, host)
+    return () => unregisterSvgViewport()
+  }, [])
+
+  useEffect(() => {
+    notifySvgViewportScreenRefresh()
+  }, [view])
+
+  useEffect(() => {
+    if (spaceDown || panning || marquee || drag) {
+      useCanvasStore.getState().setHoveredNodeId(null)
+    }
+  }, [spaceDown, panning, marquee, drag])
+
   // Read live store nodes — React state is stale right after auto-arrange /
   // LB inject sync (requestCanvasFit runs before paint).
   const fitDefault = useCallback(() => {
@@ -313,6 +341,7 @@ export default function SvgDesignCanvas({
     (nodeId: string, e: ReactPointerEvent<SVGGElement>) => {
       if (e.button !== 0 || spaceDown) return
       e.stopPropagation()
+      useCanvasStore.getState().setHoveredNodeId(null)
       const svg = svgRef.current
       if (!svg) return
 
@@ -373,6 +402,20 @@ export default function SvgDesignCanvas({
     },
     [spaceDown, selectOnly, toggleInSelection, setConnectSourceId, addEdge],
   )
+
+  const onNodePointerEnter = useCallback((nodeId: string) => {
+    const state = useCanvasStore.getState()
+    if (!isMetricsViewportMode(state.mode)) return
+    if (dragRef.current) return
+    state.setHoveredNodeId(nodeId)
+  }, [])
+
+  const onNodePointerLeave = useCallback((nodeId: string) => {
+    const state = useCanvasStore.getState()
+    if (state.hoveredNodeId === nodeId) {
+      state.setHoveredNodeId(null)
+    }
+  }, [])
 
   const onZonePointerDown = useCallback(
     (ownerNodeId: string, e: ReactPointerEvent<SVGElement>) => {
@@ -794,6 +837,8 @@ export default function SvgDesignCanvas({
             zones={liveZones}
             selectedOwnerIds={selectedIds}
             onZonePointerDown={onZonePointerDown}
+            onZonePointerEnter={onNodePointerEnter}
+            onZonePointerLeave={onNodePointerLeave}
           />
           <EdgeLayer
             edges={edges}
@@ -826,6 +871,8 @@ export default function SvgDesignCanvas({
                 }
                 interactive={!spaceDown && !panning && !marquee}
                 onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
+                onPointerEnter={() => onNodePointerEnter(node.id)}
+                onPointerLeave={() => onNodePointerLeave(node.id)}
               />
             )
           })}
@@ -842,6 +889,7 @@ export default function SvgDesignCanvas({
             />
           ) : null}
         </svg>
+        <SvgNodeTooltipOverlay />
       </div>
     </div>
   )

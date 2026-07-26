@@ -26,6 +26,8 @@ type RedisBrandGlyphProps = {
   healthVisual?: HealthVisualState
   interactive?: boolean
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
 function RedisSlabs({
@@ -105,6 +107,8 @@ export function RedisBrandGlyph({
   healthVisual = 'off',
   interactive = false,
   onPointerDown,
+  onPointerEnter,
+  onPointerLeave,
 }: RedisBrandGlyphProps) {
   // Multi-replica nest uses ZoneLayer for selection — not per-mark outlines.
   const multi = units.length > 1
@@ -132,6 +136,8 @@ export function RedisBrandGlyph({
           cursor: interactive ? 'grab' : undefined,
         }}
         onPointerDown={interactive ? onPointerDown : undefined}
+        onPointerEnter={interactive ? onPointerEnter : undefined}
+        onPointerLeave={interactive ? onPointerLeave : undefined}
       >
         {ordered.map((u, i) => (
           <g key={i} transform={`translate(${u.dx} ${u.dy})`}>

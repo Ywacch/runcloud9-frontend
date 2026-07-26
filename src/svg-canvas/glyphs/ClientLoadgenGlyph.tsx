@@ -32,6 +32,8 @@ type ClientLoadgenGlyphProps = {
   healthVisual?: HealthVisualState
   interactive?: boolean
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
 /**
@@ -91,6 +93,8 @@ export function ClientLoadgenGlyph({
   healthVisual = 'off',
   interactive = false,
   onPointerDown,
+  onPointerEnter,
+  onPointerLeave,
 }: ClientLoadgenGlyphProps) {
   const stroke = selected ? '#3b82f6' : EDGE
   const strokeWidth = selected ? 2 : 0.75
@@ -113,6 +117,8 @@ export function ClientLoadgenGlyph({
           cursor: interactive ? 'grab' : undefined,
         }}
         onPointerDown={interactive ? onPointerDown : undefined}
+        onPointerEnter={interactive ? onPointerEnter : undefined}
+        onPointerLeave={interactive ? onPointerLeave : undefined}
       >
         {/* Hit target — top diamond + body AABB. */}
         <rect
