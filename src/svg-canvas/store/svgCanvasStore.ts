@@ -12,7 +12,6 @@ import {
 } from '../../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../../editor-core/stores/metricsStore'
 import { useChaosStore } from '../../editor-core/stores/chaosStore'
-import { isoToNode } from '../../canvas/utils/positionAdapter'
 import {
   recordCanvasHistory,
   withoutCanvasHistoryRecording,
@@ -54,7 +53,6 @@ export type { Archetype, SvgEdge, SvgNode, SvgZone } from './svgTypes'
 
 let clipboard: SvgNode[] = []
 let bridgeInstalled = false
-let seedAttempted = false
 let unsubscribeCanvas: (() => void) | null = null
 let unsubscribeMetrics: (() => void) | null = null
 let unsubscribeChaos: (() => void) | null = null
@@ -169,24 +167,11 @@ function patchLiveHealthVisuals(): void {
   }
 }
 
-/** Seed one compute node when canvas is empty so a bare SVG host is usable alone. */
-function ensureDemoSeed(): void {
-  if (seedAttempted) return
-  seedAttempted = true
-  const c = useCanvasStore.getState()
-  if (Object.keys(c.nodes).length > 0) return
-  if (!canMutateCanvasTopology(c)) return
-  const node = createCanvasNode('compute', isoToNode(0, 0), {})
-  node.label = 'T2'
-  useCanvasStore.getState().addNode(node)
-}
-
 /**
  * Subscribe SVG projection to product canvasStore. Safe to call multiple times.
  * Call from SvgDesignCanvas mount.
  */
 export function installCanvasSvgBridge(): void {
-  ensureDemoSeed()
   if (bridgeInstalled) {
     syncFromCanvas()
     return
@@ -213,7 +198,6 @@ export function resetCanvasSvgBridgeForTests(): void {
   unsubscribeChaos?.()
   unsubscribeChaos = null
   bridgeInstalled = false
-  seedAttempted = false
   lastSyncedMode = null
   clipboard = []
   useSvgCanvasStore.setState({

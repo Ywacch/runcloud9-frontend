@@ -6,8 +6,8 @@ import {
   type WorldPoint,
 } from '../math/iso'
 
-const BEND_PENALTY = 2.5
-const SEARCH_PAD = 20
+const BEND_PENALTY = 2.8
+const SEARCH_PADS = [24, 48, 80] as const
 
 type Dir = 'i+' | 'i-' | 'j+' | 'j-' | null
 
@@ -37,18 +37,35 @@ function neighbors(i: number, j: number): { i: number; j: number; dir: Dir }[] {
   ]
 }
 
-function obstacleSet(anchors: WorldPoint[], walkable: Set<string>): Set<string> {
+function blockedSet(
+  cells: IsoPoint[],
+  walkable: Set<string>,
+): Set<string> {
   const blocked = new Set<string>()
+  for (const c of cells) {
+    const k = key(c.i, c.j)
+    if (!walkable.has(k)) blocked.add(k)
+  }
+  return blocked
+}
+
+/** Legacy: expand world anchors into a Chebyshev-1 pad (tests / callers). */
+export function anchorsToObstacleCells(anchors: WorldPoint[]): IsoPoint[] {
+  const out: IsoPoint[] = []
+  const seen = new Set<string>()
   for (const a of anchors) {
     const c = snapIso(screenToIso(a.x, a.y).i, screenToIso(a.x, a.y).j)
     for (let di = -1; di <= 1; di++) {
       for (let dj = -1; dj <= 1; dj++) {
-        const k = key(c.i + di, c.j + dj)
-        if (!walkable.has(k)) blocked.add(k)
+        const p = { i: c.i + di, j: c.j + dj }
+        const k = key(p.i, p.j)
+        if (seen.has(k)) continue
+        seen.add(k)
+        out.push(p)
       }
     }
   }
-  return blocked
+  return out
 }
 
 function mergeCollinear(points: WorldPoint[]): WorldPoint[] {
@@ -62,7 +79,6 @@ function mergeCollinear(points: WorldPoint[]): WorldPoint[] {
     const dy1 = cur.y - prev.y
     const dx2 = next.x - cur.x
     const dy2 = next.y - cur.y
-    // Same direction (collinear parallel) — skip cur
     if (dx1 * dy2 === dy1 * dx2 && (dx1 !== 0 || dy1 !== 0)) continue
     out.push(cur)
   }
@@ -92,30 +108,18 @@ function reconstruct(
   return mergeCollinear(world)
 }
 
-/**
- * Iso-Manhattan A* on half-cell lattice (4-neighbor i/j).
- * Obstacles from node anchors (chebyshev ≤1 in half-steps).
- */
-export function routeIsoManhattan(args: {
-  source: WorldPoint
-  target: WorldPoint
-  obstacleAnchors: WorldPoint[]
-}): WorldPoint[] {
-  const { source, target, obstacleAnchors } = args
-  const start = snapIso(screenToIso(source.x, source.y).i, screenToIso(source.x, source.y).j)
-  const goal = snapIso(screenToIso(target.x, target.y).i, screenToIso(target.x, target.y).j)
-
-  if (start.i === goal.i && start.j === goal.j) {
-    return [source]
-  }
-
-  const walkable = new Set([key(start.i, start.j), key(goal.i, goal.j)])
-  const blocked = obstacleSet(obstacleAnchors, walkable)
-
-  const minI = Math.min(start.i, goal.i) - SEARCH_PAD
-  const maxI = Math.max(start.i, goal.i) + SEARCH_PAD
-  const minJ = Math.min(start.j, goal.j) - SEARCH_PAD
-  const maxJ = Math.max(start.j, goal.j) + SEARCH_PAD
+function searchPad(
+  start: IsoPoint,
+  goal: IsoPoint,
+  blocked: Set<string>,
+  source: WorldPoint,
+  target: WorldPoint,
+  pad: number,
+): WorldPoint[] | null {
+  const minI = Math.min(start.i, goal.i) - pad
+  const maxI = Math.max(start.i, goal.i) + pad
+  const minJ = Math.min(start.j, goal.j) - pad
+  const maxJ = Math.max(start.j, goal.j) + pad
 
   const open: ANode[] = []
   const bestG = new Map<string, number>()
@@ -163,5 +167,63 @@ export function routeIsoManhattan(args: {
     }
   }
 
-  return [source, target]
+  return null
+}
+
+/**
+ * One-elbow iso fallback when A* cannot find a lattice path.
+ * Prefer a lattice corner that is not blocked; never invent a free diagonal.
+ */
+function isoElbowFallback(
+  source: WorldPoint,
+  target: WorldPoint,
+  blocked: Set<string>,
+): WorldPoint[] {
+  const start = snapIso(screenToIso(source.x, source.y).i, screenToIso(source.x, source.y).j)
+  const goal = snapIso(screenToIso(target.x, target.y).i, screenToIso(target.x, target.y).j)
+  if (start.i === goal.i || start.j === goal.j) {
+    return [source, target]
+  }
+
+  const corners: IsoPoint[] = [
+    { i: start.i, j: goal.j },
+    { i: goal.i, j: start.j },
+  ]
+  const clear = corners.find((c) => !blocked.has(key(c.i, c.j)))
+  const corner = clear ?? corners[0]
+  const mid = isoToScreen(corner.i, corner.j)
+  return mergeCollinear([source, mid, target])
+}
+
+/**
+ * Iso-Manhattan A* on half-cell lattice (4-neighbor i/j).
+ * Prefer `obstacleCells` (real footprints). `obstacleAnchors` remains for
+ * older call sites / tests (expanded to Chebyshev-1 pads).
+ */
+export function routeIsoManhattan(args: {
+  source: WorldPoint
+  target: WorldPoint
+  obstacleAnchors?: WorldPoint[]
+  obstacleCells?: IsoPoint[]
+}): WorldPoint[] {
+  const { source, target } = args
+  const start = snapIso(screenToIso(source.x, source.y).i, screenToIso(source.x, source.y).j)
+  const goal = snapIso(screenToIso(target.x, target.y).i, screenToIso(target.x, target.y).j)
+
+  if (start.i === goal.i && start.j === goal.j) {
+    return [source]
+  }
+
+  const walkable = new Set([key(start.i, start.j), key(goal.i, goal.j)])
+  const cells =
+    args.obstacleCells ??
+    anchorsToObstacleCells(args.obstacleAnchors ?? [])
+  const blocked = blockedSet(cells, walkable)
+
+  for (const pad of SEARCH_PADS) {
+    const path = searchPad(start, goal, blocked, source, target, pad)
+    if (path) return path
+  }
+
+  return isoElbowFallback(source, target, blocked)
 }

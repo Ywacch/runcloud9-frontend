@@ -789,8 +789,9 @@ export default function SvgDesignCanvas({
   const rubberFrom = useMemo(() => {
     if (!connectSourceId) return null
     const n = nodes.find((x) => x.id === connectSourceId)
-    return n ? attachPoint(n) : null
-  }, [connectSourceId, nodes])
+    if (!n) return null
+    return attachPoint(n, rubberTip)
+  }, [connectSourceId, nodes, rubberTip])
 
   const viewBoxStr = `${view.x} ${view.y} ${view.w} ${view.h}`
   const cursor = drag || marquee
