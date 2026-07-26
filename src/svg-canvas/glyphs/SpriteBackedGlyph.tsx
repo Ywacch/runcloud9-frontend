@@ -36,6 +36,8 @@ type SpriteBackedGlyphProps = {
   healthVisual?: HealthVisualState
   interactive?: boolean
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
 /** Renders extracted greyscale unit SVGs from `src/assets/components`. */
@@ -51,6 +53,8 @@ export function SpriteBackedGlyph({
   healthVisual = 'off',
   interactive = false,
   onPointerDown,
+  onPointerEnter,
+  onPointerLeave,
 }: SpriteBackedGlyphProps) {
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
@@ -95,6 +99,8 @@ export function SpriteBackedGlyph({
           cursor: interactive ? 'grab' : undefined,
         }}
         onPointerDown={interactive ? onPointerDown : undefined}
+        onPointerEnter={interactive ? onPointerEnter : undefined}
+        onPointerLeave={interactive ? onPointerLeave : undefined}
       >
         {ordered.map((u, i) => (
           <g key={i} transform={`translate(${u.dx} ${u.dy})`}>

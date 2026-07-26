@@ -9,12 +9,16 @@ type ZoneLayerProps = {
   zones: SvgZone[]
   selectedOwnerIds: string[]
   onZonePointerDown: (ownerNodeId: string, e: ReactPointerEvent<SVGElement>) => void
+  onZonePointerEnter?: (ownerNodeId: string) => void
+  onZonePointerLeave?: (ownerNodeId: string) => void
 }
 
 export function ZoneLayer({
   zones,
   selectedOwnerIds,
   onZonePointerDown,
+  onZonePointerEnter,
+  onZonePointerLeave,
 }: ZoneLayerProps) {
   const selected = new Set(selectedOwnerIds)
 
@@ -38,6 +42,8 @@ export function ZoneLayer({
               strokeWidth={isSel ? 2.5 : 1.5}
               style={{ pointerEvents: 'fill', cursor: 'pointer' }}
               onPointerDown={(e) => onZonePointerDown(zone.ownerNodeId, e)}
+              onPointerEnter={() => onZonePointerEnter?.(zone.ownerNodeId)}
+              onPointerLeave={() => onZonePointerLeave?.(zone.ownerNodeId)}
             />
             <text
               x={top.x}

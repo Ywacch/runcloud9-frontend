@@ -17,6 +17,8 @@ type NodeGlyphProps = {
   /** Demo / live overlay; falls back to node.healthVisual. */
   healthVisual?: HealthVisualState
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
+  onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
 export function NodeGlyph({
@@ -27,6 +29,8 @@ export function NodeGlyph({
   interactive,
   healthVisual,
   onPointerDown,
+  onPointerEnter,
+  onPointerLeave,
 }: NodeGlyphProps) {
   const skin = resolveSkin(node.archetype, node.engine)
   const composed = composeGlyph(node)
@@ -40,6 +44,8 @@ export function NodeGlyph({
     interactive,
     healthVisual: health,
     onPointerDown,
+    onPointerEnter,
+    onPointerLeave,
   }
 
   // Redis keeps the measured brand 3-slab mark for now.
