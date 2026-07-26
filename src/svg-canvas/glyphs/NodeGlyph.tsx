@@ -3,6 +3,7 @@ import { useUnitOffsetsTween } from '../hooks/useUnitOffsetsTween'
 import { resolveSkin } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
+import { ClientLoadgenGlyph } from './ClientLoadgenGlyph'
 import { RedisBrandGlyph } from './RedisBrandGlyph'
 import { SpriteBackedGlyph } from './SpriteBackedGlyph'
 import type { PointerEvent as ReactPointerEvent } from 'react'
@@ -47,6 +48,8 @@ export function NodeGlyph({
   }
 
   switch (node.archetype) {
+    case 'client':
+      return <ClientLoadgenGlyph {...common} />
     case 'database':
       return (
         <SpriteBackedGlyph
