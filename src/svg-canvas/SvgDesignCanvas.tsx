@@ -289,16 +289,12 @@ export default function SvgDesignCanvas({
   const [exporting, setExporting] = useState(false)
   const exportSvg = useCallback(async () => {
     const svg = svgRef.current
-    const host = hostRef.current
-    if (!svg || !host || exporting) return
+    if (!svg || exporting) return
     setExporting(true)
     try {
-      const { width, height } = host.getBoundingClientRect()
       const text = await serializeSvgScene(svg, {
         nodes: useSvgCanvasStore.getState().nodes,
-        frame: 'viewport',
-        width: Math.max(1, Math.round(width)),
-        height: Math.max(1, Math.round(height)),
+        gridMode: mode,
         background: floorTheme.hostBg,
       })
       downloadSvgString(text)
@@ -307,7 +303,7 @@ export default function SvgDesignCanvas({
     } finally {
       setExporting(false)
     }
-  }, [exporting, floorTheme.hostBg])
+  }, [exporting, floorTheme.hostBg, mode])
 
   useEffect(() => {
     registerCanvasFitScheduler(fitDefault)
@@ -913,7 +909,7 @@ export default function SvgDesignCanvas({
               className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
               onClick={() => void exportSvg()}
               disabled={exporting}
-              title="Download the full on-screen canvas as SVG"
+              title="Download SVG (bounded board, or design + padding)"
             >
               {exporting ? '…' : 'SVG'}
             </button>
