@@ -33,7 +33,7 @@ describe('applyAutoArrange + SVG host lock/arrange', () => {
       id: 'e1',
       sourceId: a.id,
       targetId: b.id,
-      protocol: 'sql',
+      protocol: 'tcp',
       animated: false,
     })
     installCanvasSvgBridge()
