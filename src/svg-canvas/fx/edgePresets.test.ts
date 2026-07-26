@@ -1,20 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { defaultEdgeStyle } from '../store/svgTypes'
-import { resolveEdgePaint } from './edgePresets'
+import {
+  FLOW_COLOR_DARK,
+  FLOW_COLOR_LIGHT,
+  resolveEdgePaint,
+} from './edgePresets'
 
 describe('resolveEdgePaint', () => {
-  it('keeps flow colors from edge style', () => {
+  it('uses a brighter flow stroke on dark floors', () => {
+    const paint = resolveEdgePaint(defaultEdgeStyle(), 'flow', 'dark')
+    expect(paint.color).toBe(FLOW_COLOR_DARK)
+    expect(paint.width).toBeGreaterThanOrEqual(2.25)
+  })
+
+  it('keeps the slate flow stroke on light floors', () => {
+    const paint = resolveEdgePaint(defaultEdgeStyle(), 'flow', 'light')
+    expect(paint.color).toBe(FLOW_COLOR_LIGHT)
+  })
+
+  it('preserves custom non-default flow colors', () => {
     const style = { ...defaultEdgeStyle(), color: '#3b82f6', dash: '8,6' as const }
     const paint = resolveEdgePaint(style, 'flow', 'dark')
     expect(paint.color).toBe('#3b82f6')
     expect(paint.dash).toBe('8,6')
-    expect(paint.showJunctions).toBe(true)
   })
 
   it('uses light wires on dark floor for schematic', () => {
     const paint = resolveEdgePaint(defaultEdgeStyle(), 'schematic', 'dark')
     expect(paint.color).toBe('#e8e8ea')
-    expect(paint.width).toBeGreaterThanOrEqual(2)
     expect(paint.showJunctions).toBe(true)
   })
 

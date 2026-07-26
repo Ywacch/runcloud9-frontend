@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   EDGE_ARROW_LENGTH,
-  EDGE_NODE_CLEARANCE,
+  clearanceForArchetype,
   approachTip,
   arrowPolygon,
   insetAlong,
@@ -21,17 +21,22 @@ describe('edgePaint', () => {
       x: 18,
       y: 0,
     })
-    // Short segment: clamp to 45% of length
     expect(insetAlong({ x: 0, y: 0 }, { x: 10, y: 0 }, 18)).toEqual({
       x: 4.5,
       y: 0,
     })
   })
 
-  it('places the tip outside the node, pointing at the attach', () => {
-    const tip = approachTip({ x: 100, y: 0 }, { x: 0, y: 0 })
-    expect(tip.x).toBe(100 - EDGE_NODE_CLEARANCE)
-    expect(tip.y).toBe(0)
+  it('gives database more clearance than a generic node', () => {
+    expect(clearanceForArchetype('database')).toBeGreaterThan(
+      clearanceForArchetype('app-server'),
+    )
+    const tip = approachTip(
+      { x: 200, y: 0 },
+      { x: 0, y: 0 },
+      clearanceForArchetype('database'),
+    )
+    expect(tip.x).toBeLessThan(200 - 80)
   })
 
   it('pulls painted ends back for clearance + arrow base', () => {
@@ -43,11 +48,10 @@ describe('edgePaint', () => {
         insetEnd: true,
         nodeClearanceEnd: true,
         arrowInset: 18,
-        nodeClearance: 34,
+        clearanceEnd: 34,
       },
     )
     expect(a).toEqual({ x: 0, y: 0 })
-    // tip at 200-34=166, stroke end at 166-18=148
     expect(b).toEqual({ x: 148, y: 0 })
   })
 

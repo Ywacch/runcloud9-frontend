@@ -1,4 +1,5 @@
 import type { WorldPoint } from '../math/iso'
+import type { Archetype } from '../store/svgTypes'
 
 /**
  * RunCloud9 edge paint constants — tuned to our glyphs / dark floor.
@@ -8,13 +9,32 @@ export const EDGE_ARROW_LENGTH = 18
 export const EDGE_ARROW_HALF_W = 5.5
 /** Pull the stroke back so it meets the arrow base. */
 export const EDGE_ARROW_INSET = EDGE_ARROW_LENGTH
-/**
- * Keep the arrow tip outside the full glyph body. Attach points sit on the
- * top-face center, while the extruded body extends beyond that face.
- */
-export const EDGE_NODE_CLEARANCE = 60
+/** Default body clearance when archetype is unknown. */
+export const EDGE_NODE_CLEARANCE = 58
 export const EDGE_JUNCTION_R = 3
 export const EDGE_HIT_STROKE = 10
+
+/** How far the tip sits outside the attach point, by glyph body. */
+export function clearanceForArchetype(
+  archetype?: Archetype | string | null,
+): number {
+  switch (archetype) {
+    case 'database':
+      return 92
+    case 'message-queue':
+      return 82
+    case 'cache':
+      return 76
+    case 'load-balancer':
+      return 72
+    case 'worker':
+      return 64
+    case 'app-server':
+      return 66
+    default:
+      return EDGE_NODE_CLEARANCE
+  }
+}
 
 export function arrowPolygon(
   x1: number,
@@ -61,7 +81,7 @@ export function approachTip(
 ): WorldPoint {
   // Terminal segments are often short because the last lattice elbow is near
   // the node. Allow most of that segment to be used for body clearance.
-  return insetAlong(attach, from, clearance, 0.82)
+  return insetAlong(attach, from, clearance, 0.88)
 }
 
 /**
@@ -73,24 +93,28 @@ export function paintedSegmentEnds(
   opts: {
     insetStart: boolean
     insetEnd: boolean
-    /** Extra pull-back at terminals so tips clear the glyph. */
     nodeClearanceStart?: boolean
     nodeClearanceEnd?: boolean
     arrowInset?: number
     nodeClearance?: number
+    clearanceStart?: number
+    clearanceEnd?: number
   },
 ): { a: WorldPoint; b: WorldPoint } {
   const arrowInset = opts.arrowInset ?? EDGE_ARROW_INSET
-  const clearance = opts.nodeClearance ?? EDGE_NODE_CLEARANCE
+  const clearStart =
+    opts.clearanceStart ?? opts.nodeClearance ?? EDGE_NODE_CLEARANCE
+  const clearEnd =
+    opts.clearanceEnd ?? opts.nodeClearance ?? EDGE_NODE_CLEARANCE
 
   let start = a
   let end = b
 
   if (opts.nodeClearanceStart) {
-    start = approachTip(a, b, clearance)
+    start = approachTip(a, b, clearStart)
   }
   if (opts.nodeClearanceEnd) {
-    end = approachTip(b, a, clearance)
+    end = approachTip(b, a, clearEnd)
   }
 
   return {

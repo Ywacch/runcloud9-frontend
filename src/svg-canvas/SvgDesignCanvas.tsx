@@ -107,6 +107,14 @@ type DragSession = {
   /** Live delta from grab. */
   dx: number
   dy: number
+  /** Screen coords at pointerdown — used to distinguish click vs drag. */
+  pointerStartClient: { x: number; y: number }
+  /**
+   * When true, the node was not selected on pointerdown. Select it on
+   * pointerup only if the gesture stayed within click slop (so a drag
+   * repositions without opening the inspector).
+   */
+  selectOnClick: boolean
 }
 
 type Marquee = { x0: number; y0: number; x1: number; y1: number }
@@ -479,9 +487,14 @@ export default function SvgDesignCanvas({
 
       const already = state.selectedIds.includes(nodeId)
       const ids = already ? [...state.selectedIds] : [nodeId]
-      if (!already) selectOnly(nodeId)
+      // Defer selectUntil click: selecting on pointerdown opens the inspector
+      // before the user has a chance to drag.
 
-      if (!canMoveOnCanvas(canvas.movementLocked)) return
+      if (!canMoveOnCanvas(canvas.movementLocked)) {
+        // Still allow click-to-inspect when movement is locked.
+        if (!already) selectOnly(nodeId)
+        return
+      }
 
       const world = clientToWorld(svg, e.clientX, e.clientY)
       const origins: Record<string, WorldPoint> = {}
@@ -498,6 +511,8 @@ export default function SvgDesignCanvas({
         grabWorld: world,
         dx: 0,
         dy: 0,
+        pointerStartClient: { x: e.clientX, y: e.clientY },
+        selectOnClick: !already,
       }
       dragRef.current = session
       setDrag(session)
@@ -628,15 +643,25 @@ export default function SvgDesignCanvas({
 
       if (dragRef.current) {
         const session = dragRef.current
-        const updates = session.ids.map((id) => {
-          const o = session.origins[id]
-          return {
-            id,
-            x: o.x + session.dx,
-            y: o.y + session.dy,
-          }
-        })
-        moveNodes(updates)
+        const moved =
+          Math.hypot(
+            e.clientX - session.pointerStartClient.x,
+            e.clientY - session.pointerStartClient.y,
+          ) > CLICK_SLOP_PX
+        if (moved) {
+          const updates = session.ids.map((id) => {
+            const o = session.origins[id]
+            return {
+              id,
+              x: o.x + session.dx,
+              y: o.y + session.dy,
+            }
+          })
+          moveNodes(updates)
+        } else if (session.selectOnClick) {
+          // Click (no drag): select → opens inspector.
+          selectOnly(session.primaryId)
+        }
         dragRef.current = null
         setDrag(null)
         try {
