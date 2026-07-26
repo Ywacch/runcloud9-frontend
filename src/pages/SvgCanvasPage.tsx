@@ -9,6 +9,7 @@ import {
   useWalkthroughStore,
 } from '../editor-core'
 import {
+  CanvasContextMenu,
   DesignToolStrip,
   InspectorPanel,
   LogPanel,
@@ -22,6 +23,8 @@ import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import SvgDesignCanvas from '../svg-canvas/SvgDesignCanvas'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { CanvasSessionOverlays } from './CanvasSessionOverlays'
+import { useCanvasSessionLifecycle } from './useCanvasSessionLifecycle'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
@@ -41,13 +44,14 @@ function isNodeType(raw: string): raw is CanvasNode['type'] {
  * Pixi `/canvas` stays production; this page dogfoods the store-bridged SVG scene.
  */
 export default function SvgCanvasPage() {
+  const session = useCanvasSessionLifecycle()
   useCanvasKeyboard()
 
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
   const designTool = useCanvasStore((s) => s.designTool)
-  const mode = useCanvasStore((s) => s.mode)
-  const nodes = useCanvasStore((s) => s.nodes)
-  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const mode = session.mode
+  const nodes = session.nodes
+  const snapshotTemplateId = session.snapshotTemplateId
   const metrics = useMetricsStore((s) => s.metrics)
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
@@ -60,13 +64,6 @@ export default function SvgCanvasPage() {
     overview: boolean
     id: string | null
   }>({ open: false, overview: false, id: null })
-
-  useEffect(() => {
-    const st = useCanvasStore.getState()
-    if (!st.deploymentId && st.mode !== 'design') {
-      st.setMode('design')
-    }
-  }, [])
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
@@ -88,6 +85,10 @@ export default function SvgCanvasPage() {
   const closeDesignJourney = useCallback(() => {
     setDesignJourneyUi({ open: false, overview: false, id: null })
   }, [])
+
+  useEffect(() => {
+    setDesignJourneyUi({ open: false, overview: false, id: null })
+  }, [snapshotTemplateId])
 
   const handleDesignStartWalkthrough = useCallback(
     (journeyId: string) => {
@@ -134,20 +135,23 @@ export default function SvgCanvasPage() {
         </div>
 
         <SvgDesignCanvas chromeMounted />
+        <CanvasContextMenu />
 
-        {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
-          <div className="pointer-events-none absolute left-3 top-12 z-30">
-            <button
-              type="button"
-              className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
-              onClick={() =>
-                setDesignJourneyUi({ open: true, overview: true, id: null })
-              }
-            >
-              Request journeys
-            </button>
-          </div>
-        ) : null}
+        <CanvasSessionOverlays session={session}>
+          {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
+            <div className="pointer-events-none absolute left-3 top-12 z-30">
+              <button
+                type="button"
+                className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
+                onClick={() =>
+                  setDesignJourneyUi({ open: true, overview: true, id: null })
+                }
+              >
+                Request journeys
+              </button>
+            </div>
+          ) : null}
+        </CanvasSessionOverlays>
 
         <LogPanel />
         <DesignToolStrip />
