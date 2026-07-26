@@ -54,6 +54,7 @@ export function projectSvgScene(
       waypoints: routeBetween(nodes, e.sourceId, e.targetId),
       style: defaultEdgeStyle(),
       trafficEnabled: e.animated === true,
+      protocol: e.protocol === 'tcp' ? ('tcp' as const) : ('http' as const),
     }))
   return { nodes, edges, zones: rebuildZones(nodes) }
 }

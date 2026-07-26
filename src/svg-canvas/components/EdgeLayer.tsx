@@ -1,11 +1,19 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo } from 'react'
 import {
   isWalkthroughRunning,
   walkthroughEdgeStyle,
 } from '../../canvas/utils/walkthroughVisual'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { getCacheTopologyEdgeIssues } from '../../lib/cacheTopologyStrategy'
+import {
+  protocolBadgeLayout,
+  protocolBadgeMidpoint,
+} from '../fx/edgeProtocolBadge'
 import { walkthroughCssColor } from '../fx/walkthroughChrome'
 import type { SvgEdge } from '../store/svgTypes'
+
+const TOPOLOGY_STROKE = '#b91c1c'
 
 type EdgeLayerProps = {
   edges: SvgEdge[]
@@ -47,8 +55,14 @@ export function EdgeLayer({
   useCanvasStore((s) => s.walkthroughVisitedNodeIds)
   useCanvasStore((s) => s.walkthroughHighlightedEdgeIds)
   useCanvasStore((s) => s.walkthroughParticipatingNodeIds)
+  const canvasNodes = useCanvasStore((s) => s.nodes)
+  const canvasEdges = useCanvasStore((s) => s.edges)
   const canvas = useCanvasStore.getState()
   const walkthrough = isWalkthroughRunning(canvas)
+  const topologyIssues = useMemo(
+    () => getCacheTopologyEdgeIssues(canvasNodes, canvasEdges),
+    [canvasNodes, canvasEdges],
+  )
 
   return (
     <g data-edge-layer>
@@ -56,6 +70,7 @@ export function EdgeLayer({
         const pts = edge.waypoints
         if (pts.length < 2) return null
         const isSel = selected.has(edge.id)
+        const topologyIssue = topologyIssues[edge.id]
 
         let color = isSel ? '#3b82f6' : edge.style.color
         let width = isSel ? edge.style.width + 1 : edge.style.width
@@ -73,10 +88,18 @@ export function EdgeLayer({
           width = wt.width
           opacity = wt.alpha
           highlighted = wt.highlighted
+        } else if (topologyIssue && !isSel) {
+          color = TOPOLOGY_STROKE
+          width = Math.max(width, 4)
         }
 
         const dash =
           edge.style.dash === 'none' ? undefined : edge.style.dash
+        const protocol = edge.protocol ?? 'http'
+        const mid = protocolBadgeMidpoint(edge)
+        const badge = mid
+          ? protocolBadgeLayout(protocol, topologyIssue)
+          : null
 
         return (
           <g key={edge.id} data-edge-id={edge.id} opacity={opacity}>
@@ -144,6 +167,34 @@ export function EdgeLayer({
                 fill={color}
                 style={{ pointerEvents: 'none' }}
               />
+            ) : null}
+            {badge && mid ? (
+              <g
+                transform={`translate(${mid.x} ${mid.y})`}
+                style={{ pointerEvents: 'none' }}
+                data-protocol-badge
+              >
+                <rect
+                  x={-badge.width / 2}
+                  y={-badge.height / 2}
+                  width={badge.width}
+                  height={badge.height}
+                  rx={3}
+                  ry={3}
+                  fill={badge.fill}
+                />
+                <text
+                  x={0}
+                  y={0}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={10}
+                  fontFamily="system-ui, sans-serif"
+                  fill="#ffffff"
+                >
+                  {badge.text}
+                </text>
+              </g>
             ) : null}
           </g>
         )

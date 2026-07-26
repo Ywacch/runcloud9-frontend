@@ -66,6 +66,8 @@ export type SvgEdge = {
   style: SvgEdgeStyle
   /** Particles along waypoints; projected from CanvasEdge.animated. */
   trafficEnabled?: boolean
+  /** Edge protocol badge; projected from CanvasEdge.protocol. */
+  protocol?: 'http' | 'tcp'
 }
 
 export function defaultTopology(): NodeTopology {
@@ -98,6 +100,7 @@ export function cloneSvgEdge(edge: SvgEdge): SvgEdge {
     waypoints: edge.waypoints.map((p) => ({ ...p })),
     style: { ...edge.style },
     trafficEnabled: edge.trafficEnabled,
+    protocol: edge.protocol,
   }
 }
 
