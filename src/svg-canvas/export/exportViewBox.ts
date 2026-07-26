@@ -1,13 +1,46 @@
 /**
- * Content-fitted viewBox for SVG export (independent of the live camera).
+ * Export framing helpers — default is the live camera (full on-screen canvas).
  */
 
 export type ExportViewBox = { x: number; y: number; w: number; h: number }
+
+export type ExportFrame = 'viewport' | 'content'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
 const PAD = 320
 
+export function parseViewBoxAttr(raw: string | null | undefined): ExportViewBox | null {
+  if (!raw) return null
+  const parts = raw
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number)
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null
+  const [x, y, w, h] = parts
+  if (w <= 0 || h <= 0) return null
+  return { x, y, w, h }
+}
+
+/** Read the live SVG camera viewBox (what the user currently sees). */
+export function readSvgViewBox(svg: {
+  viewBox?: { baseVal?: { x: number; y: number; width: number; height: number } }
+  getAttribute: (name: string) => string | null
+}): ExportViewBox | null {
+  const base = svg.viewBox?.baseVal
+  if (
+    base &&
+    Number.isFinite(base.width) &&
+    Number.isFinite(base.height) &&
+    base.width > 0 &&
+    base.height > 0
+  ) {
+    return { x: base.x, y: base.y, w: base.width, h: base.height }
+  }
+  return parseViewBoxAttr(svg.getAttribute('viewBox'))
+}
+
+/** Content-fitted viewBox around node tips (optional tight crop). */
 export function computeExportViewBox(
   nodes: readonly { x: number; y: number }[],
   aspect = 16 / 9,
@@ -40,6 +73,23 @@ export function computeExportViewBox(
   const cx = (minX + maxX) / 2
   const cy = (minY + maxY) / 2
   return { x: cx - w / 2, y: cy - h / 2, w, h }
+}
+
+/**
+ * Resolve export frame: viewport = live camera (full canvas); content = node crop.
+ */
+export function resolveExportViewBox(options: {
+  frame?: ExportFrame
+  liveViewBox: ExportViewBox | null
+  nodes: readonly { x: number; y: number }[]
+  aspect?: number
+}): ExportViewBox {
+  const frame = options.frame ?? 'viewport'
+  if (frame === 'content') {
+    return computeExportViewBox(options.nodes, options.aspect ?? 16 / 9)
+  }
+  if (options.liveViewBox) return options.liveViewBox
+  return computeExportViewBox(options.nodes, options.aspect ?? 16 / 9)
 }
 
 export function viewBoxAttr(vb: ExportViewBox): string {
