@@ -40,8 +40,9 @@ function isNodeType(raw: string): raw is CanvasNode['type'] {
 }
 
 /**
- * SVG design host with product React chrome mounted (sidebar, inspector, journeys).
- * Pixi `/canvas` stays production; this page dogfoods the store-bridged SVG scene.
+ * Production canvas host: SVG design scene + product React chrome
+ * (sidebar, inspector, journeys, live/sim overlays).
+ * Pixi fallback remains at `/canvas-pixi` (internal / DEV).
  */
 export default function SvgCanvasPage() {
   const session = useCanvasSessionLifecycle()
@@ -122,24 +123,27 @@ export default function SvgCanvasPage() {
           })
         }}
       >
-        <div className="pointer-events-none absolute left-3 top-3 z-40 flex items-center gap-2">
-          <Link
-            to="/canvas"
-            className="pointer-events-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-2 py-1 text-[10px] font-medium text-[var(--c9-muted)] shadow backdrop-blur-sm hover:text-[var(--c9-text)]"
-          >
-            Pixi canvas
-          </Link>
-          <span className="rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-2 py-1 text-[10px] text-[var(--c9-muted)] shadow backdrop-blur-sm">
-            SVG host
-          </span>
-        </div>
+        {import.meta.env.DEV ? (
+          <div className="pointer-events-none absolute left-3 top-3 z-40">
+            <Link
+              to="/canvas-pixi"
+              className="pointer-events-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-2 py-1 text-[10px] font-medium text-[var(--c9-muted)] shadow backdrop-blur-sm hover:text-[var(--c9-text)]"
+            >
+              Pixi fallback
+            </Link>
+          </div>
+        ) : null}
 
         <SvgDesignCanvas chromeMounted />
         <CanvasContextMenu />
 
         <CanvasSessionOverlays session={session}>
           {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
-            <div className="pointer-events-none absolute left-3 top-12 z-30">
+            <div
+              className={`pointer-events-none absolute left-3 z-30 ${
+                import.meta.env.DEV ? 'top-12' : 'top-3'
+              }`}
+            >
               <button
                 type="button"
                 className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"

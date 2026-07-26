@@ -5,7 +5,12 @@ import { useAuthStore } from '../product/stores/authStore'
 export default function NavHeader() {
   const { pathname } = useLocation()
   const session = useAuthStore((s) => s.session)
-  if (pathname === '/' || pathname === '/canvas' || pathname === '/canvas-svg')
+  if (
+    pathname === '/' ||
+    pathname === '/canvas' ||
+    pathname === '/canvas-pixi' ||
+    pathname === '/canvas-svg'
+  )
     return null
 
   return (

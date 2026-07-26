@@ -169,7 +169,7 @@ function patchLiveHealthVisuals(): void {
   }
 }
 
-/** Seed one compute node when canvas is empty so /canvas-svg is usable alone. */
+/** Seed one compute node when canvas is empty so a bare SVG host is usable alone. */
 function ensureDemoSeed(): void {
   if (seedAttempted) return
   seedAttempted = true

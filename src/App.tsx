@@ -104,19 +104,23 @@ export default function App() {
             path="/canvas"
             element={
               <Suspense fallback={<CanvasRouteFallback />}>
-                <CanvasPage />
+                <SvgCanvasPage />
               </Suspense>
             }
           />
           <Route
-            path="/canvas-svg"
+            path="/canvas-pixi"
             element={
               <InternalOnlyRoute>
                 <Suspense fallback={<CanvasRouteFallback />}>
-                  <SvgCanvasPage />
+                  <CanvasPage />
                 </Suspense>
               </InternalOnlyRoute>
             }
+          />
+          <Route
+            path="/canvas-svg"
+            element={<Navigate to="/canvas" replace />}
           />
         </Routes>
       </BrowserRouter>

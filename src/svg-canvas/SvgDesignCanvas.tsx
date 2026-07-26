@@ -819,23 +819,27 @@ export default function SvgDesignCanvas({
         </div>
       ) : (
         <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
-          <FxDemoControls compact />
-          <div className="pointer-events-auto flex rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
-            <button
-              type="button"
-              className={`rounded px-2 py-1 text-[10px] ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-              onClick={() => setMode('infinite')}
-            >
-              Infinite
-            </button>
-            <button
-              type="button"
-              className={`rounded px-2 py-1 text-[10px] ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
-              onClick={() => setMode('bounded')}
-            >
-              Bounded
-            </button>
-          </div>
+          {import.meta.env.DEV ? (
+            <>
+              <FxDemoControls compact />
+              <div className="pointer-events-auto flex rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
+                <button
+                  type="button"
+                  className={`rounded px-2 py-1 text-[10px] ${mode === 'infinite' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  onClick={() => setMode('infinite')}
+                >
+                  Infinite
+                </button>
+                <button
+                  type="button"
+                  className={`rounded px-2 py-1 text-[10px] ${mode === 'bounded' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  onClick={() => setMode('bounded')}
+                >
+                  Bounded
+                </button>
+              </div>
+            </>
+          ) : null}
           <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
             <button
               type="button"
