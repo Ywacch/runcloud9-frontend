@@ -25,6 +25,11 @@ import {
   SPAWN_AT_SCREEN,
   type SpawnAtScreenDetail,
 } from '../lib/spawnEvents'
+import {
+  isWalkthroughRunning,
+  walkthroughNodeAlpha,
+  walkthroughNodeRole,
+} from '../canvas/utils/walkthroughVisual'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
 import { EngineSelect } from './components/EngineSelect'
@@ -37,6 +42,7 @@ import { ReplicasStepper } from './components/ReplicasStepper'
 import { ShardsStepper } from './components/ShardsStepper'
 import { SvgNodeTooltipOverlay } from './components/SvgNodeTooltipOverlay'
 import { TrafficLayer } from './components/TrafficLayer'
+import { WalkthroughNodeOverlay } from './components/WalkthroughNodeOverlay'
 import { ZoneLayer } from './components/ZoneLayer'
 import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
 import { syncZoneForNode } from './compose/syncZoneForNode'
@@ -635,6 +641,30 @@ export default function SvgDesignCanvas({
     })
   }, [zones, nodes, liveById])
 
+  const canvasMode = useCanvasStore((s) => s.mode)
+  const walkthroughActiveNodeId = useCanvasStore((s) => s.walkthroughActiveNodeId)
+  const walkthroughVisitedNodeIds = useCanvasStore(
+    (s) => s.walkthroughVisitedNodeIds,
+  )
+  const walkthroughParticipatingNodeIds = useCanvasStore(
+    (s) => s.walkthroughParticipatingNodeIds,
+  )
+  const walkthroughOpacityById = useMemo(() => {
+    const state = useCanvasStore.getState()
+    if (!isWalkthroughRunning(state)) return null as Map<string, number> | null
+    const map = new Map<string, number>()
+    for (const n of nodes) {
+      map.set(n.id, walkthroughNodeAlpha(walkthroughNodeRole(n.id, state)))
+    }
+    return map
+  }, [
+    nodes,
+    canvasMode,
+    walkthroughActiveNodeId,
+    walkthroughVisitedNodeIds,
+    walkthroughParticipatingNodeIds,
+  ])
+
   const latticeHint = useMemo(() => {
     if (connectMode) {
       return connectSourceId
@@ -836,6 +866,7 @@ export default function SvgDesignCanvas({
           <ZoneLayer
             zones={liveZones}
             selectedOwnerIds={selectedIds}
+            ownerOpacityById={walkthroughOpacityById ?? undefined}
             onZonePointerDown={onZonePointerDown}
             onZonePointerEnter={onNodePointerEnter}
             onZonePointerLeave={onNodePointerLeave}
@@ -860,22 +891,28 @@ export default function SvgDesignCanvas({
           ) : null}
           {sortedNodes.map((node) => {
             const live = liveById?.get(node.id) ?? { x: node.x, y: node.y }
+            const opacity = walkthroughOpacityById?.get(node.id) ?? 1
             return (
-              <NodeGlyph
-                key={node.id}
-                node={node}
-                x={live.x}
-                y={live.y}
-                selected={
-                  selectedSet.has(node.id) || node.id === connectSourceId
-                }
-                interactive={!spaceDown && !panning && !marquee}
-                onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
-                onPointerEnter={() => onNodePointerEnter(node.id)}
-                onPointerLeave={() => onNodePointerLeave(node.id)}
-              />
+              <g key={node.id} opacity={opacity}>
+                <NodeGlyph
+                  node={node}
+                  x={live.x}
+                  y={live.y}
+                  selected={
+                    selectedSet.has(node.id) || node.id === connectSourceId
+                  }
+                  interactive={!spaceDown && !panning && !marquee}
+                  onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
+                  onPointerEnter={() => onNodePointerEnter(node.id)}
+                  onPointerLeave={() => onNodePointerLeave(node.id)}
+                />
+              </g>
             )
           })}
+          <WalkthroughNodeOverlay
+            nodes={sortedNodes}
+            liveById={liveById ?? undefined}
+          />
           {marqueeRect && marqueeRect.w + marqueeRect.h > 0 ? (
             <rect
               x={marqueeRect.x}

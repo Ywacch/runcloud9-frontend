@@ -8,6 +8,8 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 type ZoneLayerProps = {
   zones: SvgZone[]
   selectedOwnerIds: string[]
+  /** Walkthrough dimming keyed by owner node id (1 = full). */
+  ownerOpacityById?: Map<string, number>
   onZonePointerDown: (ownerNodeId: string, e: ReactPointerEvent<SVGElement>) => void
   onZonePointerEnter?: (ownerNodeId: string) => void
   onZonePointerLeave?: (ownerNodeId: string) => void
@@ -16,6 +18,7 @@ type ZoneLayerProps = {
 export function ZoneLayer({
   zones,
   selectedOwnerIds,
+  ownerOpacityById,
   onZonePointerDown,
   onZonePointerEnter,
   onZonePointerLeave,
@@ -33,8 +36,13 @@ export function ZoneLayer({
         )
         const isSel = selected.has(zone.ownerNodeId)
         const top = pts[0]
+        const opacity = ownerOpacityById?.get(zone.ownerNodeId) ?? 1
         return (
-          <g key={zone.id} data-zone-owner={zone.ownerNodeId}>
+          <g
+            key={zone.id}
+            data-zone-owner={zone.ownerNodeId}
+            opacity={opacity}
+          >
             <polygon
               points={pointsAttr(pts)}
               fill="rgba(84, 98, 111, 0.14)"

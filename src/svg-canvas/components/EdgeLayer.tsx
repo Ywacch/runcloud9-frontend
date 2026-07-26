@@ -1,4 +1,10 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import {
+  isWalkthroughRunning,
+  walkthroughEdgeStyle,
+} from '../../canvas/utils/walkthroughVisual'
+import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { walkthroughCssColor } from '../fx/walkthroughChrome'
 import type { SvgEdge } from '../store/svgTypes'
 
 type EdgeLayerProps = {
@@ -36,6 +42,13 @@ export function EdgeLayer({
   onEdgePointerDown,
 }: EdgeLayerProps) {
   const selected = new Set(selectedEdgeIds)
+  useCanvasStore((s) => s.mode)
+  useCanvasStore((s) => s.walkthroughActiveNodeId)
+  useCanvasStore((s) => s.walkthroughVisitedNodeIds)
+  useCanvasStore((s) => s.walkthroughHighlightedEdgeIds)
+  useCanvasStore((s) => s.walkthroughParticipatingNodeIds)
+  const canvas = useCanvasStore.getState()
+  const walkthrough = isWalkthroughRunning(canvas)
 
   return (
     <g data-edge-layer>
@@ -43,13 +56,30 @@ export function EdgeLayer({
         const pts = edge.waypoints
         if (pts.length < 2) return null
         const isSel = selected.has(edge.id)
-        const color = isSel ? '#3b82f6' : edge.style.color
-        const width = isSel ? edge.style.width + 1 : edge.style.width
+
+        let color = isSel ? '#3b82f6' : edge.style.color
+        let width = isSel ? edge.style.width + 1 : edge.style.width
+        let opacity = 1
+        let highlighted = false
+        if (walkthrough && !isSel) {
+          const wt = walkthroughEdgeStyle(
+            edge.id,
+            edge.sourceNodeId,
+            edge.targetNodeId,
+            { animated: edge.trafficEnabled === true },
+            canvas,
+          )
+          color = walkthroughCssColor(wt.color)
+          width = wt.width
+          opacity = wt.alpha
+          highlighted = wt.highlighted
+        }
+
         const dash =
           edge.style.dash === 'none' ? undefined : edge.style.dash
 
         return (
-          <g key={edge.id} data-edge-id={edge.id}>
+          <g key={edge.id} data-edge-id={edge.id} opacity={opacity}>
             {pts.slice(0, -1).map((a, i) => {
               const b = pts[i + 1]
               return (
@@ -64,6 +94,19 @@ export function EdgeLayer({
                     style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                     onPointerDown={(e) => onEdgePointerDown(edge.id, e)}
                   />
+                  {highlighted ? (
+                    <line
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      stroke={color}
+                      strokeWidth={width + 4}
+                      strokeLinecap="round"
+                      opacity={0.25}
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  ) : null}
                   <line
                     x1={a.x}
                     y1={a.y}
