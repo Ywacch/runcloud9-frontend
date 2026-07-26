@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import {
+  useMetricsStore,
+  type MetricsBucket,
+} from '../../editor-core/stores/metricsStore'
+import { useChaosStore } from '../../editor-core/stores/chaosStore'
 import { createCanvasNode } from '../../lib/nodeFactory'
 import { clearCanvasHistory } from '../../lib/canvasHistory'
 import { isoToNode } from '../../canvas/utils/positionAdapter'
@@ -9,6 +14,64 @@ import {
   useSvgCanvasStore,
 } from '../store/svgCanvasStore'
 
+function highCpuMetrics(): MetricsBucket {
+  return {
+    cpuUsage: 0.9,
+    cpuPercent: 90,
+    memoryBytes: 0,
+    memPercent: 10,
+    cpuIsEstimated: false,
+    memIsEstimated: false,
+    cpuLimit: 1,
+    memoryLimit: 1024,
+    requestRate: 1,
+    errorRate: 0,
+    totalRequests: 1,
+    totalErrors9m: 0,
+    p50Latency: 0,
+    p95Latency: 0,
+    p99Latency: 0,
+    p99Latency9m: 0,
+    avgLatency: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheHitsLast9m: 0,
+    cacheMissesLast9m: 0,
+    dbQueryRate: 0,
+    dbTotalQueries: 0,
+    dbQueryLatency: 0,
+    dbQuerySource: '',
+    dbActiveConnections: 0,
+    maxConnections: 0,
+    storageEngine: '',
+    storageRole: '',
+    storageIo: null,
+    activeConnections: 0,
+    lbConnectionLimit: 0,
+    queueDepth: 0,
+    produceRate: 0,
+    consumeRate: 0,
+    messagesReady: 0,
+    messagesUnacked: 0,
+    mqMemoryUsed: 0,
+    mqMemoryLimit: 0,
+    mqSaturationRatio: 0,
+    workerSaturation: 0,
+    redisMaxClients: 0,
+    perBackendRps: {},
+    lbAlgorithm: '',
+    lbBackends: [],
+    podReplicas: [],
+    backendPods: [],
+    backendReplicas: null,
+    runtimeHealth: null,
+    layers: [],
+    podCount: 1,
+    lastUpdated: Date.now(),
+    qps: 0,
+  } as MetricsBucket
+}
+
 describe('canvasSvgBridge', () => {
   beforeEach(() => {
     resetCanvasSvgBridgeForTests()
@@ -16,6 +79,8 @@ describe('canvasSvgBridge', () => {
     useCanvasStore.getState().clearCanvas()
     useCanvasStore.getState().setMode('design')
     useCanvasStore.getState().setDeploymentId(null)
+    useMetricsStore.getState().clearMetrics()
+    useChaosStore.getState().clear()
   })
 
   it('projects canvasStore nodes into the SVG store after install', () => {
@@ -70,6 +135,49 @@ describe('canvasSvgBridge', () => {
     const svg = useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
     expect(svg?.healthVisual).toBe('warning')
     expect(svg?.label).toBe('Renamed')
+  })
+
+  it('drives healthVisual from metrics in simulate mode', () => {
+    const node = createCanvasNode('compute', isoToNode(0, 0), {})
+    node.status = 'healthy'
+    useCanvasStore.getState().addNode(node)
+    installCanvasSvgBridge()
+    useCanvasStore.getState().setMode('simulate')
+    useMetricsStore.getState().setLatestMetrics(node.id, highCpuMetrics())
+    const svg = useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+    expect(svg?.healthVisual).toBe('warning')
+  })
+
+  it('clears live health when returning to design', () => {
+    const node = createCanvasNode('compute', isoToNode(0, 0), {})
+    node.status = 'healthy'
+    useCanvasStore.getState().addNode(node)
+    installCanvasSvgBridge()
+    useCanvasStore.getState().setMode('simulate')
+    useMetricsStore.getState().setLatestMetrics(node.id, highCpuMetrics())
+    expect(
+      useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+        ?.healthVisual,
+    ).toBe('warning')
+    useCanvasStore.getState().setMode('design')
+    expect(
+      useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+        ?.healthVisual,
+    ).toBe('off')
+  })
+
+  it('applies chaos rim over metrics in live mode', () => {
+    const node = createCanvasNode('compute', isoToNode(0, 0), {})
+    node.status = 'healthy'
+    useCanvasStore.getState().addNode(node)
+    installCanvasSvgBridge()
+    useCanvasStore.getState().setMode('live')
+    useMetricsStore.getState().setLatestMetrics(node.id, highCpuMetrics())
+    useChaosStore.getState().register('pod_kill', 'app-server')
+    expect(
+      useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+        ?.healthVisual,
+    ).toBe('chaos')
   })
 
   it('projects CanvasEdge.animated as trafficEnabled', () => {
