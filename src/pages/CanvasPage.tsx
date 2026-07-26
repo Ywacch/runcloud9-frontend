@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   isCanvasEditMode,
   useCanvasKeyboard,
@@ -38,6 +39,7 @@ function isNodeType(raw: string): raw is CanvasNode['type'] {
   return (VALID_TYPES as string[]).includes(raw)
 }
 
+/** Pixi diagram host — kept as `/canvas-pixi` fallback after SVG cutover. */
 export default function CanvasPage() {
   const session = useCanvasSessionLifecycle()
   useCanvasKeyboard()
@@ -110,12 +112,22 @@ export default function CanvasPage() {
           })
         }}
       >
+        {import.meta.env.DEV ? (
+          <div className="pointer-events-none absolute left-3 top-3 z-40">
+            <Link
+              to="/canvas"
+              className="pointer-events-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-2 py-1 text-[10px] font-medium text-[var(--c9-muted)] shadow backdrop-blur-sm hover:text-[var(--c9-text)]"
+            >
+              SVG canvas
+            </Link>
+          </div>
+        ) : null}
         <CanvasErrorBoundary resetKey={mode}>
           <CanvasRoot />
         </CanvasErrorBoundary>
         <CanvasSessionOverlays session={session}>
           {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
-            <div className="pointer-events-none absolute left-3 top-3 z-30">
+            <div className="pointer-events-none absolute left-3 top-12 z-30">
               <button
                 type="button"
                 className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"

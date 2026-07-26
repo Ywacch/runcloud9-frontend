@@ -10,7 +10,7 @@ type Props = {
 
 /**
  * Route gate for internal-tier accounts (`GET /me` → isInternal / effectiveTier).
- * Skipped in local Vite DEV so `/canvas-svg` stays open while iterating.
+ * Skipped in local Vite DEV so `/canvas-pixi` stays open while iterating.
  * Production builds (`import.meta.env.PROD`) always enforce the gate.
  */
 export function InternalOnlyRoute({ children }: Props) {
