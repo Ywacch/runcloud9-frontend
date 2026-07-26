@@ -121,6 +121,11 @@ export function canPlaceOnCanvas(
   return mode === 'design' || mode === 'simulate'
 }
 
+/** Drag / nudge of existing nodes — blocked only by the movement lock. */
+export function canMoveOnCanvas(movementLocked: boolean): boolean {
+  return !movementLocked
+}
+
 export function filterCreateMenuItems(
   items: CreateMenuItem[],
   query: string,

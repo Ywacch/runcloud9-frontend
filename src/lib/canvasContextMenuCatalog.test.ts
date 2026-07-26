@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import {
   CREATE_MENU_ROOT,
+  canMoveOnCanvas,
   canPlaceOnCanvas,
   createMenuItemLockedForFree,
   explorerComponentLocksActive,
@@ -47,6 +48,11 @@ describe('canvasContextMenuCatalog', () => {
     expect(canPlaceOnCanvas('simulate', false)).toBe(true)
     expect(canPlaceOnCanvas('live', false)).toBe(false)
     expect(canPlaceOnCanvas('design', true)).toBe(false)
+  })
+
+  it('canMoveOnCanvas is blocked only by the movement lock', () => {
+    expect(canMoveOnCanvas(false)).toBe(true)
+    expect(canMoveOnCanvas(true)).toBe(false)
   })
 
   it('marks LB MQ and worker as engineer-only for free locks', () => {

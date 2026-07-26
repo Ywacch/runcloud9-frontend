@@ -12,6 +12,10 @@ import {
   unregisterCanvasFitScheduler,
 } from '../canvas/utils/canvasFitBridge'
 import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  canMoveOnCanvas,
+  canPlaceOnCanvas,
+} from '../lib/canvasContextMenuCatalog'
 import { placeFromPicker } from '../lib/pickerPlacement'
 import {
   SPAWN_AT_SCREEN,
@@ -115,7 +119,7 @@ function isPaletteNodeType(raw: string): raw is CanvasNode['type'] {
 
 function placePickerAtWorld(x: number, y: number, nodeType: CanvasNode['type']): void {
   const state = useCanvasStore.getState()
-  if (state.movementLocked || state.mode === 'live') return
+  if (!canPlaceOnCanvas(state.mode, state.movementLocked)) return
   placeFromPicker({
     nodeType,
     position: svgWorldToCanvasPosition(x, y),
@@ -177,7 +181,6 @@ export default function SvgDesignCanvas({
   const dragRef = useRef<DragSession | null>(null)
   const marqueeRef = useRef<Marquee | null>(null)
   const marqueeActive = useRef(false)
-  const nodesRef = useRef(useSvgCanvasStore.getState().nodes)
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
@@ -198,18 +201,18 @@ export default function SvgDesignCanvas({
   useSvgCanvasKeyboard()
 
   useEffect(() => {
-    nodesRef.current = nodes
-  }, [nodes])
-
-  useEffect(() => {
     installCanvasSvgBridge()
   }, [])
 
+  // Read live store nodes — React state is stale right after auto-arrange /
+  // LB inject sync (requestCanvasFit runs before paint).
   const fitDefault = useCallback(() => {
     const host = hostRef.current
     if (!host) return
     const { width, height } = host.getBoundingClientRect()
-    setView(fitViewToNodes(nodesRef.current, width, height))
+    setView(
+      fitViewToNodes(useSvgCanvasStore.getState().nodes, width, height),
+    )
   }, [])
 
   useEffect(() => {
@@ -346,7 +349,7 @@ export default function SvgDesignCanvas({
       const ids = already ? [...state.selectedIds] : [nodeId]
       if (!already) selectOnly(nodeId)
 
-      if (canvas.movementLocked) return
+      if (!canMoveOnCanvas(canvas.movementLocked)) return
 
       const world = clientToWorld(svg, e.clientX, e.clientY)
       const origins: Record<string, WorldPoint> = {}
