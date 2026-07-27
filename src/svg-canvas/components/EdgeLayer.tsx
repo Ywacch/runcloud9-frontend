@@ -18,7 +18,7 @@ import {
   arrowCloudcraftPolygon,
   clearanceForArchetype,
   extendBehind,
-  glyphRimRadius,
+  glyphRimExtents,
   junctionPoints,
   paintedSegmentEnds,
   terminalArrowGeometry,
@@ -138,7 +138,7 @@ export function EdgeLayer({
                   targetNode
                 ? {
                     face: faceCenter(targetNode, targetNode.archetype),
-                    rimRadius: glyphRimRadius(targetNode.archetype),
+                    rimExtents: glyphRimExtents(targetNode.archetype),
                   }
                 : undefined,
             )
@@ -152,7 +152,7 @@ export function EdgeLayer({
                   sourceNode
                 ? {
                     face: faceCenter(sourceNode, sourceNode.archetype),
-                    rimRadius: glyphRimRadius(sourceNode.archetype),
+                    rimExtents: glyphRimExtents(sourceNode.archetype),
                   }
                 : undefined,
             )

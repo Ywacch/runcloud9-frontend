@@ -23,7 +23,7 @@ describe('edgePaint', () => {
     expect(parts).toHaveLength(4)
     expect(parts[0][0]).toBeCloseTo(EDGE_ARROW_NOTCH)
     expect(parts[0][1]).toBeCloseTo(0)
-    expect(parts[2][0]).toBeCloseTo(0)
+    expect(parts[2][0]).toBeCloseTo(EDGE_ARROW_NOTCH - EDGE_ARROW_LENGTH * 0.4)
     expect(parts[2][1]).toBeCloseTo(0)
     // Symmetric wings behind tip
     expect(parts[1][0]).toBeCloseTo(EDGE_ARROW_NOTCH - EDGE_ARROW_LENGTH)

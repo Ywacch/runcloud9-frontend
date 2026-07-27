@@ -28,7 +28,7 @@ export const EDGE_SCHEMATIC_DASH = '2 4'
  * Pull the visible source stub back under the glyph. Segments paint under
  * nodes, so this closes floating gaps without changing route waypoints.
  */
-export const EDGE_SOURCE_UNDERLAP = 52
+export const EDGE_SOURCE_UNDERLAP = 16
 
 /** Move `from` away from `to` by `dist` (bury under a glyph). */
 export function extendBehind(
@@ -44,7 +44,7 @@ export function extendBehind(
 
 /**
  * How far the tip sits outside the attach port toward the wire when no face
- * rim is supplied (fallback). Prefer `glyphRimRadius` + face center.
+ * rim is supplied (fallback). Prefer `glyphRimExtents` + face center.
  */
 export function clearanceForArchetype(
   archetype?: Archetype | string | null,
@@ -68,36 +68,43 @@ export function clearanceForArchetype(
 }
 
 /**
- * World-space radius from face center to the visible silhouette edge along an
- * approach. Tip sits on this rim so it kisses the outside (terminals paint
- * above glyphs, so anything inside the radius looks buried).
- *
- * Values track SPRITE_METRICS footprints (database drum ≈45–52 from face).
+ * Elliptical world-space radius extents (rx, ry) from face center to visible silhouette rim.
  */
-export function glyphRimRadius(
+export function glyphRimExtents(
   archetype?: Archetype | string | null,
-): number {
+): { rx: number; ry: number } {
   switch (archetype) {
     case 'database':
-      // Drum AABB ~90×76; keep a small margin past opaque pixels + tip outline.
-      return 70
+      return { rx: 45, ry: 38 }
     case 'message-queue':
-      return 78
+      return { rx: 76, ry: 30 }
     case 'cache':
-      return 62
+      return { rx: 58, ry: 28 }
     case 'load-balancer':
-      return 68
+      return { rx: 56, ry: 44 }
     case 'worker':
-      return 64
+      return { rx: 54, ry: 28 }
     case 'app-server':
-      return 58
+      return { rx: 50, ry: 24 }
     default:
-      return 56
+      return { rx: 48, ry: 28 }
   }
 }
 
 /**
- * Cloudcraft chevron: tip → left wing → notch → right wing (symmetric).
+ * World-space radius from face center to the visible silhouette edge along an
+ * approach. Tip sits on this rim so it kisses the outside (terminals paint
+ * above glyphs, so anything inside the radius looks buried).
+ */
+export function glyphRimRadius(
+  archetype?: Archetype | string | null,
+): number {
+  const { rx, ry } = glyphRimExtents(archetype)
+  return Math.max(rx, ry)
+}
+
+/**
+ * Cloudcraft chevron: tip → left wing → notch → right wing (asymmetric kite).
  * `base` is the notch (shaft meet). `tip` is the point.
  */
 export function arrowCloudcraftPolygon(
@@ -114,11 +121,17 @@ export function arrowCloudcraftPolygon(
   const uy = dy / len
   const px = -uy
   const py = ux
+
   const leftX = tipX - ux * EDGE_ARROW_LENGTH + px * halfW
   const leftY = tipY - uy * EDGE_ARROW_LENGTH + py * halfW
   const rightX = tipX - ux * EDGE_ARROW_LENGTH - px * halfW
   const rightY = tipY - uy * EDGE_ARROW_LENGTH - py * halfW
-  return `${tipX},${tipY} ${leftX},${leftY} ${baseX},${baseY} ${rightX},${rightY}`
+
+  const notchDepth = EDGE_ARROW_LENGTH * 0.4
+  const notchX = tipX - ux * notchDepth
+  const notchY = tipY - uy * notchDepth
+
+  return `${tipX},${tipY} ${leftX},${leftY} ${notchX},${notchY} ${rightX},${rightY}`
 }
 
 /** @deprecated Alias — Cloudcraft chevron. */
@@ -187,7 +200,7 @@ export type TerminalArrowGeometry = {
 }
 
 /**
- * Wire-side rim parameter on line P(t)=from+t·u for circle |P-face|=R.
+ * Wire-side rim parameter on line P(t)=from+t·u for ellipse ((P.x-face.x)/rx)^2 + ((P.y-face.y)/ry)^2 = 1.
  * Wire-side means (P-face)·u ≤ 0 — outside the node along the approach.
  * Returns the hit closest to the node (largest such t).
  */
@@ -196,17 +209,21 @@ function rimWireSideT(
   ux: number,
   uy: number,
   face: WorldPoint,
-  R: number,
+  rx: number,
+  ry: number,
 ): number | null {
   const fx = from.x - face.x
   const fy = from.y - face.y
-  const b = 2 * (fx * ux + fy * uy)
-  const c = fx * fx + fy * fy - R * R
-  const disc = b * b - 4 * c
+  const rx2 = rx * rx
+  const ry2 = ry * ry
+  const a = (ux * ux) / rx2 + (uy * uy) / ry2
+  const b = 2 * ((fx * ux) / rx2 + (fy * uy) / ry2)
+  const c = (fx * fx) / rx2 + (fy * fy) / ry2 - 1
+  const disc = b * b - 4 * a * c
   if (disc < 0) return null
   const sqrt = Math.sqrt(disc)
-  const t1 = (-b - sqrt) / 2
-  const t2 = (-b + sqrt) / 2
+  const t1 = (-b - sqrt) / (2 * a)
+  const t2 = (-b + sqrt) / (2 * a)
   const wireSide = [t1, t2].filter((t) => {
     const hx = fx + t * ux
     const hy = fy + t * uy
@@ -225,7 +242,11 @@ export function terminalArrowGeometry(
   from: WorldPoint,
   clearance: number,
   shaftInset = EDGE_ARROW_SHAFT_INSET,
-  opts?: { face?: WorldPoint; rimRadius?: number },
+  opts?: {
+    face?: WorldPoint
+    rimRadius?: number
+    rimExtents?: { rx: number; ry: number }
+  },
 ): TerminalArrowGeometry {
   const dx = attach.x - from.x
   const dy = attach.y - from.y
@@ -233,12 +254,18 @@ export function terminalArrowGeometry(
   const ux = dx / len
   const uy = dy / len
 
-  if (opts?.face && opts.rimRadius != null && opts.rimRadius > 0) {
-    const R = opts.rimRadius
+  const extents =
+    opts?.rimExtents ??
+    (opts?.rimRadius != null
+      ? { rx: opts.rimRadius, ry: opts.rimRadius }
+      : null)
+
+  if (opts?.face && extents && extents.rx > 0 && extents.ry > 0) {
+    const { rx, ry } = extents
     const face = opts.face
-    let t = rimWireSideT(from, ux, uy, face, R)
+    let t = rimWireSideT(from, ux, uy, face, rx, ry)
     if (t == null) {
-      const raw = { x: face.x - ux * R, y: face.y - uy * R }
+      const raw = { x: face.x - ux * rx, y: face.y - uy * ry }
       t = (raw.x - from.x) * ux + (raw.y - from.y) * uy
     }
     // Tip may sit slightly past the attach port when the port is outside the
@@ -247,7 +274,7 @@ export function terminalArrowGeometry(
     const towardFace = (tip.x - face.x) * ux + (tip.y - face.y) * uy
     const placed =
       towardFace > 1e-3
-        ? { x: face.x - ux * R, y: face.y - uy * R }
+        ? { x: face.x - ux * rx, y: face.y - uy * ry }
         : tip
 
     return {
