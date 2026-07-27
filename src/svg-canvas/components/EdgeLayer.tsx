@@ -19,7 +19,6 @@ import {
   clearanceForArchetype,
   extendBehind,
   glyphRimExtents,
-  glyphRimRadius,
   junctionPoints,
   paintedSegmentEnds,
   terminalArrowGeometry,
