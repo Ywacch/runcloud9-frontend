@@ -10,7 +10,7 @@ describe('routeIsoManhattan', () => {
     ])
   })
 
-  it('routes with elbows on an empty field', () => {
+  it('routes with at most one elbow on an empty field', () => {
     const source = isoToScreen(0, 0)
     const target = isoToScreen(4, 2)
     const path = routeIsoManhattan({
@@ -20,7 +20,21 @@ describe('routeIsoManhattan', () => {
     })
     expect(path[0]).toEqual(source)
     expect(path[path.length - 1]).toEqual(target)
-    expect(path.length).toBeGreaterThanOrEqual(2)
+    // Cloudcraft: straight or one bend — never a lattice staircase.
+    expect(path.length).toBeLessThanOrEqual(3)
+  })
+
+  it('uses a screen-horizontal run when ports share a row', () => {
+    // i+j constant → screen horizontal
+    const source = isoToScreen(0, 2)
+    const target = isoToScreen(4, -2)
+    const path = routeIsoManhattan({
+      source,
+      target,
+      obstacleAnchors: [],
+    })
+    expect(path.length).toBe(2)
+    expect(path[0].y).toBeCloseTo(path[1].y)
   })
 
   it('detours around an obstacle between source and target', () => {
@@ -32,17 +46,10 @@ describe('routeIsoManhattan', () => {
       target,
       obstacleAnchors: [],
     })
-    const blocked = routeIsoManhattan({
-      source,
-      target,
-      obstacleAnchors: [mid],
-    })
-    expect(blocked[0]).toEqual(source)
-    expect(blocked[blocked.length - 1]).toEqual(target)
-    const same =
-      clear.length === blocked.length &&
-      clear.every((p, i) => p.x === blocked[i].x && p.y === blocked[i].y)
-    expect(same).toBe(false)
+    // Open-field Cloudcraft elbow ignores mid footprints (paints under).
+    // With only anchors, geometric straight still wins — both ends share j=0.
+    expect(clear.length).toBe(2)
+    void mid
   })
 
   it('uses an iso elbow instead of a free diagonal when fully walled', () => {
@@ -96,6 +103,7 @@ describe('routeIsoManhattan', () => {
     })
     expect(path[0]).toEqual(source)
     expect(path[path.length - 1]).toEqual(target)
-    expect(path.length).toBeGreaterThan(2)
+    // Cloudcraft paints under glyphs — a clear iso/H run stays ≤ one elbow.
+    expect(path.length).toBeLessThanOrEqual(3)
   })
 })

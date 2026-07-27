@@ -1,5 +1,6 @@
 import type { FloorThemeId } from '../theme/floorTheme'
 import type { SvgEdgeStyle } from '../store/svgTypes'
+import { EDGE_STROKE_WIDTH } from './edgePaint'
 
 /** Scene-level edge look. Flow is the product default; schematic is optional. */
 export type EdgeStylePresetId = 'flow' | 'schematic'
@@ -37,7 +38,7 @@ export function resolveEdgePaint(
   if (preset === 'schematic') {
     return {
       color: floorTheme === 'dark' ? '#e8e8ea' : '#0a0a0a',
-      width: Math.max(2, style.width),
+      width: Math.max(EDGE_STROKE_WIDTH, style.width),
       dash: style.dash === 'none' ? undefined : style.dash,
       showJunctions: true,
     }
@@ -51,7 +52,7 @@ export function resolveEdgePaint(
 
   return {
     color,
-    width: floorTheme === 'dark' ? Math.max(2.25, style.width) : style.width,
+    width: Math.max(EDGE_STROKE_WIDTH, style.width),
     dash: style.dash === 'none' ? undefined : style.dash,
     showJunctions: true,
   }
@@ -64,7 +65,7 @@ export function defaultEdgeStyleForPreset(
   if (preset === 'schematic') {
     return {
       color: floorTheme === 'dark' ? '#e8e8ea' : '#0a0a0a',
-      width: 2,
+      width: EDGE_STROKE_WIDTH,
       dash: 'none',
       startStyle: 'none',
       endStyle: 'arrow',
@@ -73,7 +74,7 @@ export function defaultEdgeStyleForPreset(
   }
   return {
     color: floorTheme === 'dark' ? FLOW_COLOR_DARK : FLOW_COLOR_LIGHT,
-    width: 2,
+    width: EDGE_STROKE_WIDTH,
     dash: 'none',
     startStyle: 'none',
     endStyle: 'arrow',

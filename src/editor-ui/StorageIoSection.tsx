@@ -60,11 +60,11 @@ export function DbActivitySection({
     view.timeframe === 'session'
       ? fmtInt(dbHead.sessionTotal)
       : formatDbQueriesPerSec(
-          m.dbQueryRate,
-          m.dbQuerySource,
-          storageReadRate,
-          loadgenActive,
-        )
+    m.dbQueryRate,
+    m.dbQuerySource,
+    storageReadRate,
+    loadgenActive,
+  )
   const queryRateSeries = history.map((h) => h.dbQueryRate)
   const errorSeries = history.map((h) => h.errorRate)
   const latencyMs =
@@ -86,7 +86,7 @@ export function DbActivitySection({
         left={
           <StatBlock
             label={dbHead.label}
-            value={queriesDisplay}
+          value={queriesDisplay}
             help={`${dbRateHelp} SQL from app-server instrumentation only.`}
             graph={
               <MetricSeriesGraph
@@ -126,10 +126,10 @@ export function DbActivitySection({
             <MetricSeriesGraph
               data={latencySeries}
               color="var(--c9-warning)"
-              title="Query latency"
+          title="Query latency"
               unit="10s · ms"
               view={view}
-              showPlaybackDelay={showPlaybackDelay}
+          showPlaybackDelay={showPlaybackDelay}
             />
           ) : null
         }
@@ -175,7 +175,7 @@ export function DbLoadSection({
       {patternLabel ? (
         <div className="inline-flex rounded border border-cyan-500/30 bg-cyan-950/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">
           Access pattern · {patternLabel}
-        </div>
+      </div>
       ) : null}
       <StatRow
         left={
@@ -325,7 +325,7 @@ export function DbDiagnosticsDisclosure({
         <div>
           Active connections · {fmtInt(m.dbActiveConnections)} / {fmtInt(maxConn)}
           <CapacityBar pct={connPct} warnAt={60} criticalAt={85} />
-        </div>
+      </div>
         {io && io.bytesUsed > 0 ? (
           <div>Data size · {fmtBytes(io.bytesUsed)}</div>
         ) : null}
@@ -488,7 +488,7 @@ export function CacheLayerResourceBlock({
             />
           }
         />
-      ) : null}
+          ) : null}
       {(layer.redisRejectedRate ?? 0) > 0 ? (
         <StatBlock
           label="Rejected commands/s"

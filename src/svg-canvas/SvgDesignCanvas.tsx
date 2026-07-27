@@ -1012,6 +1012,7 @@ export default function SvgDesignCanvas({
             selectedEdgeIds={selectedEdgeIds}
             edgeStylePreset={edgeStylePreset}
             floorTheme={floorThemeId}
+            paint="segments"
             onEdgePointerDown={onEdgePointerDown}
           />
           <TrafficLayer edges={edges} />
@@ -1056,6 +1057,14 @@ export default function SvgDesignCanvas({
               </g>
             )
           })}
+          <EdgeLayer
+            edges={edges}
+            selectedEdgeIds={selectedEdgeIds}
+            edgeStylePreset={edgeStylePreset}
+            floorTheme={floorThemeId}
+            paint="terminals"
+            onEdgePointerDown={onEdgePointerDown}
+          />
           <NodeLabelChrome
             nodes={sortedNodes}
             liveById={liveById ?? undefined}

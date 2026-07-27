@@ -11,19 +11,24 @@ import {
   protocolBadgeMidpoint,
 } from '../fx/edgeProtocolBadge'
 import {
+  EDGE_ARROW_OUTLINE,
   EDGE_HIT_STROKE,
   EDGE_JUNCTION_R,
-  approachTip,
-  arrowPolygon,
+  EDGE_SOURCE_UNDERLAP,
+  arrowCloudcraftPolygon,
   clearanceForArchetype,
+  extendBehind,
+  glyphRimRadius,
   junctionPoints,
   paintedSegmentEnds,
+  terminalArrowGeometry,
 } from '../fx/edgePaint'
 import {
   resolveEdgePaint,
   type EdgeStylePresetId,
 } from '../fx/edgePresets'
 import { walkthroughCssColor } from '../fx/walkthroughChrome'
+import { faceCenter } from '../routing/attach'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
 import type { FloorThemeId } from '../theme/floorTheme'
 import type { SvgEdge } from '../store/svgTypes'
@@ -35,6 +40,7 @@ type EdgeLayerProps = {
   selectedEdgeIds: string[]
   edgeStylePreset: EdgeStylePresetId
   floorTheme: FloorThemeId
+  paint?: 'all' | 'segments' | 'terminals'
   onEdgePointerDown: (edgeId: string, e: ReactPointerEvent<SVGElement>) => void
 }
 
@@ -43,8 +49,11 @@ export function EdgeLayer({
   selectedEdgeIds,
   edgeStylePreset,
   floorTheme,
+  paint = 'all',
   onEdgePointerDown,
 }: EdgeLayerProps) {
+  const renderSegments = paint !== 'terminals'
+  const renderTerminals = paint !== 'segments'
   const selected = new Set(selectedEdgeIds)
   useCanvasStore((s) => s.mode)
   useCanvasStore((s) => s.walkthroughActiveNodeId)
@@ -63,6 +72,11 @@ export function EdgeLayer({
   const archetypeById = useMemo(() => {
     const map = new Map<string, string>()
     for (const n of svgNodes) map.set(n.id, n.archetype)
+    return map
+  }, [svgNodes])
+  const nodeById = useMemo(() => {
+    const map = new Map<string, (typeof svgNodes)[number]>()
+    for (const n of svgNodes) map.set(n.id, n)
     return map
   }, [svgNodes])
 
@@ -113,27 +127,61 @@ export function EdgeLayer({
         const clearEnd = clearanceForArchetype(
           archetypeById.get(edge.targetNodeId),
         )
-        const endTip = hasEndArrow
-          ? approachTip(pts[pts.length - 1], pts[pts.length - 2], clearEnd)
+        const targetNode = nodeById.get(edge.targetNodeId)
+        const sourceNode = nodeById.get(edge.sourceNodeId)
+        const endArrow = hasEndArrow
+          ? terminalArrowGeometry(
+              pts[pts.length - 1],
+              pts[pts.length - 2],
+              clearEnd,
+              undefined,
+                  targetNode
+                ? {
+                    face: faceCenter(targetNode, targetNode.archetype),
+                    rimRadius: glyphRimRadius(targetNode.archetype),
+                  }
+                : undefined,
+            )
           : null
-        const startTip = hasStartArrow
-          ? approachTip(pts[0], pts[1], clearStart)
+        const startArrow = hasStartArrow
+          ? terminalArrowGeometry(
+              pts[0],
+              pts[1],
+              clearStart,
+              undefined,
+                  sourceNode
+                ? {
+                    face: faceCenter(sourceNode, sourceNode.archetype),
+                    rimRadius: glyphRimRadius(sourceNode.archetype),
+                  }
+                : undefined,
+            )
           : null
 
         return (
           <g key={edge.id} data-edge-id={edge.id} opacity={opacity}>
-            {pts.slice(0, -1).map((a, i) => {
+            {renderSegments ? pts.slice(0, -1).map((a, i) => {
               const b = pts[i + 1]
               const isFirst = i === 0
               const isLast = i === lastSeg
               const painted = paintedSegmentEnds(a, b, {
-                insetStart: isFirst && hasStartArrow,
-                insetEnd: isLast && hasEndArrow,
-                nodeClearanceStart: isFirst,
-                nodeClearanceEnd: isLast,
+                insetStart: false,
+                insetEnd: false,
+                // Attach ports already sit outside the glyph rim — extra
+                // source clearance left a floating gap (Domenech shafts meet
+                // the node). Only pull the target back when there is no tip.
+                nodeClearanceStart: false,
+                nodeClearanceEnd: isLast && !hasEndArrow,
                 clearanceStart: clearStart,
                 clearanceEnd: clearEnd,
               })
+              const paintedA = isFirst
+                ? startArrow
+                  ? startArrow.base
+                  : extendBehind(painted.a, painted.b, EDGE_SOURCE_UNDERLAP)
+                : painted.a
+              const paintedB =
+                isLast && endArrow ? endArrow.base : painted.b
               return (
                 <g key={`${edge.id}-${i}`}>
                   <line
@@ -148,10 +196,10 @@ export function EdgeLayer({
                   />
                   {highlighted ? (
                     <line
-                      x1={painted.a.x}
-                      y1={painted.a.y}
-                      x2={painted.b.x}
-                      y2={painted.b.y}
+                      x1={paintedA.x}
+                      y1={paintedA.y}
+                      x2={paintedB.x}
+                      y2={paintedB.y}
                       stroke={color}
                       strokeWidth={width + 4}
                       strokeLinecap="round"
@@ -160,21 +208,21 @@ export function EdgeLayer({
                     />
                   ) : null}
                   <line
-                    x1={painted.a.x}
-                    y1={painted.a.y}
-                    x2={painted.b.x}
-                    y2={painted.b.y}
+                    x1={paintedA.x}
+                    y1={paintedA.y}
+                    x2={paintedB.x}
+                    y2={paintedB.y}
                     stroke={color}
                     strokeWidth={width}
                     strokeDasharray={dash}
-                    strokeLinecap="butt"
-                    strokeLinejoin="miter"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                     style={{ pointerEvents: 'none' }}
                   />
                 </g>
               )
-            })}
-            {elbows.map((p, i) => (
+            }) : null}
+            {renderTerminals ? elbows.map((p, i) => (
               <circle
                 key={`${edge.id}-j-${i}`}
                 cx={p.x}
@@ -183,32 +231,40 @@ export function EdgeLayer({
                 fill={color}
                 style={{ pointerEvents: 'none' }}
               />
-            ))}
-            {endTip ? (
-              <polygon
-                points={arrowPolygon(
-                  pts[pts.length - 2].x,
-                  pts[pts.length - 2].y,
-                  endTip.x,
-                  endTip.y,
-                )}
-                fill={color}
-                style={{ pointerEvents: 'none' }}
-              />
+            )) : null}
+            {renderTerminals && endArrow ? (
+              <g style={{ pointerEvents: 'none' }} data-edge-arrow="end">
+                <polygon
+                  points={arrowCloudcraftPolygon(
+                    endArrow.base.x,
+                    endArrow.base.y,
+                    endArrow.tip.x,
+                    endArrow.tip.y,
+                  )}
+                  fill={color}
+                  stroke={color}
+                  strokeWidth={EDGE_ARROW_OUTLINE}
+                  strokeLinejoin="round"
+                />
+              </g>
             ) : null}
-            {startTip ? (
-              <polygon
-                points={arrowPolygon(
-                  pts[1].x,
-                  pts[1].y,
-                  startTip.x,
-                  startTip.y,
-                )}
-                fill={color}
-                style={{ pointerEvents: 'none' }}
-              />
+            {renderTerminals && startArrow ? (
+              <g style={{ pointerEvents: 'none' }} data-edge-arrow="start">
+                <polygon
+                  points={arrowCloudcraftPolygon(
+                    startArrow.base.x,
+                    startArrow.base.y,
+                    startArrow.tip.x,
+                    startArrow.tip.y,
+                  )}
+                  fill={color}
+                  stroke={color}
+                  strokeWidth={EDGE_ARROW_OUTLINE}
+                  strokeLinejoin="round"
+                />
+              </g>
             ) : null}
-            {badge && mid ? (
+            {renderSegments && badge && mid ? (
               <g
                 transform={`translate(${mid.x} ${mid.y})`}
                 style={{ pointerEvents: 'none' }}
