@@ -6,10 +6,20 @@ import {
   type WorldPoint,
 } from '../math/iso'
 
-const BEND_PENALTY = 2.8
-const SEARCH_PADS = [24, 48, 80] as const
+/** Prefer long straight runs; Cloudcraft almost never zigzags. */
+const BEND_PENALTY = 6
+const SEARCH_PADS = [4, 12, 24, 48, 80] as const
 
-type Dir = 'i+' | 'i-' | 'j+' | 'j-' | null
+type Dir =
+  | 'i+'
+  | 'i-'
+  | 'j+'
+  | 'j-'
+  | 'h+' // screen horizontal right (i+, j-)
+  | 'h-' // screen horizontal left  (i-, j+)
+  | 'v+' // screen vertical down    (i+, j+)
+  | 'v-' // screen vertical up      (i-, j-)
+  | null
 
 type ANode = {
   i: number
@@ -28,12 +38,25 @@ function heuristic(a: IsoPoint, b: IsoPoint): number {
   return Math.abs(a.i - b.i) + Math.abs(a.j - b.j)
 }
 
-function neighbors(i: number, j: number): { i: number; j: number; dir: Dir }[] {
+/**
+ * Cloudcraft 8-neighbor lattice:
+ * - 4 iso axes (i± / j±) → screen diagonals
+ * - 4 square moves (i±j∓ / i±j±) → screen horizontal / vertical
+ */
+function neighbors(
+  i: number,
+  j: number,
+): { i: number; j: number; dir: Dir; cost: number }[] {
   return [
-    { i: i + 1, j, dir: 'i+' },
-    { i: i - 1, j, dir: 'i-' },
-    { i, j: j + 1, dir: 'j+' },
-    { i, j: j - 1, dir: 'j-' },
+    { i: i + 1, j, dir: 'i+', cost: 1 },
+    { i: i - 1, j, dir: 'i-', cost: 1 },
+    { i, j: j + 1, dir: 'j+', cost: 1 },
+    { i, j: j - 1, dir: 'j-', cost: 1 },
+    // Screen H/V — two half-cells of manhattan each.
+    { i: i + 1, j: j - 1, dir: 'h+', cost: 2 },
+    { i: i - 1, j: j + 1, dir: 'h-', cost: 2 },
+    { i: i + 1, j: j + 1, dir: 'v+', cost: 2 },
+    { i: i - 1, j: j - 1, dir: 'v-', cost: 2 },
   ]
 }
 
@@ -79,11 +102,123 @@ function mergeCollinear(points: WorldPoint[]): WorldPoint[] {
     const dy1 = cur.y - prev.y
     const dx2 = next.x - cur.x
     const dy2 = next.y - cur.y
-    if (dx1 * dy2 === dy1 * dx2 && (dx1 !== 0 || dy1 !== 0)) continue
+    // Collinear (including opposite) — drop middle.
+    if (Math.abs(dx1 * dy2 - dy1 * dx2) < 1e-6 && (dx1 !== 0 || dy1 !== 0)) {
+      continue
+    }
     out.push(cur)
   }
   out.push(points[points.length - 1])
   return out
+}
+
+function pathBlocked(
+  a: IsoPoint,
+  b: IsoPoint,
+  blocked: Set<string>,
+): boolean {
+  const di = Math.sign(b.i - a.i)
+  const dj = Math.sign(b.j - a.j)
+  const steps = Math.max(Math.abs(b.i - a.i), Math.abs(b.j - a.j))
+  if (steps <= 1) return false
+  const stepI = di !== 0 && dj !== 0 ? di : di
+  const stepJ = di !== 0 && dj !== 0 ? dj : dj
+  for (let s = 1; s < steps; s++) {
+    if (blocked.has(key(a.i + stepI * s, a.j + stepJ * s))) return true
+  }
+  return false
+}
+
+function pathLength(points: WorldPoint[]): number {
+  let n = 0
+  for (let i = 1; i < points.length; i++) {
+    n += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+  }
+  return n
+}
+
+/**
+ * Cloudcraft-style geometric route: straight, else one elbow.
+ * Prefers screen H/V and iso axes; does not maze-solve around every glyph
+ * (Cloudcraft paints under nodes).
+ */
+function cloudcraftElbow(
+  source: WorldPoint,
+  target: WorldPoint,
+  blocked: Set<string>,
+): WorldPoint[] | null {
+  const start = snapIso(
+    screenToIso(source.x, source.y).i,
+    screenToIso(source.x, source.y).j,
+  )
+  const goal = snapIso(
+    screenToIso(target.x, target.y).i,
+    screenToIso(target.x, target.y).j,
+  )
+
+  if (start.i === goal.i && start.j === goal.j) {
+    return [source, target]
+  }
+
+  // Straight along any of the 8 Cloudcraft axes.
+  const di = goal.i - start.i
+  const dj = goal.j - start.j
+  const straight =
+    di === 0 ||
+    dj === 0 ||
+    Math.abs(di) === Math.abs(dj)
+  if (straight && !pathBlocked(start, goal, blocked)) {
+    return mergeCollinear([source, target])
+  }
+
+  // One elbow: lattice corners (iso L) plus screen-aligned midpoints when
+  // the delta allows a clean H-then-V / iso-then-H composition.
+  const candidates: IsoPoint[] = [
+    { i: start.i, j: goal.j },
+    { i: goal.i, j: start.j },
+  ]
+
+  // Extra corner: match the shared screen-horizontal row (constant i+j)
+  // or screen-vertical column (constant i-j) when that yields one bend.
+  const sumS = start.i + start.j
+  const sumG = goal.i + goal.j
+  const diffS = start.i - start.j
+  const diffG = goal.i - goal.j
+  // Meet on a horizontal through start, vertical through goal, etc.
+  // Horizontal through start: i+j = sumS. Vertical through goal: i-j = diffG.
+  // Solve i+j=sumS, i-j=diffG → 2i = sumS+diffG.
+  const midHV = {
+    i: (sumS + diffG) / 2,
+    j: (sumS - diffG) / 2,
+  }
+  const midVH = {
+    i: (sumG + diffS) / 2,
+    j: (sumG - diffS) / 2,
+  }
+  for (const m of [midHV, midVH]) {
+    if (Number.isInteger(m.i) && Number.isInteger(m.j)) {
+      candidates.push({ i: m.i, j: m.j })
+    }
+  }
+
+  let best: WorldPoint[] | null = null
+  let bestScore = Infinity
+  for (const corner of candidates) {
+    if (corner.i === start.i && corner.j === start.j) continue
+    if (corner.i === goal.i && corner.j === goal.j) continue
+    if (blocked.has(key(corner.i, corner.j))) continue
+    if (pathBlocked(start, corner, blocked)) continue
+    if (pathBlocked(corner, goal, blocked)) continue
+    const mid = isoToScreen(corner.i, corner.j)
+    const path = mergeCollinear([source, mid, target])
+    // Prefer fewer points, then shorter length.
+    const score = path.length * 10000 + pathLength(path)
+    if (score < bestScore) {
+      bestScore = score
+      best = path
+    }
+  }
+  return best
 }
 
 function reconstruct(
@@ -150,7 +285,7 @@ function searchPad(
       const nk = key(n.i, n.j)
       if (blocked.has(nk)) continue
       const bend = current.dir && current.dir !== n.dir ? BEND_PENALTY : 0
-      const g = current.g + 1 + bend
+      const g = current.g + n.cost + bend
       const prevBest = bestG.get(nk)
       if (prevBest !== undefined && g >= prevBest) continue
       bestG.set(nk, g)
@@ -179,8 +314,14 @@ function isoElbowFallback(
   target: WorldPoint,
   blocked: Set<string>,
 ): WorldPoint[] {
-  const start = snapIso(screenToIso(source.x, source.y).i, screenToIso(source.x, source.y).j)
-  const goal = snapIso(screenToIso(target.x, target.y).i, screenToIso(target.x, target.y).j)
+  const start = snapIso(
+    screenToIso(source.x, source.y).i,
+    screenToIso(source.x, source.y).j,
+  )
+  const goal = snapIso(
+    screenToIso(target.x, target.y).i,
+    screenToIso(target.x, target.y).j,
+  )
   if (start.i === goal.i || start.j === goal.j) {
     return [source, target]
   }
@@ -196,9 +337,9 @@ function isoElbowFallback(
 }
 
 /**
- * Iso-Manhattan A* on half-cell lattice (4-neighbor i/j).
- * Prefer `obstacleCells` (real footprints). `obstacleAnchors` remains for
- * older call sites / tests (expanded to Chebyshev-1 pads).
+ * Cloudcraft-faithful connector routing.
+ * Prefer straight / one-elbow geometric paths (8-connected lattice including
+ * screen H/V). Fall back to bend-penalized A* only when elbows are blocked.
  */
 export function routeIsoManhattan(args: {
   source: WorldPoint
@@ -207,8 +348,14 @@ export function routeIsoManhattan(args: {
   obstacleCells?: IsoPoint[]
 }): WorldPoint[] {
   const { source, target } = args
-  const start = snapIso(screenToIso(source.x, source.y).i, screenToIso(source.x, source.y).j)
-  const goal = snapIso(screenToIso(target.x, target.y).i, screenToIso(target.x, target.y).j)
+  const start = snapIso(
+    screenToIso(source.x, source.y).i,
+    screenToIso(source.x, source.y).j,
+  )
+  const goal = snapIso(
+    screenToIso(target.x, target.y).i,
+    screenToIso(target.x, target.y).j,
+  )
 
   if (start.i === goal.i && start.j === goal.j) {
     return [source]
@@ -219,6 +366,11 @@ export function routeIsoManhattan(args: {
     args.obstacleCells ??
     anchorsToObstacleCells(args.obstacleAnchors ?? [])
   const blocked = blockedSet(cells, walkable)
+
+  const clearElbow = cloudcraftElbow(source, target, blocked)
+  if (clearElbow && clearElbow.length <= 3) {
+    return clearElbow
+  }
 
   for (const pad of SEARCH_PADS) {
     const path = searchPad(start, goal, blocked, source, target, pad)

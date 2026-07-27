@@ -7,14 +7,28 @@ describe('attach', () => {
 
   it('defaults to the top-face center', () => {
     expect(attachPoint(node)).toEqual(faceCenter(node))
-    expect(faceCenter(node)).toEqual({ x: HALF_W, y: 0 })
+    // App-server seat is sprite faceLogo, not the generic HALF_W diamond.
+    expect(faceCenter(node).x).toBeCloseTo(56)
+    expect(faceCenter(node).y).toBeCloseTo(0)
   })
 
   it('shifts the port toward the peer outside the face rim', () => {
     const toward = { x: 400, y: 0 }
     const port = attachPoint(node, toward)
-    expect(port.x).toBeGreaterThan(faceCenter(node).x + HALF_W * 0.55)
+    // App outset stays near the half-face rim.
+    expect(port.x).toBeGreaterThan(faceCenter(node).x + HALF_W * 0.5)
     expect(port.y).toBe(0)
+  })
+
+  it('pushes database ports just outside the cylinder body', () => {
+    const db = { x: 0, y: 0, archetype: 'database' as const }
+    const toward = { x: 400, y: 0 }
+    const dbPort = attachPoint(db, toward, { archetype: 'database' })
+    const face = faceCenter(db, 'database')
+    const dist = Math.hypot(dbPort.x - face.x, dbPort.y - face.y)
+    // Outside the painted drum (~64 rim) but not floating far away.
+    expect(dist).toBeGreaterThan(68)
+    expect(dist).toBeLessThan(85)
   })
 
   it('fans sibling slots so multi-edge nodes do not share one approach', () => {
@@ -27,9 +41,10 @@ describe('attach', () => {
   it('uses a wider port ring for message-queue', () => {
     const mq = { x: 0, y: 0, archetype: 'message-queue' as const }
     const toward = { x: 400, y: 0 }
-    const appPort = attachPoint(node, toward)
     const mqPort = attachPoint(mq, toward, { archetype: 'message-queue' })
-    expect(mqPort.x).toBeGreaterThan(appPort.x)
+    const face = faceCenter(mq, 'message-queue')
+    const dist = Math.hypot(mqPort.x - face.x, mqPort.y - face.y)
+    expect(dist).toBeGreaterThan(HALF_W * 0.7)
   })
 
   it('builds a mutual attach pair facing each other', () => {

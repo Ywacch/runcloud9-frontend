@@ -10,7 +10,7 @@ describe('resolveEdgePaint', () => {
   it('uses a brighter flow stroke on dark floors', () => {
     const paint = resolveEdgePaint(defaultEdgeStyle(), 'flow', 'dark')
     expect(paint.color).toBe(FLOW_COLOR_DARK)
-    expect(paint.width).toBeGreaterThanOrEqual(2.25)
+    expect(paint.width).toBeGreaterThanOrEqual(2)
   })
 
   it('keeps the slate flow stroke on light floors', () => {

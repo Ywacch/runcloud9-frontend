@@ -45,8 +45,9 @@ export function nodeObstacleCells(node: SvgNode): IsoPoint[] {
   for (const u of composed.units) {
     const tip = screenToIso(node.x + u.dx, node.y + u.dy)
     const c = snapIso(tip.i, tip.j)
-    for (let di = 0; di <= ri; di++) {
-      for (let dj = -rj; dj <= rj; dj++) {
+    const bodyExtent = Math.ceil(rj * 0.6)
+    for (let di = -1; di <= ri; di++) {
+      for (let dj = -rj; dj <= rj + bodyExtent; dj++) {
         const p = { i: c.i + di, j: c.j + dj }
         const k = cellKey(p.i, p.j)
         if (seen.has(k)) continue
