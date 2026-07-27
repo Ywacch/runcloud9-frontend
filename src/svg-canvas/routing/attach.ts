@@ -125,8 +125,11 @@ export function attachPoint(
   const slotCount = Math.max(1, opts.slotCount ?? 1)
   const slot = opts.slot ?? 0
   if (slotCount > 1) {
-    // Fan siblings in Cloudcraft axis steps (~45°) so MQ in/out don't stack.
-    const spread = (slot - (slotCount - 1) / 2) * (Math.PI / 4)
+    // Fan within ±30° of the natural direction — enough to separate
+    // but not so much that ports jump to an adjacent face.
+    const maxFan = Math.PI / 6
+    const spread =
+      (slot - (slotCount - 1) / 2) * (maxFan / Math.max(1, slotCount - 1))
     const c = Math.cos(spread)
     const s = Math.sin(spread)
     const rx = ux * c - uy * s

@@ -264,6 +264,26 @@ export function EdgeLayer({
                 />
               </g>
             ) : null}
+            {renderTerminals && pts.length >= 2 ? (
+              <g style={{ pointerEvents: 'none' }} data-edge-anchors>
+                <ellipse
+                  cx={pts[0].x}
+                  cy={pts[0].y}
+                  rx={3.5}
+                  ry={2}
+                  fill={color}
+                  transform={`rotate(-30 ${pts[0].x} ${pts[0].y})`}
+                />
+                <ellipse
+                  cx={pts[pts.length - 1].x}
+                  cy={pts[pts.length - 1].y}
+                  rx={3.5}
+                  ry={2}
+                  fill={color}
+                  transform={`rotate(-30 ${pts[pts.length - 1].x} ${pts[pts.length - 1].y})`}
+                />
+              </g>
+            ) : null}
             {renderSegments && badge && mid ? (
               <g
                 transform={`translate(${mid.x} ${mid.y})`}
