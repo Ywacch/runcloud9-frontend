@@ -487,8 +487,13 @@ export default function SvgDesignCanvas({
 
       const already = state.selectedIds.includes(nodeId)
       const ids = already ? [...state.selectedIds] : [nodeId]
-      // Defer selectUntil click: selecting on pointerdown opens the inspector
+      // Defer select until click: selecting on pointerdown opens the inspector
       // before the user has a chance to drag.
+
+      if (canvas.mode === 'live') {
+        selectOnly(nodeId)
+        return
+      }
 
       if (!canMoveOnCanvas(canvas.movementLocked)) {
         // Still allow click-to-inspect when movement is locked.
