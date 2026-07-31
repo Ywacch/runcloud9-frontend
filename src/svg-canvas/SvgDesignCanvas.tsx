@@ -32,8 +32,11 @@ import {
   walkthroughNodeAlpha,
   walkthroughNodeRole,
 } from '../canvas/utils/walkthroughVisual'
+import { classifyCanvasEdge } from '../lib/connectionSemantics'
+import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
+import { EdgeMeaningStrip } from './components/EdgeMeaningStrip'
 import { EdgeStylePresetToggle } from './components/EdgeStylePresetToggle'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
@@ -249,6 +252,7 @@ export default function SvgDesignCanvas({
   const [drag, setDrag] = useState<DragSession | null>(null)
   const [marquee, setMarquee] = useState<Marquee | null>(null)
   const [rubberTip, setRubberTip] = useState<WorldPoint | null>(null)
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
   const panLast = useRef<{ x: number; y: number } | null>(null)
   const panOrigin = useRef<{ x: number; y: number } | null>(null)
   const panMoved = useRef(false)
@@ -272,6 +276,13 @@ export default function SvgDesignCanvas({
   const setConnectSourceId = useSvgCanvasStore((s) => s.setConnectSourceId)
   const addEdge = useSvgCanvasStore((s) => s.addEdge)
   const moveNodes = useSvgCanvasStore((s) => s.moveNodes)
+  const canvasMode = useCanvasStore((s) => s.mode)
+  const canvasNodes = useCanvasStore((s) => s.nodes)
+  const canvasEdges = useCanvasStore((s) => s.edges)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const supportsWorker = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.supportsWorker !== false : true,
+  )
   useSvgCanvasKeyboard()
 
   useEffect(() => {
@@ -558,6 +569,33 @@ export default function SvgDesignCanvas({
     [spaceDown, selectEdgesOnly],
   )
 
+  const onEdgePointerEnter = useCallback((edgeId: string) => {
+    setHoveredEdgeId(edgeId)
+  }, [])
+
+  const onEdgePointerLeave = useCallback((edgeId: string) => {
+    setHoveredEdgeId((prev) => (prev === edgeId ? null : prev))
+  }, [])
+
+  const edgeMeaning = useMemo(() => {
+    if (canvasMode === 'live') return null
+    const focusId =
+      selectedEdgeIds.length === 1
+        ? selectedEdgeIds[0]
+        : hoveredEdgeId
+    if (!focusId) return null
+    const edge = canvasEdges[focusId]
+    if (!edge) return null
+    return classifyCanvasEdge(edge, canvasNodes, supportsWorker)
+  }, [
+    canvasMode,
+    selectedEdgeIds,
+    hoveredEdgeId,
+    canvasEdges,
+    canvasNodes,
+    supportsWorker,
+  ])
+
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       const svg = svgRef.current
@@ -768,7 +806,6 @@ export default function SvgDesignCanvas({
     })
   }, [zones, nodes, liveById])
 
-  const canvasMode = useCanvasStore((s) => s.mode)
   const walkthroughActiveNodeId = useCanvasStore((s) => s.walkthroughActiveNodeId)
   const walkthroughVisitedNodeIds = useCanvasStore(
     (s) => s.walkthroughVisitedNodeIds,
@@ -1018,7 +1055,10 @@ export default function SvgDesignCanvas({
             edgeStylePreset={edgeStylePreset}
             floorTheme={floorThemeId}
             paint="segments"
+            hoveredEdgeId={hoveredEdgeId}
             onEdgePointerDown={onEdgePointerDown}
+            onEdgePointerEnter={onEdgePointerEnter}
+            onEdgePointerLeave={onEdgePointerLeave}
           />
           <TrafficLayer edges={edges} />
           {rubberFrom && rubberTip ? (
@@ -1068,7 +1108,10 @@ export default function SvgDesignCanvas({
             edgeStylePreset={edgeStylePreset}
             floorTheme={floorThemeId}
             paint="terminals"
+            hoveredEdgeId={hoveredEdgeId}
             onEdgePointerDown={onEdgePointerDown}
+            onEdgePointerEnter={onEdgePointerEnter}
+            onEdgePointerLeave={onEdgePointerLeave}
           />
           <NodeLabelChrome
             nodes={sortedNodes}
@@ -1094,6 +1137,7 @@ export default function SvgDesignCanvas({
           ) : null}
         </svg>
         <SvgNodeTooltipOverlay />
+        {edgeMeaning ? <EdgeMeaningStrip result={edgeMeaning} /> : null}
       </div>
     </div>
   )

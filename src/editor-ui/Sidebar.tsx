@@ -1,4 +1,4 @@
-import { type DragEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   type DeploymentResult,
@@ -56,6 +56,10 @@ import { useLogStore } from '../editor-core/stores/logStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import { findTopologyViolations } from '../lib/topologyGuard'
+import {
+  analyzeDeployTopology,
+  type TopologyWarning,
+} from '../lib/connectionSemantics'
 import {
   resolveEffectiveTier,
   resourceQuotaTier,
@@ -128,6 +132,8 @@ export function Sidebar() {
   const setPlacingNodeType = useCanvasStore((s) => s.setPlacingNodeType)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
+  const topologyBanner = useCanvasStore((s) => s.topologyBanner)
+  const setTopologyBanner = useCanvasStore((s) => s.setTopologyBanner)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -150,6 +156,14 @@ export function Sidebar() {
   >(null)
   const [deployResourceBudget, setDeployResourceBudget] =
     useState<ResourceBudgetErrorResponse | null>(null)
+  const [deployInvalidEdges, setDeployInvalidEdges] = useState<
+    Array<{ edgeId: string; message: string }>
+  >([])
+  const [deployDecorativeMessage, setDeployDecorativeMessage] = useState<
+    string | null
+  >(null)
+  const [deployWarnings, setDeployWarnings] = useState<TopologyWarning[]>([])
+  const pendingDeployResultRef = useRef<DeploymentResult | null>(null)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [templateInfoById, setTemplateInfoById] = useState<
     Record<string, TemplateInfo>
@@ -241,6 +255,12 @@ export function Sidebar() {
     const t = window.setTimeout(() => setBanner(null), 5000)
     return () => window.clearTimeout(t)
   }, [banner])
+
+  useEffect(() => {
+    if (!topologyBanner) return
+    const t = window.setTimeout(() => setTopologyBanner(null), 8000)
+    return () => window.clearTimeout(t)
+  }, [topologyBanner, setTopologyBanner])
 
   const nodeCount = Object.keys(nodes).length
   const live = mode === 'live'
@@ -374,52 +394,23 @@ export function Sidebar() {
     [snapshotTemplateId],
   )
 
-  const runDeploy = useCallback(async () => {
-    if (live || deploying) return
-    if (nodeCount === 0) {
-      trackDeployBlocked('empty_canvas')
-      setBanner('Add at least one node before deploying.')
-      return
-    }
+  const finishDeployCreate = useCallback(
+    (result: DeploymentResult) => {
+      const warnings = result.assessment?.warnings
+      if (warnings && warnings.length > 0) {
+        pendingDeployResultRef.current = result
+        setDeployWarnings(warnings)
+        setDeployModalMode('deploy_warnings')
+        setDeployModalOpen(true)
+        setDeploying(false)
+        return
+      }
+      proceedWithDeployResult(result)
+    },
+    [proceedWithDeployResult],
+  )
 
-    const stCheck = useCanvasStore.getState()
-    if (!stCheck.snapshotTemplateId) {
-      trackDeployBlocked('no_template')
-      setBanner('Select a template before deploying.')
-      return
-    }
-
-    const activeSession = useAuthStore.getState().session
-    if (!activeSession) {
-      setDeploying(false)
-      setPendingDeployAfterAuth(true)
-      setDeployModalOpen(true)
-      setDeployModalMode('auth_required')
-      setDeploySimulationMessage(null)
-      setDeployRequestMessage(null)
-      return
-    }
-
-    const me = useAuthStore.getState().currentUser
-    if (isAtMonthlySessionCap(me)) {
-      trackDeployBlocked('monthly_session_limit', stCheck.snapshotTemplateId)
-      const friendly = mapDeployRequestError(
-        new ApiError(
-          429,
-          'monthly session limit reached — upgrade or wait until next month',
-          MONTHLY_SESSION_LIMIT,
-        ),
-        { isFreeUser: me?.effectiveTier === 'free' },
-      )
-      setDeploying(false)
-      setDeployModalOpen(true)
-      setDeployModalMode('request_rejected')
-      setDeployRequestMessage(friendly)
-      setDeploySimulationMessage(null)
-      setDeployResourceBudget(null)
-      return
-    }
-
+  const executeDeploy = useCallback(async () => {
     setDeploying(true)
     setBanner(null)
     setDeployModalOpen(true)
@@ -427,6 +418,9 @@ export function Sidebar() {
     setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
     setDeployResourceBudget(null)
+    setDeployInvalidEdges([])
+    setDeployDecorativeMessage(null)
+    setDeployWarnings([])
     setDeploySteps([
       {
         id: 'validate',
@@ -485,10 +479,11 @@ export function Sidebar() {
                 : step,
           ),
         )
+        setDeploying(false)
         return
       }
 
-      proceedWithDeployResult(result)
+      finishDeployCreate(result)
       trackEvent('deployment_requested', {
         ...deploymentAnalyticsProperties(design),
         admitStatus: deployAdmitStatusFromCreate(result.status),
@@ -524,12 +519,88 @@ export function Sidebar() {
       )
       setDeploying(false)
     }
+  }, [finishDeployCreate, isPremiumUser, setPendingDeployAfterAuth])
+
+  const runDeploy = useCallback(async () => {
+    if (live || deploying) return
+    if (nodeCount === 0) {
+      trackDeployBlocked('empty_canvas')
+      setBanner('Add at least one node before deploying.')
+      return
+    }
+
+    const stCheck = useCanvasStore.getState()
+    if (!stCheck.snapshotTemplateId) {
+      trackDeployBlocked('no_template')
+      setBanner('Select a template before deploying.')
+      return
+    }
+
+    const activeSession = useAuthStore.getState().session
+    if (!activeSession) {
+      setDeploying(false)
+      setPendingDeployAfterAuth(true)
+      setDeployModalOpen(true)
+      setDeployModalMode('auth_required')
+      setDeploySimulationMessage(null)
+      setDeployRequestMessage(null)
+      return
+    }
+
+    const me = useAuthStore.getState().currentUser
+    if (isAtMonthlySessionCap(me)) {
+      trackDeployBlocked('monthly_session_limit', stCheck.snapshotTemplateId)
+      const friendly = mapDeployRequestError(
+        new ApiError(
+          429,
+          'monthly session limit reached — upgrade or wait until next month',
+          MONTHLY_SESSION_LIMIT,
+        ),
+        { isFreeUser: me?.effectiveTier === 'free' },
+      )
+      setDeploying(false)
+      setDeployModalOpen(true)
+      setDeployModalMode('request_rejected')
+      setDeployRequestMessage(friendly)
+      setDeploySimulationMessage(null)
+      setDeployResourceBudget(null)
+      return
+    }
+
+    const supportsWorker = selectedTemplate?.supportsWorker !== false
+    const preflight = analyzeDeployTopology(
+      stCheck.nodes,
+      stCheck.edges,
+      supportsWorker,
+    )
+    if (preflight.wholeDesignIssue) {
+      setDeployInvalidEdges([
+        { edgeId: 'design', message: preflight.wholeDesignIssue },
+      ])
+      setDeployModalOpen(true)
+      setDeployModalMode('invalid_topology')
+      return
+    }
+    if (preflight.invalidEdges.length > 0) {
+      setDeployInvalidEdges(preflight.invalidEdges)
+      setDeployModalOpen(true)
+      setDeployModalMode('invalid_topology')
+      return
+    }
+    if (preflight.needsDecorativeConfirm) {
+      setDeployDecorativeMessage(preflight.decorativeConfirmMessage)
+      setDeployModalOpen(true)
+      setDeployModalMode('decorative_confirm')
+      return
+    }
+
+    await executeDeploy()
   }, [
     deploying,
     live,
     nodeCount,
-    isPremiumUser,
-    proceedWithDeployResult,
+    selectedTemplate,
+    executeDeploy,
     setPendingDeployAfterAuth,
     trackDeployBlocked,
   ])
@@ -705,6 +776,11 @@ export function Sidebar() {
             {banner}
           </p>
         ) : null}
+        {topologyBanner ? (
+          <p className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100/90">
+            {topologyBanner}
+          </p>
+        ) : null}
         <ul className="space-y-2">
           {PALETTE.map(({ type, title, face }) => {
             const placing = placingNodeType === type
@@ -872,6 +948,19 @@ export function Sidebar() {
         }
         onAuthDismiss={dismissAuthModal}
         simulationRecommended={deploySimulationMessage}
+        invalidTopologyItems={deployInvalidEdges}
+        decorativeConfirmMessage={deployDecorativeMessage}
+        deployWarnings={deployWarnings}
+        onDeployAnyway={() => {
+          setDeployDecorativeMessage(null)
+          void executeDeploy()
+        }}
+        onDeployWarningsContinue={() => {
+          const pending = pendingDeployResultRef.current
+          pendingDeployResultRef.current = null
+          setDeployWarnings([])
+          if (pending) proceedWithDeployResult(pending)
+        }}
         onClose={() => {
           if (deployModalMode === 'request_rejected') {
             trackDeployModalDismissed('request_rejected', 'dismiss')
@@ -883,6 +972,10 @@ export function Sidebar() {
           setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
           setDeployResourceBudget(null)
+          setDeployInvalidEdges([])
+          setDeployDecorativeMessage(null)
+          setDeployWarnings([])
+          pendingDeployResultRef.current = null
           setDeploying(false)
         }}
         onSimulateDesign={() => {
