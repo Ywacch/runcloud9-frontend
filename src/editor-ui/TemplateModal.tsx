@@ -29,11 +29,11 @@ const SOCIAL_FEED_VARIANT_COPY: Record<
   'social-feed': {
     label: 'Push (async fan-out)',
     description:
-      'App publishes to a queue; workers fan out timeline updates to Redis.',
+      'App publishes to a queue. Workers write timeline updates to Redis.',
   },
   'social-feed-pull': {
     label: 'Pull (DB JOINs)',
-    description: 'Feed reads assemble posts with JOINs — no async worker pipeline.',
+    description: 'Feed reads assemble posts with JOINs. No async worker pipeline.',
   },
 }
 
@@ -348,7 +348,11 @@ function SocialFeedFamilyCard({
   const preview = rows.find((r) => r.id === 'social-feed') ?? rows[0]
   const meta = TEMPLATE_META_BY_ID['social-feed']
   return (
-    <div className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600">
+    <button
+      type="button"
+      onClick={onChooseVariant}
+      className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600"
+    >
       <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
         <MiniTopologyPreview
           nodes={preview.snapshot.nodes}
@@ -369,15 +373,14 @@ function SocialFeedFamilyCard({
         <p className="mt-2 text-xs text-gray-400">
           Push async fan-out with Redis timeline, or pull reads with database JOINs.
         </p>
-        <button
-          type="button"
-          onClick={onChooseVariant}
-          className="mt-4 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-        >
-          Choose variant
-        </button>
+        <div className="mt-4 flex items-center justify-end">
+          <span className="text-lg font-medium text-[var(--c9-muted)]" aria-hidden>
+            →
+          </span>
+          <span className="sr-only">Open variants</span>
+        </div>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -389,37 +392,43 @@ function SocialFeedVariantCard({
   onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
   const copy = SOCIAL_FEED_VARIANT_COPY[row.id]
+  const snapshot = row.snapshot
   return (
-    <div className="flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 p-4">
-      <h3 className="text-sm font-semibold text-white">
-        {copy?.label ?? row.name}
-      </h3>
-      <p className="mt-1.5 text-xs text-gray-400">
-        {copy?.description ?? row.description}
-      </p>
-      <div className="mt-4 space-y-2">
-        <button
-          type="button"
-          onClick={() => {
-            onSelect({
-              kind: 'preset',
-              id: row.id,
-              preset: () => row.snapshot,
-            })
-          }}
-          className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-        >
-          Use preset
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onSelect({ kind: 'scratch', id: row.id })
-          }}
-          className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
-        >
-          Start from scratch
-        </button>
+    <div className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600">
+      <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
+        <MiniTopologyPreview nodes={snapshot.nodes} edges={snapshot.edges} />
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="text-sm font-semibold text-white">
+          {copy?.label ?? row.name}
+        </h3>
+        <p className="mt-1.5 text-xs text-gray-400">
+          {copy?.description ?? row.description}
+        </p>
+        <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            onClick={() => {
+              onSelect({
+                kind: 'preset',
+                id: row.id,
+                preset: () => snapshot,
+              })
+            }}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          >
+            Use preset
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSelect({ kind: 'scratch', id: row.id })
+            }}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
+          >
+            Start from scratch
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -606,7 +615,7 @@ export function TemplateModal({
         <div className="shrink-0 border-b border-[var(--c9-border)] px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 id="template-modal-title" className="text-xl font-semibold text-[var(--c9-text)]">
-              {socialFeedVariants ? 'Social Feed — choose variant' : 'Open or use a template'}
+              {socialFeedVariants ? 'Social Feed: choose variant' : 'Open or use a template'}
             </h2>
             <button
               type="button"
@@ -628,8 +637,8 @@ export function TemplateModal({
           ) : null}
           {!isPremiumUser ? (
             <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
-              Explorer designs are limited: presets leave out load balancers and async
-              fan-out (message queue + worker). Unlock those on Engineer.
+              Designs loaded for non subscribers are limited. Presets leave out load
+              balancers, message queues, and workers.
             </p>
           ) : null}
         </div>

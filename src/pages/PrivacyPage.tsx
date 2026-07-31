@@ -56,15 +56,6 @@ export default function PrivacyPage() {
         (billing), PostHog (analytics), and Sentry (error monitoring). Each processes data under
         their own terms and our instructions for providing the product.
       </p>
-
-      <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Contact</h2>
-      <p>
-        Privacy questions during alpha:{' '}
-        <a href="mailto:privacy@runcloud9.io" className="text-[var(--c9-accent)] hover:underline">
-          privacy@runcloud9.io
-        </a>{' '}
-        (placeholder — update before public launch).
-      </p>
     </LegalPageLayout>
   )
 }

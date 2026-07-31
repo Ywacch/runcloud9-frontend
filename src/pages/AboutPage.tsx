@@ -5,30 +5,23 @@ export default function AboutPage() {
   return (
     <LegalPageLayout title="About RunCloud9">
       <p>
-        RunCloud9 is an interactive architecture lab. You design distributed systems on a
-        canvas — load balancers, app servers, databases, caches, queues — and deploy them to
-        real Kubernetes for short, time-boxed sessions.
+        RunCloud9 is an interactive distributed systems workbench: an architecture lab on a
+        canvas. You place load balancers, app servers, databases, caches, and queues, then
+        deploy them to real Kubernetes for short sessions.
       </p>
       <p>
-        Each session provisions an isolated namespace, seeds comparable data, runs load against
-        your topology, and streams live metrics so you can see bottlenecks as they happen. It is
-        built for learning and experimentation, not production hosting.
+        Each session gets an isolated namespace, seeded data, load traffic, and live metrics.
+        Start from URL shortener, e-commerce, or social feed presets, then change cache
+        strategy, fan-out, and scale. Use simulation when a design is not ready to deploy.
       </p>
       <p>
-        We ship template-backed presets (URL shortener, e-commerce, social feed) so you start from
-        a realistic baseline, then iterate on cache strategy, fan-out, and scaling choices. When
-        a design is not ready for live deploy, simulation mode lets you explore behavior without
-        cluster cost.
-      </p>
-      <p>
-        RunCloud9 is in invite-only alpha. Access is limited while we tune capacity, admission,
-        and the product surface. If you have an invite,{' '}
+        Invite-only alpha. If you have access,{' '}
         <Link to="/login" className="text-[var(--c9-accent)] hover:underline">
           sign in
         </Link>{' '}
-        to open the canvas or{' '}
+        or open your{' '}
         <Link to="/dashboard" className="text-[var(--c9-accent)] hover:underline">
-          view your dashboard
+          dashboard
         </Link>
         .
       </p>
