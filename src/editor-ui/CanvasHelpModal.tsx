@@ -1,18 +1,18 @@
 const HOW_IT_WORKS = [
-  'Place components from the sidebar or right-click the canvas.',
-  'Connect nodes with the connect tool. Click a node to open the inspector.',
-  'Pick a template preset or start from scratch.',
-  'Deploy for a live Kubernetes session, or simulate when the design is not deployable yet.',
+  'Place components from the sidebar, or right-click empty canvas to open Add.',
+  'Right-click a component for inspector, delete, and (in live) chaos actions.',
+  'Use Connect to wire nodes. Click a node to open the inspector.',
+  'Pick a template preset or start from scratch, then deploy or simulate.',
 ] as const
 
 type ShortcutRow = { label: string; keys: string[] }
 
 const TOOL_SHORTCUTS: ShortcutRow[] = [
-  { label: 'Select', keys: ['1'] },
-  { label: 'Connect', keys: ['5'] },
-  { label: 'Erase', keys: ['0'] },
+  { label: 'Select', keys: ['S'] },
+  { label: 'Connect', keys: ['C'] },
+  { label: 'Erase', keys: ['E'] },
   { label: 'Fit view', keys: ['F'] },
-  { label: 'Pan', keys: ['Space', 'drag'] },
+  { label: 'Pan', keys: ['drag empty'] },
 ]
 
 const EDITOR_SHORTCUTS: ShortcutRow[] = [
@@ -21,15 +21,52 @@ const EDITOR_SHORTCUTS: ShortcutRow[] = [
   { label: 'Select all', keys: ['Ctrl', 'A'] },
   { label: 'Copy', keys: ['Ctrl', 'C'] },
   { label: 'Paste', keys: ['Ctrl', 'V'] },
-  { label: 'Delete', keys: ['Delete'] },
+  { label: 'Delete', keys: ['Delete', 'or', 'Backspace'] },
   { label: 'Cancel', keys: ['Esc'] },
 ]
 
 function Kbd({ children }: { children: string }) {
   return (
-    <kbd className="inline-flex min-w-[1.25rem] items-center justify-center rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[var(--c9-text)]">
+    <kbd className="inline-flex min-w-[1.25rem] items-center justify-center rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--c9-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
       {children}
     </kbd>
+  )
+}
+
+function ShortcutKeys({ keys }: { keys: string[] }) {
+  return (
+    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+      {keys.map((key, i) => {
+        if (key === 'or') {
+          return (
+            <span
+              key={`or-${i}`}
+              className="px-0.5 text-[10px] text-[var(--c9-muted)]"
+            >
+              or
+            </span>
+          )
+        }
+        if (key === 'drag empty') {
+          return (
+            <span
+              key={`drag-${i}`}
+              className="text-[10px] text-[var(--c9-muted)]"
+            >
+              drag empty canvas
+            </span>
+          )
+        }
+        return (
+          <span key={`${key}-${i}`} className="flex items-center gap-1">
+            {i > 0 && keys[i - 1] !== 'or' ? (
+              <span className="text-[10px] text-[var(--c9-muted)]">+</span>
+            ) : null}
+            <Kbd>{key}</Kbd>
+          </span>
+        )
+      })}
+    </span>
   )
 }
 
@@ -52,20 +89,7 @@ function ShortcutList({
             className="flex items-center justify-between gap-3 py-2 text-sm text-[var(--c9-text)]"
           >
             <span>{row.label}</span>
-            <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-              {row.keys.map((key, i) => (
-                <span key={`${row.label}-${key}-${i}`} className="flex items-center gap-1">
-                  {i > 0 && key !== 'drag' ? (
-                    <span className="text-[10px] text-[var(--c9-muted)]">+</span>
-                  ) : null}
-                  {key === 'drag' ? (
-                    <span className="text-[10px] text-[var(--c9-muted)]">+ drag</span>
-                  ) : (
-                    <Kbd>{key}</Kbd>
-                  )}
-                </span>
-              ))}
-            </span>
+            <ShortcutKeys keys={row.keys} />
           </li>
         ))}
       </ul>
@@ -120,7 +144,10 @@ export function CanvasHelpModal({
         <ul className="mt-4 space-y-2 text-sm leading-relaxed text-[var(--c9-text)]">
           {HOW_IT_WORKS.map((line) => (
             <li key={line} className="flex gap-2">
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--c9-accent)]" aria-hidden />
+              <span
+                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--c9-accent)]"
+                aria-hidden
+              />
               <span>{line}</span>
             </li>
           ))}

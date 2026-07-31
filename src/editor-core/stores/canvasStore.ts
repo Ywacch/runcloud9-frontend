@@ -124,7 +124,7 @@ interface CanvasState {
   selectedIds: string[]
   pendingSourceId: string | null
   deploymentId: string | null
-  /** Active tool in design mode (hotkeys 1 / 5 / 0). */
+  /** Active tool in design mode (hotkeys S / C / E). */
   designTool: DesignTool
   /** Click palette then click canvas to spawn (Phase 2). */
   placingNodeType: CanvasNode['type'] | null

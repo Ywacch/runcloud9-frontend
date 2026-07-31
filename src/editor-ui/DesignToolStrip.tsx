@@ -6,9 +6,9 @@ import {
 import { useWalkthroughStore } from '../editor-core/stores/walkthroughStore'
 
 const tools: { id: DesignTool; label: string; hotkey: string; title: string }[] = [
-  { id: 'select', label: 'Select', hotkey: '1', title: 'Select & move (1)' },
-  { id: 'connect', label: 'Connect', hotkey: '5', title: 'Draw connections (5)' },
-  { id: 'erase', label: 'Erase', hotkey: '0', title: 'Delete nodes & edges (0)' },
+  { id: 'select', label: 'Select', hotkey: 'S', title: 'Select & move (S)' },
+  { id: 'connect', label: 'Connect', hotkey: 'C', title: 'Draw connections (C)' },
+  { id: 'erase', label: 'Erase', hotkey: 'E', title: 'Delete nodes & edges (E)' },
 ]
 
 export function DesignToolStrip() {
@@ -40,7 +40,11 @@ export function DesignToolStrip() {
             }`}
           >
             <span>{t.label}</span>
-            <span className="absolute bottom-0.5 right-1 font-mono text-[9px] text-[var(--c9-muted)]">
+            <span
+              className={`absolute bottom-0.5 right-1 font-mono text-[9px] ${
+                active ? 'text-white/70' : 'text-[var(--c9-muted)]'
+              }`}
+            >
               {t.hotkey}
             </span>
           </button>
