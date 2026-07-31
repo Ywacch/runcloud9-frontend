@@ -5,7 +5,10 @@ import {
   walkthroughEdgeStyle,
 } from '../../canvas/utils/walkthroughVisual'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useTemplateRegistryStore } from '../../editor-core/stores/templateRegistryStore'
 import { getCacheTopologyEdgeIssues } from '../../lib/cacheTopologyStrategy'
+import { classifyAllCanvasEdges } from '../../lib/connectionSemantics'
+import { paintForSemanticClass } from '../../lib/edgeSemanticPaint'
 import {
   protocolBadgeLayout,
   protocolBadgeMidpoint,
@@ -41,7 +44,10 @@ type EdgeLayerProps = {
   edgeStylePreset: EdgeStylePresetId
   floorTheme: FloorThemeId
   paint?: 'all' | 'segments' | 'terminals'
+  hoveredEdgeId?: string | null
   onEdgePointerDown: (edgeId: string, e: ReactPointerEvent<SVGElement>) => void
+  onEdgePointerEnter?: (edgeId: string) => void
+  onEdgePointerLeave?: (edgeId: string) => void
 }
 
 export function EdgeLayer({
@@ -50,21 +56,37 @@ export function EdgeLayer({
   edgeStylePreset,
   floorTheme,
   paint = 'all',
+  hoveredEdgeId = null,
   onEdgePointerDown,
+  onEdgePointerEnter,
+  onEdgePointerLeave,
 }: EdgeLayerProps) {
   const renderSegments = paint !== 'terminals'
   const renderTerminals = paint !== 'segments'
   const selected = new Set(selectedEdgeIds)
-  useCanvasStore((s) => s.mode)
+  const canvasMode = useCanvasStore((s) => s.mode)
   useCanvasStore((s) => s.walkthroughActiveNodeId)
   useCanvasStore((s) => s.walkthroughVisitedNodeIds)
   useCanvasStore((s) => s.walkthroughHighlightedEdgeIds)
   useCanvasStore((s) => s.walkthroughParticipatingNodeIds)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const supportsWorker = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.supportsWorker !== false : true,
+  )
   const svgNodes = useSvgCanvasStore((s) => s.nodes)
   const canvas = useCanvasStore.getState()
   const walkthrough = isWalkthroughRunning(canvas)
+  const showSemanticPaint =
+    (canvasMode === 'design' || canvasMode === 'simulate') && !walkthrough
+  const edgeSemantics = useMemo(
+    () =>
+      showSemanticPaint
+        ? classifyAllCanvasEdges(canvasNodes, canvasEdges, supportsWorker)
+        : {},
+    [showSemanticPaint, canvasNodes, canvasEdges, supportsWorker],
+  )
   const topologyIssues = useMemo(
     () => getCacheTopologyEdgeIssues(canvasNodes, canvasEdges),
     [canvasNodes, canvasEdges],
@@ -86,7 +108,9 @@ export function EdgeLayer({
         const pts = edge.waypoints
         if (pts.length < 2) return null
         const isSel = selected.has(edge.id)
+        const isHovered = hoveredEdgeId === edge.id
         const topologyIssue = topologyIssues[edge.id]
+        const semantic = edgeSemantics[edge.id]
         const preset = edge.style.preset ?? edgeStylePreset
         const base = resolveEdgePaint(edge.style, preset, floorTheme)
 
@@ -94,6 +118,7 @@ export function EdgeLayer({
         let width = isSel ? base.width + 1 : base.width
         let opacity = 1
         let highlighted = false
+        let dash = base.dash
         if (walkthrough && !isSel) {
           const wt = walkthroughEdgeStyle(
             edge.id,
@@ -109,9 +134,19 @@ export function EdgeLayer({
         } else if (topologyIssue && !isSel) {
           color = TOPOLOGY_STROKE
           width = Math.max(width, 4)
+        } else if (!isSel && semantic) {
+          const semanticPaint = paintForSemanticClass(semantic.class)
+          if (semanticPaint) {
+            color = semanticPaint.color
+            if (semanticPaint.dash) dash = semanticPaint.dash
+            if (semanticPaint.widthBoost) width = Math.max(width, base.width + semanticPaint.widthBoost)
+            if (semanticPaint.opacity != null) opacity = semanticPaint.opacity
+          }
+        }
+        if (isHovered && !isSel && semantic && semantic.class !== 'active') {
+          width += 0.5
         }
 
-        const dash = base.dash
         const hasStartArrow = edge.style.startStyle === 'arrow'
         const hasEndArrow = edge.style.endStyle === 'arrow'
         const protocol = edge.protocol ?? 'http'
@@ -193,6 +228,9 @@ export function EdgeLayer({
                     strokeWidth={EDGE_HIT_STROKE}
                     style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                     onPointerDown={(e) => onEdgePointerDown(edge.id, e)}
+                    onPointerEnter={() => onEdgePointerEnter?.(edge.id)}
+                    onPointerLeave={() => onEdgePointerLeave?.(edge.id)}
+                    aria-label={semantic?.message}
                   />
                   {highlighted ? (
                     <line

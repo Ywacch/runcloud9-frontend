@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../../lib/cacheTopologyStrategy'
+import { socialFeedCacheRemovalBanner } from '../../lib/socialFeedCacheRemoval'
 import { useAuthStore } from '../../product/stores/authStore'
 import {
   clearCanvasHistory,
@@ -146,6 +147,8 @@ interface CanvasState {
   walkthroughParticipatingNodeIds: string[]
   /** Live/sim: node under the pointer (metrics tooltip). */
   hoveredNodeId: string | null
+  /** One-shot topology UX banner (e.g. social-feed cache removal). */
+  topologyBanner: string | null
 
   addNode: (node: CanvasNode) => void
   updateNodePosition: (id: string, pos: [number, number, number]) => void
@@ -159,6 +162,7 @@ interface CanvasState {
   setPendingSource: (id: string | null) => void
   setConnectHoverTargetId: (id: string | null) => void
   setHoveredNodeId: (id: string | null) => void
+  setTopologyBanner: (message: string | null) => void
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
@@ -239,6 +243,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   walkthroughHighlightedEdgeIds: [],
   walkthroughParticipatingNodeIds: [],
   hoveredNodeId: null,
+  topologyBanner: null,
 
   addNode: (node) =>
     set((s) => {
@@ -295,6 +300,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         edges,
         cacheStrategyOptionsForUser(),
       )
+      const topologyBanner =
+        socialFeedCacheRemovalBanner(
+          s.snapshotTemplateId,
+          s.nodes,
+          nodesNorm,
+          id,
+        ) ?? s.topologyBanner
       return {
         nodes: nodesNorm,
         edges,
@@ -302,6 +314,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         selectedIds: s.selectedIds.filter((sid) => sid !== id),
         pendingSourceId: s.pendingSourceId === id ? null : s.pendingSourceId,
         hoveredNodeId: s.hoveredNodeId === id ? null : s.hoveredNodeId,
+        topologyBanner,
       }
     }),
 
@@ -334,6 +347,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         edges,
         cacheStrategyOptionsForUser(),
       )
+      let topologyBanner = s.topologyBanner
+      for (const removedId of ids) {
+        const banner = socialFeedCacheRemovalBanner(
+          s.snapshotTemplateId,
+          s.nodes,
+          nodesNorm,
+          removedId,
+        )
+        if (banner) topologyBanner = banner
+      }
       return {
         nodes: nodesNorm,
         edges,
@@ -343,6 +366,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           s.pendingSourceId && idSet.has(s.pendingSourceId)
             ? null
             : s.pendingSourceId,
+        topologyBanner,
       }
     }),
 
@@ -385,6 +409,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setConnectHoverTargetId: (connectHoverTargetId) => set({ connectHoverTargetId }),
 
   setHoveredNodeId: (hoveredNodeId) => set({ hoveredNodeId }),
+
+  setTopologyBanner: (topologyBanner) => set({ topologyBanner }),
 
   setEdgeAnimated: (id, animated) =>
     set((s) => {

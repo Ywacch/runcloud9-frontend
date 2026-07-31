@@ -17,6 +17,24 @@ const TEMPLATE_TITLE_FALLBACK: Record<string, string> = {
   'url-shortener': 'URL Shortener',
   ecommerce: 'E-Commerce',
   'social-feed': 'Social Feed',
+  'social-feed-pull': 'Social Feed (Pull)',
+}
+
+const SOCIAL_FEED_VARIANT_IDS = new Set(['social-feed', 'social-feed-pull'])
+
+const SOCIAL_FEED_VARIANT_COPY: Record<
+  string,
+  { label: string; description: string }
+> = {
+  'social-feed': {
+    label: 'Push (async fan-out)',
+    description:
+      'App publishes to a queue; workers fan out timeline updates to Redis.',
+  },
+  'social-feed-pull': {
+    label: 'Pull (DB JOINs)',
+    description: 'Feed reads assemble posts with JOINs — no async worker pipeline.',
+  },
 }
 
 export function templateTitleForId(id: string | null): string | null {
@@ -99,6 +117,7 @@ export type TemplateSelectAction =
 type ModalTemplateItem =
   | { kind: 'preset'; row: PresetTemplateRow }
   | { kind: 'remote'; row: ApiTemplateInfo }
+  | { kind: 'social-feed-family'; rows: PresetTemplateRow[] }
 
 const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
 
@@ -319,6 +338,93 @@ function TemplatePickerCard({
   )
 }
 
+function SocialFeedFamilyCard({
+  rows,
+  onChooseVariant,
+}: {
+  rows: PresetTemplateRow[]
+  onChooseVariant: () => void
+}) {
+  const preview = rows.find((r) => r.id === 'social-feed') ?? rows[0]
+  const meta = TEMPLATE_META_BY_ID['social-feed']
+  return (
+    <div className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600">
+      <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
+        <MiniTopologyPreview
+          nodes={preview.snapshot.nodes}
+          edges={preview.snapshot.edges}
+        />
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-start gap-2">
+          <span
+            className="mt-0.5 shrink-0 text-gray-300"
+            style={{ color: meta?.accent ?? 'var(--c9-accent)' }}
+            aria-hidden
+          >
+            {meta?.icon ?? UsersIcon}
+          </span>
+          <h3 className="text-sm font-semibold text-white">Social Feed</h3>
+        </div>
+        <p className="mt-2 text-xs text-gray-400">
+          Push async fan-out with Redis timeline, or pull reads with database JOINs.
+        </p>
+        <button
+          type="button"
+          onClick={onChooseVariant}
+          className="mt-4 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+        >
+          Choose variant
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SocialFeedVariantCard({
+  row,
+  onSelect,
+}: {
+  row: PresetTemplateRow
+  onSelect: (action: TemplateSelectAction) => boolean | void
+}) {
+  const copy = SOCIAL_FEED_VARIANT_COPY[row.id]
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 p-4">
+      <h3 className="text-sm font-semibold text-white">
+        {copy?.label ?? row.name}
+      </h3>
+      <p className="mt-1.5 text-xs text-gray-400">
+        {copy?.description ?? row.description}
+      </p>
+      <div className="mt-4 space-y-2">
+        <button
+          type="button"
+          onClick={() => {
+            onSelect({
+              kind: 'preset',
+              id: row.id,
+              preset: () => row.snapshot,
+            })
+          }}
+          className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+        >
+          Use preset
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onSelect({ kind: 'scratch', id: row.id })
+          }}
+          className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
+        >
+          Start from scratch
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function RemoteTemplateCard({
   row,
   userRecord,
@@ -407,6 +513,13 @@ export function TemplateModal({
   const [items, setItems] = useState<ModalTemplateItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [socialFeedVariants, setSocialFeedVariants] = useState<
+    PresetTemplateRow[] | null
+  >(null)
+
+  useEffect(() => {
+    if (!open) setSocialFeedVariants(null)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -418,9 +531,21 @@ export function TemplateModal({
         if (cancelled) return
         useTemplateRegistryStore.getState().mergeTemplates(list)
         const next: ModalTemplateItem[] = []
+        const socialFeedRows: PresetTemplateRow[] = []
         for (const t of list) {
-          const meta = TEMPLATE_META_BY_ID[t.id]
+          const meta = TEMPLATE_META_BY_ID[t.id] ?? TEMPLATE_META_BY_ID['social-feed']
           const preset = selectTemplatePreset(t, userRecord)
+          if (SOCIAL_FEED_VARIANT_IDS.has(t.id)) {
+            if (preset) {
+              socialFeedRows.push({
+                ...t,
+                icon: meta?.icon ?? UsersIcon,
+                accent: meta?.accent ?? 'var(--c9-accent)',
+                snapshot: templatePresetToCanvasSnapshot(preset, t.id),
+              })
+            }
+            continue
+          }
           if (preset) {
             next.push({
               kind: 'preset',
@@ -434,6 +559,9 @@ export function TemplateModal({
           } else {
             next.push({ kind: 'remote', row: t })
           }
+        }
+        if (socialFeedRows.length > 0) {
+          next.push({ kind: 'social-feed-family', rows: socialFeedRows })
         }
         setItems(next)
       })
@@ -478,7 +606,7 @@ export function TemplateModal({
         <div className="shrink-0 border-b border-[var(--c9-border)] px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 id="template-modal-title" className="text-xl font-semibold text-[var(--c9-text)]">
-              Open or use a template
+              {socialFeedVariants ? 'Social Feed — choose variant' : 'Open or use a template'}
             </h2>
             <button
               type="button"
@@ -489,6 +617,15 @@ export function TemplateModal({
               ✕
             </button>
           </div>
+          {socialFeedVariants ? (
+            <button
+              type="button"
+              onClick={() => setSocialFeedVariants(null)}
+              className="mt-2 text-xs text-[var(--c9-muted)] hover:text-[var(--c9-text)]"
+            >
+              ← Back to templates
+            </button>
+          ) : null}
           {!isPremiumUser ? (
             <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
               Explorer designs are limited: presets leave out load balancers and async
@@ -502,6 +639,22 @@ export function TemplateModal({
             <p className="py-12 text-center text-sm text-[var(--c9-muted)]">Loading templates…</p>
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-400">{error}</p>
+          ) : socialFeedVariants ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {['social-feed', 'social-feed-pull'].map((variantId) => {
+                const row = socialFeedVariants.find((r) => r.id === variantId)
+                if (!row) return null
+                return (
+                  <SocialFeedVariantCard
+                    key={row.id}
+                    row={row}
+                    onSelect={(action) => {
+                      if (onSelect(action) !== false) onClose()
+                    }}
+                  />
+                )
+              })}
+            </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
               {items.map((item) =>
@@ -515,6 +668,12 @@ export function TemplateModal({
                     onSelect={(action) => {
                       if (onSelect(action) !== false) onClose()
                     }}
+                  />
+                ) : item.kind === 'social-feed-family' ? (
+                  <SocialFeedFamilyCard
+                    key="social-feed-family"
+                    rows={item.rows}
+                    onChooseVariant={() => setSocialFeedVariants(item.rows)}
                   />
                 ) : (
                   <RemoteTemplateCard

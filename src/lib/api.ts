@@ -41,6 +41,19 @@ export function buildWsBaseForApi(apiBase: string, current: Location): string {
   return `${proto}://${current.host}${apiBase}`
 }
 
+export interface TopologyWarning {
+  code: string
+  message: string
+  nodeIds?: string[]
+  edgeIds?: string[]
+}
+
+export interface CreateAssessment {
+  verdict: string
+  explanation: string
+  warnings?: TopologyWarning[]
+}
+
 export interface DeploymentResult {
   deploymentId: string
   namespace: string
@@ -51,10 +64,7 @@ export interface DeploymentResult {
   estimatedWaitSeconds?: number
   seeded?: boolean
   error?: string
-  assessment?: {
-    verdict: string
-    explanation: string
-  }
+  assessment?: CreateAssessment
 }
 
 export interface LoadProfile {
@@ -87,6 +97,8 @@ export interface TemplateInfo {
   storytelling?: StorytellingSpec | null
   /** Default load-generator RPS for this template (from GET /templates). */
   loadgenDefaultRps?: number
+  /** False when template has no worker image (mq/worker edges are decorative). */
+  supportsWorker?: boolean
   /** Per-component introspection config (tables, Redis key patterns, etc.). */
   introspection?: Record<
     string,
