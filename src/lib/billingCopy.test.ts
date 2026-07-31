@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   displayPlanTierLabel,
+  engineerBenefitIncluded,
   formatSessionsLeftThisMonth,
   isChaosTrialUsedMessage,
   REPLICAS_HELP_FREE,
@@ -53,5 +54,23 @@ describe('billingCopy', () => {
       ),
     ).toBe(true)
     expect(isChaosTrialUsedMessage('forbidden')).toBe(false)
+  })
+
+  it('maps engineer benefits from limits', () => {
+    const free = {
+      allowLoadBalancer: false,
+      allowMQWorker: false,
+      allowProxyCache: false,
+      allTemplates: false,
+    }
+    const engineer = {
+      allowLoadBalancer: true,
+      allowMQWorker: true,
+      allowProxyCache: true,
+      allTemplates: true,
+    }
+    expect(engineerBenefitIncluded('load_balancer', free)).toBe(false)
+    expect(engineerBenefitIncluded('load_balancer', engineer)).toBe(true)
+    expect(engineerBenefitIncluded('all_templates', engineer)).toBe(true)
   })
 })

@@ -42,3 +42,74 @@ export function displayPlanTierLabel(
       return 'Explorer'
   }
 }
+
+export type EngineerBenefitId =
+  | 'load_balancer'
+  | 'mq_worker'
+  | 'proxy_cache'
+  | 'higher_quotas'
+  | 'all_templates'
+
+export type EngineerBenefitRow = {
+  id: EngineerBenefitId
+  label: string
+  explorerNote?: string
+}
+
+/** Upgrade checklist copy — shared by profile and billing surfaces. */
+export const ENGINEER_BENEFIT_ROWS: EngineerBenefitRow[] = [
+  {
+    id: 'load_balancer',
+    label: 'Load balancers in presets and on canvas',
+    explorerNote: 'Explorer presets omit load balancers',
+  },
+  {
+    id: 'mq_worker',
+    label: 'Message queue + worker (async fan-out)',
+    explorerNote: 'Not available on Explorer',
+  },
+  {
+    id: 'proxy_cache',
+    label: 'Write-through / write-behind cache proxy strategies',
+    explorerNote: 'Cache-aside only on Explorer',
+  },
+  {
+    id: 'higher_quotas',
+    label: 'Higher monthly sessions, replicas, and resource caps',
+  },
+  {
+    id: 'all_templates',
+    label: 'All templates unlocked',
+    explorerNote: 'Premium templates require Engineer',
+  },
+]
+
+export function engineerBenefitIncluded(
+  id: EngineerBenefitId,
+  limits: {
+    allowLoadBalancer?: boolean
+    allowMQWorker?: boolean
+    allowProxyCache?: boolean
+    allTemplates?: boolean
+  } | null | undefined,
+): boolean {
+  if (!limits) return false
+  switch (id) {
+    case 'load_balancer':
+      return limits.allowLoadBalancer === true
+    case 'mq_worker':
+      return limits.allowMQWorker === true
+    case 'proxy_cache':
+      return limits.allowProxyCache === true
+    case 'higher_quotas':
+      return (
+        limits.allowLoadBalancer === true ||
+        limits.allowMQWorker === true ||
+        limits.allowProxyCache === true
+      )
+    case 'all_templates':
+      return limits.allTemplates === true
+    default:
+      return false
+  }
+}

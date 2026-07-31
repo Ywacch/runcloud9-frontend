@@ -489,6 +489,12 @@ export function TemplateModal({
               ✕
             </button>
           </div>
+          {!isPremiumUser ? (
+            <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+              Explorer designs are limited: presets leave out load balancers and async
+              fan-out (message queue + worker). Unlock those on Engineer.
+            </p>
+          ) : null}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
@@ -521,12 +527,6 @@ export function TemplateModal({
               )}
             </div>
           )}
-          {!isPremiumUser && !loading && !error && items.length > 0 ? (
-            <p className="mt-4 text-center text-xs leading-relaxed text-[var(--c9-muted)]">
-              Explorer presets omit load balancers and async fan-out (MQ + worker). Async
-              fan-out and load balancing are available on Engineer.
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

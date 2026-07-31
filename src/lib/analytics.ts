@@ -92,6 +92,7 @@ export type AnalyticsEventMap = {
     template: string
     signalKind: 'room_to_provisioning' | 'running' | 'failed'
   }
+  canvas_help_opened: Record<string, never>
   deploy_assessment_shown: {
     template: string
     assessmentVerdict: 'simulation_recommended'

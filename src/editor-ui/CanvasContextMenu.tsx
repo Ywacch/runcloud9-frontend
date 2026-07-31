@@ -18,7 +18,7 @@ import {
   type ChaosScenario,
 } from '../lib/chaos'
 import { placeFromPicker } from '../lib/pickerPlacement'
-import { NODE_VISUAL } from '../lib/nodeVisual'
+import { ContextMenuIcon } from './ContextMenuIcon'
 import { trackEvent } from '../lib/analytics'
 import { UPGRADE_TO_UNLOCK_TOOLTIP } from '../lib/billingCopy'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -42,17 +42,6 @@ function clampMenuPosition(
   if (left + MENU_W + pad > vw) left = Math.max(pad, vw - MENU_W - pad)
   if (top + MENU_MAX_H + pad > vh) top = Math.max(pad, vh - MENU_MAX_H - pad)
   return { left, top }
-}
-
-function FaceDot({ nodeType }: { nodeType: keyof typeof NODE_VISUAL }) {
-  const face = NODE_VISUAL[nodeType]?.face ?? '#888'
-  return (
-    <span
-      className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-      style={{ background: face }}
-      aria-hidden
-    />
-  )
 }
 
 export function CanvasContextMenu() {
@@ -261,11 +250,7 @@ export function CanvasContextMenu() {
                           setQuery('')
                         }}
                       >
-                        <FaceDot
-                          nodeType={
-                            item.children[0]?.nodeType ?? 'database'
-                          }
-                        />
+                        <ContextMenuIcon item={item} locked={locked} />
                         <span className="flex-1 font-medium">{item.label}</span>
                         <span className="text-[var(--c9-muted)]">›</span>
                       </button>
@@ -282,7 +267,7 @@ export function CanvasContextMenu() {
                       className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => placeLeaf(item)}
                     >
-                      <FaceDot nodeType={item.nodeType} />
+                      <ContextMenuIcon item={item} locked={locked} />
                       <span className="flex-1 font-medium">{item.label}</span>
                     </button>
                   </li>

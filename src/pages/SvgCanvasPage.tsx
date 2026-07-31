@@ -18,9 +18,11 @@ import {
   Sidebar,
   WalkthroughOverlay,
 } from '../editor-ui'
+import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
+import { trackEvent } from '../lib/analytics'
 import SvgDesignCanvas from '../svg-canvas/SvgDesignCanvas'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { CanvasSessionOverlays } from './CanvasSessionOverlays'
@@ -65,6 +67,7 @@ export default function SvgCanvasPage() {
     overview: boolean
     id: string | null
   }>({ open: false, overview: false, id: null })
+  const [helpOpen, setHelpOpen] = useState(false)
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
@@ -134,8 +137,22 @@ export default function SvgCanvasPage() {
           </div>
         ) : null}
 
+        <button
+          type="button"
+          aria-label="Canvas help"
+          title="How the canvas works"
+          onClick={() => {
+            setHelpOpen(true)
+            trackEvent('canvas_help_opened', {})
+          }}
+          className="absolute right-3 top-3 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 text-sm font-semibold text-[var(--c9-muted)] shadow backdrop-blur-sm transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
+        >
+          ?
+        </button>
+
         <SvgDesignCanvas chromeMounted />
         <CanvasContextMenu />
+        <CanvasHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
         <CanvasSessionOverlays session={session}>
           {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
