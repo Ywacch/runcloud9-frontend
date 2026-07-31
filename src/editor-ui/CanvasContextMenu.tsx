@@ -243,7 +243,7 @@ export function CanvasContextMenu() {
                         role="menuitem"
                         disabled={locked}
                         title={locked ? UPGRADE_TO_UNLOCK_TOOLTIP : undefined}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => {
                           if (locked) return
                           setGroupId(item.id)
@@ -264,7 +264,7 @@ export function CanvasContextMenu() {
                       role="menuitem"
                       disabled={locked}
                       title={locked ? UPGRADE_TO_UNLOCK_TOOLTIP : undefined}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => placeLeaf(item)}
                     >
                       <ContextMenuIcon item={item} locked={locked} />

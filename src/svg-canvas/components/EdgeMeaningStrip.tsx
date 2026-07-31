@@ -15,7 +15,7 @@ export function EdgeMeaningStrip({
 }) {
   return (
     <div
-      className="pointer-events-none absolute bottom-3 left-1/2 z-20 max-w-lg -translate-x-1/2 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-4 py-2.5 text-center shadow-lg backdrop-blur-sm"
+      className="pointer-events-none absolute bottom-24 left-1/2 z-20 max-w-lg -translate-x-1/2 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-4 py-2.5 text-center shadow-lg backdrop-blur-sm"
       data-edge-meaning
     >
       <p className={`text-[11px] font-semibold uppercase tracking-wide ${TITLE_COLOR[result.class]}`}>

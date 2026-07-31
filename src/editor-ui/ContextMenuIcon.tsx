@@ -3,6 +3,8 @@ import type { CreateMenuItem } from '../lib/canvasContextMenuCatalog'
 import { NODE_VISUAL } from '../lib/nodeVisual'
 import { logoDataUrl } from '../svg-canvas/skins/logos'
 import appServerUrl from '../assets/components/app-server.svg'
+import cacheSlabUrl from '../assets/components/cache-slab.svg'
+import databaseUrl from '../assets/components/database.svg'
 import loadBalancerUrl from '../assets/components/load-balancer.svg'
 import workerUrl from '../assets/components/worker.svg'
 import messageQueueUrl from '../assets/components/message-queue.svg'
@@ -22,6 +24,8 @@ const GROUP_LOGO_ID: Record<string, string> = {
 const NODE_TYPE_ASSET: Partial<Record<CanvasNode['type'], string>> = {
   load_balancer: loadBalancerUrl,
   compute: appServerUrl,
+  database: databaseUrl,
+  cache: cacheSlabUrl,
   worker: workerUrl,
   message_queue: messageQueueUrl,
 }
@@ -47,6 +51,9 @@ function iconForMenuItem(item: CreateMenuItem): {
     }
   }
 
+  const groupAsset = NODE_TYPE_ASSET[item.id as CanvasNode['type']]
+  if (groupAsset) return { src: groupAsset, alt: item.label }
+
   const logoId = GROUP_LOGO_ID[item.id]
   if (logoId) {
     const dataUrl = logoDataUrl(logoId)
@@ -71,12 +78,12 @@ export function ContextMenuIcon({
 }) {
   const { src, alt } = iconForMenuItem(item)
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
+    <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
       <img
         src={src}
         alt=""
         aria-hidden
-        className={`h-4 w-4 object-contain ${locked ? 'opacity-40 grayscale' : ''}`}
+        className={`h-5 w-5 object-contain ${locked ? 'opacity-40 grayscale' : ''}`}
         title={alt}
       />
       {locked ? (

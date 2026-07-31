@@ -53,15 +53,6 @@ export default function TermsPage() {
         We may update these terms. Continued use after changes constitutes acceptance. Material
         updates will be reflected on this page with a revised date.
       </p>
-
-      <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Contact</h2>
-      <p>
-        Terms questions:{' '}
-        <a href="mailto:legal@runcloud9.io" className="text-[var(--c9-accent)] hover:underline">
-          legal@runcloud9.io
-        </a>{' '}
-        (placeholder — update before public launch).
-      </p>
     </LegalPageLayout>
   )
 }
