@@ -99,6 +99,35 @@ describe('analytics wrappers', () => {
     )
   })
 
+  it('captures deploy assessment, blocked, and modal dismissed events', () => {
+    trackEvent('deploy_assessment_shown', {
+      template: 'ecommerce',
+      assessmentVerdict: 'simulation_recommended',
+    })
+    trackEvent('deploy_blocked', {
+      template: 'ecommerce',
+      reason: 'resource_quota_exceeded',
+    })
+    trackEvent('deploy_modal_dismissed', {
+      template: 'ecommerce',
+      mode: 'simulation_recommended',
+      action: 'simulate',
+    })
+    expect(capture).toHaveBeenCalledWith('deploy_assessment_shown', {
+      template: 'ecommerce',
+      assessmentVerdict: 'simulation_recommended',
+    })
+    expect(capture).toHaveBeenCalledWith('deploy_blocked', {
+      template: 'ecommerce',
+      reason: 'resource_quota_exceeded',
+    })
+    expect(capture).toHaveBeenCalledWith('deploy_modal_dismissed', {
+      template: 'ecommerce',
+      mode: 'simulation_recommended',
+      action: 'simulate',
+    })
+  })
+
   it('identify and reset go through wrappers', () => {
     identifyAnalyticsUser('user-123', { effectiveTier: 'engineer' })
     resetAnalytics()
