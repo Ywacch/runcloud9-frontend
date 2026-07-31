@@ -45,6 +45,8 @@ import { FxDemoControls } from './components/FxDemoControls'
 import { GridModeToggle } from './components/GridModeToggle'
 import { GridPatterns } from './components/GridPatterns'
 import { HealthRimFilters } from './fx/HealthRimFilters'
+import { LiveNodeGlyph } from './components/LiveNodeGlyph'
+import { LiveZoneLayer } from './components/LiveZoneLayer'
 import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
 import { ShardsStepper } from './components/ShardsStepper'
@@ -52,13 +54,12 @@ import { SvgNodeTooltipOverlay } from './components/SvgNodeTooltipOverlay'
 import { TrafficLayer } from './components/TrafficLayer'
 import { WalkthroughNodeOverlay } from './components/WalkthroughNodeOverlay'
 import { NodeLabelChrome } from './components/NodeLabelChrome'
-import { ZoneLayer } from './components/ZoneLayer'
 import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
-import { syncZoneForNode } from './compose/syncZoneForNode'
-import { NodeGlyph } from './glyphs/NodeGlyph'
+import { useEdgeRenderModel } from './hooks/useEdgeRenderModel'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
+import { setDragLive } from './store/dragLiveStore'
 import {
   installCanvasSvgBridge,
   useSvgCanvasStore,
@@ -90,7 +91,6 @@ import {
   type FloorThemeId,
 } from './theme/floorTheme'
 import type { EdgeStylePresetId } from './fx/edgePresets'
-import { exportBrandKey } from './skins/engineSkins'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
@@ -249,9 +249,7 @@ export default function SvgDesignCanvas({
   }, [])
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
-  const [drag, setDrag] = useState<DragSession | null>(null)
   const [marquee, setMarquee] = useState<Marquee | null>(null)
-  const [rubberTip, setRubberTip] = useState<WorldPoint | null>(null)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
   const panLast = useRef<{ x: number; y: number } | null>(null)
   const panOrigin = useRef<{ x: number; y: number } | null>(null)
@@ -259,6 +257,8 @@ export default function SvgDesignCanvas({
   const dragRef = useRef<DragSession | null>(null)
   const marqueeRef = useRef<Marquee | null>(null)
   const marqueeActive = useRef(false)
+  const rubberLineRef = useRef<SVGLineElement | null>(null)
+  const rubberFromRef = useRef<WorldPoint | null>(null)
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
@@ -302,10 +302,10 @@ export default function SvgDesignCanvas({
   }, [view])
 
   useEffect(() => {
-    if (spaceDown || panning || marquee || drag) {
+    if (spaceDown || panning || marquee || dragRef.current) {
       useCanvasStore.getState().setHoveredNodeId(null)
     }
-  }, [spaceDown, panning, marquee, drag])
+  }, [spaceDown, panning, marquee])
 
   // Read live store nodes — React state is stale right after auto-arrange /
   // LB inject sync (requestCanvasFit runs before paint).
@@ -354,10 +354,6 @@ export default function SvgDesignCanvas({
     window.addEventListener(SPAWN_AT_SCREEN, onSpawn)
     return () => window.removeEventListener(SPAWN_AT_SCREEN, onSpawn)
   }, [])
-
-  useEffect(() => {
-    if (!connectSourceId) setRubberTip(null)
-  }, [connectSourceId])
 
   useEffect(() => {
     const host = hostRef.current
@@ -480,10 +476,8 @@ export default function SvgDesignCanvas({
           setConnectSourceId(nodeId)
         } else if (state.connectSourceId === nodeId) {
           setConnectSourceId(null)
-          setRubberTip(null)
         } else {
           addEdge(state.connectSourceId, nodeId)
-          setRubberTip(null)
         }
         return
       }
@@ -531,7 +525,12 @@ export default function SvgDesignCanvas({
         selectOnClick: !already,
       }
       dragRef.current = session
-      setDrag(session)
+      setDragLive({
+        ids: session.ids,
+        origins: session.origins,
+        dx: 0,
+        dy: 0,
+      })
       svg.setPointerCapture(e.pointerId)
     },
     [spaceDown, selectOnly, toggleInSelection, setConnectSourceId, addEdge],
@@ -632,8 +631,9 @@ export default function SvgDesignCanvas({
       if (!svg) return
 
       const world = clientToWorld(svg, e.clientX, e.clientY)
-      if (useSvgCanvasStore.getState().connectSourceId) {
-        setRubberTip(world)
+      if (useSvgCanvasStore.getState().connectSourceId && rubberLineRef.current) {
+        rubberLineRef.current.setAttribute('x2', String(world.x))
+        rubberLineRef.current.setAttribute('y2', String(world.y))
       }
 
       if (marqueeActive.current && marqueeRef.current) {
@@ -675,7 +675,12 @@ export default function SvgDesignCanvas({
         dy: world.y - session.grabWorld.y,
       }
       dragRef.current = updated
-      setDrag(updated)
+      setDragLive({
+        ids: updated.ids,
+        origins: updated.origins,
+        dx: updated.dx,
+        dy: updated.dy,
+      })
     },
     [panning],
   )
@@ -706,7 +711,7 @@ export default function SvgDesignCanvas({
           selectOnly(session.primaryId)
         }
         dragRef.current = null
-        setDrag(null)
+        setDragLive(null)
         try {
           e.currentTarget.releasePointerCapture(e.pointerId)
         } catch {
@@ -751,7 +756,6 @@ export default function SvgDesignCanvas({
           const st = useSvgCanvasStore.getState()
           if (st.connectMode) {
             setConnectSourceId(null)
-            setRubberTip(null)
           } else if (st.placingArchetype) {
             placeNodeAt(world.x, world.y)
           } else {
@@ -786,25 +790,7 @@ export default function SvgDesignCanvas({
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
-  const liveById = useMemo(() => {
-    if (!drag) return null as Map<string, WorldPoint> | null
-    const map = new Map<string, WorldPoint>()
-    for (const id of drag.ids) {
-      const o = drag.origins[id]
-      map.set(id, { x: o.x + drag.dx, y: o.y + drag.dy })
-    }
-    return map
-  }, [drag])
-
-  const liveZones = useMemo(() => {
-    if (!liveById) return zones
-    return nodes.flatMap((n) => {
-      const live = liveById.get(n.id)
-      const node = live ? { ...n, x: live.x, y: live.y } : n
-      const z = syncZoneForNode(node)
-      return z ? [z] : []
-    })
-  }, [zones, nodes, liveById])
+  const edgeRenderModel = useEdgeRenderModel(edges)
 
   const walkthroughActiveNodeId = useCanvasStore((s) => s.walkthroughActiveNodeId)
   const walkthroughVisitedNodeIds = useCanvasStore(
@@ -846,11 +832,10 @@ export default function SvgDesignCanvas({
     if (nSel === 1) {
       const id = selectedIds[0]
       const node = nodes.find((n) => n.id === id)
-      const live = liveById?.get(id) ?? (node ? { x: node.x, y: node.y } : null)
-      if (!live || !node) return `1 selected · ${nodes.length} nodes`
-      const snapped = snapWorld(live.x, live.y)
+      if (!node) return `1 selected · ${nodes.length} nodes`
+      const snapped = snapWorld(node.x, node.y)
       const iso = screenToIso(snapped.x, snapped.y)
-      return `${drag ? 'glide' : 'rest'} ${node.label} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
+      return `rest ${node.label} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
     }
     return `${nSel} selected · ${nodes.length} nodes`
   }, [
@@ -858,25 +843,29 @@ export default function SvgDesignCanvas({
     edges.length,
     selectedIds,
     selectedEdgeIds,
-    drag,
     placingArchetype,
-    liveById,
     connectMode,
     connectSourceId,
   ])
 
   const rubberFrom = useMemo(() => {
-    if (!connectSourceId) return null
+    if (!connectSourceId) {
+      rubberFromRef.current = null
+      return null
+    }
     const n = nodes.find((x) => x.id === connectSourceId)
-    if (!n) return null
-    return attachPoint(n, rubberTip)
-  }, [connectSourceId, nodes, rubberTip])
+    if (!n) {
+      rubberFromRef.current = null
+      return null
+    }
+    const from = attachPoint(n, null)
+    rubberFromRef.current = from
+    return from
+  }, [connectSourceId, nodes])
 
   const viewBoxStr = `${view.x} ${view.y} ${view.w} ${view.h}`
-  const cursor = drag || marquee
-    ? drag
-      ? 'cursor-grabbing'
-      : 'cursor-crosshair'
+  const cursor = marquee
+    ? 'cursor-crosshair'
     : panning && panMoved.current
       ? 'cursor-grabbing'
       : placingArchetype || connectMode
@@ -1041,8 +1030,9 @@ export default function SvgDesignCanvas({
             viewW={view.w}
             viewH={view.h}
           />
-          <ZoneLayer
-            zones={liveZones}
+          <LiveZoneLayer
+            zones={zones}
+            nodes={nodes}
             selectedOwnerIds={selectedIds}
             ownerOpacityById={walkthroughOpacityById ?? undefined}
             onZonePointerDown={onZonePointerDown}
@@ -1056,52 +1046,40 @@ export default function SvgDesignCanvas({
             floorTheme={floorThemeId}
             paint="segments"
             hoveredEdgeId={hoveredEdgeId}
+            model={edgeRenderModel}
             onEdgePointerDown={onEdgePointerDown}
             onEdgePointerEnter={onEdgePointerEnter}
             onEdgePointerLeave={onEdgePointerLeave}
           />
           <TrafficLayer edges={edges} />
-          {rubberFrom && rubberTip ? (
+          {rubberFrom ? (
             <line
+              ref={rubberLineRef}
               data-export-strip=""
               x1={rubberFrom.x}
               y1={rubberFrom.y}
-              x2={rubberTip.x}
-              y2={rubberTip.y}
+              x2={rubberFrom.x}
+              y2={rubberFrom.y}
               stroke="#3b82f6"
               strokeWidth={1.5}
               strokeDasharray="6 4"
               style={{ pointerEvents: 'none' }}
             />
           ) : null}
-          {sortedNodes.map((node) => {
-            const live = liveById?.get(node.id) ?? { x: node.x, y: node.y }
-            const opacity = walkthroughOpacityById?.get(node.id) ?? 1
-            return (
-              <g
-                key={node.id}
-                opacity={opacity}
-                data-export-node=""
-                data-node-id={node.id}
-                data-node-label={node.label}
-                data-node-archetype={node.archetype}
-                data-node-engine={exportBrandKey(node.archetype, node.engine)}
-              >
-                <NodeGlyph
-                  node={node}
-                  x={live.x}
-                  y={live.y}
-                  selected={
-                    selectedSet.has(node.id) || node.id === connectSourceId
-                  }
-                  interactive={!spaceDown && !panning && !marquee}
-                  onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
-                  onPointerEnter={() => onNodePointerEnter(node.id)}
-                  onPointerLeave={() => onNodePointerLeave(node.id)}
-                />
-              </g>
-            )
-          })}
+          {sortedNodes.map((node) => (
+            <LiveNodeGlyph
+              key={node.id}
+              node={node}
+              selected={
+                selectedSet.has(node.id) || node.id === connectSourceId
+              }
+              interactive={!spaceDown && !panning && !marquee}
+              opacity={walkthroughOpacityById?.get(node.id) ?? 1}
+              onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
+              onPointerEnter={() => onNodePointerEnter(node.id)}
+              onPointerLeave={() => onNodePointerLeave(node.id)}
+            />
+          ))}
           <EdgeLayer
             edges={edges}
             selectedEdgeIds={selectedEdgeIds}
@@ -1109,19 +1087,16 @@ export default function SvgDesignCanvas({
             floorTheme={floorThemeId}
             paint="terminals"
             hoveredEdgeId={hoveredEdgeId}
+            model={edgeRenderModel}
             onEdgePointerDown={onEdgePointerDown}
             onEdgePointerEnter={onEdgePointerEnter}
             onEdgePointerLeave={onEdgePointerLeave}
           />
           <NodeLabelChrome
             nodes={sortedNodes}
-            liveById={liveById ?? undefined}
             opacityById={walkthroughOpacityById ?? undefined}
           />
-          <WalkthroughNodeOverlay
-            nodes={sortedNodes}
-            liveById={liveById ?? undefined}
-          />
+          <WalkthroughNodeOverlay nodes={sortedNodes} />
           {marqueeRect && marqueeRect.w + marqueeRect.h > 0 ? (
             <rect
               data-export-strip=""

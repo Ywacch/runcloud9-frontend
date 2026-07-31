@@ -1,3 +1,4 @@
+import { memo, type PointerEvent as ReactPointerEvent } from 'react'
 import { composeGlyph } from '../compose/composeGlyph'
 import { useUnitOffsetsTween } from '../hooks/useUnitOffsetsTween'
 import { resolveSkin } from '../skins/engineSkins'
@@ -6,7 +7,6 @@ import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import { ClientLoadgenGlyph } from './ClientLoadgenGlyph'
 import { RedisBrandGlyph } from './RedisBrandGlyph'
 import { SpriteBackedGlyph } from './SpriteBackedGlyph'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type NodeGlyphProps = {
   node: SvgNode
@@ -21,7 +21,7 @@ type NodeGlyphProps = {
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
 }
 
-export function NodeGlyph({
+function NodeGlyphInner({
   node,
   x,
   y,
@@ -119,3 +119,26 @@ export function NodeGlyph({
       )
   }
 }
+
+function nodeGlyphPropsEqual(a: NodeGlyphProps, b: NodeGlyphProps): boolean {
+  return (
+    a.node.id === b.node.id &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.selected === b.selected &&
+    a.interactive === b.interactive &&
+    a.healthVisual === b.healthVisual &&
+    a.node.archetype === b.node.archetype &&
+    a.node.engine === b.node.engine &&
+    a.node.label === b.node.label &&
+    a.node.healthVisual === b.node.healthVisual &&
+    a.node.topology.replicas === b.node.topology.replicas &&
+    a.node.topology.shards === b.node.topology.shards &&
+    a.node.topology.packing === b.node.topology.packing &&
+    a.onPointerDown === b.onPointerDown &&
+    a.onPointerEnter === b.onPointerEnter &&
+    a.onPointerLeave === b.onPointerLeave
+  )
+}
+
+export const NodeGlyph = memo(NodeGlyphInner, nodeGlyphPropsEqual)

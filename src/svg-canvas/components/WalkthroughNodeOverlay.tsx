@@ -4,6 +4,8 @@ import {
   walkthroughNodeRole,
 } from '../../canvas/utils/walkthroughVisual'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useDragLiveEpoch } from '../hooks/useEdgeRenderModel'
+import { getDragLive } from '../store/dragLiveStore'
 import type { SvgNode } from '../store/svgTypes'
 import {
   WALKTHROUGH_CYAN,
@@ -91,8 +93,6 @@ function VisitedFrame({
 
 type WalkthroughNodeOverlayProps = {
   nodes: SvgNode[]
-  /** Live drag positions keyed by id. */
-  liveById?: Map<string, { x: number; y: number }>
 }
 
 /**
@@ -101,8 +101,9 @@ type WalkthroughNodeOverlayProps = {
  */
 export function WalkthroughNodeOverlay({
   nodes,
-  liveById,
 }: WalkthroughNodeOverlayProps) {
+  useDragLiveEpoch()
+  const drag = getDragLive()
   const mode = useCanvasStore((s) => s.mode)
   const activeNodeId = useCanvasStore((s) => s.walkthroughActiveNodeId)
   const visitedNodeIds = useCanvasStore((s) => s.walkthroughVisitedNodeIds)
@@ -126,9 +127,9 @@ export function WalkthroughNodeOverlay({
       {nodes.map((node) => {
         const role = walkthroughNodeRole(node.id, state)
         if (role !== 'active' && role !== 'visited') return null
-        const live = liveById?.get(node.id)
-        const placed = live
-          ? { ...node, x: live.x, y: live.y }
+        const o = drag?.idSet.has(node.id) ? drag.origins[node.id] : null
+        const placed = o
+          ? { ...node, x: o.x + drag!.dx, y: o.y + drag!.dy }
           : node
         const box = walkthroughGlyphArtBox(placed)
         return (
