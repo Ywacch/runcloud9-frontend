@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Features } from '../components/landing/Features'
+import { Footer } from '../components/landing/Footer'
 import { Hero } from '../components/landing/Hero'
 import { Navbar } from '../components/landing/Navbar'
 import { referrerCategory, trackEvent, utmFieldsFromSearch } from '../lib/analytics'
@@ -19,6 +20,7 @@ export default function Landing() {
         <Hero />
         <Features />
       </main>
+      <Footer />
     </div>
   )
 }

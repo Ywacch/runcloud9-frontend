@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { trackEvent } from '../../lib/analytics'
+import { useAuthStore } from '../../product/stores/authStore'
 import { InteractiveCanvasHero } from './InteractiveCanvasHero'
 
 const GRAIN_BG =
@@ -14,6 +15,11 @@ const HERO_SVG_STYLE = {
 } as const
 
 export function Hero() {
+  const session = useAuthStore((s) => s.session)
+  const primaryHref = session ? '/dashboard' : '/canvas'
+  const primaryLabel = session ? 'Open Dashboard →' : 'Start Building →'
+  const primaryCta = session ? 'open_dashboard' : 'start_building'
+
   return (
     <section
       className="relative flex min-h-screen items-center overflow-hidden pt-14"
@@ -50,13 +56,13 @@ export function Hero() {
 
           <div className="flex flex-wrap gap-3">
             <Link
-              to="/canvas"
+              to={primaryHref}
               onClick={() =>
-                trackEvent('landing_cta_clicked', { ctaName: 'start_building' })
+                trackEvent('landing_cta_clicked', { ctaName: primaryCta })
               }
               className="rounded bg-c9-accent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-c9-accent-hover active:scale-[0.98]"
             >
-              Start Building →
+              {primaryLabel}
             </Link>
             <a
               href="#features"
