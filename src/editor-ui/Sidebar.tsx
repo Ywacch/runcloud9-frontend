@@ -9,6 +9,7 @@ import {
   type TemplateInfo,
 } from '../lib/api'
 import { ensureResourceProfilesLoaded } from '../lib/resourceProfileStore'
+import { ensureTopologyRulesLoaded } from '../lib/topologyRulesStore'
 import {
   debugAuthError,
   mapAuthErrorMessage,
@@ -186,6 +187,7 @@ export function Sidebar() {
   useEffect(() => {
     let cancelled = false
     void ensureResourceProfilesLoaded()
+    void ensureTopologyRulesLoaded()
     getTemplates()
       .then((rows) => {
         if (cancelled) return

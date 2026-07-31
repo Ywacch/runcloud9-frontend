@@ -1,14 +1,13 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import { canvasToBackend } from './typeMapping'
 import { assessGraphConstraints } from './graphConstraints'
+import { getConnectionRulesMap } from './topologyRulesStore'
+import type {
+  ConnectionRule,
+  SemanticComponentType,
+} from './topologyRulesTypes'
 
-export type SemanticComponentType =
-  | 'lb'
-  | 'app-server'
-  | 'db'
-  | 'cache'
-  | 'mq'
-  | 'worker'
+export type { ConnectionRule, SemanticComponentType } from './topologyRulesTypes'
 
 export type EdgeSemanticClass =
   | 'active'
@@ -16,12 +15,6 @@ export type EdgeSemanticClass =
   | 'unsupported'
   | 'invalid'
   | 'neutral'
-
-export interface ConnectionRule {
-  valid: boolean
-  supported: boolean
-  explanation: string
-}
 
 export interface EdgeSemanticResult {
   class: EdgeSemanticClass
@@ -56,105 +49,23 @@ export function semanticPairKey(
   return `${source}->${target}`
 }
 
-function buildConnectionRules(): Map<string, ConnectionRule> {
-  const m = new Map<string, ConnectionRule>()
-  const vs: ConnectionRule = { valid: true, supported: true, explanation: '' }
-  const invalid = (explanation: string): ConnectionRule => ({
-    valid: false,
-    supported: false,
-    explanation,
-  })
-  const unsup = (explanation: string): ConnectionRule => ({
-    valid: true,
-    supported: false,
-    explanation,
-  })
-
-  const dbPassive =
-    'Databases are passive stores — they do not initiate connections to other components'
-  const lbToDB =
-    'Load balancers distribute traffic to application servers, not databases directly'
-  const lbToCache =
-    'Load balancers route HTTP traffic to compute nodes, not cache stores'
-  const lbToMQ = 'Load balancers route HTTP traffic, not message queue connections'
-  const lbToWorker =
-    'Load balancers route HTTP to app-servers; workers consume from queues'
-  const cacheToApp = 'Cache nodes do not push data to application servers'
-  const cacheToLB = 'Cache nodes do not initiate traffic to load balancers'
-  const cacheToMQ = 'Cache nodes do not publish to message queues'
-  const cacheToWorker = 'Cache nodes do not push data to workers'
-  const cacheToCache = 'Cache-to-cache connections are not supported'
-  const mqToApp =
-    'Message queues deliver to workers, not back to app-servers (use a separate consumer)'
-  const mqToDB = 'Message queues do not write directly to databases; use a worker'
-  const mqToLB = 'Message queues do not route through load balancers'
-  const mqToCache = 'Message queues do not write to caches directly'
-  const mqToWorker =
-    'Workers depend on message queues; use worker → mq (not mq → worker)'
-  const mqToMQ = 'Queue chaining is not supported'
-  const workerToApp = 'Workers do not call back to app-servers'
-  const workerToLB =
-    'Workers process jobs from queues, they do not route through load balancers'
-  const workerToWorker = 'Worker chaining is not supported'
-  const appToLB =
-    'App-servers receive traffic from load balancers, they do not push connections to them'
-  const appToWorker =
-    'App-servers publish to message queues, not directly to workers'
-
-  const pair = (a: SemanticComponentType, b: SemanticComponentType, r: ConnectionRule) => {
-    m.set(ruleKey(a, b), r)
-  }
-
-  pair('lb', 'lb', unsup('Chained load balancers are not wired yet'))
-  pair('lb', 'app-server', vs)
-  pair('lb', 'db', invalid(lbToDB))
-  pair('lb', 'cache', invalid(lbToCache))
-  pair('lb', 'mq', invalid(lbToMQ))
-  pair('lb', 'worker', invalid(lbToWorker))
-
-  pair('app-server', 'lb', invalid(appToLB))
-  pair(
-    'app-server',
-    'app-server',
-    unsup('Service-to-service calls between app-servers are not wired yet'),
-  )
-  pair('app-server', 'db', vs)
-  pair('app-server', 'cache', vs)
-  pair('app-server', 'mq', vs)
-  pair('app-server', 'worker', invalid(appToWorker))
-
-  pair('db', 'lb', invalid(dbPassive))
-  pair('db', 'app-server', invalid(dbPassive))
-  pair('db', 'db', invalid(dbPassive))
-  pair('db', 'cache', invalid(dbPassive))
-  pair('db', 'mq', invalid(dbPassive))
-  pair('db', 'worker', invalid(dbPassive))
-
-  pair('cache', 'db', vs)
-  pair('cache', 'lb', invalid(cacheToLB))
-  pair('cache', 'app-server', invalid(cacheToApp))
-  pair('cache', 'cache', invalid(cacheToCache))
-  pair('cache', 'mq', invalid(cacheToMQ))
-  pair('cache', 'worker', invalid(cacheToWorker))
-
-  pair('mq', 'worker', invalid(mqToWorker))
-  pair('mq', 'lb', invalid(mqToLB))
-  pair('mq', 'app-server', invalid(mqToApp))
-  pair('mq', 'db', invalid(mqToDB))
-  pair('mq', 'cache', invalid(mqToCache))
-  pair('mq', 'mq', invalid(mqToMQ))
-
-  pair('worker', 'db', vs)
-  pair('worker', 'cache', vs)
-  pair('worker', 'mq', vs)
-  pair('worker', 'lb', invalid(workerToLB))
-  pair('worker', 'app-server', invalid(workerToApp))
-  pair('worker', 'worker', invalid(workerToWorker))
-
-  return m
+/** Live connection grid from GET /meta/topology-rules (fallback until loaded). */
+export function getConnectionRules(): Map<string, ConnectionRule> {
+  return getConnectionRulesMap()
 }
 
-export const CONNECTION_RULES = buildConnectionRules()
+/** @deprecated Prefer getConnectionRules() — kept for tests that inspect the map. */
+export const CONNECTION_RULES = {
+  has(key: string): boolean {
+    return getConnectionRulesMap().has(key)
+  },
+  get size(): number {
+    return getConnectionRulesMap().size
+  },
+  get(key: string): ConnectionRule | undefined {
+    return getConnectionRulesMap().get(key)
+  },
+}
 
 /** Platform fallback copy when template storytelling.edges omits a pair. */
 const ACTIVE_MEANINGS: Partial<Record<string, string>> = {
@@ -214,7 +125,7 @@ export function getConnectionRule(
   source: SemanticComponentType,
   target: SemanticComponentType,
 ): ConnectionRule | undefined {
-  return CONNECTION_RULES.get(ruleKey(source, target))
+  return getConnectionRulesMap().get(ruleKey(source, target))
 }
 
 export function classifySemanticPair(

@@ -1,5 +1,7 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import { canvasToBackend } from './typeMapping'
+import { getTopologyRulesCached } from './topologyRulesStore'
+import { formatTopologyMessage } from './topologyRulesTypes'
 
 function semanticOf(node: CanvasNode): string | null {
   const mapped = canvasToBackend[node.type]
@@ -11,9 +13,28 @@ function nodeDisplayName(node: CanvasNode): string {
   return label || node.id
 }
 
+function presenceMessage(id: string): string | undefined {
+  return getTopologyRulesCached().presence.find((p) => p.id === id)?.message
+}
+
+function singletonMessage(nodeType: string, count: number): string | undefined {
+  const rule = getTopologyRulesCached().singletons.find(
+    (s) => s.nodeType === nodeType,
+  )
+  if (!rule) return undefined
+  return formatTopologyMessage(rule.message, { count: String(count) })
+}
+
+function workerOutboundMessages() {
+  return getTopologyRulesCached().requiredOutbound.find(
+    (r) => r.nodeType === 'worker',
+  )
+}
+
 /**
  * Create-blocking whole-design issues (mirrors ganymede ValidateTopology /
  * AssessTopology presence rules + singleton Deployment names).
+ * Messages come from GET /meta/topology-rules (fallback until loaded).
  * Returns the first issue, same as BE validate stopping on the first error.
  */
 export function assessGraphConstraints(
@@ -40,28 +61,29 @@ export function assessGraphConstraints(
   }
 
   if (hasCache && !hasDB) {
-    return 'A cache node is present but no database — add a database or clarify whether Redis is your primary store.'
+    return presenceMessage('cache_without_db') ?? null
   }
   if (hasWorker && !hasMQ) {
-    return 'Workers consume from message queues — add a message queue to the design.'
+    return presenceMessage('worker_without_mq') ?? null
   }
   if (hasMQ && !hasWorker) {
-    return 'Message queue has no consumer — add a worker node.'
+    return presenceMessage('mq_without_worker') ?? null
   }
 
   if (appServers.length > 1) {
     return (
-      `only one app-server node is supported (found ${appServers.length}) — ` +
-      'scale with replicas on a single app-server instead of placing multiple nodes'
+      singletonMessage('app-server', appServers.length) ??
+      `only one app-server node is supported (found ${appServers.length})`
     )
   }
   if (workers.length > 1) {
     return (
-      `only one worker node is supported (found ${workers.length}) — ` +
-      'scale with replicas on a single worker instead of placing multiple nodes'
+      singletonMessage('worker', workers.length) ??
+      `only one worker node is supported (found ${workers.length})`
     )
   }
 
+  const outbound = workerOutboundMessages()
   const edgeList = Object.values(edges)
   for (const workerNode of workers) {
     let hasDBDep = false
@@ -82,13 +104,19 @@ export function assessGraphConstraints(
     }
     const name = nodeDisplayName(workerNode)
     if (!hasDBDep) {
-      return `worker "${name}" must connect to a db node (add worker -> db edge)`
+      return outbound
+        ? formatTopologyMessage(outbound.missingDbMessage, { name })
+        : `worker "${name}" must connect to a db node (add worker -> db edge)`
     }
     if (!hasMQDep) {
       if (hasInboundMQ) {
-        return `invalid worker/mq edge direction for worker "${name}": found mq -> worker; use worker -> mq`
+        return outbound
+          ? formatTopologyMessage(outbound.wrongMqDirectionMessage, { name })
+          : `invalid worker/mq edge direction for worker "${name}": found mq -> worker; use worker -> mq`
       }
-      return `worker "${name}" must connect to an mq node (add worker -> mq edge)`
+      return outbound
+        ? formatTopologyMessage(outbound.missingMqMessage, { name })
+        : `worker "${name}" must connect to an mq node (add worker -> mq edge)`
     }
   }
 
