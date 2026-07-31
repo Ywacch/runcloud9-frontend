@@ -73,7 +73,12 @@ import {
   templateTitleForId,
   type TemplateSelectAction,
 } from './TemplateModal'
-import { trackEvent, deploymentAnalyticsProperties, categorizeSafeError } from '../lib/analytics'
+import {
+  trackEvent,
+  deploymentAnalyticsProperties,
+  categorizeSafeError,
+  type DeployBlockedReason,
+} from '../lib/analytics'
 import { loginPathWithReturnTo } from '../lib/authReturn'
 import {
   deployAdmitStatusFromCreate,
@@ -329,15 +334,57 @@ export function Sidebar() {
       e.dataTransfer.setDragImage(getEmptyDragImage(), 0, 0)
     }
 
+  const trackDeployBlocked = useCallback(
+    (reason: DeployBlockedReason, templateId = snapshotTemplateId) => {
+      trackEvent('deploy_blocked', {
+        template: templateId ?? 'none',
+        reason,
+      })
+    },
+    [snapshotTemplateId],
+  )
+
+  const resolveDeployBlockedReason = useCallback((): DeployBlockedReason | null => {
+    if (nodeCount === 0) return 'empty_canvas'
+    if (!snapshotTemplateId) return 'no_template'
+    if (!selectedTemplate) return 'template_loading'
+    if (!selectedTemplate.deployable) return 'template_not_deployable'
+    if (quotaPreview) return 'resource_quota_exceeded'
+    if (topologyViolations.length > 0) return 'topology_violation'
+    return null
+  }, [
+    nodeCount,
+    quotaPreview,
+    selectedTemplate,
+    snapshotTemplateId,
+    topologyViolations.length,
+  ])
+
+  const trackDeployModalDismissed = useCallback(
+    (
+      mode: 'request_rejected' | 'simulation_recommended',
+      action: 'close' | 'dismiss' | 'simulate' | 'modify',
+    ) => {
+      trackEvent('deploy_modal_dismissed', {
+        template: snapshotTemplateId ?? 'none',
+        mode,
+        action,
+      })
+    },
+    [snapshotTemplateId],
+  )
+
   const runDeploy = useCallback(async () => {
     if (live || deploying) return
     if (nodeCount === 0) {
+      trackDeployBlocked('empty_canvas')
       setBanner('Add at least one node before deploying.')
       return
     }
 
     const stCheck = useCanvasStore.getState()
     if (!stCheck.snapshotTemplateId) {
+      trackDeployBlocked('no_template')
       setBanner('Select a template before deploying.')
       return
     }
@@ -355,6 +402,7 @@ export function Sidebar() {
 
     const me = useAuthStore.getState().currentUser
     if (isAtMonthlySessionCap(me)) {
+      trackDeployBlocked('monthly_session_limit', stCheck.snapshotTemplateId)
       const friendly = mapDeployRequestError(
         new ApiError(
           429,
@@ -415,6 +463,10 @@ export function Sidebar() {
       const result = await createDeployment(design)
 
       if (result.status === 'simulation_recommended') {
+        trackEvent('deploy_assessment_shown', {
+          template: design.template,
+          assessmentVerdict: 'simulation_recommended',
+        })
         setDeployModalMode('simulation_recommended')
         setDeploySimulationMessage(
           result.assessment?.explanation ??
@@ -479,6 +531,7 @@ export function Sidebar() {
     isPremiumUser,
     proceedWithDeployResult,
     setPendingDeployAfterAuth,
+    trackDeployBlocked,
   ])
 
   const handleDeploy = () => {
@@ -540,6 +593,8 @@ export function Sidebar() {
       setTearing(false)
     }
   }
+
+  const deployBlockedReason = resolveDeployBlockedReason()
 
   const statusLine = tearing
     ? 'Tearing down…'
@@ -737,18 +792,18 @@ export function Sidebar() {
           <>
             <button
               type="button"
-              disabled={
-                deploying ||
-                nodeCount === 0 ||
-                !snapshotTemplateId ||
-                !selectedTemplate ||
-                !selectedTemplate.deployable ||
-                Boolean(quotaPreview) ||
-                topologyViolations.length > 0
-              }
+              disabled={deploying}
               title={deployDisabledReason}
-              onClick={() => handleDeploy()}
-              className="w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
+              onClick={() => {
+                if (deployBlockedReason) {
+                  trackDeployBlocked(deployBlockedReason)
+                  return
+                }
+                handleDeploy()
+              }}
+              className={`w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50 ${
+                deployBlockedReason ? 'opacity-50' : ''
+              }`}
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>
@@ -818,6 +873,11 @@ export function Sidebar() {
         onAuthDismiss={dismissAuthModal}
         simulationRecommended={deploySimulationMessage}
         onClose={() => {
+          if (deployModalMode === 'request_rejected') {
+            trackDeployModalDismissed('request_rejected', 'dismiss')
+          } else if (deployModalMode === 'simulation_recommended') {
+            trackDeployModalDismissed('simulation_recommended', 'close')
+          }
           setDeployModalOpen(false)
           setDeployModalMode('progress')
           setDeployRequestMessage(null)
@@ -826,6 +886,7 @@ export function Sidebar() {
           setDeploying(false)
         }}
         onSimulateDesign={() => {
+          trackDeployModalDismissed('simulation_recommended', 'simulate')
           useCanvasStore.getState().setMode('simulate')
           setBanner(
             'Simulation mode — explore the design without cluster provisioning.',
@@ -838,6 +899,7 @@ export function Sidebar() {
           setDeploying(false)
         }}
         onModifyDesign={() => {
+          trackDeployModalDismissed('simulation_recommended', 'modify')
           setDeployModalOpen(false)
           setDeployModalMode('progress')
           setDeployRequestMessage(null)
