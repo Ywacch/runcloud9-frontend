@@ -9,6 +9,7 @@ import { useTemplateRegistryStore } from '../../editor-core/stores/templateRegis
 import { getCacheTopologyEdgeIssues } from '../../lib/cacheTopologyStrategy'
 import { classifyAllCanvasEdges } from '../../lib/connectionSemantics'
 import { paintForSemanticClass } from '../../lib/edgeSemanticPaint'
+import type { EdgeRenderModel } from '../hooks/useEdgeRenderModel'
 import {
   protocolBadgeLayout,
   protocolBadgeMidpoint,
@@ -45,6 +46,8 @@ type EdgeLayerProps = {
   floorTheme: FloorThemeId
   paint?: 'all' | 'segments' | 'terminals'
   hoveredEdgeId?: string | null
+  /** Precomputed once in parent — avoids duplicate classify work across mounts. */
+  model?: EdgeRenderModel
   onEdgePointerDown: (edgeId: string, e: ReactPointerEvent<SVGElement>) => void
   onEdgePointerEnter?: (edgeId: string) => void
   onEdgePointerLeave?: (edgeId: string) => void
@@ -57,6 +60,7 @@ export function EdgeLayer({
   floorTheme,
   paint = 'all',
   hoveredEdgeId = null,
+  model: modelProp,
   onEdgePointerDown,
   onEdgePointerEnter,
   onEdgePointerLeave,
@@ -77,30 +81,41 @@ export function EdgeLayer({
   )
   const svgNodes = useSvgCanvasStore((s) => s.nodes)
   const canvas = useCanvasStore.getState()
-  const walkthrough = isWalkthroughRunning(canvas)
+  const walkthroughFallback = isWalkthroughRunning(canvas)
   const showSemanticPaint =
-    (canvasMode === 'design' || canvasMode === 'simulate') && !walkthrough
-  const edgeSemantics = useMemo(
+    (canvasMode === 'design' || canvasMode === 'simulate') && !walkthroughFallback
+  const fallbackSemantics = useMemo(
     () =>
-      showSemanticPaint
-        ? classifyAllCanvasEdges(canvasNodes, canvasEdges, supportsWorker)
-        : {},
-    [showSemanticPaint, canvasNodes, canvasEdges, supportsWorker],
+      modelProp
+        ? null
+        : showSemanticPaint
+          ? classifyAllCanvasEdges(canvasNodes, canvasEdges, supportsWorker)
+          : {},
+    [modelProp, showSemanticPaint, canvasNodes, canvasEdges, supportsWorker],
   )
-  const topologyIssues = useMemo(
-    () => getCacheTopologyEdgeIssues(canvasNodes, canvasEdges),
-    [canvasNodes, canvasEdges],
+  const fallbackTopology = useMemo(
+    () =>
+      modelProp ? null : getCacheTopologyEdgeIssues(canvasNodes, canvasEdges),
+    [modelProp, canvasNodes, canvasEdges],
   )
-  const archetypeById = useMemo(() => {
+  const fallbackArchetype = useMemo(() => {
+    if (modelProp) return null
     const map = new Map<string, string>()
     for (const n of svgNodes) map.set(n.id, n.archetype)
     return map
-  }, [svgNodes])
-  const nodeById = useMemo(() => {
+  }, [modelProp, svgNodes])
+  const fallbackNodeById = useMemo(() => {
+    if (modelProp) return null
     const map = new Map<string, (typeof svgNodes)[number]>()
     for (const n of svgNodes) map.set(n.id, n)
     return map
-  }, [svgNodes])
+  }, [modelProp, svgNodes])
+
+  const edgeSemantics = modelProp?.edgeSemantics ?? fallbackSemantics ?? {}
+  const topologyIssues = modelProp?.topologyIssues ?? fallbackTopology ?? {}
+  const archetypeById = modelProp?.archetypeById ?? fallbackArchetype ?? new Map()
+  const nodeById = modelProp?.nodeById ?? fallbackNodeById ?? new Map()
+  const walkthrough = modelProp?.walkthrough ?? walkthroughFallback
 
   return (
     <g data-edge-layer>

@@ -1,4 +1,6 @@
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useDragLiveEpoch } from '../hooks/useEdgeRenderModel'
+import { getDragLive } from '../store/dragLiveStore'
 import type { SvgNode } from '../store/svgTypes'
 import {
   nodeChromeAnchors,
@@ -10,7 +12,6 @@ import {
 
 type NodeLabelChromeProps = {
   nodes: SvgNode[]
-  liveById?: Map<string, { x: number; y: number }>
   /** Walkthrough dimming keyed by node id. */
   opacityById?: Map<string, number>
 }
@@ -18,12 +19,14 @@ type NodeLabelChromeProps = {
 /**
  * Name labels, provisioned sublabels (design/simulate), replica badges, status dots.
  * Reads canvasStore for mode + node status / provisioned config.
+ * Subscribes to drag-live so labels follow dragged nodes without parent re-render.
  */
 export function NodeLabelChrome({
   nodes,
-  liveById,
   opacityById,
 }: NodeLabelChromeProps) {
+  useDragLiveEpoch()
+  const drag = getDragLive()
   const mode = useCanvasStore((s) => s.mode)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const showSublabel = shouldShowProvisionedSublabel(mode)
@@ -31,8 +34,10 @@ export function NodeLabelChrome({
   return (
     <g data-node-label-chrome style={{ pointerEvents: 'none' }}>
       {nodes.map((node) => {
-        const live = liveById?.get(node.id)
-        const placed = live ? { ...node, x: live.x, y: live.y } : node
+        const o = drag?.idSet.has(node.id) ? drag.origins[node.id] : null
+        const placed = o
+          ? { ...node, x: o.x + drag!.dx, y: o.y + drag!.dy }
+          : node
         const anchors = nodeChromeAnchors(placed)
         const canvasNode = canvasNodes[node.id]
         const opacity = opacityById?.get(node.id) ?? 1

@@ -105,6 +105,67 @@ function selectionFromCanvas(): string[] {
   return c.selectedId ? [c.selectedId] : []
 }
 
+function selectionEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+function patchSelectionFromCanvas(): void {
+  const next = selectionFromCanvas()
+  const prev = useSvgCanvasStore.getState()
+  if (selectionEqual(next, prev.selectedIds)) return
+  useSvgCanvasStore.setState({ selectedIds: next })
+}
+
+function patchPlacementFromCanvas(): void {
+  const c = useCanvasStore.getState()
+  const placingArchetype = c.placingNodeType
+    ? canvasTypeToArchetype(c.placingNodeType)
+    : null
+  const connectMode = c.designTool === 'connect'
+  const connectSourceId = c.pendingSourceId
+  const prev = useSvgCanvasStore.getState()
+  if (
+    prev.placingArchetype === placingArchetype &&
+    prev.connectMode === connectMode &&
+    prev.connectSourceId === connectSourceId
+  ) {
+    return
+  }
+  useSvgCanvasStore.setState({
+    placingArchetype,
+    connectMode,
+    connectSourceId,
+  })
+}
+
+type CanvasBridgeFields = {
+  nodes: ReturnType<typeof useCanvasStore.getState>['nodes']
+  edges: ReturnType<typeof useCanvasStore.getState>['edges']
+  mode: CanvasMode
+  selectedId: string | null
+  selectedIds: string[]
+  placingNodeType: CanvasNode['type'] | null
+  designTool: ReturnType<typeof useCanvasStore.getState>['designTool']
+  pendingSourceId: string | null
+}
+
+function bridgeFieldsFrom(
+  c: ReturnType<typeof useCanvasStore.getState>,
+): CanvasBridgeFields {
+  return {
+    nodes: c.nodes,
+    edges: c.edges,
+    mode: c.mode,
+    selectedId: c.selectedId,
+    selectedIds: c.selectedIds,
+    placingNodeType: c.placingNodeType,
+    designTool: c.designTool,
+    pendingSourceId: c.pendingSourceId,
+  }
+}
+
 function syncFromCanvas(): void {
   const c = useCanvasStore.getState()
   const projected = projectSvgScene(c.nodes, c.edges)
@@ -178,11 +239,31 @@ export function installCanvasSvgBridge(): void {
   }
   bridgeInstalled = true
   syncFromCanvas()
-  unsubscribeCanvas = useCanvasStore.subscribe(() => {
-    syncFromCanvas()
+  let prev = bridgeFieldsFrom(useCanvasStore.getState())
+  unsubscribeCanvas = useCanvasStore.subscribe((state) => {
+    const next = bridgeFieldsFrom(state)
+    const topologyChanged =
+      next.nodes !== prev.nodes ||
+      next.edges !== prev.edges ||
+      next.mode !== prev.mode
+    const selectionChanged =
+      next.selectedId !== prev.selectedId ||
+      next.selectedIds !== prev.selectedIds
+    const placementChanged =
+      next.placingNodeType !== prev.placingNodeType ||
+      next.designTool !== prev.designTool ||
+      next.pendingSourceId !== prev.pendingSourceId
+
+    if (topologyChanged) {
+      syncFromCanvas()
+    } else {
+      if (selectionChanged) patchSelectionFromCanvas()
+      if (placementChanged) patchPlacementFromCanvas()
+    }
+    prev = next
   })
-  unsubscribeMetrics = useMetricsStore.subscribe((state, prev) => {
-    if (state.metrics !== prev.metrics) patchLiveHealthVisuals()
+  unsubscribeMetrics = useMetricsStore.subscribe((state, prevMetrics) => {
+    if (state.metrics !== prevMetrics.metrics) patchLiveHealthVisuals()
   })
   unsubscribeChaos = useChaosStore.subscribe(() => {
     patchLiveHealthVisuals()
@@ -396,15 +477,18 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     ) {
       return
     }
-    recordCanvasHistory(canvas.nodes, canvas.edges)
-    withoutCanvasHistoryRecording(() => {
-      const st = useCanvasStore.getState()
-      for (const u of updates) {
-        if (!st.nodes[u.id]) continue
-        const snapped = snapWorld(u.x, u.y)
-        st.updateNodePosition(u.id, svgWorldToCanvasPosition(snapped.x, snapped.y))
-      }
-    })
+    const entries: Array<{ id: string; position: [number, number, number] }> =
+      []
+    for (const u of updates) {
+      if (!canvas.nodes[u.id]) continue
+      const snapped = snapWorld(u.x, u.y)
+      entries.push({
+        id: u.id,
+        position: svgWorldToCanvasPosition(snapped.x, snapped.y),
+      })
+    }
+    if (entries.length === 0) return
+    canvas.applyNodePositions(entries)
   },
 
   rerouteEdgesForNodes: (nodeIds) => {

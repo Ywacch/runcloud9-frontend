@@ -152,6 +152,10 @@ interface CanvasState {
 
   addNode: (node: CanvasNode) => void
   updateNodePosition: (id: string, pos: [number, number, number]) => void
+  /** One set() for many positions — one history entry, one bridge sync. */
+  applyNodePositions: (
+    updates: Array<{ id: string; position: [number, number, number] }>,
+  ) => void
   updateNodeConfig: (id: string, config: Partial<CanvasNode['config']>) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNodeStatus: (id: string, status: CanvasNode['status']) => void
@@ -257,6 +261,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!n || positionsEqual(n.position, pos)) return s
       recordCanvasHistory(s.nodes, s.edges)
       return { nodes: { ...s.nodes, [id]: { ...n, position: pos } } }
+    }),
+
+  applyNodePositions: (updates) =>
+    set((s) => {
+      if (updates.length === 0) return s
+      let changed = false
+      const nodes = { ...s.nodes }
+      for (const u of updates) {
+        const n = nodes[u.id]
+        if (!n || positionsEqual(n.position, u.position)) continue
+        nodes[u.id] = { ...n, position: u.position }
+        changed = true
+      }
+      if (!changed) return s
+      recordCanvasHistory(s.nodes, s.edges)
+      return { nodes }
     }),
 
   updateNodeConfig: (id, config) =>
