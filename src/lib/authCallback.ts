@@ -37,9 +37,9 @@ export function resolveTokenHashOtpType(type: string | null | undefined): EmailO
 
 export function postAuthRedirectPath(
   type: string | null | undefined,
-): '/set-password' | '/canvas' {
+): '/set-password' | '/dashboard' {
   if (type === 'recovery' || type === 'invite') return '/set-password'
-  return '/canvas'
+  return '/dashboard'
 }
 
 export function mergeAuthCallbackParams(

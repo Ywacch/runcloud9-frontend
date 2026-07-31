@@ -4,6 +4,7 @@ import { refreshCurrentUser } from '../lib/auth'
 import { C9Card } from '../editor-ui/c9Primitives'
 import { useAuthStore } from '../product/stores/authStore'
 import { displayPlanTierLabel } from '../lib/billingCopy'
+import { loginPathWithReturnTo } from '../lib/authReturn'
 
 export default function BillingSuccessPage() {
   const session = useAuthStore((s) => s.session)
@@ -46,6 +47,12 @@ export default function BillingSuccessPage() {
             Open canvas
           </Link>
           <Link
+            to="/dashboard"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors hover:bg-[var(--c9-badge-bg)]"
+          >
+            View dashboard
+          </Link>
+          <Link
             to="/profile"
             className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--c9-border)] px-4 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors hover:bg-[var(--c9-badge-bg)]"
           >
@@ -53,7 +60,7 @@ export default function BillingSuccessPage() {
           </Link>
           {!session ? (
             <Link
-              to="/login"
+              to={loginPathWithReturnTo('/profile')}
               className="text-sm text-[var(--c9-accent)] hover:underline"
             >
               Sign in

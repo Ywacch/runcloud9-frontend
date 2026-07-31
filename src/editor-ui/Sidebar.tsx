@@ -74,6 +74,7 @@ import {
   type TemplateSelectAction,
 } from './TemplateModal'
 import { trackEvent, deploymentAnalyticsProperties, categorizeSafeError } from '../lib/analytics'
+import { loginPathWithReturnTo } from '../lib/authReturn'
 import {
   deployAdmitStatusFromCreate,
   deployRejectReasonFromError,
@@ -796,7 +797,7 @@ export function Sidebar() {
         resourceBudget={deployResourceBudget}
         onRequestAction={
           deployRequestMessage?.actionLabel === 'Sign in'
-            ? () => navigate('/login')
+            ? () => navigate(loginPathWithReturnTo('/canvas'))
             : deployRequestMessage?.actionLabel === UPGRADE_TO_ENGINEER_LABEL
               ? () => {
                   void startEngineerCheckout().catch((err: unknown) => {
@@ -811,7 +812,7 @@ export function Sidebar() {
                   })
                 }
               : deployRequestMessage?.actionLabel
-                ? () => navigate('/login')
+                ? () => navigate(loginPathWithReturnTo('/canvas'))
                 : undefined
         }
         onAuthDismiss={dismissAuthModal}
