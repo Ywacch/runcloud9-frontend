@@ -47,6 +47,14 @@ function ruleKey(source: SemanticComponentType, target: SemanticComponentType): 
   return `${source}\0${target}`
 }
 
+/** Storytelling / YAML edge key, e.g. "app-server->cache". */
+export function semanticPairKey(
+  source: SemanticComponentType,
+  target: SemanticComponentType,
+): string {
+  return `${source}->${target}`
+}
+
 function buildConnectionRules(): Map<string, ConnectionRule> {
   const m = new Map<string, ConnectionRule>()
   const vs: ConnectionRule = { valid: true, supported: true, explanation: '' }
@@ -147,19 +155,27 @@ function buildConnectionRules(): Map<string, ConnectionRule> {
 
 export const CONNECTION_RULES = buildConnectionRules()
 
+/** Platform fallback copy when template storytelling.edges omits a pair. */
 const ACTIVE_MEANINGS: Partial<Record<string, string>> = {
-  [ruleKey('lb', 'app-server')]:
+  [semanticPairKey('lb', 'app-server')]:
     'Load balancer spreads HTTP traffic to these app pods.',
-  [ruleKey('app-server', 'db')]:
+  [semanticPairKey('app-server', 'db')]:
     'App gets DB credentials and queries Postgres.',
-  [ruleKey('app-server', 'cache')]:
+  [semanticPairKey('app-server', 'cache')]:
     'App gets cache host; uses this Redis for get/set (or proxy) per strategy.',
-  [ruleKey('app-server', 'mq')]: 'App gets queue host and can publish.',
-  [ruleKey('cache', 'db')]:
+  [semanticPairKey('app-server', 'mq')]: 'App gets queue host and can publish.',
+  [semanticPairKey('cache', 'db')]:
     'Proxy cache may fill or flush against this database.',
-  [ruleKey('worker', 'mq')]: 'Worker consumes from this queue.',
-  [ruleKey('worker', 'db')]: 'Worker reads and writes this database.',
-  [ruleKey('worker', 'cache')]: 'Worker can write timeline or cache keys.',
+  [semanticPairKey('worker', 'mq')]: 'Worker consumes from this queue.',
+  [semanticPairKey('worker', 'db')]: 'Worker reads and writes this database.',
+  [semanticPairKey('worker', 'cache')]: 'Worker can write timeline or cache keys.',
+}
+
+export function platformActiveMeaning(
+  source: SemanticComponentType,
+  target: SemanticComponentType,
+): string | undefined {
+  return ACTIVE_MEANINGS[semanticPairKey(source, target)]
 }
 
 const SEMANTIC_TYPES: SemanticComponentType[] = [
@@ -237,7 +253,7 @@ export function classifySemanticPair(
     }
   }
   const meaning =
-    ACTIVE_MEANINGS[ruleKey(source, target)] ??
+    platformActiveMeaning(source, target) ??
     `Valid ${source} → ${target} connection for this template.`
   return {
     class: 'active',

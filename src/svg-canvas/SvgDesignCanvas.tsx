@@ -32,7 +32,8 @@ import {
   walkthroughNodeAlpha,
   walkthroughNodeRole,
 } from '../canvas/utils/walkthroughVisual'
-import { classifyCanvasEdge } from '../lib/connectionSemantics'
+import { classifyCanvasEdgeMeaning } from '../lib/resolveEdgeMeaning'
+import { getTopologyFlags } from '../lib/componentRole'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
@@ -280,10 +281,18 @@ export default function SvgDesignCanvas({
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const storytelling = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
   const supportsWorker = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.supportsWorker !== false : true,
   )
   useSvgCanvasKeyboard()
+
+  const topologyFlags = useMemo(
+    () => getTopologyFlags(canvasNodes),
+    [canvasNodes],
+  )
 
   useEffect(() => {
     installCanvasSvgBridge()
@@ -585,7 +594,13 @@ export default function SvgDesignCanvas({
     if (!focusId) return null
     const edge = canvasEdges[focusId]
     if (!edge) return null
-    return classifyCanvasEdge(edge, canvasNodes, supportsWorker)
+    return classifyCanvasEdgeMeaning(
+      edge,
+      canvasNodes,
+      supportsWorker,
+      topologyFlags,
+      storytelling,
+    )
   }, [
     canvasMode,
     selectedEdgeIds,
@@ -593,6 +608,8 @@ export default function SvgDesignCanvas({
     canvasEdges,
     canvasNodes,
     supportsWorker,
+    topologyFlags,
+    storytelling,
   ])
 
   const onPointerDown = useCallback(
