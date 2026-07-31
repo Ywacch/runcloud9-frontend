@@ -40,7 +40,7 @@ describe('authCallback', () => {
   it('routes invite and recovery to set-password', () => {
     expect(postAuthRedirectPath('invite')).toBe('/set-password')
     expect(postAuthRedirectPath('recovery')).toBe('/set-password')
-    expect(postAuthRedirectPath('signup')).toBe('/canvas')
-    expect(postAuthRedirectPath(null)).toBe('/canvas')
+    expect(postAuthRedirectPath('signup')).toBe('/dashboard')
+    expect(postAuthRedirectPath(null)).toBe('/dashboard')
   })
 })

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuthStore } from '../../product/stores/authStore'
+import { loginPathWithReturnTo } from '../../lib/authReturn'
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -75,16 +76,24 @@ export function Navbar() {
             )}
           </button>
           {session ? (
-            <button
-              type="button"
-              onClick={() => void supabase.auth.signOut()}
-              className="rounded border border-c9-border-strong px-4 py-1.5 text-sm text-c9-text-muted transition-colors hover:border-c9-accent hover:text-c9-text"
-            >
-              Log out
-            </button>
+            <>
+              <Link
+                to="/dashboard"
+                className="rounded border border-c9-border-strong px-4 py-1.5 text-sm text-c9-text-muted transition-colors hover:border-c9-accent hover:text-c9-text"
+              >
+                Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={() => void supabase.auth.signOut()}
+                className="rounded border border-c9-border-strong px-4 py-1.5 text-sm text-c9-text-muted transition-colors hover:border-c9-accent hover:text-c9-text"
+              >
+                Log out
+              </button>
+            </>
           ) : (
             <Link
-              to="/login"
+              to={loginPathWithReturnTo('/dashboard')}
               className="px-3 py-1.5 text-sm text-c9-text-muted transition-colors hover:text-c9-text"
             >
               Log in
@@ -137,17 +146,27 @@ export function Navbar() {
               Toggle theme
             </button>
             {session ? (
-              <button
-                type="button"
-                onClick={() => void supabase.auth.signOut()}
-                className="rounded border border-c9-border-strong px-4 py-2 text-left text-sm text-c9-text-muted"
-              >
-                Log out
-              </button>
+              <>
+                <Link
+                  to="/dashboard"
+                  className="rounded border border-c9-border-strong px-4 py-2 text-center text-sm text-c9-text-muted"
+                  onClick={() => setOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void supabase.auth.signOut()}
+                  className="rounded border border-c9-border-strong px-4 py-2 text-left text-sm text-c9-text-muted"
+                >
+                  Log out
+                </button>
+              </>
             ) : (
               <Link
-                to="/login"
+                to={loginPathWithReturnTo('/dashboard')}
                 className="px-3 py-1.5 text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+                onClick={() => setOpen(false)}
               >
                 Log in
               </Link>

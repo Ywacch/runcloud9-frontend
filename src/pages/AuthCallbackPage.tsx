@@ -7,6 +7,7 @@ import {
 } from '../lib/authCallback'
 import { mapSupabaseOtpError } from '../lib/authErrorMessage'
 import { trackEvent } from '../lib/analytics'
+import { consumeAuthReturnTo } from '../lib/authReturn'
 import { supabase } from '../lib/supabase'
 import { C9Card, C9SectionTitle } from '../editor-ui/c9Primitives'
 
@@ -61,7 +62,13 @@ export default function AuthCallbackPage() {
         return
       }
 
-      navigate(postAuthRedirectPath(type), { replace: true })
+      const redirectPath = postAuthRedirectPath(type)
+      navigate(
+        redirectPath === '/set-password'
+          ? redirectPath
+          : consumeAuthReturnTo(redirectPath),
+        { replace: true },
+      )
     }
     void run()
   }, [navigate, searchParams])
