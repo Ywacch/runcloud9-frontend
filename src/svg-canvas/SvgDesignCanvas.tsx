@@ -34,10 +34,12 @@ import {
 } from '../canvas/utils/walkthroughVisual'
 import { classifyCanvasEdgeMeaning } from '../lib/resolveEdgeMeaning'
 import { getTopologyFlags } from '../lib/componentRole'
+import { assessGraphConstraints } from '../lib/graphConstraints'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
 import { EdgeMeaningStrip } from './components/EdgeMeaningStrip'
+import { GraphHonestyStrip } from './components/GraphHonestyStrip'
 import { EdgeStylePresetToggle } from './components/EdgeStylePresetToggle'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
@@ -612,6 +614,11 @@ export default function SvgDesignCanvas({
     storytelling,
   ])
 
+  const graphHonestyIssue = useMemo(() => {
+    if (canvasMode === 'live') return null
+    return assessGraphConstraints(canvasNodes, canvasEdges)
+  }, [canvasMode, canvasNodes, canvasEdges])
+
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       const svg = svgRef.current
@@ -1129,6 +1136,9 @@ export default function SvgDesignCanvas({
           ) : null}
         </svg>
         <SvgNodeTooltipOverlay />
+        {graphHonestyIssue ? (
+          <GraphHonestyStrip message={graphHonestyIssue} />
+        ) : null}
         {edgeMeaning ? <EdgeMeaningStrip result={edgeMeaning} /> : null}
       </div>
     </div>
