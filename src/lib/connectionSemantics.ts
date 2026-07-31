@@ -1,5 +1,6 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import { canvasToBackend } from './typeMapping'
+import { assessGraphConstraints } from './graphConstraints'
 
 export type SemanticComponentType =
   | 'lb'
@@ -305,28 +306,9 @@ export function classifyAllCanvasEdges(
 
 export function assessWholeDesign(
   nodes: Record<string, CanvasNode>,
+  edges: Record<string, CanvasEdge> = {},
 ): string | null {
-  let hasCache = false
-  let hasDB = false
-  let hasMQ = false
-  let hasWorker = false
-  for (const node of Object.values(nodes)) {
-    const semantic = canvasTypeToSemantic(node.type)
-    if (semantic === 'cache') hasCache = true
-    if (semantic === 'db') hasDB = true
-    if (semantic === 'mq') hasMQ = true
-    if (semantic === 'worker') hasWorker = true
-  }
-  if (hasCache && !hasDB) {
-    return 'A cache node is present but no database — add a database or clarify whether Redis is your primary store.'
-  }
-  if (hasWorker && !hasMQ) {
-    return 'Workers consume from message queues — add a message queue to the design.'
-  }
-  if (hasMQ && !hasWorker) {
-    return 'Message queue has no consumer — add a worker node.'
-  }
-  return null
+  return assessGraphConstraints(nodes, edges)
 }
 
 export interface DeployTopologyPreflight {
@@ -343,7 +325,7 @@ export function analyzeDeployTopology(
   edges: Record<string, CanvasEdge>,
   supportsWorker: boolean,
 ): DeployTopologyPreflight {
-  const wholeDesignIssue = assessWholeDesign(nodes)
+  const wholeDesignIssue = assessGraphConstraints(nodes, edges)
   const invalidEdges: DeployTopologyPreflight['invalidEdges'] = []
   const decorativeEdges: DeployTopologyPreflight['decorativeEdges'] = []
 

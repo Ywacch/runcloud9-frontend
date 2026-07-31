@@ -60,6 +60,7 @@ import {
   analyzeDeployTopology,
   type TopologyWarning,
 } from '../lib/connectionSemantics'
+import { assessGraphConstraints } from '../lib/graphConstraints'
 import {
   resolveEffectiveTier,
   resourceQuotaTier,
@@ -140,6 +141,11 @@ export function Sidebar() {
   const isPremiumUser = useAuthStore((s) => s.isPremium)
   const pendingDeployAfterAuth = useAuthStore((s) => s.pendingDeployAfterAuth)
   const setPendingDeployAfterAuth = useAuthStore((s) => s.setPendingDeployAfterAuth)
+
+  const graphHonestyIssue = useMemo(() => {
+    if (mode === 'live') return null
+    return assessGraphConstraints(nodes, edges)
+  }, [mode, nodes, edges])
 
   const [deploying, setDeploying] = useState(false)
   const [tearing, setTearing] = useState(false)
@@ -779,6 +785,15 @@ export function Sidebar() {
         {topologyBanner ? (
           <p className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100/90">
             {topologyBanner}
+          </p>
+        ) : null}
+        {graphHonestyIssue ? (
+          <p
+            className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-100/95"
+            data-graph-honesty-sidebar
+            role="status"
+          >
+            {graphHonestyIssue}
           </p>
         ) : null}
         <ul className="space-y-2">
