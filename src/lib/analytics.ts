@@ -92,7 +92,29 @@ export type AnalyticsEventMap = {
     template: string
     signalKind: 'room_to_provisioning' | 'running' | 'failed'
   }
+  deploy_assessment_shown: {
+    template: string
+    assessmentVerdict: 'simulation_recommended'
+  }
+  deploy_blocked: {
+    template: string
+    reason: DeployBlockedReason
+  }
+  deploy_modal_dismissed: {
+    template: string
+    mode: 'request_rejected' | 'simulation_recommended'
+    action: 'close' | 'dismiss' | 'simulate' | 'modify'
+  }
 }
+
+export type DeployBlockedReason =
+  | 'empty_canvas'
+  | 'no_template'
+  | 'template_loading'
+  | 'template_not_deployable'
+  | 'resource_quota_exceeded'
+  | 'topology_violation'
+  | 'monthly_session_limit'
 
 export type AnalyticsEventName = keyof AnalyticsEventMap
 
