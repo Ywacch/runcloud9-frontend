@@ -5,6 +5,7 @@ import type { DeploymentDesign, ResourceProfilesResponse } from './deploymentTyp
 import { ResourceBudgetApiError } from './resourceBudgetError'
 import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
+import type { TopologyRulesResponse } from './topologyRulesTypes'
 
 export type {
   DeploymentConn,
@@ -157,6 +158,13 @@ export async function getResourceProfiles(): Promise<ResourceProfilesResponse> {
   const res = await fetch(`${base}/meta/resource-profiles`)
   if (!res.ok) throw new Error(await readApiErrorMessage(res))
   return res.json() as Promise<ResourceProfilesResponse>
+}
+
+export async function getTopologyRules(): Promise<TopologyRulesResponse> {
+  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await fetch(`${base}/meta/topology-rules`)
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<TopologyRulesResponse>
 }
 
 export interface CurrentUserLimits {
