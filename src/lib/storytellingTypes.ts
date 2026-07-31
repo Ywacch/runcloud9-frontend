@@ -40,6 +40,11 @@ export interface NarrativeRuleContext {
 
 export interface StorytellingSpec {
   roles?: Record<string, StorytellingRoleSpec>
+  /**
+   * Edge teaching copy keyed by semantic pair, e.g. "app-server->cache".
+   * Same base/variants shape as roles. Missing keys fall back to platform defaults in FE.
+   */
+  edges?: Record<string, StorytellingRoleSpec>
   journeys?: StorytellingJourney[]
   narrativeContext?: Record<string, NarrativeRuleContext>
 }
