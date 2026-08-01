@@ -53,7 +53,7 @@ const DEPLOYABLE_NODE_TYPES = new Set([
 ])
 
 function replicasForBudget(node: DeploymentNode): number {
-  if (node.type === 'app-server') {
+  if (node.type === 'app-server' || node.type === 'worker') {
     return clampAppServerReplicas(node.config.replicas ?? 1)
   }
   const raw = Math.floor(Number(node.config.replicas ?? 1))

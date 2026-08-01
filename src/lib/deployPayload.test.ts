@@ -240,7 +240,7 @@ describe('deployConfigForNode', () => {
       config: { replicas: 4 },
       status: 'idle',
     })
-    expect(worker.replicas).toBeUndefined()
+    expect(worker.replicas).toBe(3)
   })
 
   it('keeps clamped compute replicas on the deploy wire', () => {

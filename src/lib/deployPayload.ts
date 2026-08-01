@@ -54,7 +54,7 @@ export function deployConfigForNode(
     config.engine = engine
     if (n.type === 'cache') config.cacheEngine = engine
   }
-  if (n.type === 'compute') {
+  if (n.type === 'compute' || n.type === 'worker') {
     config.replicas = clampAppServerReplicas(config.replicas ?? 1)
   } else if (!backendSupportsReplicas(n.type)) {
     // Force single instance on the wire; SVG packing may still show multi-unit demos.

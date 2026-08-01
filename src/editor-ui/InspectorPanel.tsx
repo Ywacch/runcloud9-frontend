@@ -38,6 +38,7 @@ import {
 } from '../lib/cacheTtl'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
+  APP_SERVER_REPLICA_MAX,
   APP_SERVER_REPLICA_MIN,
   clampAppServerReplicas,
 } from '../lib/replicaConfig'
@@ -1188,8 +1189,40 @@ function TypeFields({
       )
 
     case 'worker': {
+      const workerReplicas = clampAppServerReplicas(
+        c.replicas ?? 1,
+        APP_SERVER_REPLICA_MAX,
+      )
       return (
         <>
+          <div>
+            <label className={labelClass} htmlFor="worker-replicas">
+              Replicas
+            </label>
+            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+              Scale fan-out with replicas on a single worker node (max{' '}
+              {APP_SERVER_REPLICA_MAX}).
+            </p>
+            <input
+              id="worker-replicas"
+              type="number"
+              min={APP_SERVER_REPLICA_MIN}
+              max={APP_SERVER_REPLICA_MAX}
+              step={1}
+              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+              value={workerReplicas}
+              readOnly={readOnly}
+              disabled={readOnly}
+              onChange={(e) => {
+                if (readOnly) return
+                const n = Number(e.target.value)
+                if (!Number.isFinite(n)) return
+                updateConfig({
+                  replicas: clampAppServerReplicas(n, APP_SERVER_REPLICA_MAX),
+                })
+              }}
+            />
+          </div>
           <ResourceProfileFields
             idPrefix="worker"
             nodeType="worker"
