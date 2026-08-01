@@ -258,7 +258,7 @@ interface MetricsState {
   cascadeToast: WsEvent | null
   /** Non-fatal transport/polling issue while live session remains active. */
   streamWarning: string | null
-  /** True when playback buffer has insufficient samples ahead of playhead. */
+  /** True when playback cannot bracket the playhead (underrun / stale / reconnect). */
   chartFrozen: boolean
   /** True after WS reconnect until the buffer refills. */
   playbackCatchingUp: boolean

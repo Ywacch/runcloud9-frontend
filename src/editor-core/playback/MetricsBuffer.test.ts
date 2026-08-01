@@ -49,11 +49,13 @@ describe('MetricsBuffer', () => {
     expect(bracket!.t).toBeCloseTo(0.5)
   })
 
-  it('isFrozen when fewer than two samples ahead of playhead', () => {
+  it('isFrozen when playhead cannot be bracketed', () => {
     buffer.add(sample(2000))
     buffer.add(sample(4000))
-    expect(buffer.isFrozen(3500)).toBe(true)
-    buffer.add(sample(6000))
     expect(buffer.isFrozen(3500)).toBe(false)
+    expect(buffer.isFrozen(4000)).toBe(true)
+    expect(buffer.isFrozen(1000)).toBe(true)
+    buffer.add(sample(6000))
+    expect(buffer.isFrozen(4000)).toBe(false)
   })
 })
