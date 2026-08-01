@@ -35,6 +35,15 @@ import {
 import { classifyCanvasEdgeMeaning } from '../lib/resolveEdgeMeaning'
 import { getTopologyFlags } from '../lib/componentRole'
 import { assessGraphConstraints } from '../lib/graphConstraints'
+import {
+  findMultiSingletonGroup,
+  planSingletonCollapse,
+  singletonCollapseButtonLabel,
+} from '../lib/collapseSingleton'
+import { collapseMultiSingletonOnCanvas } from '../lib/collapseSingletonOnCanvas'
+import { APP_SERVER_REPLICA_MAX } from '../lib/replicaConfig'
+import { maxAppServerReplicasForUser } from '../lib/userTier'
+import { useAuthStore } from '../product/stores/authStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
@@ -619,6 +628,25 @@ export default function SvgDesignCanvas({
     return assessGraphConstraints(canvasNodes, canvasEdges)
   }, [canvasMode, canvasNodes, canvasEdges])
 
+  const currentUser = useAuthStore((s) => s.currentUser)
+  const userRecord = useAuthStore((s) => s.userRecord)
+  const singletonCollapse = useMemo(() => {
+    if (canvasMode === 'live') return null
+    const group = findMultiSingletonGroup(canvasNodes)
+    if (!group) return null
+    const maxAllowed =
+      group.kind === 'app-server'
+        ? (currentUser?.limits.maxAppServerReplicas ??
+          maxAppServerReplicasForUser(userRecord))
+        : APP_SERVER_REPLICA_MAX
+    return planSingletonCollapse(canvasNodes, canvasEdges, maxAllowed)
+  }, [canvasMode, canvasNodes, canvasEdges, currentUser, userRecord])
+
+  const onCollapseSingleton = useCallback(() => {
+    if (!singletonCollapse) return
+    collapseMultiSingletonOnCanvas(singletonCollapse.maxAllowed)
+  }, [singletonCollapse])
+
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       const svg = svgRef.current
@@ -1137,7 +1165,15 @@ export default function SvgDesignCanvas({
         </svg>
         <SvgNodeTooltipOverlay />
         {graphHonestyIssue ? (
-          <GraphHonestyStrip message={graphHonestyIssue} />
+          <GraphHonestyStrip
+            message={graphHonestyIssue}
+            collapseLabel={
+              singletonCollapse
+                ? singletonCollapseButtonLabel(singletonCollapse)
+                : undefined
+            }
+            onCollapse={singletonCollapse ? onCollapseSingleton : undefined}
+          />
         ) : null}
         {edgeMeaning ? <EdgeMeaningStrip result={edgeMeaning} /> : null}
       </div>

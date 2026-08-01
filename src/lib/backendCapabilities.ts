@@ -2,7 +2,7 @@
  * What the deployer can actually provision today. Visual code (SVG packing,
  * engine skins) may exceed this; user-facing controls and deploy payloads must not.
  * Mirrors ganymede: no `shards` handling, DB_ENGINE defaults postgresql, cache is redis.
- * Cache / DB / worker replica topology stays visual-only until BE owns it end-to-end.
+ * Cache / DB replica topology stays visual-only until BE owns it end-to-end.
  */
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
@@ -22,13 +22,13 @@ export const BACKEND_SUPPORTS_SHARDING = false
 
 /**
  * User-facing / deploy-wire replica counts.
- * Compute scales via config.replicas (+ auto-LB). Cache, DB, and worker stay at 1
- * until provisioned topology matches the SVG packing UI.
+ * Compute scales via config.replicas (+ auto-LB). Worker scales via Deployment replicas.
+ * Cache and DB stay at 1 until provisioned topology matches the SVG packing UI.
  */
 export const BACKEND_REPLICA_TYPES: ReadonlySet<CanvasNode['type']> = new Set([
   'compute',
+  'worker',
 ])
-
 export function backendEnginesForType(type: CanvasNode['type']): string[] {
   return BACKEND_ENGINES[type] ?? []
 }

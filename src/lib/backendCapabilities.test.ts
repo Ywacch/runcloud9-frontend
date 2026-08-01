@@ -41,11 +41,11 @@ describe('backendCapabilities', () => {
     expect(BACKEND_SUPPORTS_SHARDING).toBe(false)
   })
 
-  it('allows compute replicas only', () => {
+  it('allows compute and worker replicas on the deploy wire', () => {
     expect(backendSupportsReplicas('compute')).toBe(true)
+    expect(backendSupportsReplicas('worker')).toBe(true)
     expect(backendSupportsReplicas('cache')).toBe(false)
     expect(backendSupportsReplicas('database')).toBe(false)
-    expect(backendSupportsReplicas('worker')).toBe(false)
     expect(backendSupportsReplicas('message_queue')).toBe(false)
   })
 })

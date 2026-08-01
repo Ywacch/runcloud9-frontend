@@ -71,14 +71,17 @@ describe('canvasSvgAdapter config projection', () => {
     ).toBe(3)
     expect(configPatchForReplicas('database', 3)).toEqual({})
     expect(configPatchForReplicas('cache', 2)).toEqual({})
-    expect(configPatchForReplicas('worker', 2)).toEqual({})
   })
 
-  it('maps compute replicas both ways', () => {
+  it('maps compute and worker replicas both ways', () => {
     expect(
       replicasFromCanvasNode(node({ type: 'compute', config: { replicas: 3 } })),
     ).toBe(3)
     expect(configPatchForReplicas('compute', 2)).toEqual({ replicas: 2 })
+    expect(
+      replicasFromCanvasNode(node({ type: 'worker', config: { replicas: 2 } })),
+    ).toBe(2)
+    expect(configPatchForReplicas('worker', 2)).toEqual({ replicas: 2 })
   })
 
   it('reads shards from config for db/mq', () => {

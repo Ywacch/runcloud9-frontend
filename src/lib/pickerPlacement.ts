@@ -11,6 +11,7 @@ import { seedWriteBehindIntervalDefault } from './writeBehindInterval'
 import { seedCacheTtlSecondsDefault } from './cacheTtl'
 
 function maxReplicasForType(type: CanvasNode['type']): number {
+  if (type === 'worker') return APP_SERVER_REPLICA_MAX
   if (type !== 'compute') return APP_SERVER_REPLICA_MAX
   const { currentUser, userRecord } = useAuthStore.getState()
   return (
@@ -20,7 +21,7 @@ function maxReplicasForType(type: CanvasNode['type']): number {
 }
 
 function canScaleByReplica(type: CanvasNode['type']): boolean {
-  return type === 'compute'
+  return type === 'compute' || type === 'worker'
 }
 
 /**
@@ -39,9 +40,9 @@ function distXZ(
 }
 
 /**
- * Places a new node from the picker. For app servers (`compute`), dropping the
- * same type close enough to an existing node increments replicas instead of
- * spawning a duplicate. All other component types always create a new node.
+ * Places a new node from the picker. For app servers (`compute`) and workers,
+ * dropping the same type close enough to an existing node increments replicas
+ * instead of spawning a duplicate. All other component types always create a new node.
  */
 export function placeFromPicker(params: {
   nodeType: CanvasNode['type']
