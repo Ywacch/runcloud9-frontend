@@ -14,7 +14,6 @@ import {
 import { containerFreshnessHint } from '../lib/metricsFreshness'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import type { RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
-import { SparkLine } from './SparkLine'
 import { MetricChart } from './MetricChart'
 import { MetricHelpIcon, HoverInsight } from './MetricHelpIcon'
 
@@ -45,8 +44,15 @@ export function PanelViewControls({
         onClick={() => onChange({ timeframe: 'session' })}
         label="Session (9m)"
       />
+      <span className="ml-auto" />
+      <TogglePill
+        active={view.showGraphs}
+        onClick={() => onChange({ showGraphs: !view.showGraphs })}
+        label="Graphs"
+      />
       <span className="w-full text-[9px] leading-snug text-gray-600">
-        Totals use a rolling 9-minute Prometheus window.
+        Totals use a rolling 9-minute Prometheus window. Graphs use the same series with
+        freshness / playback hints when available.
       </span>
     </div>
   )
@@ -198,7 +204,7 @@ export function CapacityBar({
 }
 
 const chartClass =
-  'rounded-lg border border-gray-700/40 bg-[var(--c9-bg-card)]/70 p-2 shadow-none'
+  'rounded-lg border border-[var(--c9-border)]/60 bg-[var(--c9-bg-card)]/80 p-2.5 shadow-none'
 
 export function MetricSeriesGraph({
   data,
@@ -216,18 +222,8 @@ export function MetricSeriesGraph({
   showPlaybackDelay?: boolean
 }) {
   if (!view.showGraphs || data.length < 2) return null
-  if (view.timeframe === 'live') {
-    return (
-      <SparkLine
-        data={data}
-        color={color}
-        height={24}
-        width={120}
-        showArea
-        className="h-6 max-w-[8rem]"
-      />
-    )
-  }
+  // Live and session both use MetricChart so inspector graphs keep Railway-like
+  // visual quality (axes, area, hover) instead of a 24px micro-sparkline.
   return (
     <MetricChart
       title={title}
