@@ -39,7 +39,9 @@ import {
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   APP_SERVER_REPLICA_MIN,
+  LIVE_LB_ALGORITHMS,
   clampAppServerReplicas,
+  lbAlgorithmForDeploy,
 } from '../lib/replicaConfig'
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
@@ -823,7 +825,9 @@ function TypeFields({
   const c = node.config
 
   switch (node.type) {
-    case 'load_balancer':
+    case 'load_balancer': {
+      const rawAlgo = String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')
+      const liveAlgo = lbAlgorithmForDeploy(rawAlgo)
       return (
         <div className="space-y-4">
           <div>
@@ -833,19 +837,20 @@ function TypeFields({
             <select
               id="lb-algo"
               className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')}
+              value={simulationMode ? rawAlgo : liveAlgo}
               disabled={readOnly}
               onChange={(e) => {
                 if (readOnly) return
-                const prev = String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')
+                const prev = simulationMode ? rawAlgo : liveAlgo
                 const v = e.target.value
-                updateConfig({ algorithm: v, lbAlgorithm: v })
+                const next = simulationMode ? v : lbAlgorithmForDeploy(v)
+                updateConfig({ algorithm: next, lbAlgorithm: next })
                 const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
                 trackEvent('design_option_changed', {
                   template,
                   optionName: 'lb_algorithm',
                   previousCategory: prev,
-                  newCategory: v,
+                  newCategory: next,
                 })
               }}
             >
@@ -863,11 +868,11 @@ function TypeFields({
                   <option value="least-bandwidth">least-bandwidth</option>
                 </>
               ) : (
-                <>
-                  <option value="round-robin">round-robin</option>
-                  <option value="least_conn">least_conn</option>
-                  <option value="ip_hash">ip_hash</option>
-                </>
+                LIVE_LB_ALGORITHMS.map((algo) => (
+                  <option key={algo} value={algo}>
+                    {algo}
+                  </option>
+                ))
               )}
             </select>
           </div>
@@ -955,6 +960,7 @@ function TypeFields({
           ) : null}
         </div>
       )
+    }
 
     case 'compute': {
       const replicas = clampAppServerReplicas(c.replicas ?? 1, maxAppReplicas)
