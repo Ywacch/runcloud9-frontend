@@ -254,4 +254,22 @@ describe('deployConfigForNode', () => {
     })
     expect(app.replicas).toBe(2)
   })
+
+  it('keeps worker prefetch and concurrency knobs on the deploy wire', () => {
+    const worker = deployConfigForNode({
+      id: 'worker',
+      type: 'worker',
+      label: 'Worker',
+      position: [0, 0, 0],
+      config: {
+        replicas: 2,
+        workerPrefetch: 25,
+        workerConcurrency: 4,
+      },
+      status: 'idle',
+    })
+    expect(worker.replicas).toBe(2)
+    expect(worker.workerPrefetch).toBe(25)
+    expect(worker.workerConcurrency).toBe(4)
+  })
 })

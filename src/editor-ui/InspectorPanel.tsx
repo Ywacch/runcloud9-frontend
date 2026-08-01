@@ -64,6 +64,7 @@ import { DataBrowser } from './DataBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
 import { ResourceProfileFields } from './ResourceProfileFields'
+import { WorkerInspectorFields } from './WorkerInspectorFields'
 import { getResourceProfilesCached } from '../lib/resourceProfileStore'
 import {
   formatProvisionedShort,
@@ -1188,83 +1189,15 @@ function TypeFields({
         </>
       )
 
-    case 'worker': {
-      const workerReplicas = clampAppServerReplicas(
-        c.replicas ?? 1,
-        APP_SERVER_REPLICA_MAX,
-      )
+    case 'worker':
       return (
-        <>
-          <div>
-            <label className={labelClass} htmlFor="worker-replicas">
-              Replicas
-            </label>
-            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-              Scale fan-out with replicas on a single worker node (max{' '}
-              {APP_SERVER_REPLICA_MAX}).
-            </p>
-            <input
-              id="worker-replicas"
-              type="number"
-              min={APP_SERVER_REPLICA_MIN}
-              max={APP_SERVER_REPLICA_MAX}
-              step={1}
-              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={workerReplicas}
-              readOnly={readOnly}
-              disabled={readOnly}
-              onChange={(e) => {
-                if (readOnly) return
-                const n = Number(e.target.value)
-                if (!Number.isFinite(n)) return
-                updateConfig({
-                  replicas: clampAppServerReplicas(n, APP_SERVER_REPLICA_MAX),
-                })
-              }}
-            />
-          </div>
-          <ResourceProfileFields
-            idPrefix="worker"
-            nodeType="worker"
-            config={c}
-            updateConfig={updateConfig}
-            readOnly={readOnly}
-          />
-          {simulationMode ? (
-            <div>
-              <label className={labelClass} htmlFor="worker-cap">
-                Capacity override (RPS, optional)
-              </label>
-              <input
-                id="worker-cap"
-                type="number"
-                min={1}
-                step={1}
-                placeholder="Auto"
-                className={fieldClass}
-                value={
-                  Number.isFinite(Number(c.nodeCapacityRps)) &&
-                  Number(c.nodeCapacityRps) > 0
-                    ? String(Number(c.nodeCapacityRps))
-                    : ''
-                }
-                onChange={(e) => {
-                  const v = e.target.value.trim()
-                  if (!v) {
-                    updateConfig({ nodeCapacityRps: undefined })
-                    return
-                  }
-                  const n = Number(v)
-                  if (Number.isFinite(n) && n > 0) {
-                    updateConfig({ nodeCapacityRps: n })
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-        </>
+        <WorkerInspectorFields
+          config={c}
+          updateConfig={updateConfig}
+          readOnly={readOnly}
+          simulationMode={simulationMode}
+        />
       )
-    }
 
     case 'client':
       return (
