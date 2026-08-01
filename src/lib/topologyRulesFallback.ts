@@ -135,11 +135,31 @@ export const FALLBACK_TOPOLOGY_RULES: TopologyRulesResponse = {
       nodeType: 'app-server',
       message:
         'only one app-server node is supported (found {count}) — scale with replicas on a single app-server instead of placing multiple nodes',
+      scaleWithReplicas: true,
     },
     {
       nodeType: 'worker',
       message:
         'only one worker node is supported (found {count}) — scale with replicas on a single worker instead of placing multiple nodes',
+      scaleWithReplicas: true,
+    },
+    {
+      nodeType: 'cache',
+      message:
+        'only one cache node is supported (found {count}) — remove extra cache nodes; the platform provisions a single Redis service',
+      scaleWithReplicas: false,
+    },
+    {
+      nodeType: 'db',
+      message:
+        'only one db node is supported (found {count}) — remove extra database nodes; the platform provisions a single Postgres service',
+      scaleWithReplicas: false,
+    },
+    {
+      nodeType: 'mq',
+      message:
+        'only one mq node is supported (found {count}) — remove extra message queue nodes; the platform provisions a single queue service',
+      scaleWithReplicas: false,
     },
   ],
   requiredOutbound: [

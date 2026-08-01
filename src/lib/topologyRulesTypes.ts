@@ -31,6 +31,8 @@ export interface SingletonRule {
   nodeType: string
   /** Template with `{count}` placeholder. */
   message: string
+  /** When true, FE may offer merge-into-replicas collapse. */
+  scaleWithReplicas: boolean
 }
 
 export interface RequiredOutboundRule {
