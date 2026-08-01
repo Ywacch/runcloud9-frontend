@@ -150,7 +150,7 @@ export function GradePanel({ open, onClose }: GradePanelProps) {
                   </p>
                   <p className="mt-1 text-[11px] leading-snug text-[var(--c9-muted)]">
                     Pass = full credit, partial = half, fail = none. For
-                    teaching only — not a production SLO review.
+                    teaching only, not a production SLO review.
                   </p>
                 </div>
               </div>

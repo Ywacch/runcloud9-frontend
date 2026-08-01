@@ -22,7 +22,7 @@ const socialFeedStorytelling: StorytellingSpec = {
       variants: [
         {
           when: { topology: '!hasCache' },
-          label: 'No Redis on the canvas — feed reads fall back to Postgres JOINs.',
+          label: 'No Redis on the canvas. Feed reads fall back to Postgres JOINs.',
         },
       ],
     },

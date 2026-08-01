@@ -4,7 +4,7 @@ import type { JourneyBackendComponent } from '../../lib/requestJourney'
 
 const ACCEPT_ANNOTATION = {
   nodeId: 'app-server',
-  text: '202 Accepted — response returns here',
+  text: '202 Accepted. Response returns here',
   side: 'top' as const,
 }
 
@@ -23,7 +23,7 @@ const FANOUT_FINAL_STEP: DiagramStepState = {
   activeArrows: ['worker→cache-bob', 'worker→cache-mike', 'worker→cache-user123'],
   annotation: {
     nodeId: 'worker',
-    text: 'ZADD timeline:{followerId} — one write per follower',
+    text: 'ZADD timeline:{followerId}. One write per follower',
     side: 'bottom',
   },
 }

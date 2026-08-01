@@ -87,7 +87,7 @@ export function CacheStrategyPerformanceSection({
         }
       />
       <p className="rounded border border-gray-800/80 bg-gray-950/40 px-2.5 py-2 text-[10px] leading-snug text-gray-500">
-        App logical hits and misses — not Redis GET/SET command counters.
+        App logical hits and misses, not Redis GET/SET command counters.
       </p>
     </PedagogicalSection>
   )
@@ -449,7 +449,7 @@ export function CacheSessionTotalsDisclosure({
       ) : null}
       <PedagogicalHint tone="sky">
         {keyspaceDrift
-          ? 'App hit rate and keyspace counters differ by more than 10% — check pod aggregation scope.'
+          ? 'App hit rate and keyspace counters differ by more than 10%. Check pod aggregation scope.'
           : 'Session totals use a rolling 9-minute window; live hit rate above uses a shorter window.'}
       </PedagogicalHint>
     </InspectorDisclosure>

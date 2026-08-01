@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { FALLBACK_TOPOLOGY_RULES } from './topologyRulesFallback'
-import type { ConnectionRule, TopologyRulesResponse } from './topologyRulesTypes'
+import {
+  scrubTopologyRulesMessages,
+  type ConnectionRule,
+  type TopologyRulesResponse,
+} from './topologyRulesTypes'
 
 function ruleKey(source: string, target: string): string {
   return `${source}\0${target}`
@@ -44,9 +48,10 @@ export function getConnectionRulesMap(): Map<string, ConnectionRule> {
 
 /** Replace platform rules (from API or tests). */
 export function applyTopologyRules(rules: TopologyRulesResponse): void {
+  const scrubbed = scrubTopologyRulesMessages(rules)
   useTopologyRulesStore.setState({
-    rules,
-    connectionMap: buildConnectionMap(rules),
+    rules: scrubbed,
+    connectionMap: buildConnectionMap(scrubbed),
   })
 }
 

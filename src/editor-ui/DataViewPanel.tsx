@@ -509,7 +509,7 @@ function EcommercePlayground({
             {catalogStatus.kind === 'truncated'
               ? `Showing ${catalogStatus.shown} of ${catalogStatus.matchCount} matches${
                   catalogStatus.filtered ? '' : ` (${catalogStatus.total} total)`
-                } — narrow your search to see more.`
+                }. Narrow your search to see more.`
               : catalogStatus.kind === 'filtered'
                 ? `${catalogStatus.matchCount} of ${catalogStatus.total} products match.`
                 : `${catalogStatus.matchCount} products loaded.`}
@@ -774,13 +774,13 @@ function SocialFeedPlayground({
               </ul>
             ) : sfUsers.length > 0 && pickerFiltered ? (
               <p className="text-[10px] text-[var(--c9-muted)]">
-                No match in the {sfUsers.length} loaded users — use Look up for ids outside
+                No match in the {sfUsers.length} loaded users. Use Look up for ids outside
                 that page.
               </p>
             ) : null}
             {sfUsers.length > 0 && pickerFiltered && pickerMatches.length >= SF_PICKER_FILTER_MAX ? (
               <p className="text-[10px] text-[var(--c9-muted)]">
-                Showing first {SF_PICKER_FILTER_MAX} filter matches — refine search or Look up.
+                Showing first {SF_PICKER_FILTER_MAX} filter matches. Refine search or Look up.
               </p>
             ) : null}
             {sfUsers.length > 0 && !pickerFiltered && sfPoolSize > sfUsers.length ? (
@@ -1050,7 +1050,7 @@ function TraceWaterfallRow({
   const detail = traceOpDetail(line)
   const label = traceOpLabel(line)
   const hasDetail = detail.length > 0
-  const fullTitle = hasDetail ? `${label} — ${detail}` : label
+  const fullTitle = hasDetail ? `${label}: ${detail}` : label
   const barTitle =
     Number.isFinite(logged) && logged > 0
       ? `${logged}ms (bar capped for display)`
@@ -1446,7 +1446,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
                           : 'text-[var(--c9-muted)]'
                       }`}
                     >
-                      · {t.requestId.slice(0, 8)} — {t.label} — {t.durationMs}ms
+                      · {t.requestId.slice(0, 8)} · {t.label} · {t.durationMs}ms
                       {t.status >= 400 ? (
                         <span className="text-red-400"> ({t.status})</span>
                       ) : null}

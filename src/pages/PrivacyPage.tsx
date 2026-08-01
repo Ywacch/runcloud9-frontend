@@ -23,7 +23,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong className="text-[var(--c9-text)]">Usage analytics:</strong> product events
-          (e.g. canvas opened, deploy requested) via PostHog, with coarse error categories — not
+          (e.g. canvas opened, deploy requested) via PostHog, with coarse error categories, not
           raw backend error text.
         </li>
         <li>

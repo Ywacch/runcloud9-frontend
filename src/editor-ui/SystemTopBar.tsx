@@ -298,7 +298,7 @@ export function SystemTopBar() {
                 <button
                   key={row.id}
                   type="button"
-                  title={`${row.label} — click for request journey`}
+                  title={`${row.label}: click for request journey`}
                   onClick={() => openJourney(jid)}
                   className="inline-flex max-w-full cursor-pointer items-center gap-1 rounded bg-[var(--c9-surface)] px-1.5 py-0.5 text-left text-[10px] text-[var(--c9-muted)] ring-1 ring-[var(--c9-border)] transition-all hover:ring-2 hover:ring-cyan-400/40"
                 >

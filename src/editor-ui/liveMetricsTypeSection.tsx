@@ -323,7 +323,7 @@ export function LiveMetricsTypeSection({
           {showLegacyRedisOps ? (
             <PedagogicalSection
               title="Engine throughput (USE)"
-              subtitle="Legacy redisOpsPerSec — prefer storageIo when available"
+              subtitle="Legacy redisOpsPerSec; prefer storageIo when available"
             >
               <StatBlock
                 label="Redis ops"
