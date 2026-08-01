@@ -112,7 +112,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
       : liveReplicaRows
   const [panelView, setPanelView] = useState<PanelViewState>({
     timeframe: 'live',
-    showGraphs: false,
+    showGraphs: true,
   })
 
   const simInspectorCallout = useMemo(() => {
