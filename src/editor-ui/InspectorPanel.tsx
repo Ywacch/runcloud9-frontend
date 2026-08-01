@@ -38,7 +38,6 @@ import {
 } from '../lib/cacheTtl'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
-  APP_SERVER_REPLICA_MAX,
   APP_SERVER_REPLICA_MIN,
   clampAppServerReplicas,
 } from '../lib/replicaConfig'
