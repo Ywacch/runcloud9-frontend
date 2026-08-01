@@ -32,7 +32,7 @@ export function cacheStrategyBanner(strategy: string): {
       return {
         title: 'Cache strategy: Write-through',
         subtitle:
-          'Cache SET then sync the database; DEL + error if the DB write fails. Stronger durability on the write path — pays proxy + sync DB cost.',
+          'Cache SET then sync the database; DEL + error if the DB write fails. Stronger durability on the write path. Pays proxy + sync DB cost.',
       }
     case 'write-behind':
       return {
@@ -45,7 +45,7 @@ export function cacheStrategyBanner(strategy: string): {
       return {
         title: 'Cache strategy: Write-through',
         subtitle:
-          'Cache SET then sync the database; DEL + error if the DB write fails. Stronger durability on the write path — pays proxy + sync DB cost.',
+          'Cache SET then sync the database; DEL + error if the DB write fails. Stronger durability on the write path. Pays proxy + sync DB cost.',
       }
     case 'timeline-store':
       return {
@@ -57,7 +57,7 @@ export function cacheStrategyBanner(strategy: string): {
       return {
         title: 'Cache strategy: Cache-aside',
         subtitle:
-          'App owns the cache; misses hit the database. Cheapest hot path — consistency is the app’s job. Immutable keys: no SET on write; warm on first GET.',
+          'App owns the cache; misses hit the database. Cheapest hot path. Consistency is the app’s job. Immutable keys: no SET on write; warm on first GET.',
       }
   }
 }

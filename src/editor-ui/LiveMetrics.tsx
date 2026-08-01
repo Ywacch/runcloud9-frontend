@@ -125,7 +125,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
       return 'Waiting for first simulation tick…'
     }
     if (simPaused) {
-      return 'Simulation is paused — inspector detail will update when you resume.'
+      return 'Simulation is paused. Inspector detail will update when you resume.'
     }
     return 'No simulation breakdown for this node yet.'
   }, [mode, simDetail, simRunning, simPaused, lastTickWallClockMs])

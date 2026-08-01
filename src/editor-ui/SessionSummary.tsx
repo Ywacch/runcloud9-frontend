@@ -67,7 +67,7 @@ export function SessionSummaryView({
             Steady state (after 30s warmup)
           </h3>
           <p className="text-[10px] text-[var(--c9-muted)]">
-            Prefer these for cache A/B comparisons — not session peaks.
+            Prefer these for cache A/B comparisons, not session peaks.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <SummaryCard
@@ -200,7 +200,7 @@ export function SessionSummaryView({
       ) : null}
 
       <p className="mb-2 text-[10px] text-[var(--c9-muted)]">
-        Legacy peaks below — max over the session; can mix cold start and throttle artifacts.
+        Legacy peaks below: max over the session; can mix cold start and throttle artifacts.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <SummaryCard label="Peak RPS" value={fmtInt(summary.peakRps)} />

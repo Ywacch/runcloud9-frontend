@@ -160,14 +160,14 @@ const urlShortenerRequirements: RequirementDef[] = [
       if (!anyDatabase(nodes)) {
         return {
           status: 'fail',
-          detail: 'No database in the design — cannot guarantee unique codes.',
+          detail: 'No database in the design. Cannot guarantee unique codes.',
         }
       }
       const err = worstDbErrorRate(metrics, nodes)
       if (err > 0.25) {
         return {
           status: 'fail',
-          detail: `Database error pressure high (~${(err * 100).toFixed(0)}%) — risk to writes/reads.`,
+          detail: `Database error pressure high (~${(err * 100).toFixed(0)}%). Risk to writes/reads.`,
         }
       }
       if (err > 0.08) {
@@ -190,24 +190,24 @@ const urlShortenerRequirements: RequirementDef[] = [
     weight: 1.2,
     evaluate: ({ aggregates }) => {
       if (!aggregates?.hasComponentMetrics) {
-        return { status: 'partial', detail: 'No metrics yet — start load or simulation.' }
+        return { status: 'partial', detail: 'No metrics yet. Start load or simulation.' }
       }
       const p99 = aggregates.systemP99Ms
       if (p99 <= 0) {
         return { status: 'partial', detail: 'Latency not reported yet.' }
       }
       if (p99 <= 100) {
-        return { status: 'pass', detail: `Worst-hop p99 is ${Math.round(p99)}ms — within a tight redirect budget.` }
+        return { status: 'pass', detail: `Worst-hop p99 is ${Math.round(p99)}ms. Within a tight redirect budget.` }
       }
       if (p99 <= 220) {
         return {
           status: 'partial',
-          detail: `Worst-hop p99 is ${Math.round(p99)}ms — above a strict 100ms bar but not catastrophic.`,
+          detail: `Worst-hop p99 is ${Math.round(p99)}ms. Above a strict 100ms bar but not catastrophic.`,
         }
       }
       return {
         status: 'fail',
-        detail: `Worst-hop p99 is ${Math.round(p99)}ms — redirect SLO likely missed.`,
+        detail: `Worst-hop p99 is ${Math.round(p99)}ms. Redirect SLO likely missed.`,
       }
     },
   },
@@ -220,7 +220,7 @@ const urlShortenerRequirements: RequirementDef[] = [
     evaluate: ({ nodes, metrics }) => {
       const { count, unhealthy } = computeHealthyCompute(metrics, nodes)
       if (count === 0) {
-        return { status: 'fail', detail: 'No app server — cannot serve shorten or redirect APIs.' }
+        return { status: 'fail', detail: 'No app server. Cannot serve shorten or redirect APIs.' }
       }
       if (unhealthy === count) {
         return { status: 'fail', detail: 'All app servers look overloaded or failing.' }
@@ -228,7 +228,7 @@ const urlShortenerRequirements: RequirementDef[] = [
       if (unhealthy > 0) {
         return {
           status: 'partial',
-          detail: `${unhealthy} of ${count} app servers degraded — partial capacity.`,
+          detail: `${unhealthy} of ${count} app servers degraded. Partial capacity.`,
         }
       }
       return { status: 'pass', detail: `${count} app server(s) reporting within healthy error bounds.` }
@@ -247,17 +247,17 @@ const urlShortenerRequirements: RequirementDef[] = [
       const e = aggregates.systemErrorRate
       const pct = e * 100
       if (pct <= 0.05) {
-        return { status: 'pass', detail: `Weighted errors ~${pct.toFixed(2)}% — very clean.` }
+        return { status: 'pass', detail: `Weighted errors ~${pct.toFixed(2)}%. Very clean.` }
       }
       if (pct <= 0.5) {
         return {
           status: 'partial',
-          detail: `Weighted errors ~${pct.toFixed(2)}% — acceptable for a lab run, not “four nines”.`,
+          detail: `Weighted errors ~${pct.toFixed(2)}%. Acceptable for a lab run, not “four nines”.`,
         }
       }
       return {
         status: 'fail',
-        detail: `Weighted errors ~${pct.toFixed(2)}% — user-visible failure rate is high.`,
+        detail: `Weighted errors ~${pct.toFixed(2)}%. User-visible failure rate is high.`,
       }
     },
   },
@@ -271,7 +271,7 @@ const urlShortenerRequirements: RequirementDef[] = [
       if (!anyCache(nodes)) {
         return {
           status: 'partial',
-          detail: 'No cache — design can work, but misses read-heavy optimization from the template story.',
+          detail: 'No cache. Design can work, but misses read-heavy optimization from the template story.',
         }
       }
       const hr = cacheHitRate(metrics)
@@ -283,17 +283,17 @@ const urlShortenerRequirements: RequirementDef[] = [
       }
       const pct = hr * 100
       if (pct >= 80) {
-        return { status: 'pass', detail: `Hit rate ~${pct.toFixed(0)}% — cache is doing its job.` }
+        return { status: 'pass', detail: `Hit rate ~${pct.toFixed(0)}%. Cache is doing its job.` }
       }
       if (pct >= 50) {
         return {
           status: 'partial',
-          detail: `Hit rate ~${pct.toFixed(0)}% — some relief for the DB, room to tune.`,
+          detail: `Hit rate ~${pct.toFixed(0)}%. Some relief for the DB, room to tune.`,
         }
       }
       return {
         status: 'fail',
-        detail: `Hit rate ~${pct.toFixed(0)}% — most reads may still hit the database.`,
+        detail: `Hit rate ~${pct.toFixed(0)}%. Most reads may still hit the database.`,
       }
     },
   },
@@ -309,24 +309,24 @@ const urlShortenerRequirements: RequirementDef[] = [
       if (!lb && apps <= 1) {
         return {
           status: 'partial',
-          detail: 'Single app path without LB — fine for a toy, limited for scale-out story.',
+          detail: 'Single app path without LB. Fine for a toy, limited for scale-out story.',
         }
       }
       if (lb && apps >= 2) {
         return {
           status: 'pass',
-          detail: 'LB with ≥2 app servers — matches a scale-out redirect tier.',
+          detail: 'LB with ≥2 app servers. Matches a scale-out redirect tier.',
         }
       }
       if (lb) {
         return {
           status: 'partial',
-          detail: 'LB present but only one app server — add replicas for real headroom.',
+          detail: 'LB present but only one app server. Add replicas for real headroom.',
         }
       }
       return {
         status: 'partial',
-        detail: `${apps} app server(s) without LB — client would need another way to spread load.`,
+        detail: `${apps} app server(s) without LB. Client would need another way to spread load.`,
       }
     },
   },
@@ -348,9 +348,9 @@ const genericScaleRequirements: RequirementDef[] = [
       if (p99 <= 0) return { status: 'partial', detail: 'Latency not reported.' }
       if (p99 <= 150) return { status: 'pass', detail: `p99 ~${Math.round(p99)}ms.` }
       if (p99 <= 400) {
-        return { status: 'partial', detail: `p99 ~${Math.round(p99)}ms — tail is heavy.` }
+        return { status: 'partial', detail: `p99 ~${Math.round(p99)}ms. Tail is heavy.` }
       }
-      return { status: 'fail', detail: `p99 ~${Math.round(p99)}ms — likely poor UX.` }
+      return { status: 'fail', detail: `p99 ~${Math.round(p99)}ms. Likely poor UX.` }
     },
   },
   {

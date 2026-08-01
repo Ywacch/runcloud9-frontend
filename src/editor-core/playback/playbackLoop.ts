@@ -122,7 +122,7 @@ function advancePlaybackFrame(now: number): void {
 
   const stale = isStreamStale(now)
   if (stale) {
-    store.setStreamWarning('Connection stale — metrics may be outdated')
+    store.setStreamWarning('Connection stale. Metrics may be outdated')
   }
 
   firePlaybackEventsUpTo(playheadMs)

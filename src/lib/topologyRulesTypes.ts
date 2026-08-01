@@ -61,3 +61,37 @@ export function formatTopologyMessage(
   }
   return out
 }
+
+/** Rewrite sentence em dashes in platform copy (API may still send them). */
+export function scrubEmDashCopy(text: string): string {
+  return text
+    .replace(/\s*—\s*([A-Za-z])/g, (_m, ch: string) => `. ${ch.toUpperCase()}`)
+    .replace(/\s*—\s*/g, '. ')
+}
+
+/** Scrub every user-facing message field on topology rules. */
+export function scrubTopologyRulesMessages(
+  rules: TopologyRulesResponse,
+): TopologyRulesResponse {
+  return {
+    ...rules,
+    connections: rules.connections.map((c) => ({
+      ...c,
+      explanation: scrubEmDashCopy(c.explanation),
+    })),
+    presence: rules.presence.map((p) => ({
+      ...p,
+      message: scrubEmDashCopy(p.message),
+    })),
+    singletons: rules.singletons.map((s) => ({
+      ...s,
+      message: scrubEmDashCopy(s.message),
+    })),
+    requiredOutbound: rules.requiredOutbound.map((r) => ({
+      ...r,
+      missingDbMessage: scrubEmDashCopy(r.missingDbMessage),
+      missingMqMessage: scrubEmDashCopy(r.missingMqMessage),
+      wrongMqDirectionMessage: scrubEmDashCopy(r.wrongMqDirectionMessage),
+    })),
+  }
+}

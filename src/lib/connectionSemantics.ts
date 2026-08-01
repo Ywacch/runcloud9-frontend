@@ -32,10 +32,10 @@ export interface TopologyWarning {
 export const WARNING_CODE_TEMPLATE_NO_ASYNC = 'template_no_async'
 
 const DECORATIVE_IDLE_MESSAGE =
-  'This template does not run async workers — message queue and worker nodes will deploy but stay idle on this connection.'
+  'This template does not run async workers. Message queue and worker nodes will deploy but stay idle on this connection.'
 
 const TEMPLATE_NO_ASYNC_MESSAGE =
-  'These components will sit idle — message queue and worker nodes deploy but do not process jobs on this template.'
+  'These components will sit idle. Message queue and worker nodes deploy but do not process jobs on this template.'
 
 function ruleKey(source: SemanticComponentType, target: SemanticComponentType): string {
   return `${source}\0${target}`
@@ -276,7 +276,7 @@ export function templateNoAsyncWarning(
 ): TopologyWarning {
   return {
     code: WARNING_CODE_TEMPLATE_NO_ASYNC,
-    message: `Template "${templateId}" does not run async workers — message queue and worker nodes will deploy but stay idle`,
+    message: `Template "${templateId}" does not run async workers. Message queue and worker nodes will deploy but stay idle`,
     nodeIds,
   }
 }

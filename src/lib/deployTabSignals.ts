@@ -63,11 +63,11 @@ export function steadyDeployTabTitle(phase: DeployTabPhase): string {
 export function flashDeployTabTitle(signalKind: DeployTabSignalKind): string {
   switch (signalKind) {
     case 'room_to_provisioning':
-      return `Ready to provision — ${DEPLOY_TAB_BASE_TITLE}`
+      return `Ready to provision: ${DEPLOY_TAB_BASE_TITLE}`
     case 'running':
-      return `Deploy live — ${DEPLOY_TAB_BASE_TITLE}`
+      return `Deploy live: ${DEPLOY_TAB_BASE_TITLE}`
     case 'failed':
-      return `Deploy failed — ${DEPLOY_TAB_BASE_TITLE}`
+      return `Deploy failed: ${DEPLOY_TAB_BASE_TITLE}`
   }
 }
 

@@ -72,7 +72,7 @@ export function FlowPanel({ open, onClose }: FlowPanelProps) {
               {title} {mode === 'simulate' ? `· Tick ${tick}` : ''}
             </p>
             <p className="mt-1 max-w-md text-[11px] leading-snug text-[var(--c9-muted)]">
-              Paths are inferred from your canvas topology and simulation inspector aggregates — not packet
+              Paths are inferred from your canvas topology and simulation inspector aggregates, not packet
               traces or production APM.
             </p>
           </div>

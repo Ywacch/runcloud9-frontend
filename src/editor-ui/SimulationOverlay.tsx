@@ -139,14 +139,14 @@ export function SimulationOverlay() {
       </div>
       {running && paused ? (
         <p className="px-0.5 text-[11px] font-medium text-amber-100/90">
-          Paused — metrics and inspector are frozen.
+          Paused. Metrics and inspector are frozen.
         </p>
       ) : null}
       {tickAgeLabel ? (
         <p className="px-0.5 text-[11px] text-violet-200/85">{tickAgeLabel}</p>
       ) : null}
       <p className="px-0.5 text-[10px] leading-snug text-[var(--c9-muted)]">
-        Local model — not production telemetry.
+        Local model, not production telemetry.
       </p>
       {diagOpen && showDiagnostics ? (
         <ul className="max-h-48 w-full overflow-y-auto rounded-lg border border-amber-600/40 bg-gray-950/70 px-2.5 py-1.5 text-left text-[11px] font-medium text-zinc-100 shadow-md backdrop-blur-md">

@@ -115,7 +115,7 @@ export function DeploymentPlayground() {
             {!cacheHttp ? (
               <p>
                 <span className="text-[var(--c9-text)]">Cache:</span> current design
-                uses Redis-only (port 6379) — not HTTP. Use write-through /
+                uses Redis-only (port 6379), not HTTP. Use write-through /
                 write-behind for an HTTP sidecar on the proxy.
               </p>
             ) : null}

@@ -71,9 +71,9 @@ export function containerFreshnessHint(
   if (!signal) return undefined
   switch (signal.tier) {
     case 'metrics_api':
-      return 'Delayed ~15–60s — Kubernetes Metrics API (same source as kubectl top).'
+      return 'Delayed ~15–60s. Kubernetes Metrics API (same source as kubectl top).'
     case 'estimated':
-      return 'Allocated, not measured — kube request/limit placeholder.'
+      return 'Allocated, not measured. Kube request/limit placeholder.'
     case 'rate':
       return 'Prometheus scrape + rate window (~10–15s behind).'
     case 'direct':

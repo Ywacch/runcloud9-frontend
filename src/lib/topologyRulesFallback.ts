@@ -24,7 +24,7 @@ function buildFallbackConnections(): ExportedConnectionRule[] {
   })
 
   const dbPassive =
-    "Databases are passive stores — they don't initiate connections to other components"
+    "Databases are passive stores. They don't initiate connections to other components"
   const lbToDB =
     'Load balancers distribute traffic to application servers, not databases directly'
   const lbToCache =
@@ -118,47 +118,47 @@ export const FALLBACK_TOPOLOGY_RULES: TopologyRulesResponse = {
     {
       id: 'cache_without_db',
       message:
-        'A cache node is present but no database — clarify whether Redis is your primary store or add a database; for now this topology is rejected',
+        'A cache node is present but no database. Clarify whether Redis is your primary store or add a database; for now this topology is rejected',
     },
     {
       id: 'worker_without_mq',
       message:
-        'Workers consume from message queues — add a message queue to the design',
+        'Workers consume from message queues. Add a message queue to the design',
     },
     {
       id: 'mq_without_worker',
-      message: 'Message queue has no consumer — add a worker node',
+      message: 'Message queue has no consumer. Add a worker node',
     },
   ],
   singletons: [
     {
       nodeType: 'app-server',
       message:
-        'only one app-server node is supported (found {count}) — scale with replicas on a single app-server instead of placing multiple nodes',
+        'only one app-server node is supported (found {count}). Scale with replicas on a single app-server instead of placing multiple nodes',
       scaleWithReplicas: true,
     },
     {
       nodeType: 'worker',
       message:
-        'only one worker node is supported (found {count}) — scale with replicas on a single worker instead of placing multiple nodes',
+        'only one worker node is supported (found {count}). Scale with replicas on a single worker instead of placing multiple nodes',
       scaleWithReplicas: true,
     },
     {
       nodeType: 'cache',
       message:
-        'only one cache node is supported (found {count}) — remove extra cache nodes; the platform provisions a single Redis service',
+        'only one cache node is supported (found {count}). Remove extra cache nodes; the platform provisions a single Redis service',
       scaleWithReplicas: false,
     },
     {
       nodeType: 'db',
       message:
-        'only one db node is supported (found {count}) — remove extra database nodes; the platform provisions a single Postgres service',
+        'only one db node is supported (found {count}). Remove extra database nodes; the platform provisions a single Postgres service',
       scaleWithReplicas: false,
     },
     {
       nodeType: 'mq',
       message:
-        'only one mq node is supported (found {count}) — remove extra message queue nodes; the platform provisions a single queue service',
+        'only one mq node is supported (found {count}). Remove extra message queue nodes; the platform provisions a single queue service',
       scaleWithReplicas: false,
     },
   ],

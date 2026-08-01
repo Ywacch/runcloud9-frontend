@@ -11,7 +11,7 @@ export const RATIONALE: Record<string, RationaleEntry[]> = {
   'url-shortener': [
     {
       title: 'Why Cache-Aside?',
-      body: 'URL shorteners are read-heavy — most requests are redirects (GET /{code}), not URL creation (POST /shorten). Cache-aside lets the app check Redis first. On a cache hit, PostgreSQL is never touched. On a miss, the app queries the DB and populates the cache for next time.',
+      body: 'URL shorteners are read-heavy. Most requests are redirects (GET /{code}), not URL creation (POST /shorten). Cache-aside lets the app check Redis first. On a cache hit, PostgreSQL is never touched. On a miss, the app queries the DB and populates the cache for next time.',
       highlight: 'cache',
     },
     {
@@ -21,7 +21,7 @@ export const RATIONALE: Record<string, RationaleEntry[]> = {
     },
     {
       title: 'The Bottleneck',
-      body: `Watch what happens at high RPS when the cache hit rate drops. Every cache miss becomes a DB query. If the DB can handle 200 queries/sec but the app receives 5000 req/sec with a 50% hit rate, that's 2500 DB queries/sec — 12.5x over capacity. This is "cache miss amplification."`,
+      body: `Watch what happens at high RPS when the cache hit rate drops. Every cache miss becomes a DB query. If the DB can handle 200 queries/sec but the app receives 5000 req/sec with a 50% hit rate, that's 2500 DB queries/sec, 12.5x over capacity. This is "cache miss amplification."`,
     },
     {
       title: 'Load Balancer Role',

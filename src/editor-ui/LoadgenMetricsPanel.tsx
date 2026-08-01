@@ -41,12 +41,12 @@ export function LoadgenMetricsPanel() {
     loadgen.targetRps > 0 &&
     loadgen.actualRps > 0 &&
     loadgen.actualRps < loadgen.targetRps * 0.85
-      ? 'Generator may be throttling — achieved RPS is well below target.'
+      ? 'Generator may be throttling. Achieved RPS is well below target.'
       : loadgen.active &&
           loadgen.actualRps >= loadgen.targetRps * 0.85 &&
           serverRps > 0 &&
           serverRps < loadgen.actualRps * 0.85
-        ? 'Achieved matches target but app RPS is lower — check errors or path.'
+        ? 'Achieved matches target but app RPS is lower. Check errors or path.'
         : null
 
   return (

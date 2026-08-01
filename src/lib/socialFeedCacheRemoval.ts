@@ -3,7 +3,7 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 export const SOCIAL_FEED_PUSH_TEMPLATE_ID = 'social-feed'
 
 export const SOCIAL_FEED_CACHE_REMOVAL_BANNER =
-  'Cache removed — the feed will read via database JOINs instead of Redis timeline keys.'
+  'Cache removed. The feed will read via database JOINs instead of Redis timeline keys.'
 
 function countCacheNodes(nodes: Record<string, CanvasNode>): number {
   return Object.values(nodes).filter((n) => n.type === 'cache').length

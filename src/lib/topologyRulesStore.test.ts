@@ -42,4 +42,23 @@ describe('topologyRulesStore', () => {
     // restore fallback for other suites
     applyTopologyRules(FALLBACK_TOPOLOGY_RULES)
   })
+
+  it('scrubs em dashes from API singleton messages on apply', () => {
+    const fromApi: TopologyRulesResponse = {
+      ...FALLBACK_TOPOLOGY_RULES,
+      singletons: [
+        {
+          nodeType: 'cache',
+          message:
+            'only one cache node is supported (found {count}) — remove extra cache nodes; the platform provisions a single Redis service',
+          scaleWithReplicas: false,
+        },
+      ],
+    }
+    applyTopologyRules(fromApi)
+    expect(getTopologyRulesCached().singletons[0]?.message).toBe(
+      'only one cache node is supported (found {count}). Remove extra cache nodes; the platform provisions a single Redis service',
+    )
+    applyTopologyRules(FALLBACK_TOPOLOGY_RULES)
+  })
 })

@@ -220,7 +220,7 @@ export function Sidebar() {
               ...step,
               state: 'active' as const,
               detail: queued
-                ? `${ROOM_QUEUE_TITLE} — ${roomDetail}`
+                ? `${ROOM_QUEUE_TITLE}. ${roomDetail}`
                 : 'Provisioning in progress... open canvas to watch status',
             }
           : step.id === 'ready'
@@ -482,7 +482,7 @@ export function Sidebar() {
                 ? {
                     ...step,
                     state: 'pending' as const,
-                    detail: 'Skipped — use simulation or adjust the design',
+                    detail: 'Skipped. Use simulation or adjust the design',
                   }
                 : step,
           ),
@@ -561,7 +561,7 @@ export function Sidebar() {
       const friendly = mapDeployRequestError(
         new ApiError(
           429,
-          'monthly session limit reached — upgrade or wait until next month',
+          'monthly session limit reached. Upgrade or wait until next month',
           MONTHLY_SESSION_LIMIT,
         ),
         { isFreeUser: me?.effectiveTier === 'free' },
@@ -922,7 +922,7 @@ export function Sidebar() {
                   useSimulationStore.getState().stop()
                   useCanvasStore.getState().setMode('simulate')
                   setBanner(
-                    'Simulation view — press Start simulation in the top bar when ready.',
+                    'Simulation view. Press Start simulation in the top bar when ready.',
                   )
                 }}
                 className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 transition-colors duration-200 hover:border-violet-500 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
@@ -999,7 +999,7 @@ export function Sidebar() {
           trackDeployModalDismissed('simulation_recommended', 'simulate')
           useCanvasStore.getState().setMode('simulate')
           setBanner(
-            'Simulation mode — explore the design without cluster provisioning.',
+            'Simulation mode. Explore the design without cluster provisioning.',
           )
           setDeployModalOpen(false)
           setDeployModalMode('progress')
