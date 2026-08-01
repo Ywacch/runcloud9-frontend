@@ -107,6 +107,7 @@ export interface TemplateInfo {
       engine: string
       tables?: string[]
       keyPatterns?: string[]
+      queues?: string[]
     }
   >
 }

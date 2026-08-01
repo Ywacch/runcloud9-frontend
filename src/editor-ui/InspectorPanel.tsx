@@ -62,6 +62,7 @@ import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistry
 import { CacheBrowser } from './CacheBrowser'
 import { ComponentLogPanel } from './ComponentLogPanel'
 import { DataBrowser } from './DataBrowser'
+import { QueueBrowser } from './QueueBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
 import { ResourceProfileFields } from './ResourceProfileFields'
@@ -204,7 +205,9 @@ export function InspectorPanel() {
                       ['metrics', 'Metrics'],
                       ['logs', 'Logs'],
                       ['config', 'Config'],
-                      ...(node.type === 'database' || node.type === 'cache'
+                      ...(node.type === 'database' ||
+                      node.type === 'cache' ||
+                      node.type === 'message_queue'
                         ? ([['data', 'Data']] as [string, string][])
                         : []),
                     ] as [string, string][]
@@ -263,6 +266,14 @@ export function InspectorPanel() {
                     deploymentId={deploymentId}
                     component={canvasToBackend[node.type]}
                     keyPatterns={cacheKeyPatterns}
+                  />
+                ) : null}
+                {liveTab === 'data' &&
+                deploymentId &&
+                node.type === 'message_queue' ? (
+                  <QueueBrowser
+                    deploymentId={deploymentId}
+                    component={canvasToBackend[node.type]}
                   />
                 ) : null}
               </div>
