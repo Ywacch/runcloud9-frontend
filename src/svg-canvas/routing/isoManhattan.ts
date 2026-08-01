@@ -112,23 +112,6 @@ function mergeCollinear(points: WorldPoint[]): WorldPoint[] {
   return out
 }
 
-function pathBlocked(
-  a: IsoPoint,
-  b: IsoPoint,
-  blocked: Set<string>,
-): boolean {
-  const di = Math.sign(b.i - a.i)
-  const dj = Math.sign(b.j - a.j)
-  const steps = Math.max(Math.abs(b.i - a.i), Math.abs(b.j - a.j))
-  if (steps <= 1) return false
-  const stepI = di !== 0 && dj !== 0 ? di : di
-  const stepJ = di !== 0 && dj !== 0 ? dj : dj
-  for (let s = 1; s < steps; s++) {
-    if (blocked.has(key(a.i + stepI * s, a.j + stepJ * s))) return true
-  }
-  return false
-}
-
 function pathLength(points: WorldPoint[]): number {
   let n = 0
   for (let i = 1; i < points.length; i++) {
@@ -139,13 +122,13 @@ function pathLength(points: WorldPoint[]): number {
 
 /**
  * Cloudcraft-style geometric route: straight, else one elbow.
- * Prefers screen H/V and iso axes; does not maze-solve around every glyph
- * (Cloudcraft paints under nodes).
+ * Does not maze-solve around bystander glyphs (Cloudcraft paints under nodes).
+ * `blocked` is unused here; A* / isoElbowFallback still use the obstacle set.
  */
 function cloudcraftElbow(
   source: WorldPoint,
   target: WorldPoint,
-  blocked: Set<string>,
+  _blocked: Set<string>,
 ): WorldPoint[] | null {
   const start = snapIso(
     screenToIso(source.x, source.y).i,
@@ -167,7 +150,7 @@ function cloudcraftElbow(
     di === 0 ||
     dj === 0 ||
     Math.abs(di) === Math.abs(dj)
-  if (straight && !pathBlocked(start, goal, blocked)) {
+  if (straight) {
     return mergeCollinear([source, target])
   }
 
@@ -206,9 +189,7 @@ function cloudcraftElbow(
   for (const corner of candidates) {
     if (corner.i === start.i && corner.j === start.j) continue
     if (corner.i === goal.i && corner.j === goal.j) continue
-    if (blocked.has(key(corner.i, corner.j))) continue
-    if (pathBlocked(start, corner, blocked)) continue
-    if (pathBlocked(corner, goal, blocked)) continue
+    // Ignore bystander blocked cells: edges paint under glyphs (Cloudcraft).
     const mid = isoToScreen(corner.i, corner.j)
     const path = mergeCollinear([source, mid, target])
     // Prefer fewer points, then shorter length.
@@ -339,7 +320,8 @@ function isoElbowFallback(
 /**
  * Cloudcraft-faithful connector routing.
  * Prefer straight / one-elbow geometric paths (8-connected lattice including
- * screen H/V). Fall back to bend-penalized A* only when elbows are blocked.
+ * screen H/V; paints under bystander glyphs). Fall back to bend-penalized A*
+ * only when no geometric elbow exists.
  */
 export function routeIsoManhattan(args: {
   source: WorldPoint

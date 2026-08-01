@@ -89,7 +89,7 @@ describe('routeIsoManhattan', () => {
     }
   })
 
-  it('accepts explicit obstacleCells footprints', () => {
+  it('prefers a straight under-paint run even when cells sit between ports', () => {
     const source = isoToScreen(0, 0)
     const target = isoToScreen(8, 0)
     const path = routeIsoManhattan({
@@ -101,9 +101,8 @@ describe('routeIsoManhattan', () => {
         { i: 5, j: 0 },
       ],
     })
+    expect(path).toHaveLength(2)
     expect(path[0]).toEqual(source)
-    expect(path[path.length - 1]).toEqual(target)
-    // Cloudcraft paints under glyphs — a clear iso/H run stays ≤ one elbow.
-    expect(path.length).toBeLessThanOrEqual(3)
+    expect(path[1]).toEqual(target)
   })
 })

@@ -31,11 +31,12 @@ describe('attach', () => {
     expect(dist).toBeLessThan(85)
   })
 
-  it('fans sibling slots so multi-edge nodes do not share one approach', () => {
+  it('shares one approach port for multi-edge slots toward the same peer', () => {
     const toward = { x: 0, y: 400 }
     const a = attachPoint(node, toward, { slot: 0, slotCount: 2 })
     const b = attachPoint(node, toward, { slot: 1, slotCount: 2 })
-    expect(a.x).not.toBeCloseTo(b.x, 5)
+    expect(a.x).toBeCloseTo(b.x, 5)
+    expect(a.y).toBeCloseTo(b.y, 5)
   })
 
   it('uses a wider port ring for message-queue', () => {

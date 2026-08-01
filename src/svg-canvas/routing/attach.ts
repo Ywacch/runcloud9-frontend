@@ -62,9 +62,9 @@ export function attachExtents(archetype?: Archetype | string): {
 
 export type AttachOpts = {
   archetype?: Archetype | string
-  /** 0-based index among edges sharing this node as an endpoint. */
+  /** 0-based index among edges sharing this node (kept for callers; unused for direction). */
   slot?: number
-  /** Total edges sharing this node as an endpoint (≥1). */
+  /** Total edges sharing this node (kept for callers; unused for direction). */
   slotCount?: number
 }
 
@@ -122,18 +122,8 @@ export function attachPoint(
 
   let ux = dx / len
   let uy = dy / len
-  const slotCount = Math.max(1, opts.slotCount ?? 1)
-  const slot = opts.slot ?? 0
-  if (slotCount > 1) {
-    // Fan siblings in Cloudcraft axis steps (~45°) so multi-edge ports snap to distinct directions.
-    const spread = (slot - (slotCount - 1) / 2) * (Math.PI / 4)
-    const c = Math.cos(spread)
-    const s = Math.sin(spread)
-    const rx = ux * c - uy * s
-    const ry = ux * s + uy * c
-    ux = rx
-    uy = ry
-  }
+  // Multi-edge slots share one approach direction so lattice routes can
+  // overlap into a Cloudcraft-style trunk (no 45° port fan).
 
   const dir = nearestCloudcraftDir(ux, uy)
   const { hw, hh, outset } = attachExtents(arch)
