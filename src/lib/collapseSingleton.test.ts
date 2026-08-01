@@ -45,6 +45,19 @@ describe('collapseSingleton', () => {
     const group = findMultiSingletonGroup(nodes)
     expect(group?.kind).toBe('app-server')
     expect(group?.nodes).toHaveLength(2)
+    expect(group?.scaleWithReplicas).toBe(true)
+  })
+
+  it('does not offer collapse for multi cache (honesty-only)', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      c1: node('c1', 'cache'),
+      c2: node('c2', 'cache'),
+    }
+    expect(assessGraphConstraints(nodes, {})).toMatch(/only one cache/i)
+    expect(findMultiSingletonGroup(nodes)).toBeNull()
+    expect(planSingletonCollapse(nodes, {}, 3)).toBeNull()
   })
 
   it('sums replicas and caps at maxAllowed', () => {

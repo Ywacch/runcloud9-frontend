@@ -108,6 +108,34 @@ describe('assessGraphConstraints', () => {
     }
     expect(assessGraphConstraints(nodes, edges)).toMatch(/only one worker/i)
   })
+
+  it('flags multiple cache nodes (fixed K8s service name)', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      c1: node('c1', 'cache', 'Cache 2'),
+      c2: node('c2', 'cache', 'Redis'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'db'),
+      e2: edge('e2', 'app', 'c1'),
+      e3: edge('e3', 'app', 'c2'),
+    }
+    expect(assessGraphConstraints(nodes, edges)).toMatch(/only one cache/i)
+  })
+
+  it('flags multiple db nodes', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      d1: node('d1', 'database'),
+      d2: node('d2', 'database'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'd1'),
+      e2: edge('e2', 'app', 'd2'),
+    }
+    expect(assessGraphConstraints(nodes, edges)).toMatch(/only one db/i)
+  })
 })
 
 describe('analyzeDeployTopology graph honesty', () => {

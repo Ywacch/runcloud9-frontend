@@ -17,14 +17,6 @@ function presenceMessage(id: string): string | undefined {
   return getTopologyRulesCached().presence.find((p) => p.id === id)?.message
 }
 
-function singletonMessage(nodeType: string, count: number): string | undefined {
-  const rule = getTopologyRulesCached().singletons.find(
-    (s) => s.nodeType === nodeType,
-  )
-  if (!rule) return undefined
-  return formatTopologyMessage(rule.message, { count: String(count) })
-}
-
 function workerOutboundMessages() {
   return getTopologyRulesCached().requiredOutbound.find(
     (r) => r.nodeType === 'worker',
@@ -33,7 +25,7 @@ function workerOutboundMessages() {
 
 /**
  * Create-blocking whole-design issues (mirrors ganymede ValidateTopology /
- * AssessTopology presence rules + singleton Deployment names).
+ * AssessTopology presence rules + platform singletons).
  * Messages come from GET /meta/topology-rules (fallback until loaded).
  * Returns the first issue, same as BE validate stopping on the first error.
  */
@@ -45,11 +37,13 @@ export function assessGraphConstraints(
   let hasDB = false
   let hasMQ = false
   let hasWorker = false
-  const appServers: CanvasNode[] = []
   const workers: CanvasNode[] = []
+  const counts = new Map<string, number>()
 
   for (const node of Object.values(nodes)) {
     const semantic = semanticOf(node)
+    if (!semantic) continue
+    counts.set(semantic, (counts.get(semantic) ?? 0) + 1)
     if (semantic === 'cache') hasCache = true
     if (semantic === 'db') hasDB = true
     if (semantic === 'mq') hasMQ = true
@@ -57,7 +51,6 @@ export function assessGraphConstraints(
       hasWorker = true
       workers.push(node)
     }
-    if (semantic === 'app-server') appServers.push(node)
   }
 
   if (hasCache && !hasDB) {
@@ -70,17 +63,11 @@ export function assessGraphConstraints(
     return presenceMessage('mq_without_worker') ?? null
   }
 
-  if (appServers.length > 1) {
-    return (
-      singletonMessage('app-server', appServers.length) ??
-      `only one app-server node is supported (found ${appServers.length})`
-    )
-  }
-  if (workers.length > 1) {
-    return (
-      singletonMessage('worker', workers.length) ??
-      `only one worker node is supported (found ${workers.length})`
-    )
+  for (const rule of getTopologyRulesCached().singletons) {
+    const count = counts.get(rule.nodeType) ?? 0
+    if (count > 1) {
+      return formatTopologyMessage(rule.message, { count: String(count) })
+    }
   }
 
   const outbound = workerOutboundMessages()

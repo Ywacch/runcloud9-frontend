@@ -1,6 +1,7 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import { canvasToBackend } from './typeMapping'
 import { clampAppServerReplicas } from './replicaConfig'
+import { getTopologyRulesCached } from './topologyRulesStore'
 
 export type SingletonCollapseKind = 'app-server' | 'worker'
 
@@ -9,6 +10,7 @@ export interface MultiSingletonGroup {
   /** Canvas node type for the group. */
   canvasType: 'compute' | 'worker'
   nodes: CanvasNode[]
+  scaleWithReplicas: boolean
 }
 
 export interface SingletonCollapsePlan {
@@ -31,25 +33,43 @@ function nodeReplicaCount(node: CanvasNode): number {
   return Math.floor(raw)
 }
 
+function canvasTypeForSemantic(
+  semantic: string,
+): 'compute' | 'worker' | null {
+  if (semantic === 'app-server') return 'compute'
+  if (semantic === 'worker') return 'worker'
+  return null
+}
+
 /**
- * First multi-singleton group on the canvas (app-server before worker),
- * matching ValidateTopology check order.
+ * First multi-singleton group that may be collapsed via replicas
+ * (scaleWithReplicas from topology-rules). Infra singletons (cache/db/mq)
+ * are honesty-only — no merge CTA.
  */
 export function findMultiSingletonGroup(
   nodes: Record<string, CanvasNode>,
 ): MultiSingletonGroup | null {
-  const appServers: CanvasNode[] = []
-  const workers: CanvasNode[] = []
+  const byType = new Map<string, CanvasNode[]>()
   for (const node of Object.values(nodes)) {
     const semantic = semanticOf(node)
-    if (semantic === 'app-server') appServers.push(node)
-    if (semantic === 'worker') workers.push(node)
+    if (!semantic) continue
+    const list = byType.get(semantic) ?? []
+    list.push(node)
+    byType.set(semantic, list)
   }
-  if (appServers.length > 1) {
-    return { kind: 'app-server', canvasType: 'compute', nodes: appServers }
-  }
-  if (workers.length > 1) {
-    return { kind: 'worker', canvasType: 'worker', nodes: workers }
+
+  for (const rule of getTopologyRulesCached().singletons) {
+    const group = byType.get(rule.nodeType)
+    if (!group || group.length <= 1) continue
+    if (!rule.scaleWithReplicas) continue
+    const canvasType = canvasTypeForSemantic(rule.nodeType)
+    if (!canvasType) continue
+    return {
+      kind: rule.nodeType as SingletonCollapseKind,
+      canvasType,
+      nodes: group,
+      scaleWithReplicas: true,
+    }
   }
   return null
 }
