@@ -5,7 +5,8 @@ import {
   componentToBucket,
   normalizeWsEvents,
 } from './wsMetricsFrame'
-import type { WsEventPayload } from './wsMetricsTypes'
+import type { WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
+import { useCanvasStore } from '../stores/canvasStore'
 import { useMetricsStore } from '../stores/metricsStore'
 
 describe('parseResourceUsageSource', () => {
@@ -242,5 +243,50 @@ describe('applyWsFrameToStore loadgen latencies', () => {
     expect(useMetricsStore.getState().loadgen?.recentLatenciesMs).toEqual([
       10, 20, 30,
     ])
+  })
+})
+
+describe('applyWsFrameToStore chart history', () => {
+  beforeEach(() => {
+    useMetricsStore.setState({ metrics: {}, history: {} })
+    useCanvasStore.setState({
+      nodes: {
+        'n-app': {
+          id: 'n-app',
+          type: 'compute',
+          position: [0, 0, 0],
+          label: 'App Server',
+          config: {},
+          status: 'healthy',
+        },
+      },
+    })
+  })
+
+  it('appends history when appendCharts is true', () => {
+    const frame = (rate: number): WsDeploymentMetrics => ({
+      timestamp: new Date().toISOString(),
+      components: { 'app-server': { requestRate: rate } },
+    })
+
+    applyWsFrameToStore(frame(10), { appendCharts: true, pushEvents: false })
+    applyWsFrameToStore(frame(20), { appendCharts: true, pushEvents: false })
+
+    const history = useMetricsStore.getState().history['n-app'] ?? []
+    expect(history.length).toBe(2)
+    expect(history[0]?.requestRate).toBe(10)
+    expect(history[1]?.requestRate).toBe(20)
+  })
+
+  it('does not append history when appendCharts is false', () => {
+    applyWsFrameToStore(
+      {
+        timestamp: new Date().toISOString(),
+        components: { 'app-server': { requestRate: 10 } },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    expect(useMetricsStore.getState().history['n-app']).toBeUndefined()
+    expect(useMetricsStore.getState().metrics['n-app']?.requestRate).toBe(10)
   })
 })

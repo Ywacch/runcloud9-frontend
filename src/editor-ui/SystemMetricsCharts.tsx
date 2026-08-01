@@ -1,5 +1,4 @@
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
-import { isMetricsPlaybackEnabled } from '../editor-core/playback/playbackConfig'
 import { MetricChart } from './MetricChart'
 
 /** Live WS teaching charts (metrics-ui-contract § Server-side latency and throughput). */
@@ -7,7 +6,6 @@ export function SystemMetricsCharts() {
   const series = useMetricsStore((s) => s.systemSeries)
   const chartFrozen = useMetricsStore((s) => s.chartFrozen)
   const catchingUp = useMetricsStore((s) => s.playbackCatchingUp)
-  const showDelay = isMetricsPlaybackEnabled()
 
   if (series.length < 2) return null
 
@@ -23,12 +21,10 @@ export function SystemMetricsCharts() {
         System metrics (live)
       </p>
       <p className="mb-3 text-[10px] leading-snug text-[var(--c9-text-disabled)]">
-        {showDelay
-          ? 'Prometheus ~10s rate window · smoothed replay (~2s behind live)'
-          : 'Prometheus ~10s rate window · one point every ~2s'}
-        {chartFrozen && showDelay ? (
+        Prometheus ~10s rate window · one point every ~2s
+        {chartFrozen ? (
           <span className="text-amber-400/90">
-            {catchingUp ? ' · catching up…' : ' · buffering'}
+            {catchingUp ? ' · catching up…' : ' · reconnecting'}
           </span>
         ) : null}
       </p>
@@ -36,25 +32,25 @@ export function SystemMetricsCharts() {
         <MetricChart
           title="App p99 latency"
           unit="ms"
-          showPlaybackDelay={showDelay}
+          showPlaybackDelay={false}
           series={[{ data: p99, color: 'var(--c9-error)', showArea: true }]}
         />
         <MetricChart
           title="App request rate"
           unit="RPS"
-          showPlaybackDelay={showDelay}
+          showPlaybackDelay={false}
           series={[{ data: rps, color: '#6366f1', showArea: true }]}
         />
         <MetricChart
           title="DB query rate"
           unit="queries/s"
-          showPlaybackDelay={showDelay}
+          showPlaybackDelay={false}
           series={[{ data: dbRate, color: 'var(--c9-info)', showArea: true }]}
         />
         <MetricChart
           title="Cache hits / misses"
           unit="app-reported /s"
-          showPlaybackDelay={showDelay}
+          showPlaybackDelay={false}
           series={[
             { data: hits, color: '#22d3ee', label: 'Hits', showArea: true },
             { data: misses, color: 'var(--c9-warning)', label: 'Misses', showArea: false },

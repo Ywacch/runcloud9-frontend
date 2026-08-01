@@ -29,9 +29,12 @@ import type { WsDeploymentMetrics } from '../playback/wsMetricsTypes'
 function ingestWsFrame(payload: WsDeploymentMetrics): void {
   const playback = isMetricsPlaybackEnabled()
 
+  // Always append chart history from the WS frame (same source as headlines).
+  // Playback owns event timing only — not chart series — so inspector graphs
+  // cannot stay empty when headlines are already updating.
   if (playback) {
     const events = applyWsFrameToStore(payload, {
-      appendCharts: false,
+      appendCharts: true,
       pushEvents: false,
     })
     pushBufferedSample({
