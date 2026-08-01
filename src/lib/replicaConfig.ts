@@ -1,6 +1,9 @@
-/** App-server replica limits (metrics-ui-contract). */
+/** App-server / worker replica limits (metrics-ui-contract). */
 export const APP_SERVER_REPLICA_MIN = 1
 export const APP_SERVER_REPLICA_MAX = 3
+/** Workers share the app-server horizontal scale ceiling. */
+export const WORKER_REPLICA_MIN = APP_SERVER_REPLICA_MIN
+export const WORKER_REPLICA_MAX = APP_SERVER_REPLICA_MAX
 
 export function clampAppServerReplicas(
   raw: unknown,
@@ -10,6 +13,14 @@ export function clampAppServerReplicas(
   if (!Number.isFinite(n)) return APP_SERVER_REPLICA_MIN
   const ceiling = Math.max(APP_SERVER_REPLICA_MIN, Math.floor(max))
   return Math.min(ceiling, Math.max(APP_SERVER_REPLICA_MIN, Math.floor(n)))
+}
+
+/** Alias for worker replica clamping (same [1, max] policy). */
+export function clampWorkerReplicas(
+  raw: unknown,
+  max: number = WORKER_REPLICA_MAX,
+): number {
+  return clampAppServerReplicas(raw, max)
 }
 
 /** Map canvas LB config to API canonical `lbAlgorithm`. */

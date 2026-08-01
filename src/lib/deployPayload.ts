@@ -8,7 +8,7 @@ import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stor
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { DeploymentDesign } from './api'
 import { ensureLoadBalancerForReplicas } from './ensureLoadBalancerForReplicas'
-import { clampAppServerReplicas, lbAlgorithmForDeploy } from './replicaConfig'
+import { clampAppServerReplicas, clampWorkerReplicas, lbAlgorithmForDeploy } from './replicaConfig'
 import { normalizeRedisEvictionPolicy } from './redisEvictionPolicy'
 import {
   isProxyOrLegacyCacheStrategy,
@@ -54,8 +54,10 @@ export function deployConfigForNode(
     config.engine = engine
     if (n.type === 'cache') config.cacheEngine = engine
   }
-  if (n.type === 'compute' || n.type === 'worker') {
+  if (n.type === 'compute') {
     config.replicas = clampAppServerReplicas(config.replicas ?? 1)
+  } else if (n.type === 'worker') {
+    config.replicas = clampWorkerReplicas(config.replicas ?? 1)
   } else if (!backendSupportsReplicas(n.type)) {
     // Force single instance on the wire; SVG packing may still show multi-unit demos.
     delete config.replicas
