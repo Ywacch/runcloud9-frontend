@@ -153,3 +153,34 @@ export function fetchKeyValue(
     `key/${encodeURIComponent(key)}`,
   )
 }
+
+export interface QueueInfo {
+  name: string
+  messages: number
+  consumers: number
+  available: boolean
+}
+
+export interface PeekResult {
+  queue: string
+  empty: boolean
+  body?: string
+  contentType?: string
+  requeued: boolean
+}
+
+export function fetchQueues(deploymentId: string, component: string) {
+  return introspectGet<QueueInfo[]>(deploymentId, component, 'queues')
+}
+
+export function fetchPeek(
+  deploymentId: string,
+  component: string,
+  queue: string,
+) {
+  return introspectGet<PeekResult>(
+    deploymentId,
+    component,
+    `peek/${encodeURIComponent(queue)}`,
+  )
+}
