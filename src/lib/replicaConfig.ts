@@ -23,16 +23,34 @@ export function clampWorkerReplicas(
   return clampAppServerReplicas(raw, max)
 }
 
-/** Map canvas LB config to API canonical `lbAlgorithm`. */
-export function lbAlgorithmForDeploy(algorithm: unknown): string {
+/** Live deploy LB algorithms (nginx methods teachable under single-IP loadgen). */
+export const LIVE_LB_ALGORITHMS = [
+  'round-robin',
+  'least_conn',
+  'random',
+] as const
+
+export type LiveLBAlgorithm = (typeof LIVE_LB_ALGORITHMS)[number]
+
+const LIVE_LB_SET = new Set<string>(LIVE_LB_ALGORITHMS)
+
+/** Map canvas LB config to API canonical live `lbAlgorithm`. */
+export function lbAlgorithmForDeploy(algorithm: unknown): LiveLBAlgorithm {
   const a = String(algorithm ?? 'round-robin').trim()
-  const map: Record<string, string> = {
+  const map: Record<string, LiveLBAlgorithm> = {
     'round-robin': 'round-robin',
     round_robin: 'round-robin',
     'least-connections': 'least_conn',
     least_conn: 'least_conn',
-    'ip-hash': 'ip_hash',
-    ip_hash: 'ip_hash',
+    random: 'random',
+    // Legacy sticky-IP is not teachable under loadgen — fold to round-robin.
+    'ip-hash': 'round-robin',
+    ip_hash: 'round-robin',
+    iphash: 'round-robin',
   }
-  return map[a] ?? a
+  const mapped = map[a]
+  if (mapped) return mapped
+  if (LIVE_LB_SET.has(a)) return a as LiveLBAlgorithm
+  return 'round-robin'
 }
+
