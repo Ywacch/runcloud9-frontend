@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /privacy
+Allow: /terms
+
+Disallow: /canvas
+Disallow: /login
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /billing/
+Disallow: /reset-password
+Disallow: /set-password
+Disallow: /loadtest
+
+Sitemap: https://www.runcloud9.io/sitemap.xml
