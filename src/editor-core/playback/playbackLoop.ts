@@ -6,10 +6,6 @@ import {
   resetEventPlayback,
   clearPendingPlaybackEvents,
 } from './eventPlayback'
-import {
-  interpolateNodeBuckets,
-  interpolateSystemSample,
-} from './interpolate'
 import { MetricsBuffer } from './MetricsBuffer'
 import {
   BUFFER_LAG_MS,
@@ -128,36 +124,25 @@ function advancePlaybackFrame(now: number): void {
   firePlaybackEventsUpTo(playheadMs)
 
   const underrunFrozen = buffer.isFrozen(playheadMs)
-  const chartsFrozen = underrunFrozen || stale || reconnectCatchUp
-  store.setChartFrozen(chartsFrozen)
+  // Chart series come from WS frames directly; freeze only reflects stream health
+  // for delay/reconnect UI — not whether interpolated history can be written.
+  store.setChartFrozen(stale || reconnectCatchUp)
 
   if (underrunFrozen || reconnectCatchUp) return
 
   playheadMs = Math.min(playheadMs + cappedDelta, targetPlayhead)
 
   firePlaybackEventsUpTo(playheadMs)
-
-  if (stale) return
-
-  const bracket = buffer.samplesAroundPlayhead(playheadMs)
-  if (!bracket) return
-
-  const commitKey = bracket.before.serverTimestamp
-  const nodeBuckets = interpolateNodeBuckets(bracket, playheadMs)
-
-  for (const [nodeId, bucket] of Object.entries(nodeBuckets)) {
-    store.pushPlaybackChartPoint(nodeId, bucket, commitKey)
-  }
-
-  const systemSample = interpolateSystemSample(bracket, playheadMs)
-  if (systemSample) {
-    store.pushPlaybackSystemSample(systemSample, commitKey)
-  }
 }
 
-function tick(now: number): void {
+/**
+ * rAF passes a DOMHighResTimeStamp (ms since navigation start). Sample
+ * timestamps are Unix epoch ms — playhead must use Date.now() or brackets
+ * never form and event playback stalls.
+ */
+function tick(_rafNow: number): void {
   rafId = requestAnimationFrame(tick)
-  advancePlaybackFrame(now)
+  advancePlaybackFrame(Date.now())
 }
 
 export function startPlaybackLoop(): void {

@@ -281,15 +281,15 @@ export function registerChaosFromEvents(ev: WsEvent[]): void {
 }
 
 export interface ApplyWsFrameOptions {
-  /** Append to chart history / system series (false when playback buffer owns charts). */
+  /** Append to chart history / system series (default true). */
   appendCharts?: boolean
-  /** Push to timeline immediately (false in F2 — events buffered for F3). */
+  /** Push to timeline immediately (false when playback buffer owns event timing). */
   pushEvents?: boolean
 }
 
 /**
  * Apply latest raw WS frame: headlines, loadgen, status, chaos.
- * Chart history is optional (playback loop writes when enabled).
+ * Chart history appends when appendCharts is true (live inspector path).
  */
 export function applyWsFrameToStore(
   payload: WsDeploymentMetrics,

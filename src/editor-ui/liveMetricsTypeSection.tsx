@@ -12,7 +12,6 @@ import {
 } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import type { TweenableMetricField } from '../editor-core/playback/tweenStore'
-import { isMetricsPlaybackEnabled } from '../editor-core/playback/playbackConfig'
 import { useTweenedMetric } from '../editor-core/playback/useTweenedMetric'
 import {
   LATENCY_HELP,
@@ -121,7 +120,6 @@ export function LiveMetricsTypeSection({
   const tmWorkerRedisWriteRate = templateMetrics['worker.redis_write_rate']
   const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
   const tmFeedPushRate = templateMetrics['feed.push_rate']
-  const chartPlaybackDelay = mode === 'live' && isMetricsPlaybackEnabled()
   const resourceLabels = formatResourceLabels(m, cpuPercent, memPercent)
   const resourceHelp = resourceUsageHelp(m)
   const memHelp = memoryUsageHelp(m, memPercent)
@@ -175,7 +173,6 @@ export function LiveMetricsTypeSection({
                       title="Throughput"
                       unit="10s · RPS"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -192,7 +189,6 @@ export function LiveMetricsTypeSection({
                       title="p99 latency"
                       unit="10s · ms"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -208,7 +204,6 @@ export function LiveMetricsTypeSection({
                   title="Errors"
                   unit="10s"
                   view={view}
-                  showPlaybackDelay={chartPlaybackDelay}
                 />
               }
             />
@@ -235,7 +230,6 @@ export function LiveMetricsTypeSection({
                       title="CPU"
                       unit="10s · %"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -252,7 +246,6 @@ export function LiveMetricsTypeSection({
                       title="Memory"
                       unit="10s · %"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -365,14 +358,12 @@ export function LiveMetricsTypeSection({
             loadgenActive={loadgenActive}
             dbRateHelp={dbRateHelp}
             view={view}
-            showPlaybackDelay={chartPlaybackDelay}
           />
           <DbLoadSection
             m={m}
             dbQueryRate={dbQueryRate}
             templateMetrics={templateMetrics}
             view={view}
-            showPlaybackDelay={chartPlaybackDelay}
             history={history}
           />
           <DbClusterResourcesSection
@@ -381,7 +372,6 @@ export function LiveMetricsTypeSection({
             cpuPercent={cpuPercent}
             memPercent={memPercent}
             view={view}
-            showPlaybackDelay={chartPlaybackDelay}
             history={history}
           />
           <DbDiagnosticsDisclosure m={m} maxConnections={maxConn} />
@@ -452,7 +442,6 @@ export function LiveMetricsTypeSection({
                       title="Throughput"
                       unit="10s · RPS"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -565,7 +554,6 @@ export function LiveMetricsTypeSection({
                       title="Produce"
                       unit="10s · msg/s"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -581,7 +569,6 @@ export function LiveMetricsTypeSection({
                       title="Consume"
                       unit="10s · msg/s"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -605,7 +592,6 @@ export function LiveMetricsTypeSection({
                       title="Depth"
                       unit="10s"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -685,7 +671,6 @@ export function LiveMetricsTypeSection({
                       title="Consume"
                       unit="10s · /s"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />
@@ -721,7 +706,6 @@ export function LiveMetricsTypeSection({
                       title="CPU"
                       unit="10s · %"
                       view={view}
-                      showPlaybackDelay={chartPlaybackDelay}
                     />
                   }
                 />

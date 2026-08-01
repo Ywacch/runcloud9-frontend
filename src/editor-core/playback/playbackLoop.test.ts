@@ -104,17 +104,18 @@ describe('playbackLoop chart underrun', () => {
     })
   })
 
-  it('stays unfrozen when lag equals sample interval (one sample ahead)', () => {
-    // WS collect ~2s + BUFFER_LAG 2s → typically one sample ahead of playhead.
-    // Old isFrozen(<2 ahead) froze charts here; bracketed playhead must not.
-    const t0 = 300_000
-    pushBufferedSample(sample(t0))
-    pushBufferedSample(sample(t0 + 2000))
-    pushBufferedSample(sample(t0 + 4000))
+  it('advances playhead in Unix wall-clock space (not rAF time origin)', () => {
+    // Regression: rAF gives ~seconds since navigation; samples use Date.now().
+    // Mixing them left charts frozen for the whole session.
+    const wall = Date.UTC(2026, 6, 31, 12, 0, 0)
+    pushBufferedSample(sample(wall - 4000))
+    pushBufferedSample(sample(wall - 2000))
+    pushBufferedSample(sample(wall))
 
-    runPlaybackTickForTest(t0 + 4000)
+    runPlaybackTickForTest(wall)
 
+    expect(getPlayheadMs()).toBeGreaterThan(wall - BUFFER_LAG_MS - 1)
+    expect(getPlayheadMs()).toBeLessThanOrEqual(wall - BUFFER_LAG_MS)
     expect(useMetricsStore.getState().chartFrozen).toBe(false)
-    expect(getPlayheadMs()).toBeGreaterThan(0)
   })
 })
