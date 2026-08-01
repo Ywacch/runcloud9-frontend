@@ -221,7 +221,15 @@ export function MetricSeriesGraph({
   view: PanelViewState
   showPlaybackDelay?: boolean
 }) {
-  if (!view.showGraphs || data.length < 2) return null
+  if (!view.showGraphs) return null
+  if (data.length < 2) {
+    return (
+      <div className={`${chartClass} text-[10px] text-gray-500`}>
+        <div className="mb-1 text-[10px] font-medium text-gray-400">{title}</div>
+        Collecting samples…
+      </div>
+    )
+  }
   // Live and session both use MetricChart so inspector graphs keep Railway-like
   // visual quality (axes, area, hover) instead of a 24px micro-sparkline.
   return (

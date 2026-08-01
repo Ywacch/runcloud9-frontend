@@ -91,3 +91,30 @@ describe('playbackLoop stale stream', () => {
     expect(useMetricsStore.getState().chartFrozen).toBe(true)
   })
 })
+
+describe('playbackLoop chart underrun', () => {
+  beforeEach(() => {
+    resetEventPlayback()
+    resetPlaybackState()
+    useCanvasStore.setState({ mode: 'live' })
+    useMetricsStore.setState({
+      chartFrozen: false,
+      streamWarning: null,
+      playbackCatchingUp: false,
+    })
+  })
+
+  it('stays unfrozen when lag equals sample interval (one sample ahead)', () => {
+    // WS collect ~2s + BUFFER_LAG 2s → typically one sample ahead of playhead.
+    // Old isFrozen(<2 ahead) froze charts here; bracketed playhead must not.
+    const t0 = 300_000
+    pushBufferedSample(sample(t0))
+    pushBufferedSample(sample(t0 + 2000))
+    pushBufferedSample(sample(t0 + 4000))
+
+    runPlaybackTickForTest(t0 + 4000)
+
+    expect(useMetricsStore.getState().chartFrozen).toBe(false)
+    expect(getPlayheadMs()).toBeGreaterThan(0)
+  })
+})

@@ -32,13 +32,18 @@ export class MetricsBuffer {
     this.samples = []
   }
 
-  /** Samples strictly after playhead (for freeze / underrun detection). */
+  /** Samples strictly after playhead. */
   samplesAheadOf(playheadMs: number): BufferedSample[] {
     return this.samples.filter((s) => s.serverTimestamp > playheadMs)
   }
 
+  /**
+   * Underrun when the playhead cannot be bracketed for interpolation.
+   * One sample ahead is enough (with a before sample); requiring two ahead
+   * freezes charts whenever BUFFER_LAG ≈ collect interval (~2s).
+   */
   isFrozen(playheadMs: number): boolean {
-    return this.samplesAheadOf(playheadMs).length < 2
+    return this.samplesAroundPlayhead(playheadMs) == null
   }
 
   /**
