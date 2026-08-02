@@ -11,6 +11,7 @@ import {
   isChaosTrialUsedMessage,
   UPGRADE_TO_ENGINEER_LABEL,
 } from './billingCopy'
+import { BILLING_ENABLED } from './featureFlags'
 
 export interface DeployRequestMessage {
   title: string
@@ -18,6 +19,10 @@ export interface DeployRequestMessage {
   technicalDetails?: string
   actionLabel?: string
   resourceBudget?: ResourceBudgetErrorResponse
+}
+
+function upgradeActionLabel(): string | undefined {
+  return BILLING_ENABLED ? UPGRADE_TO_ENGINEER_LABEL : undefined
 }
 
 export function mapDeployRequestError(
@@ -51,7 +56,7 @@ export function mapDeployRequestError(
           title: 'Chaos trial used',
           body: 'You used your free chaos trial. Upgrade to Engineer for unlimited chaos.',
           technicalDetails: raw,
-          actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+          actionLabel: upgradeActionLabel(),
         }
       }
       if (normalized.includes('premium')) {
@@ -59,7 +64,7 @@ export function mapDeployRequestError(
           title: 'Premium template',
           body: 'This template requires RunCloud9 Engineer. Upgrade to deploy it on the cluster.',
           technicalDetails: raw,
-          actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+          actionLabel: upgradeActionLabel(),
         }
       }
       if (
@@ -72,7 +77,7 @@ export function mapDeployRequestError(
           title: 'Upgrade required for this topology',
           body: 'Engineer unlocks load balancers, queues, workers, proxy cache, and more replicas. Change the design or upgrade.',
           technicalDetails: raw,
-          actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+          actionLabel: upgradeActionLabel(),
         }
       }
       if (normalized.includes('you do not own this deployment')) {
@@ -108,7 +113,7 @@ export function mapDeployRequestError(
             title: 'Out of sessions this month',
             body: 'You hit the Explorer monthly limit. Upgrade to Engineer for more sessions, or try again next month.',
             technicalDetails: raw,
-            actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+            actionLabel: upgradeActionLabel(),
           }
         }
         return {
@@ -123,7 +128,7 @@ export function mapDeployRequestError(
             title: 'Concurrent session limit',
             body: 'Explorer allows one active deployment. Upgrade to Engineer for more concurrent sessions, or end your current deployment first.',
             technicalDetails: raw,
-            actionLabel: UPGRADE_TO_ENGINEER_LABEL,
+            actionLabel: upgradeActionLabel(),
           }
         }
         return {

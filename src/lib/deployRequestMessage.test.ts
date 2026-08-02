@@ -1,8 +1,24 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from './apiError'
+
+vi.mock('./featureFlags', () => ({
+  BILLING_ENABLED: true,
+}))
+
 import { mapDeployRequestError } from './deployRequestMessage'
 
 describe('mapDeployRequestError', () => {
+  it('omits upgrade CTA when billing is disabled', async () => {
+    vi.resetModules()
+    vi.doMock('./featureFlags', () => ({ BILLING_ENABLED: false }))
+    const { mapDeployRequestError: mapOff } = await import('./deployRequestMessage')
+    const err = new ApiError(
+      403,
+      'premium templates require an active subscription',
+    )
+    expect(mapOff(err).actionLabel).toBeUndefined()
+  })
+
   it('maps topology 403 load balancer to upgrade CTA', () => {
     const err = new ApiError(
       403,

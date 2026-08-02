@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { DISCORD_INVITE_URL } from '../../lib/featureFlags'
 
 function RunCloud9Logo() {
   return (
@@ -46,6 +47,16 @@ export function Footer() {
                 {link.label}
               </Link>
             ))}
+            {DISCORD_INVITE_URL ? (
+              <a
+                href={DISCORD_INVITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+              >
+                Discord
+              </a>
+            ) : null}
           </nav>
         </div>
         <p className="border-t border-c9-border pt-6 text-xs text-c9-text-muted">

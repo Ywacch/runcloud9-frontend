@@ -11,6 +11,7 @@ import {
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/billingCopy'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
+import { BILLING_ENABLED } from '../lib/featureFlags'
 import { C9Card } from './c9Primitives'
 
 function LimitRow({ label, value }: { label: string; value: string }) {
@@ -148,7 +149,7 @@ export function PlanLimitsCard({
 
       <div className="border-t border-[var(--c9-border)] px-4 py-4">
         <BenefitChecklist limits={limits} isFree={isFree} />
-        {isFree ? (
+        {isFree && BILLING_ENABLED ? (
           <div className="mt-4 space-y-2">
             <button
               type="button"
@@ -165,7 +166,7 @@ export function PlanLimitsCard({
             ) : null}
           </div>
         ) : null}
-        {showPaidBilling ? (
+        {showPaidBilling && BILLING_ENABLED ? (
           <div className="mt-4 space-y-3">
             <p className="text-xs text-[var(--c9-muted)]">
               {canCancelAndRefund
