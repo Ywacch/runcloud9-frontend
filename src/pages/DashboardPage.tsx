@@ -3,10 +3,9 @@ import { useAuthStore } from '../product/stores/authStore'
 import { C9Card } from '../editor-ui/c9Primitives'
 import { PastRunsSection } from '../editor-ui/PastRunsSection'
 import { Footer } from '../components/landing/Footer'
-import {
-  displayPlanTierLabel,
-  formatSessionsLeftThisMonth,
-} from '../lib/stripeCheckout'
+import { ExplorerUpgradeCard } from '../components/billing/ExplorerUpgradeCard'
+import { PlanSummaryChip } from '../components/billing/PlanSummaryChip'
+import { displayPlanTierLabel } from '../lib/billingCopy'
 import { loginPathWithReturnTo } from '../lib/authReturn'
 
 export default function DashboardPage() {
@@ -34,16 +33,11 @@ export default function DashboardPage() {
     )
   }
 
-  const limits = currentUser?.limits
+  const isFree =
+    !currentUser ||
+    currentUser.effectiveTier === 'free' ||
+    currentUser.effectiveTier == null
   const planLabel = displayPlanTierLabel(currentUser?.effectiveTier)
-  const sessionsLine =
-    limits?.maxSessionsPerMonth != null &&
-    currentUser?.sessionsRemainingThisMonth != null
-      ? formatSessionsLeftThisMonth(
-          currentUser.sessionsRemainingThisMonth,
-          limits.maxSessionsPerMonth,
-        )
-      : null
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-[var(--c9-bg)]">
@@ -56,7 +50,7 @@ export default function DashboardPage() {
               </h1>
               <p className="mt-1 text-sm text-[var(--c9-muted)]">
                 {currentUser
-                  ? `Signed in on ${planLabel}${sessionsLine ? ` · ${sessionsLine}` : ''}`
+                  ? `Signed in · ${planLabel}`
                   : 'Loading account…'}
               </p>
             </div>
@@ -75,6 +69,27 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
+
+          {currentUser ? (
+            isFree ? (
+              <ExplorerUpgradeCard
+                limits={currentUser.limits}
+                sessionsRemainingThisMonth={
+                  currentUser.sessionsRemainingThisMonth
+                }
+              />
+            ) : (
+              <PlanSummaryChip
+                effectiveTier={currentUser.effectiveTier}
+                sessionsRemainingThisMonth={
+                  currentUser.sessionsRemainingThisMonth
+                }
+                maxSessionsPerMonth={
+                  currentUser.limits?.maxSessionsPerMonth ?? null
+                }
+              />
+            )
+          ) : null}
 
           <PastRunsSection />
         </div>

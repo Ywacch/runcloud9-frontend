@@ -1,14 +1,15 @@
+import { Link } from 'react-router-dom'
 import type { CurrentUserLimits } from '../lib/api'
 import {
   CANCEL_SUBSCRIPTION_LABEL,
   displayPlanTierLabel,
   ENGINEER_BENEFIT_ROWS,
   engineerBenefitIncluded,
+  engineerUpgradeCta,
   formatSessionsLeftThisMonth,
   MANAGE_BILLING_HINT,
   MANAGE_BILLING_HINT_STOP_ONLY,
   STOP_SUBSCRIPTION_LABEL,
-  UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/billingCopy'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
@@ -18,7 +19,9 @@ function LimitRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[var(--c9-border)] py-2.5 last:border-0">
       <span className="text-sm text-[var(--c9-muted)]">{label}</span>
-      <span className="text-right text-sm font-medium text-[var(--c9-text)]">{value}</span>
+      <span className="text-right text-sm font-medium text-[var(--c9-text)]">
+        {value}
+      </span>
     </div>
   )
 }
@@ -31,7 +34,7 @@ function BenefitChecklist({
   isFree: boolean
 }) {
   return (
-    <div className="mt-4 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
+    <div className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
       <p className="text-xs font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
         {isFree ? 'Unlock on Engineer' : 'Included on Engineer'}
       </p>
@@ -50,7 +53,11 @@ function BenefitChecklist({
               >
                 {included ? '✓' : '·'}
               </span>
-              <span className={included ? 'text-[var(--c9-text)]' : 'text-[var(--c9-muted)]'}>
+              <span
+                className={
+                  included ? 'text-[var(--c9-text)]' : 'text-[var(--c9-muted)]'
+                }
+              >
                 {row.label}
                 {isFree && row.explorerNote ? (
                   <span className="mt-0.5 block text-xs text-[var(--c9-muted)]">
@@ -97,6 +104,7 @@ export function PlanLimitsCard({
   const planLabel = displayPlanTierLabel(effectiveTier)
   const isFree = effectiveTier === 'free'
   const showPaidBilling = !isFree && !isInternal
+  const upgradeCta = engineerUpgradeCta(BILLING_ENABLED)
 
   return (
     <C9Card className="overflow-hidden p-0">
@@ -106,7 +114,9 @@ export function PlanLimitsCard({
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
               Current plan
             </p>
-            <p className="mt-1 text-xl font-semibold text-[var(--c9-text)]">{planLabel}</p>
+            <p className="mt-1 text-xl font-semibold text-[var(--c9-text)]">
+              {planLabel}
+            </p>
           </div>
           <span
             className={`rounded-full px-3 py-1 text-xs font-medium ${
@@ -115,24 +125,37 @@ export function PlanLimitsCard({
                 : 'bg-emerald-500/15 text-emerald-300'
             }`}
           >
-            {isFree ? 'Free tier' : 'Active'}
+            {isFree ? 'Free' : 'Active'}
           </span>
         </div>
-        {!isFree ? (
-          <p className="mt-2 text-sm text-[var(--c9-muted)]">
-            Engineer features are active on your account.
-          </p>
-        ) : null}
+        <p className="mt-2 text-sm text-[var(--c9-muted)]">
+          {isFree
+            ? 'Full architecture preview shows Engineer components locked. Compare plans for the full matrix.'
+            : 'Engineer features are active on your account.'}
+        </p>
+        <Link
+          to="/pricing"
+          className="mt-3 inline-block text-sm font-medium text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)]"
+        >
+          Full comparison →
+        </Link>
       </div>
 
       <div className="space-y-1 px-4 py-3">
-        <LimitRow label="Session default" value={`${limits?.sessionDefaultMins ?? '—'} min`} />
-        <LimitRow label="Session cap" value={`${limits?.sessionCapMins ?? '—'} min`} />
+        <LimitRow
+          label="Session default"
+          value={`${limits?.sessionDefaultMins ?? '—'} min`}
+        />
+        <LimitRow
+          label="Session cap"
+          value={`${limits?.sessionCapMins ?? '—'} min`}
+        />
         <LimitRow
           label="Max concurrent deployments"
           value={String(limits?.maxConcurrent ?? '—')}
         />
-        {limits?.maxSessionsPerMonth != null && sessionsRemainingThisMonth != null ? (
+        {limits?.maxSessionsPerMonth != null &&
+        sessionsRemainingThisMonth != null ? (
           <LimitRow
             label="Sessions this month"
             value={formatSessionsLeftThisMonth(
@@ -147,17 +170,17 @@ export function PlanLimitsCard({
         />
       </div>
 
-      <div className="border-t border-[var(--c9-border)] px-4 py-4">
+      <div className="space-y-4 border-t border-[var(--c9-border)] px-4 py-4">
         <BenefitChecklist limits={limits} isFree={isFree} />
-        {isFree && BILLING_ENABLED ? (
-          <div className="mt-4 space-y-2">
+        {isFree && upgradeCta ? (
+          <div className="space-y-2">
             <button
               type="button"
               disabled={checkoutBusy}
               onClick={onUpgrade}
               className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {checkoutBusy ? 'Starting checkout…' : UPGRADE_TO_ENGINEER_LABEL}
+              {checkoutBusy ? 'Starting checkout…' : upgradeCta.label}
             </button>
             {checkoutError ? (
               <p className="text-xs text-red-400" role="alert">
@@ -166,8 +189,16 @@ export function PlanLimitsCard({
             ) : null}
           </div>
         ) : null}
+        {isFree && !upgradeCta ? (
+          <Link
+            to="/pricing"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--c9-border)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)]"
+          >
+            See Explorer vs Engineer
+          </Link>
+        ) : null}
         {showPaidBilling && BILLING_ENABLED ? (
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             <p className="text-xs text-[var(--c9-muted)]">
               {canCancelAndRefund
                 ? MANAGE_BILLING_HINT
