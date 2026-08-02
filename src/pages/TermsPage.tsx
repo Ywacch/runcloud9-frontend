@@ -4,7 +4,7 @@ export default function TermsPage() {
   return (
     <LegalPageLayout title="Terms of Service">
       <p className="text-xs uppercase tracking-wider text-[var(--c9-muted)]">
-        Draft · invite alpha · last updated July 2026
+        Draft · invite alpha · last updated August 2026
       </p>
       <p>
         By using RunCloud9 during the invite alpha, you agree to these terms. If you do not agree,
@@ -35,9 +35,23 @@ export default function TermsPage() {
 
       <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Billing</h2>
       <p>
-        Paid Engineer tiers are billed through Stripe under the prices shown at checkout. Fees are
-        non-refundable except where required by law. You may cancel per Stripe subscription
-        settings; access continues through the paid period.
+        Paid subscriptions are charged through Stripe at the price shown at checkout. You manage
+        billing from your profile.
+      </p>
+      <p>
+        <strong className="font-medium text-[var(--c9-text)]">Stop subscription</strong> ends
+        renewal. You keep paid access until the current billing period ends. We do not refund that
+        period.
+      </p>
+      <p>
+        <strong className="font-medium text-[var(--c9-text)]">Cancel &amp; refund</strong> ends
+        paid access immediately and refunds the current period only if you have not used paid
+        features in that Stripe billing period (no live sessions after the period started). If you
+        have used them, Cancel &amp; refund is unavailable; use Stop instead.
+      </p>
+      <p>
+        Unused time later in a period you already paid for does not entitle you to a refund. Where
+        law requires a refund, that law controls.
       </p>
 
       <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Disclaimer</h2>
