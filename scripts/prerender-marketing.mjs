@@ -125,9 +125,10 @@ function applyPage(html, page) {
   )
   out = out.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, `$1${page.url}$2`)
   // Vite moves the module script into <head>; body ends with #root then </body>.
+  const shellBody = page.body.replace(/<main(\s|>)/, '<main data-seo-shell$1')
   out = out.replace(
     /(<div id="root">)[\s\S]*?(<\/div>\s*<\/body>)/,
-    `$1\n      ${page.body}\n    $2`,
+    `$1\n      ${shellBody}\n    $2`,
   )
   return out
 }
