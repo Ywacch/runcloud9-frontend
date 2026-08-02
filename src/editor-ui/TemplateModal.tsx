@@ -8,6 +8,7 @@ import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
+import { BILLING_ENABLED } from '../lib/featureFlags'
 import type { UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
@@ -124,6 +125,7 @@ const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
 function PremiumUpgradeButton({ onDone }: { onDone?: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  if (!BILLING_ENABLED) return null
   return (
     <div className="space-y-1">
       <button

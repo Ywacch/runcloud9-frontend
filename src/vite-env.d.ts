@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_ANALYTICS_DEBUG?: string
   readonly VITE_SUPABASE_URL?: string
   readonly VITE_SUPABASE_ANON_KEY?: string
+  /** Set to "true" to show Stripe upgrade / Stop / Cancel UI. */
+  readonly VITE_BILLING_ENABLED?: string
+  /** Discord invite URL for footer contact (e.g. https://discord.gg/…). */
+  readonly VITE_DISCORD_INVITE_URL?: string
 }
 
 interface ImportMeta {

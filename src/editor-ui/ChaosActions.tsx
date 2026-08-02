@@ -14,6 +14,7 @@ import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
+import { BILLING_ENABLED } from '../lib/featureFlags'
 import { ApiError } from '../lib/apiError'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -115,7 +116,7 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
           <p className="text-xs text-red-400" role="alert">
             {error}
           </p>
-          {upgradePrompt ? (
+          {upgradePrompt && BILLING_ENABLED ? (
             <button
               type="button"
               disabled={checkoutBusy}

@@ -5,11 +5,13 @@ import { loginPathWithReturnTo } from '../lib/authReturn'
 import { getMe } from '../lib/api'
 import { PlanLimitsCard, startEngineerUpgrade } from '../editor-ui/PlanLimitsCard'
 import { C9Card } from '../editor-ui/c9Primitives'
+import { Footer } from '../components/landing/Footer'
 import {
   CANCEL_SUCCESS_BODY_NO_REFUND,
   CANCEL_SUCCESS_BODY_REFUNDED,
   CANCEL_SUCCESS_TITLE,
 } from '../lib/billingCopy'
+import { BILLING_ENABLED } from '../lib/featureFlags'
 import {
   checkCancelEligibility,
   startBillingPortal,
@@ -37,7 +39,7 @@ export default function ProfilePage() {
     !currentUser.isInternal
 
   useEffect(() => {
-    if (!showPaidBilling) {
+    if (!BILLING_ENABLED || !showPaidBilling) {
       setCanCancelAndRefund(false)
       return
     }
@@ -125,44 +127,47 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[var(--c9-bg)] px-6 pt-24 pb-16">
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--c9-text)]">
-              Profile
-            </h1>
+    <div className="flex min-h-[100dvh] flex-col bg-[var(--c9-bg)]">
+      <main className="flex-1 px-6 pt-24 pb-16">
+        <div className="mx-auto max-w-2xl space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--c9-text)]">
+                Profile
+              </h1>
             <p className="mt-1 text-sm text-[var(--c9-muted)]">
-              Plan, limits, and billing
+              {BILLING_ENABLED ? 'Plan, limits, and billing' : 'Plan and limits'}
             </p>
+            </div>
+            <Link
+              to="/dashboard"
+              className="text-sm text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)]"
+            >
+              View past runs
+            </Link>
           </div>
-          <Link
-            to="/dashboard"
-            className="text-sm text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)]"
-          >
-            View past runs
-          </Link>
-        </div>
 
-        {!currentUser ? (
-          <p className="text-sm text-[var(--c9-muted)]">Loading plan info…</p>
-        ) : (
-          <PlanLimitsCard
-            effectiveTier={currentUser.effectiveTier}
-            isInternal={currentUser.isInternal}
-            limits={currentUser.limits}
-            sessionsRemainingThisMonth={currentUser.sessionsRemainingThisMonth}
-            checkoutBusy={checkoutBusy}
-            checkoutError={checkoutError}
-            onUpgrade={handleUpgrade}
-            onStop={handleStop}
-            onCancel={handleCancel}
-            billingBusy={billingBusy}
-            billingError={billingError}
-            canCancelAndRefund={canCancelAndRefund}
-          />
-        )}
-      </div>
+          {!currentUser ? (
+            <p className="text-sm text-[var(--c9-muted)]">Loading plan info…</p>
+          ) : (
+            <PlanLimitsCard
+              effectiveTier={currentUser.effectiveTier}
+              isInternal={currentUser.isInternal}
+              limits={currentUser.limits}
+              sessionsRemainingThisMonth={currentUser.sessionsRemainingThisMonth}
+              checkoutBusy={checkoutBusy}
+              checkoutError={checkoutError}
+              onUpgrade={handleUpgrade}
+              onStop={handleStop}
+              onCancel={handleCancel}
+              billingBusy={billingBusy}
+              billingError={billingError}
+              canCancelAndRefund={canCancelAndRefund}
+            />
+          )}
+        </div>
+      </main>
+      <Footer />
 
       {cancelSuccessRefunded !== null ? (
         <div
@@ -198,6 +203,6 @@ export default function ProfilePage() {
           </C9Card>
         </div>
       ) : null}
-    </main>
+    </div>
   )
 }
