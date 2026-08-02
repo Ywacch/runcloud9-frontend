@@ -115,7 +115,6 @@ export default function ProfilePage() {
             isInternal={currentUser.isInternal}
             limits={currentUser.limits}
             sessionsRemainingThisMonth={currentUser.sessionsRemainingThisMonth}
-            sessionsUsedThisMonth={currentUser.sessionsUsedThisMonth}
             checkoutBusy={checkoutBusy}
             checkoutError={checkoutError}
             onUpgrade={handleUpgrade}
