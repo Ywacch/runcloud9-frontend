@@ -11,6 +11,11 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string
   /** Set to "true" to show Stripe upgrade / Stop / Cancel UI. */
   readonly VITE_BILLING_ENABLED?: string
+  /**
+   * Marketing display for Engineer price (e.g. "$29"). Stripe remains charge authority.
+   * Empty / unset → "Shown at checkout".
+   */
+  readonly VITE_ENGINEER_PRICE_LABEL?: string
   /** Discord invite URL for footer contact (e.g. https://discord.gg/…). */
   readonly VITE_DISCORD_INVITE_URL?: string
 }
