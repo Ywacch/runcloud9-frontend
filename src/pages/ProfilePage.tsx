@@ -139,12 +139,20 @@ export default function ProfilePage() {
               {BILLING_ENABLED ? 'Plan, limits, and billing' : 'Plan and limits'}
             </p>
             </div>
-            <Link
-              to="/dashboard"
-              className="text-sm text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)]"
-            >
-              View past runs
-            </Link>
+            <div className="flex flex-wrap items-center gap-4">
+              <Link
+                to="/dashboard"
+                className="text-sm text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)]"
+              >
+                View past runs
+              </Link>
+              <Link
+                to="/pricing"
+                className="text-sm text-[var(--c9-muted)] transition-colors hover:text-[var(--c9-text)]"
+              >
+                Pricing
+              </Link>
+            </div>
           </div>
 
           {!currentUser ? (
