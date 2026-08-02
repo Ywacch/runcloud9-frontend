@@ -18,6 +18,8 @@ export interface DeployRequestMessage {
   body: string
   technicalDetails?: string
   actionLabel?: string
+  /** Optional second CTA (e.g. switch to Explorer runnable). */
+  secondaryActionLabel?: string
   resourceBudget?: ResourceBudgetErrorResponse
 }
 

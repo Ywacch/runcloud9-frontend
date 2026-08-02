@@ -66,8 +66,11 @@ import { SvgNodeTooltipOverlay } from './components/SvgNodeTooltipOverlay'
 import { TrafficLayer } from './components/TrafficLayer'
 import { WalkthroughNodeOverlay } from './components/WalkthroughNodeOverlay'
 import { NodeLabelChrome } from './components/NodeLabelChrome'
-import { svgWorldToCanvasPosition } from './bridge/canvasSvgAdapter'
+import {
+  svgWorldToCanvasPosition,
+} from './bridge/canvasSvgAdapter'
 import { useEdgeRenderModel } from './hooks/useEdgeRenderModel'
+import { useNodeOpacityById } from './hooks/useNodeOpacityById'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
@@ -851,6 +854,9 @@ export default function SvgDesignCanvas({
   const walkthroughParticipatingNodeIds = useCanvasStore(
     (s) => s.walkthroughParticipatingNodeIds,
   )
+  const templatePresetMode = useCanvasStore((s) => s.templatePresetMode)
+  const isPremiumUser = useAuthStore((s) => s.isPremium)
+
   const walkthroughOpacityById = useMemo(() => {
     const state = useCanvasStore.getState()
     if (!isWalkthroughRunning(state)) return null as Map<string, number> | null
@@ -866,6 +872,13 @@ export default function SvgDesignCanvas({
     walkthroughVisitedNodeIds,
     walkthroughParticipatingNodeIds,
   ])
+
+  const nodeOpacityById = useNodeOpacityById({
+    nodes,
+    walkthroughOpacityById,
+    isFreeUser: !isPremiumUser,
+    templatePresetMode,
+  })
 
   const latticeHint = useMemo(() => {
     if (connectMode) {
@@ -1126,7 +1139,7 @@ export default function SvgDesignCanvas({
                 selectedSet.has(node.id) || node.id === connectSourceId
               }
               interactive={!spaceDown && !panning && !marquee}
-              opacity={walkthroughOpacityById?.get(node.id) ?? 1}
+              opacity={nodeOpacityById?.get(node.id) ?? 1}
               onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
               onPointerEnter={() => onNodePointerEnter(node.id)}
               onPointerLeave={() => onNodePointerLeave(node.id)}
@@ -1146,7 +1159,7 @@ export default function SvgDesignCanvas({
           />
           <NodeLabelChrome
             nodes={sortedNodes}
-            opacityById={walkthroughOpacityById ?? undefined}
+            opacityById={nodeOpacityById ?? undefined}
           />
           <WalkthroughNodeOverlay nodes={sortedNodes} />
           {marqueeRect && marqueeRect.w + marqueeRect.h > 0 ? (

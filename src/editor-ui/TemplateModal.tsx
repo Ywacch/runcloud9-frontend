@@ -545,7 +545,7 @@ export function TemplateModal({
         const socialFeedRows: PresetTemplateRow[] = []
         for (const t of list) {
           const meta = TEMPLATE_META_BY_ID[t.id] ?? TEMPLATE_META_BY_ID['social-feed']
-          const preset = selectTemplatePreset(t, userRecord)
+          const preset = selectTemplatePreset(t, userRecord, 'full')
           if (SOCIAL_FEED_VARIANT_IDS.has(t.id)) {
             if (preset) {
               socialFeedRows.push({
