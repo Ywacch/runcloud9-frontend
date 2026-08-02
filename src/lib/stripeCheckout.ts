@@ -58,6 +58,7 @@ async function postBillingFunction(
   path: string,
   userId: string,
   token: string,
+  extra?: Record<string, unknown>,
 ): Promise<Response> {
   const { url, anonKey } = supabaseConfig()
   return fetch(`${url}/functions/v1/${path}`, {
@@ -67,7 +68,7 @@ async function postBillingFunction(
       apikey: anonKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userId, ...extra }),
   })
 }
 
@@ -141,12 +142,30 @@ export async function startBillingPortal(opts?: {
 }
 
 /**
+ * Whether Cancel & refund is allowed (unused in current Stripe billing period).
+ */
+export async function checkCancelEligibility(): Promise<boolean> {
+  const { token, userId } = requireSignedInUserId()
+  const res = await postBillingFunction('cancel-subscription', userId, token, {
+    checkOnly: true,
+  })
+  if (!res.ok) return false
+  try {
+    const body = (await res.json()) as { canCancel?: boolean }
+    return body.canCancel === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Immediate Cancel + refund path (unused in Stripe billing period only).
  * Edge Function enforces period-scoped usage; 409 if used.
  */
 export async function startCancelSubscription(): Promise<{
   ok: true
   alreadyCanceled?: boolean
+  refunded?: boolean
 }> {
   const { token, userId } = requireSignedInUserId()
   const res = await postBillingFunction('cancel-subscription', userId, token)
@@ -159,11 +178,13 @@ export async function startCancelSubscription(): Promise<{
     const body = (await res.json()) as {
       ok?: boolean
       alreadyCanceled?: boolean
+      refunded?: boolean
     }
     if (body.ok) {
       return {
         ok: true,
         alreadyCanceled: body.alreadyCanceled === true,
+        refunded: body.refunded === true,
       }
     }
   } catch {

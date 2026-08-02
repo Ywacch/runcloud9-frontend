@@ -86,17 +86,33 @@ describe('stripeCheckout', () => {
   it('posts to cancel-subscription', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ ok: true }),
+      json: async () => ({ ok: true, refunded: true }),
     })
     await expect(startCancelSubscription()).resolves.toEqual({
       ok: true,
       alreadyCanceled: false,
+      refunded: true,
     })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://example.supabase.co/functions/v1/cancel-subscription',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ userId: 'user-1' }),
+      }),
+    )
+  })
+
+  it('checks cancel eligibility without canceling', async () => {
+    const { checkCancelEligibility } = await import('./stripeCheckout')
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ canCancel: true }),
+    })
+    await expect(checkCancelEligibility()).resolves.toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/cancel-subscription',
+      expect.objectContaining({
+        body: JSON.stringify({ userId: 'user-1', checkOnly: true }),
       }),
     )
   })
