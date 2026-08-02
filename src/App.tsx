@@ -15,6 +15,7 @@ import BillingSuccessPage from './pages/BillingSuccessPage'
 import BillingCancelPage from './pages/BillingCancelPage'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './editor-ui/NavHeader'
+import { DocumentMeta } from './components/seo/DocumentMeta'
 import { InternalOnlyRoute } from './product/InternalOnlyRoute'
 
 const LoadtestPage = lazy(() => import('./pages/LoadtestPage'))
@@ -83,6 +84,7 @@ export default function App() {
   return (
     <RootErrorBoundary>
       <BrowserRouter>
+        <DocumentMeta />
         <NavHeader />
         <Routes>
           <Route path="/" element={<HomeRoute />} />
