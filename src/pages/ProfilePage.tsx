@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../product/stores/authStore'
 import { loginPathWithReturnTo } from '../lib/authReturn'
 import { getMe } from '../lib/api'
 import { PlanLimitsCard, startEngineerUpgrade } from '../editor-ui/PlanLimitsCard'
+import { C9Card } from '../editor-ui/c9Primitives'
 import {
+  CANCEL_SUCCESS_BODY_NO_REFUND,
+  CANCEL_SUCCESS_BODY_REFUNDED,
+  CANCEL_SUCCESS_TITLE,
+} from '../lib/billingCopy'
+import {
+  checkCancelEligibility,
   startBillingPortal,
   startCancelSubscription,
   StripeCheckoutError,
@@ -19,6 +26,33 @@ export default function ProfilePage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [billingBusy, setBillingBusy] = useState(false)
   const [billingError, setBillingError] = useState<string | null>(null)
+  const [cancelSuccessRefunded, setCancelSuccessRefunded] = useState<
+    boolean | null
+  >(null)
+  const [canCancelAndRefund, setCanCancelAndRefund] = useState(false)
+
+  const showPaidBilling =
+    !!currentUser &&
+    currentUser.effectiveTier !== 'free' &&
+    !currentUser.isInternal
+
+  useEffect(() => {
+    if (!showPaidBilling) {
+      setCanCancelAndRefund(false)
+      return
+    }
+    let cancelled = false
+    void checkCancelEligibility()
+      .then((ok) => {
+        if (!cancelled) setCanCancelAndRefund(ok)
+      })
+      .catch(() => {
+        if (!cancelled) setCanCancelAndRefund(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showPaidBilling, currentUser?.userId, currentUser?.effectiveTier])
 
   if (!session) {
     return (
@@ -65,15 +99,18 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setBillingError(null)
+    setCancelSuccessRefunded(null)
     setBillingBusy(true)
     void startCancelSubscription()
-      .then(async () => {
+      .then(async (result) => {
         try {
           const me = await getMe()
           setCurrentUser(me)
         } catch {
           /* tier refresh best-effort; webhook may still be in flight */
         }
+        setCanCancelAndRefund(false)
+        setCancelSuccessRefunded(result.refunded === true)
       })
       .catch((err: unknown) => {
         setBillingError(
@@ -122,9 +159,45 @@ export default function ProfilePage() {
             onCancel={handleCancel}
             billingBusy={billingBusy}
             billingError={billingError}
+            canCancelAndRefund={canCancelAndRefund}
           />
         )}
       </div>
+
+      {cancelSuccessRefunded !== null ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--c9-bg)]/75 px-6 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => setCancelSuccessRefunded(null)}
+        >
+          <C9Card
+            className="w-full max-w-md p-6 text-center shadow-xl shadow-black/30"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-success-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="cancel-success-title"
+              className="text-xl font-semibold tracking-tight text-[var(--c9-text)]"
+            >
+              {CANCEL_SUCCESS_TITLE}
+            </h2>
+            <p className="mt-2 text-sm text-[var(--c9-muted)]">
+              {cancelSuccessRefunded
+                ? CANCEL_SUCCESS_BODY_REFUNDED
+                : CANCEL_SUCCESS_BODY_NO_REFUND}
+            </p>
+            <button
+              type="button"
+              className="mt-5 w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)]"
+              onClick={() => setCancelSuccessRefunded(null)}
+            >
+              OK
+            </button>
+          </C9Card>
+        </div>
+      ) : null}
     </main>
   )
 }

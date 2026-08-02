@@ -9,6 +9,17 @@ export const CANCEL_SUBSCRIPTION_LABEL = 'Cancel & refund'
 export const MANAGE_BILLING_HINT =
   'Stop keeps Engineer until the end of this billing period and turns off renewal (resume anytime before then in the portal). Cancel ends Engineer now with a full refund — only if you have not used Engineer this billing period.'
 
+export const MANAGE_BILLING_HINT_STOP_ONLY =
+  'Stop keeps Engineer until the end of this billing period and turns off renewal. Cancel & refund is unavailable after you use Engineer this billing period.'
+
+export const CANCEL_SUCCESS_TITLE = 'Subscription canceled'
+
+export const CANCEL_SUCCESS_BODY_REFUNDED =
+  'Your Engineer plan has ended and a full refund has been issued. It may take a few days to appear on your statement.'
+
+export const CANCEL_SUCCESS_BODY_NO_REFUND =
+  'Your Engineer plan has ended. No refund was issued for this cancellation.'
+
 export const UPGRADE_TO_UNLOCK_TOOLTIP = 'Upgrade to Engineer to unlock this'
 
 export const UPGRADE_TO_SCALE_REPLICAS_TOOLTIP =
