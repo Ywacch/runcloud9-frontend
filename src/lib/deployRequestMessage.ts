@@ -8,8 +8,8 @@ import {
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
 import {
+  engineerUpgradeActionLabel,
   isChaosTrialUsedMessage,
-  UPGRADE_TO_ENGINEER_LABEL,
 } from './billingCopy'
 import { BILLING_ENABLED } from './featureFlags'
 
@@ -22,7 +22,7 @@ export interface DeployRequestMessage {
 }
 
 function upgradeActionLabel(): string | undefined {
-  return BILLING_ENABLED ? UPGRADE_TO_ENGINEER_LABEL : undefined
+  return engineerUpgradeActionLabel(BILLING_ENABLED)
 }
 
 export function mapDeployRequestError(

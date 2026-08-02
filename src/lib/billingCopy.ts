@@ -61,6 +61,133 @@ export function displayPlanTierLabel(
   }
 }
 
+/**
+ * Published Explorer / Engineer caps for marketing matrices.
+ * Keep aligned with ganymede `store.GetTierLimits` (free / engineer).
+ */
+export const PUBLISHED_TIER_LIMITS = {
+  explorer: {
+    maxConcurrent: 1,
+    sessionMinsLabel: '9 min',
+    maxSessionsPerMonth: 5,
+    maxAppServerReplicas: 1,
+  },
+  engineer: {
+    maxConcurrent: 1,
+    sessionMinsLabel: '9–15 min',
+    maxSessionsPerMonth: 20,
+    maxAppServerReplicas: 3,
+  },
+} as const
+
+export const EXPLORER_PRICE_DISPLAY = '$0'
+
+const ENGINEER_PRICE_FALLBACK = 'Shown at checkout'
+
+/** Resolve Engineer marketing price; Stripe checkout remains authoritative. */
+export function resolveEngineerPriceDisplay(
+  envValue: string | undefined = import.meta.env.VITE_ENGINEER_PRICE_LABEL,
+): string {
+  const trimmed = String(envValue ?? '').trim()
+  return trimmed.length > 0 ? trimmed : ENGINEER_PRICE_FALLBACK
+}
+
+export const ENGINEER_PRICE_DISPLAY = resolveEngineerPriceDisplay()
+
+/**
+ * Upgrade CTA for marketing / account surfaces.
+ * When billing is off, return null so UI does not fake a checkout path.
+ */
+export function engineerUpgradeCta(billingEnabled: boolean): {
+  label: string
+} | null {
+  if (!billingEnabled) return null
+  return { label: UPGRADE_TO_ENGINEER_LABEL }
+}
+
+/** Same gate as deploy upgrade actions; string form for simple call sites. */
+export function engineerUpgradeActionLabel(
+  billingEnabled: boolean,
+): string | undefined {
+  return engineerUpgradeCta(billingEnabled)?.label
+}
+
+export type TierCompareRowId =
+  | 'concurrent'
+  | 'session_length'
+  | 'sessions_month'
+  | 'replicas'
+  | 'load_balancer'
+  | 'mq_worker'
+  | 'proxy_cache'
+  | 'templates'
+  | 'chaos'
+
+export type TierCompareRow = {
+  id: TierCompareRowId
+  label: string
+  explorer: string
+  engineer: string
+}
+
+/** Pricing / profile matrix — single source for Explorer vs Engineer cells. */
+export const TIER_COMPARE_ROWS: TierCompareRow[] = [
+  {
+    id: 'concurrent',
+    label: 'Concurrent deployments',
+    explorer: String(PUBLISHED_TIER_LIMITS.explorer.maxConcurrent),
+    engineer: String(PUBLISHED_TIER_LIMITS.engineer.maxConcurrent),
+  },
+  {
+    id: 'session_length',
+    label: 'Session length',
+    explorer: PUBLISHED_TIER_LIMITS.explorer.sessionMinsLabel,
+    engineer: PUBLISHED_TIER_LIMITS.engineer.sessionMinsLabel,
+  },
+  {
+    id: 'sessions_month',
+    label: 'Sessions per month',
+    explorer: String(PUBLISHED_TIER_LIMITS.explorer.maxSessionsPerMonth),
+    engineer: String(PUBLISHED_TIER_LIMITS.engineer.maxSessionsPerMonth),
+  },
+  {
+    id: 'replicas',
+    label: 'App server replicas',
+    explorer: String(PUBLISHED_TIER_LIMITS.explorer.maxAppServerReplicas),
+    engineer: String(PUBLISHED_TIER_LIMITS.engineer.maxAppServerReplicas),
+  },
+  {
+    id: 'load_balancer',
+    label: 'Load balancers',
+    explorer: 'Full architecture preview (locked)',
+    engineer: 'Included',
+  },
+  {
+    id: 'mq_worker',
+    label: 'Message queue + worker',
+    explorer: 'Full architecture preview (locked)',
+    engineer: 'Included',
+  },
+  {
+    id: 'proxy_cache',
+    label: 'Cache proxy strategies',
+    explorer: 'Cache-aside only',
+    engineer: 'Write-through / write-behind',
+  },
+  {
+    id: 'templates',
+    label: 'Templates',
+    explorer: 'Free templates',
+    engineer: 'All templates',
+  },
+  {
+    id: 'chaos',
+    label: 'Chaos actions',
+    explorer: 'One trial per feature',
+    engineer: 'Unlimited',
+  },
+]
+
 export type EngineerBenefitId =
   | 'load_balancer'
   | 'mq_worker'
@@ -79,12 +206,14 @@ export const ENGINEER_BENEFIT_ROWS: EngineerBenefitRow[] = [
   {
     id: 'load_balancer',
     label: 'Load balancers in presets and on canvas',
-    explorerNote: 'Explorer presets omit load balancers',
+    explorerNote:
+      'Shown locked on full architecture; switch to Explorer runnable to deploy without them',
   },
   {
     id: 'mq_worker',
     label: 'Message queue + worker (async fan-out)',
-    explorerNote: 'Not available on Explorer',
+    explorerNote:
+      'Shown locked on full architecture; switch to Explorer runnable to deploy without them',
   },
   {
     id: 'proxy_cache',
