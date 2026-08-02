@@ -26,6 +26,10 @@ export function LegalPageLayout({
             About
           </Link>
           {' · '}
+          <Link to="/pricing" className="hover:text-[var(--c9-text)]">
+            Pricing
+          </Link>
+          {' · '}
           <Link to="/privacy" className="hover:text-[var(--c9-text)]">
             Privacy
           </Link>

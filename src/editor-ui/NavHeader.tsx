@@ -33,6 +33,12 @@ export default function NavHeader() {
           </Link>
         ) : null}
         <Link
+          to="/pricing"
+          className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
+        >
+          Pricing
+        </Link>
+        <Link
           to="/canvas"
           className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
         >

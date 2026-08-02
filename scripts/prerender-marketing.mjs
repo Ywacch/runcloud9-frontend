@@ -33,6 +33,35 @@ const pages = [
   <p>Invite-only alpha. <a href="/login">Sign in</a> or open your <a href="/dashboard">dashboard</a>.</p>
   <nav aria-label="Site">
     <a href="/">Home</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+  </nav>
+</main>`,
+  },
+  {
+    out: join(root, 'dist', 'pricing', 'index.html'),
+    title: 'Pricing | runcloud9',
+    description:
+      'Explorer is free. Engineer unlocks load balancers, queues, workers, all templates, and higher session limits on RunCloud9.',
+    url: `${SITE}/pricing`,
+    body: `<main>
+  <h1>Plans for the architecture lab</h1>
+  <p>
+    Design on a canvas, deploy to real Kubernetes, and watch the system under load.
+    Invite-only alpha.
+  </p>
+  <h2>Explorer</h2>
+  <p>$0 forever. Deploy free templates on the Explorer-runnable design.</p>
+  <h2>Engineer</h2>
+  <p>
+    Load balancers, queues, workers, proxy cache strategies, all templates, and higher
+    session quotas. Price shown at checkout.
+  </p>
+  <p><a href="/login">Sign in</a> to upgrade or <a href="/canvas">open the canvas</a>.</p>
+  <nav aria-label="Site">
+    <a href="/">Home</a>
+    <a href="/about">About</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
   </nav>
@@ -63,6 +92,7 @@ const pages = [
   <nav aria-label="Site">
     <a href="/">Home</a>
     <a href="/about">About</a>
+    <a href="/pricing">Pricing</a>
     <a href="/terms">Terms</a>
   </nav>
 </main>`,
@@ -93,6 +123,7 @@ const pages = [
   <nav aria-label="Site">
     <a href="/">Home</a>
     <a href="/about">About</a>
+    <a href="/pricing">Pricing</a>
     <a href="/privacy">Privacy</a>
   </nav>
 </main>`,
