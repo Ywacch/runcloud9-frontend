@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { startEngineerCheckout, StripeCheckoutError } from './stripeCheckout'
+import {
+  startBillingPortal,
+  startCancelSubscription,
+  startEngineerCheckout,
+  StripeCheckoutError,
+} from './stripeCheckout'
 
 vi.mock('./auth', () => ({
   getAccessToken: vi.fn(),
@@ -56,10 +61,60 @@ describe('stripeCheckout', () => {
           Authorization: 'Bearer tok',
           apikey: 'anon-test',
         }),
-        body: JSON.stringify({ userId: 'user-1', email: 'a@b.co' }),
+        body: JSON.stringify({ userId: 'user-1' }),
       }),
     )
     expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay_123')
+  })
+
+  it('posts to create-portal-session and redirects', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ url: 'https://billing.stripe.com/session/test' }),
+    })
+    await startBillingPortal({ assign })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/create-portal-session',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ userId: 'user-1' }),
+      }),
+    )
+    expect(assign).toHaveBeenCalledWith('https://billing.stripe.com/session/test')
+  })
+
+  it('posts to cancel-subscription', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })
+    await expect(startCancelSubscription()).resolves.toEqual({
+      ok: true,
+      alreadyCanceled: false,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/cancel-subscription',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ userId: 'user-1' }),
+      }),
+    )
+  })
+
+  it('surfaces cancel 409 without treating as success', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      statusText: 'Conflict',
+      text: async () =>
+        JSON.stringify({
+          error:
+            'Cancel is only available if you have not used Engineer this billing period. You can stop renewal instead.',
+        }),
+    })
+    await expect(startCancelSubscription()).rejects.toBeInstanceOf(
+      StripeCheckoutError,
+    )
   })
 
   it('throws on Edge Function error without redirecting', async () => {

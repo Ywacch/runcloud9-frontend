@@ -17,6 +17,17 @@ describe('billingCopy', () => {
     expect(UPGRADE_TO_ENGINEER_LABEL).toBe('Upgrade to Engineer')
   })
 
+  it('exposes stop and cancel billing labels', async () => {
+    const {
+      STOP_SUBSCRIPTION_LABEL,
+      CANCEL_SUBSCRIPTION_LABEL,
+      MANAGE_BILLING_HINT,
+    } = await import('./billingCopy')
+    expect(STOP_SUBSCRIPTION_LABEL).toBe('Stop subscription')
+    expect(CANCEL_SUBSCRIPTION_LABEL).toBe('Cancel & refund')
+    expect(MANAGE_BILLING_HINT.length).toBeGreaterThan(20)
+  })
+
   it('exposes free-tier upgrade tooltips', () => {
     expect(UPGRADE_TO_UNLOCK_TOOLTIP).toBe(
       'Upgrade to Engineer to unlock this',
