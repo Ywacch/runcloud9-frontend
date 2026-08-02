@@ -59,9 +59,11 @@ import {
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { isEngineerPreviewLocked } from '../lib/engineerLockedVisual'
 import { CacheBrowser } from './CacheBrowser'
 import { ComponentLogPanel } from './ComponentLogPanel'
 import { DataBrowser } from './DataBrowser'
+import { EngineerLockedInspectorNotice } from './EngineerLockedInspectorNotice'
 import { QueueBrowser } from './QueueBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
@@ -101,7 +103,9 @@ export function InspectorPanel() {
   const updateNodeLabel = useCanvasStore((s) => s.updateNodeLabel)
   const removeNode = useCanvasStore((s) => s.removeNode)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const templatePresetMode = useCanvasStore((s) => s.templatePresetMode)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const isPremiumUser = useAuthStore((s) => s.isPremium)
   const templateInfo = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId] : undefined,
   )
@@ -123,6 +127,13 @@ export function InspectorPanel() {
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
+  const engineerPreviewLocked =
+    node != null &&
+    isEngineerPreviewLocked({
+      nodeType: node.type,
+      isFreeUser: !isPremiumUser,
+      mode: templatePresetMode,
+    })
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
@@ -167,7 +178,7 @@ export function InspectorPanel() {
             />
             <div className="min-w-0 flex-1">
               <span className={labelClass}>Label</span>
-              {!liveMode ? (
+              {!liveMode && !engineerPreviewLocked ? (
                 <input
                   id="runcloud9-inspector-label"
                   type="text"
@@ -281,12 +292,18 @@ export function InspectorPanel() {
           ) : (
             <>
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+                {engineerPreviewLocked ? <EngineerLockedInspectorNotice /> : null}
                 <TypeFields
                   node={node}
                   edges={edges}
                   nodes={nodes}
                   simulationMode={simulationMode}
-                  updateConfig={(patch) => updateNodeConfig(node.id, patch)}
+                  readOnly={engineerPreviewLocked}
+                  updateConfig={
+                    engineerPreviewLocked
+                      ? () => {}
+                      : (patch) => updateNodeConfig(node.id, patch)
+                  }
                   templateId={snapshotTemplateId}
                 />
                 {simulationMode ? <LiveMetrics node={node} /> : null}

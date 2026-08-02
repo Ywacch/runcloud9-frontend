@@ -19,6 +19,12 @@ import {
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
 import {
+  explorerFullModeDeployBlock,
+  templateHasExplorerRunnable,
+} from '../lib/templatePresetMode'
+import { switchTemplatePresetMode } from '../lib/switchTemplatePresetMode'
+import { BILLING_ENABLED } from '../lib/featureFlags'
+import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
@@ -339,11 +345,14 @@ export function Sidebar() {
     useSimulationStore.getState().stop()
     if (action.kind === 'preset') {
       st.loadTemplateSnapshot(action.preset(), 'design')
+      const free = !useAuthStore.getState().isPremium
+      st.setTemplatePresetMode(free ? 'full' : null)
       setBanner(`Loaded ${templateTitleForId(action.id) ?? action.id} template`)
       trackEvent('template_selected', { template: action.id, archetype: 'preset' })
       return
     }
     st.startFromTemplate(action.id)
+    st.setTemplatePresetMode(null)
     setBanner(
       `Selected ${templateTitleForId(action.id) ?? action.id} template (blank canvas)`,
     )
@@ -541,6 +550,24 @@ export function Sidebar() {
     if (!stCheck.snapshotTemplateId) {
       trackDeployBlocked('no_template')
       setBanner('Select a template before deploying.')
+      return
+    }
+
+    const softBlock = explorerFullModeDeployBlock({
+      isFreeUser: !isPremiumUser,
+      mode: stCheck.templatePresetMode,
+      nodes: stCheck.nodes,
+      billingEnabled: BILLING_ENABLED,
+      hasExplorerRunnable: templateHasExplorerRunnable(selectedTemplate),
+    })
+    if (softBlock) {
+      trackDeployBlocked('topology_violation', stCheck.snapshotTemplateId)
+      setDeploying(false)
+      setDeployModalOpen(true)
+      setDeployModalMode('request_rejected')
+      setDeployRequestMessage(softBlock)
+      setDeploySimulationMessage(null)
+      setDeployResourceBudget(null)
       return
     }
 
@@ -962,6 +989,24 @@ export function Sidebar() {
               : deployRequestMessage?.actionLabel
                 ? () => navigate(loginPathWithReturnTo('/canvas'))
                 : undefined
+        }
+        requestSecondaryActionLabel={deployRequestMessage?.secondaryActionLabel}
+        onRequestSecondaryAction={
+          deployRequestMessage?.secondaryActionLabel ===
+          'Switch to Explorer runnable'
+            ? () => {
+                const ok = switchTemplatePresetMode('explorer', {
+                  user: useAuthStore.getState().userRecord,
+                  confirmIfDirty: false,
+                })
+                if (ok) {
+                  setDeployModalOpen(false)
+                  setDeployModalMode('progress')
+                  setDeployRequestMessage(null)
+                  setBanner('Switched to Explorer runnable design.')
+                }
+              }
+            : undefined
         }
         onAuthDismiss={dismissAuthModal}
         simulationRecommended={deploySimulationMessage}

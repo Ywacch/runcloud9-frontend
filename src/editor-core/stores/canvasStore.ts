@@ -132,6 +132,11 @@ interface CanvasState {
   connectHoverTargetId: string | null
   /** Last loaded / active template id for `exportJSON` → deploy `template`. */
   snapshotTemplateId: string | null
+  /**
+   * Explorer dual-mode: full architecture preview vs runnable lite preset.
+   * Null for paid users or when no template is loaded.
+   */
+  templatePresetMode: 'full' | 'explorer' | null
   /** Client-side session end (deploy + 9m) for countdown. */
   liveSessionEndsAt: number | null
   sessionSummary: SessionSummary | null
@@ -178,6 +183,7 @@ interface CanvasState {
   setPlacingNodeType: (type: CanvasNode['type'] | null) => void
   setDesignTool: (tool: DesignTool) => void
   setSnapshotTemplateId: (id: string | null) => void
+  setTemplatePresetMode: (mode: 'full' | 'explorer' | null) => void
   setLiveSessionEndsAt: (t: number | null) => void
   setSessionSummary: (summary: SessionSummary | null) => void
   setNarrativeHighlightNodeIds: (ids: string[]) => void
@@ -239,6 +245,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   placingNodeType: null,
   connectHoverTargetId: null,
   snapshotTemplateId: null,
+  templatePresetMode: null,
   liveSessionEndsAt: null,
   sessionSummary: null,
   narrativeHighlightNodeIds: [],
@@ -493,8 +500,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         syncPredictions: Boolean(snapshotTemplateId),
       })
     }
-    set({ snapshotTemplateId })
+    set({
+      snapshotTemplateId,
+      ...(snapshotTemplateId ? {} : { templatePresetMode: null }),
+    })
   },
+
+  setTemplatePresetMode: (templatePresetMode) => set({ templatePresetMode }),
 
   setLiveSessionEndsAt: (liveSessionEndsAt) => set({ liveSessionEndsAt }),
 
@@ -574,6 +586,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       placingNodeType: null,
       connectHoverTargetId: null,
       snapshotTemplateId: snapshot.templateId ?? null,
+      templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,
@@ -602,6 +615,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       placingNodeType: null,
       connectHoverTargetId: null,
       snapshotTemplateId: snapshot.templateId ?? null,
+      templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,
@@ -630,6 +644,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       placingNodeType: null,
       connectHoverTargetId: null,
       snapshotTemplateId: templateId,
+      templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,
@@ -659,6 +674,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       placingNodeType: null,
       connectHoverTargetId: null,
       snapshotTemplateId: null,
+      templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       sessionSummary: null,

@@ -19,6 +19,7 @@ import {
   WalkthroughOverlay,
 } from '../editor-ui'
 import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
+import { TemplatePresetModeBanner } from '../editor-ui/TemplatePresetModeBanner'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
@@ -155,21 +156,24 @@ export default function SvgCanvasPage() {
         <CanvasHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
         <CanvasSessionOverlays session={session}>
-          {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
+          {mode === 'design' ? (
             <div
-              className={`pointer-events-none absolute left-3 z-30 ${
+              className={`pointer-events-none absolute left-3 z-30 flex flex-col gap-2 ${
                 import.meta.env.DEV ? 'top-12' : 'top-3'
               }`}
             >
-              <button
-                type="button"
-                className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
-                onClick={() =>
-                  setDesignJourneyUi({ open: true, overview: true, id: null })
-                }
-              >
-                Request journeys
-              </button>
+              <TemplatePresetModeBanner />
+              {designJourneys.length > 0 && !walkthroughActive ? (
+                <button
+                  type="button"
+                  className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
+                  onClick={() =>
+                    setDesignJourneyUi({ open: true, overview: true, id: null })
+                  }
+                >
+                  Request journeys
+                </button>
+              ) : null}
             </div>
           ) : null}
         </CanvasSessionOverlays>

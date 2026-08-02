@@ -24,6 +24,8 @@ interface Props {
   technicalDetails?: string | null
   requestActionLabel?: string | null
   onRequestAction?: () => void
+  requestSecondaryActionLabel?: string | null
+  onRequestSecondaryAction?: () => void
   resourceBudget?: ResourceBudgetErrorResponse | null
   /** Backend returned simulation_recommended — no deployment was created. */
   simulationRecommended?: string | null
@@ -47,6 +49,8 @@ export function DeployModal({
   technicalDetails,
   requestActionLabel,
   onRequestAction,
+  requestSecondaryActionLabel,
+  onRequestSecondaryAction,
   resourceBudget,
   simulationRecommended,
   invalidTopologyItems,
@@ -238,6 +242,18 @@ export function DeployModal({
             className="mt-4 w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-[transform,background-color] duration-200 hover:bg-[var(--c9-accent-hover)] active:scale-[0.98]"
           >
             {requestActionLabel}
+          </button>
+        ) : null}
+
+        {showRequestRejected &&
+        requestSecondaryActionLabel &&
+        onRequestSecondaryAction ? (
+          <button
+            type="button"
+            onClick={onRequestSecondaryAction}
+            className="mt-2 w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-4 py-2 text-sm text-[var(--c9-text)] transition-[transform,background-color] duration-200 hover:bg-[var(--c9-badge-bg)] active:scale-[0.98]"
+          >
+            {requestSecondaryActionLabel}
           </button>
         ) : null}
 
