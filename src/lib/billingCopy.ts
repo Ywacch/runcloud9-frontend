@@ -2,6 +2,13 @@
 
 export const UPGRADE_TO_ENGINEER_LABEL = 'Upgrade to Engineer'
 
+export const STOP_SUBSCRIPTION_LABEL = 'Stop subscription'
+
+export const CANCEL_SUBSCRIPTION_LABEL = 'Cancel & refund'
+
+export const MANAGE_BILLING_HINT =
+  'Stop keeps Engineer until the end of this billing period and turns off renewal (resume anytime before then in the portal). Cancel ends Engineer now with a full refund — only if you have not used Engineer this billing period.'
+
 export const UPGRADE_TO_UNLOCK_TOOLTIP = 'Upgrade to Engineer to unlock this'
 
 export const UPGRADE_TO_SCALE_REPLICAS_TOOLTIP =

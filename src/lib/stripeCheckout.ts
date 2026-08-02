@@ -44,6 +44,33 @@ async function readErrorMessage(res: Response): Promise<string> {
   return text.slice(0, 200)
 }
 
+function requireSignedInUserId(): { token: string; userId: string } {
+  const session = useAuthStore.getState().session
+  const token = getAccessToken()
+  const userId = session?.user?.id?.trim()
+  if (!session || !token || !userId) {
+    throw new StripeCheckoutError('Sign in to manage billing.')
+  }
+  return { token, userId }
+}
+
+async function postBillingFunction(
+  path: string,
+  userId: string,
+  token: string,
+): Promise<Response> {
+  const { url, anonKey } = supabaseConfig()
+  return fetch(`${url}/functions/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: anonKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId }),
+  })
+}
+
 /**
  * Create a Stripe Checkout session via the deployed Supabase Edge Function
  * and redirect the browser to Stripe.
@@ -54,21 +81,11 @@ export async function startEngineerCheckout(opts?: {
   const session = useAuthStore.getState().session
   const token = getAccessToken()
   const userId = session?.user?.id?.trim()
-  const email = session?.user?.email?.trim()
-  if (!session || !token || !userId || !email) {
+  if (!session || !token || !userId) {
     throw new StripeCheckoutError('Sign in to upgrade to Engineer.')
   }
 
-  const { url, anonKey } = supabaseConfig()
-  const res = await fetch(`${url}/functions/v1/create-checkout-session`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: anonKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId, email }),
-  })
+  const res = await postBillingFunction('create-checkout-session', userId, token)
 
   if (!res.ok) {
     throw new StripeCheckoutError(await readErrorMessage(res))
@@ -85,8 +102,72 @@ export async function startEngineerCheckout(opts?: {
     throw new StripeCheckoutError('Checkout did not return a redirect URL.')
   }
 
-  const assign = opts?.assign ?? ((href: string) => {
-    window.location.assign(href)
-  })
+  const assign =
+    opts?.assign ??
+    ((href: string) => {
+      window.location.assign(href)
+    })
   assign(checkoutUrl)
+}
+
+/** Open Stripe Customer Portal (Stop renewal / resume / payment method). */
+export async function startBillingPortal(opts?: {
+  assign?: (url: string) => void
+}): Promise<void> {
+  const { token, userId } = requireSignedInUserId()
+  const res = await postBillingFunction('create-portal-session', userId, token)
+
+  if (!res.ok) {
+    throw new StripeCheckoutError(await readErrorMessage(res))
+  }
+
+  let portalUrl: string | undefined
+  try {
+    const body = (await res.json()) as { url?: string }
+    portalUrl = typeof body.url === 'string' ? body.url.trim() : undefined
+  } catch {
+    throw new StripeCheckoutError('Portal response was invalid.')
+  }
+  if (!portalUrl) {
+    throw new StripeCheckoutError('Portal did not return a redirect URL.')
+  }
+
+  const assign =
+    opts?.assign ??
+    ((href: string) => {
+      window.location.assign(href)
+    })
+  assign(portalUrl)
+}
+
+/**
+ * Immediate Cancel + refund path (unused in Stripe billing period only).
+ * Edge Function enforces period-scoped usage; 409 if used.
+ */
+export async function startCancelSubscription(): Promise<{
+  ok: true
+  alreadyCanceled?: boolean
+}> {
+  const { token, userId } = requireSignedInUserId()
+  const res = await postBillingFunction('cancel-subscription', userId, token)
+
+  if (!res.ok) {
+    throw new StripeCheckoutError(await readErrorMessage(res))
+  }
+
+  try {
+    const body = (await res.json()) as {
+      ok?: boolean
+      alreadyCanceled?: boolean
+    }
+    if (body.ok) {
+      return {
+        ok: true,
+        alreadyCanceled: body.alreadyCanceled === true,
+      }
+    }
+  } catch {
+    throw new StripeCheckoutError('Cancel response was invalid.')
+  }
+  throw new StripeCheckoutError('Cancel did not confirm success.')
 }

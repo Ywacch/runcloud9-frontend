@@ -1,9 +1,12 @@
 import type { CurrentUserLimits } from '../lib/api'
 import {
+  CANCEL_SUBSCRIPTION_LABEL,
   displayPlanTierLabel,
   ENGINEER_BENEFIT_ROWS,
   engineerBenefitIncluded,
   formatSessionsLeftThisMonth,
+  MANAGE_BILLING_HINT,
+  STOP_SUBSCRIPTION_LABEL,
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/billingCopy'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
@@ -63,21 +66,36 @@ function BenefitChecklist({
 
 export function PlanLimitsCard({
   effectiveTier,
+  isInternal,
   limits,
   sessionsRemainingThisMonth,
+  sessionsUsedThisMonth,
   checkoutBusy,
   checkoutError,
   onUpgrade,
+  onStop,
+  onCancel,
+  billingBusy,
+  billingError,
 }: {
   effectiveTier: string | null | undefined
+  isInternal: boolean
   limits: CurrentUserLimits | undefined
   sessionsRemainingThisMonth: number | null | undefined
+  sessionsUsedThisMonth: number | null | undefined
   checkoutBusy: boolean
   checkoutError: string | null
   onUpgrade: () => void
+  onStop: () => void
+  onCancel: () => void
+  billingBusy: boolean
+  billingError: string | null
 }) {
   const planLabel = displayPlanTierLabel(effectiveTier)
   const isFree = effectiveTier === 'free'
+  const showPaidBilling = !isFree && !isInternal
+  // Soft hint only — Edge Function enforces Stripe billing-period usage.
+  const showCancelHint = (sessionsUsedThisMonth ?? 0) === 0
 
   return (
     <C9Card className="overflow-hidden p-0">
@@ -143,6 +161,39 @@ export function PlanLimitsCard({
             {checkoutError ? (
               <p className="text-xs text-red-400" role="alert">
                 {checkoutError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {showPaidBilling ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-[var(--c9-muted)]">{MANAGE_BILLING_HINT}</p>
+            <button
+              type="button"
+              disabled={billingBusy}
+              onClick={onStop}
+              className="w-full rounded-lg border border-[var(--c9-border)] bg-transparent px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {billingBusy ? 'Opening portal…' : STOP_SUBSCRIPTION_LABEL}
+            </button>
+            {showCancelHint ? (
+              <button
+                type="button"
+                disabled={billingBusy}
+                onClick={onCancel}
+                className="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-red-300/90 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {billingBusy ? 'Working…' : CANCEL_SUBSCRIPTION_LABEL}
+              </button>
+            ) : (
+              <p className="text-xs text-[var(--c9-muted)]">
+                Cancel & refund is unavailable after you use Engineer this billing period. Use
+                Stop to end renewal.
+              </p>
+            )}
+            {billingError ? (
+              <p className="text-xs text-red-400" role="alert">
+                {billingError}
               </p>
             ) : null}
           </div>
