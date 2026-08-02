@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Design and deploy live architecture on a canvas. Place load balancers, app servers, databases, caches, and queues, then spin up a live stack with metrics for each node."
+      content="Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Invite-only alpha."
     />
     <link rel="canonical" href="https://www.runcloud9.io/" />
     <meta property="og:type" content="website" />
@@ -14,37 +14,46 @@
     <meta property="og:title" content="runcloud9 | Design and deploy live architecture" />
     <meta
       property="og:description"
-      content="Design and deploy live architecture on a canvas. Place load balancers, app servers, databases, caches, and queues, then spin up a live stack with metrics for each node."
+      content="Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Invite-only alpha."
     />
     <meta property="og:url" content="https://www.runcloud9.io/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="runcloud9 | Design and deploy live architecture" />
     <meta
       name="twitter:description"
-      content="Design and deploy live architecture on a canvas. Place load balancers, app servers, databases, caches, and queues, then spin up a live stack with metrics for each node."
+      content="Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Invite-only alpha."
     />
-    <script>
-      // Hide crawlable #root shell on app routes before first paint (SPA rewrite
-      // serves index.html for /dashboard etc.; avoid unstyled hero flash).
-      (function () {
-        var path = location.pathname.replace(/\/+$/, '') || '/'
-        var marketing =
-          path === '/' ||
-          path === '/about' ||
-          path === '/privacy' ||
-          path === '/terms' ||
-          path === '/pricing'
-        if (!marketing) document.documentElement.classList.add('rc9-hide-seo')
-      })()
+    <script type="application/ld+json" id="rc9-jsonld">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.runcloud9.io/#organization",
+            "name": "RunCloud9",
+            "url": "https://www.runcloud9.io/",
+            "logo": "https://www.runcloud9.io/favicon.svg"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.runcloud9.io/#website",
+            "name": "runcloud9",
+            "url": "https://www.runcloud9.io/",
+            "description": "Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Invite-only alpha.",
+            "publisher": { "@id": "https://www.runcloud9.io/#organization" },
+            "inLanguage": "en"
+          }
+        ]
+      }
     </script>
+    <!-- Crawlable copy stays in #root for bots; never paint it for users (React replaces #root). -->
     <style>
       html,
       body {
         margin: 0;
         background: #08070c;
-        color: #bdb8c9;
       }
-      html.rc9-hide-seo #root > [data-seo-shell] {
+      #root > [data-seo-shell] {
         position: absolute !important;
         width: 1px;
         height: 1px;
@@ -54,35 +63,6 @@
         clip: rect(0, 0, 0, 0);
         white-space: nowrap;
         border: 0;
-      }
-      #root > [data-seo-shell] {
-        box-sizing: border-box;
-        max-width: 40rem;
-        margin: 0 auto;
-        padding: 5rem 1.5rem 2rem;
-        font-family: Inter, system-ui, sans-serif;
-        font-size: 1rem;
-        line-height: 1.6;
-      }
-      #root > [data-seo-shell] h1 {
-        margin: 0 0 1rem;
-        color: #f2f0f7;
-        font-family: 'IBM Plex Serif', Georgia, serif;
-        font-size: clamp(1.75rem, 4vw, 2.25rem);
-        font-weight: 500;
-        line-height: 1.2;
-      }
-      #root > [data-seo-shell] p {
-        margin: 0 0 1rem;
-      }
-      #root > [data-seo-shell] a {
-        color: #59497a;
-      }
-      #root > [data-seo-shell] nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem 1.25rem;
-        margin-top: 1.5rem;
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -97,12 +77,12 @@
       <main data-seo-shell>
         <h1>Design and deploy live architecture on a canvas.</h1>
         <p>
-          Place load balancers, app servers, databases, caches, and queues on the canvas. One
-          deploy spins up a live stack. Metrics display for each node while traffic runs for 9
-          minutes.
+          Design distributed systems on a canvas, deploy to real Kubernetes, and watch live
+          metrics under load. Invite-only alpha.
         </p>
         <p><a href="/canvas">Start building</a></p>
         <nav aria-label="Site">
+          <a href="/pricing">Pricing</a>
           <a href="/about">About</a>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>

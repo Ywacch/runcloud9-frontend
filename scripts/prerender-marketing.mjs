@@ -1,6 +1,7 @@
 /**
  * After `vite build`, write static HTML shells for public marketing routes.
  * Vercel serves these files before the SPA rewrite, so crawlers see real copy.
+ * Titles/descriptions come from src/lib/publicSeoPages.json (shared with the SPA).
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -8,17 +9,21 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const distIndex = join(root, 'dist', 'index.html')
+const seo = JSON.parse(
+  readFileSync(join(root, 'src', 'lib', 'publicSeoPages.json'), 'utf8'),
+)
 
-const SITE = 'https://www.runcloud9.io'
+const SITE = seo.siteOrigin
 
-const pages = [
-  {
-    out: join(root, 'dist', 'about', 'index.html'),
-    title: 'About RunCloud9 | runcloud9',
-    description:
-      'RunCloud9 is an interactive distributed systems workbench: design architecture on a canvas and deploy to real Kubernetes for short sessions.',
-    url: `${SITE}/about`,
-    body: `<main>
+function metaFor(path) {
+  if (path === '/') return seo.home
+  const page = seo.pages.find((p) => p.path === path)
+  if (!page) throw new Error(`Missing SEO meta for ${path}`)
+  return page
+}
+
+const pageBodies = {
+  '/about': `<main>
   <h1>About RunCloud9</h1>
   <p>
     RunCloud9 is an interactive distributed systems workbench: an architecture lab on a
@@ -38,14 +43,7 @@ const pages = [
     <a href="/terms">Terms</a>
   </nav>
 </main>`,
-  },
-  {
-    out: join(root, 'dist', 'pricing', 'index.html'),
-    title: 'Pricing | runcloud9',
-    description:
-      'Explorer is free. Engineer unlocks load balancers, queues, workers, all templates, and higher session limits on RunCloud9.',
-    url: `${SITE}/pricing`,
-    body: `<main>
+  '/pricing': `<main>
   <h1>Plans for the architecture lab</h1>
   <p>
     Design on a canvas, deploy to real Kubernetes, and watch the system under load.
@@ -66,14 +64,7 @@ const pages = [
     <a href="/terms">Terms</a>
   </nav>
 </main>`,
-  },
-  {
-    out: join(root, 'dist', 'privacy', 'index.html'),
-    title: 'Privacy Policy | runcloud9',
-    description:
-      'How RunCloud9 handles account, session, analytics, and billing data during the invite alpha.',
-    url: `${SITE}/privacy`,
-    body: `<main>
+  '/privacy': `<main>
   <h1>Privacy Policy</h1>
   <p>Draft · invite alpha · last updated July 2026</p>
   <p>
@@ -96,14 +87,7 @@ const pages = [
     <a href="/terms">Terms</a>
   </nav>
 </main>`,
-  },
-  {
-    out: join(root, 'dist', 'terms', 'index.html'),
-    title: 'Terms of Service | runcloud9',
-    description:
-      'Terms for using RunCloud9 during the invite alpha, including acceptable use, billing, and disclaimers.',
-    url: `${SITE}/terms`,
-    body: `<main>
+  '/terms': `<main>
   <h1>Terms of Service</h1>
   <p>Draft · invite alpha · last updated July 2026</p>
   <p>
@@ -127,8 +111,18 @@ const pages = [
     <a href="/privacy">Privacy</a>
   </nav>
 </main>`,
-  },
-]
+}
+
+const pages = Object.entries(pageBodies).map(([path, body]) => {
+  const meta = metaFor(path)
+  return {
+    out: join(root, 'dist', path.slice(1), 'index.html'),
+    title: meta.title,
+    description: meta.description,
+    url: path === '/' ? `${SITE}/` : `${SITE}${path}`,
+    body,
+  }
+})
 
 function applyPage(html, page) {
   let out = html
@@ -155,7 +149,6 @@ function applyPage(html, page) {
     `$1${page.description}$2`,
   )
   out = out.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, `$1${page.url}$2`)
-  // Vite moves the module script into <head>; body ends with #root then </body>.
   const shellBody = page.body.replace(/<main(\s|>)/, '<main data-seo-shell$1')
   out = out.replace(
     /(<div id="root">)[\s\S]*?(<\/div>\s*<\/body>)/,
