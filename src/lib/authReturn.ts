@@ -8,6 +8,7 @@ const ALLOWED_RETURN_PATHS = new Set([
   '/about',
   '/privacy',
   '/terms',
+  '/pricing',
   '/billing/success',
   '/billing/cancel',
 ])
