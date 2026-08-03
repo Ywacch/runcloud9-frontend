@@ -26,7 +26,7 @@ type DetailState =
   | { kind: 'no-metrics'; title: string; statusLabel: string }
 
 function fmtDuration(secs: number | undefined): string {
-  if (secs == null || !Number.isFinite(secs)) return '—'
+  if (secs == null || !Number.isFinite(secs)) return '-'
   return `${Math.floor(secs / 60)}m ${secs % 60}s`
 }
 
@@ -34,7 +34,7 @@ function fmtOptional(
   val: number | undefined,
   fmt: (n: number) => string,
 ): string {
-  return val === undefined ? '—' : fmt(val)
+  return val === undefined ? '-' : fmt(val)
 }
 
 function capLabel(label: string): string {
@@ -299,7 +299,7 @@ export function PastRunsSection() {
                       <StatusBadge status={item.status} />
                     </div>
                     <p className="text-xs text-[var(--c9-muted)]">
-                      {item.archetype} —{' '}
+                      {item.archetype} ·{' '}
                       {new Date(item.createdAt).toLocaleString(undefined, {
                         day: 'numeric',
                         month: 'short',
