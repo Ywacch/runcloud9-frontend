@@ -9,7 +9,7 @@ import {
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
-import type { UserRecord } from '../lib/userTier'
+import { hasPaidTier, type UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
 
@@ -521,6 +521,7 @@ export function TemplateModal({
 }) {
   const isPremiumUser = useAuthStore((s) => s.isPremium)
   const userRecord = useAuthStore((s) => s.userRecord)
+  const showExplorerLimitsNotice = !isPremiumUser && !hasPaidTier(userRecord)
   const [items, setItems] = useState<ModalTemplateItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -637,7 +638,7 @@ export function TemplateModal({
               ← Back to templates
             </button>
           ) : null}
-          {!isPremiumUser ? (
+          {showExplorerLimitsNotice ? (
             <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
               Designs loaded for non subscribers are limited. Presets leave out load
               balancers, message queues, and workers.

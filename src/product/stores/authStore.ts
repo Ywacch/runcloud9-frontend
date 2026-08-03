@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import type { CurrentUserResponse } from '../../lib/api'
-import type { UserRecord } from '../../lib/userTier'
+import { hasPaidTier, type UserRecord } from '../../lib/userTier'
 
 function userRecordFromMe(me: CurrentUserResponse): UserRecord {
   return {
@@ -43,11 +43,17 @@ export const useAuthStore = create<AuthState>((set) => ({
           }
         : {}),
     }),
-  setCurrentUser: (currentUser) =>
+  setCurrentUser: (currentUser) => {
+    const userRecord = currentUser ? userRecordFromMe(currentUser) : null
     set({
       currentUser,
-      userRecord: currentUser ? userRecordFromMe(currentUser) : null,
-      isPremium: currentUser ? currentUser.effectiveTier !== 'free' : false,
-    }),
+      userRecord,
+      // Prefer API effectiveTier; also honor local resolve so isPremium+expires
+      // never disagree with template/billing gates.
+      isPremium: currentUser
+        ? currentUser.effectiveTier !== 'free' || hasPaidTier(userRecord)
+        : false,
+    })
+  },
   setPendingDeployAfterAuth: (pendingDeployAfterAuth) => set({ pendingDeployAfterAuth }),
 }))

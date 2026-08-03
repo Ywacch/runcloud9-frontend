@@ -110,7 +110,7 @@ describe('billingCopy', () => {
     })
     expect(PUBLISHED_TIER_LIMITS.engineer).toEqual({
       maxConcurrent: 1,
-      sessionMinsLabel: '9–15 min',
+      sessionMinsLabel: '15 min',
       maxSessionsPerMonth: 20,
       maxAppServerReplicas: 3,
     })
@@ -139,6 +139,15 @@ describe('billingCopy', () => {
     expect(
       TIER_COMPARE_ROWS.find((r) => r.id === 'sessions_month')?.engineer,
     ).toBe('20')
+    expect(
+      TIER_COMPARE_ROWS.find((r) => r.id === 'session_length')?.label,
+    ).toBe('Session length cap')
+    expect(
+      TIER_COMPARE_ROWS.find((r) => r.id === 'replicas')?.label,
+    ).toMatch(/worker/i)
+    expect(
+      TIER_COMPARE_ROWS.find((r) => r.id === 'chaos')?.label,
+    ).toBe('Fault triggers')
   })
 
   it('resolves Engineer price display from env with checkout fallback', () => {

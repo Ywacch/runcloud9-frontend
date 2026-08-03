@@ -165,7 +165,7 @@ export function PlanLimitsCard({
           />
         ) : null}
         <LimitRow
-          label="Max app-server replicas"
+          label="Max app-server & worker replicas"
           value={String(limits?.maxAppServerReplicas ?? '—')}
         />
       </div>
