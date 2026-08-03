@@ -74,7 +74,7 @@ export const PUBLISHED_TIER_LIMITS = {
   },
   engineer: {
     maxConcurrent: 1,
-    sessionMinsLabel: '9–15 min',
+    sessionMinsLabel: '15 min',
     maxSessionsPerMonth: 20,
     maxAppServerReplicas: 3,
   },
@@ -140,7 +140,7 @@ export const TIER_COMPARE_ROWS: TierCompareRow[] = [
   },
   {
     id: 'session_length',
-    label: 'Session length',
+    label: 'Session length cap',
     explorer: PUBLISHED_TIER_LIMITS.explorer.sessionMinsLabel,
     engineer: PUBLISHED_TIER_LIMITS.engineer.sessionMinsLabel,
   },
@@ -152,7 +152,7 @@ export const TIER_COMPARE_ROWS: TierCompareRow[] = [
   },
   {
     id: 'replicas',
-    label: 'App server replicas',
+    label: 'App server & worker replicas',
     explorer: String(PUBLISHED_TIER_LIMITS.explorer.maxAppServerReplicas),
     engineer: String(PUBLISHED_TIER_LIMITS.engineer.maxAppServerReplicas),
   },
@@ -172,7 +172,7 @@ export const TIER_COMPARE_ROWS: TierCompareRow[] = [
     id: 'proxy_cache',
     label: 'Cache proxy strategies',
     explorer: 'Cache-aside only',
-    engineer: 'Write-through / write-behind',
+    engineer: 'Write-through & write-behind',
   },
   {
     id: 'templates',
@@ -182,7 +182,7 @@ export const TIER_COMPARE_ROWS: TierCompareRow[] = [
   },
   {
     id: 'chaos',
-    label: 'Chaos actions',
+    label: 'Fault triggers',
     explorer: 'One trial per feature',
     engineer: 'Unlimited',
   },
@@ -217,7 +217,7 @@ export const ENGINEER_BENEFIT_ROWS: EngineerBenefitRow[] = [
   },
   {
     id: 'proxy_cache',
-    label: 'Write-through / write-behind cache proxy strategies',
+    label: 'Write-through & write-behind cache proxy strategies',
     explorerNote: 'Cache-aside only on Explorer',
   },
   {
