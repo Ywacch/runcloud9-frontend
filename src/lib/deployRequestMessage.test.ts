@@ -138,6 +138,8 @@ describe('mapDeployRequestError', () => {
     const msg = mapDeployRequestError(err)
     expect(msg.actionLabel).toBe('Upgrade to Engineer')
     expect(msg.title).toBe('Chaos trial used')
+    expect(msg.technicalDetails).not.toContain('—')
+    expect(msg.technicalDetails).toMatch(/upgrade to continue/i)
   })
 
   it('maps design_exceeds_cluster_capacity 422 by reason', () => {

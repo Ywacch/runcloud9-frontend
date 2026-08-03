@@ -12,6 +12,7 @@ import {
   isChaosTrialUsedMessage,
 } from './billingCopy'
 import { BILLING_ENABLED } from './featureFlags'
+import { scrubEmDashCopy } from './topologyRulesTypes'
 
 export interface DeployRequestMessage {
   title: string
@@ -27,6 +28,11 @@ function upgradeActionLabel(): string | undefined {
   return engineerUpgradeActionLabel(BILLING_ENABLED)
 }
 
+function technicalDetailsFrom(raw: string | undefined): string | undefined {
+  if (!raw) return undefined
+  return scrubEmDashCopy(raw)
+}
+
 export function mapDeployRequestError(
   error: unknown,
   opts?: { isFreeUser?: boolean },
@@ -35,7 +41,7 @@ export function mapDeployRequestError(
     return {
       title: 'Design exceeds your resource quota',
       body: 'This design needs more CPU and memory than your plan allows. Downsize nodes, reduce replicas, or remove components before deploying.',
-      technicalDetails: error.budget.error,
+      technicalDetails: technicalDetailsFrom(error.budget.error),
       resourceBudget: error.budget,
     }
   }
@@ -57,7 +63,7 @@ export function mapDeployRequestError(
         return {
           title: 'Chaos trial used',
           body: 'You used your free chaos trial. Upgrade to Engineer for unlimited chaos.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
           actionLabel: upgradeActionLabel(),
         }
       }
@@ -65,7 +71,7 @@ export function mapDeployRequestError(
         return {
           title: 'Premium template',
           body: 'This template requires RunCloud9 Engineer. Upgrade to deploy it on the cluster.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
           actionLabel: upgradeActionLabel(),
         }
       }
@@ -78,7 +84,7 @@ export function mapDeployRequestError(
         return {
           title: 'Upgrade required for this topology',
           body: 'Engineer unlocks load balancers, queues, workers, proxy cache, and more replicas. Change the design or upgrade.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
           actionLabel: upgradeActionLabel(),
         }
       }
@@ -86,13 +92,13 @@ export function mapDeployRequestError(
         return {
           title: 'Deployment request was not accepted',
           body: 'You do not have access to this deployment.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
         }
       }
       return {
         title: 'Deployment request was not accepted',
         body: 'You do not have permission to perform this action.',
-        technicalDetails: raw,
+        technicalDetails: technicalDetailsFrom(raw),
       }
     }
 
@@ -101,7 +107,7 @@ export function mapDeployRequestError(
         return {
           title: 'Cluster queue is full',
           body: 'Too many deployments are waiting for capacity. Please try again in a minute.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
         }
       }
       if (
@@ -114,14 +120,14 @@ export function mapDeployRequestError(
           return {
             title: 'Out of sessions this month',
             body: 'You hit the Explorer monthly limit. Upgrade to Engineer for more sessions, or try again next month.',
-            technicalDetails: raw,
+            technicalDetails: technicalDetailsFrom(raw),
             actionLabel: upgradeActionLabel(),
           }
         }
         return {
           title: 'Out of sessions this month',
           body: 'You hit your monthly limit. Try again next month.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
         }
       }
       if (isUserConcurrentDeployErrorMessage(raw)) {
@@ -129,20 +135,20 @@ export function mapDeployRequestError(
           return {
             title: 'Concurrent session limit',
             body: 'Explorer allows one active deployment. Upgrade to Engineer for more concurrent sessions, or end your current deployment first.',
-            technicalDetails: raw,
+            technicalDetails: technicalDetailsFrom(raw),
             actionLabel: upgradeActionLabel(),
           }
         }
         return {
           title: 'You already have an active deployment',
           body: 'End or cancel your current deployment before starting another.',
-          technicalDetails: raw,
+          technicalDetails: technicalDetailsFrom(raw),
         }
       }
       return {
         title: 'Deployment request was not accepted',
         body: 'The cluster is busy right now. Please try again shortly.',
-        technicalDetails: raw,
+        technicalDetails: technicalDetailsFrom(raw),
       }
     }
 
@@ -161,7 +167,7 @@ export function mapDeployRequestError(
       return {
         title: 'Design exceeds your resource quota',
         body: 'This design needs more CPU and memory than your plan allows. Downsize nodes, reduce replicas, or remove components before deploying.',
-        technicalDetails: raw,
+        technicalDetails: technicalDetailsFrom(raw),
       }
     }
 
@@ -169,7 +175,7 @@ export function mapDeployRequestError(
       return {
         title: 'Deployment request was not accepted',
         body: 'We could not start this deployment. Please review your design and try again.',
-        technicalDetails: raw,
+        technicalDetails: technicalDetailsFrom(raw),
       }
     }
 
@@ -177,14 +183,14 @@ export function mapDeployRequestError(
       return {
         title: 'Deployment request was not accepted',
         body: 'RunCloud9 had a server error while starting deployment. Please try again.',
-        technicalDetails: raw,
+        technicalDetails: technicalDetailsFrom(raw),
       }
     }
 
     return {
       title: 'Deployment request was not accepted',
       body: 'We could not complete your request right now. Please try again.',
-      technicalDetails: raw,
+      technicalDetails: technicalDetailsFrom(raw),
     }
   }
 
@@ -192,13 +198,15 @@ export function mapDeployRequestError(
     return {
       title: 'Deployment request was not accepted',
       body: 'Could not reach RunCloud9 API. Check your connection and retry.',
-      technicalDetails: error.message,
+      technicalDetails: technicalDetailsFrom(error.message),
     }
   }
 
   return {
     title: 'Deployment request was not accepted',
     body: 'Could not reach RunCloud9 API. Check your connection and retry.',
-    technicalDetails: error instanceof Error ? error.message : undefined,
+    technicalDetails: technicalDetailsFrom(
+      error instanceof Error ? error.message : undefined,
+    ),
   }
 }
