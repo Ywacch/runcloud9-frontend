@@ -123,7 +123,7 @@ export function QueueBrowser({
         <div className="space-y-2 rounded border border-[var(--c9-border)] p-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] text-[var(--c9-muted)]">
-              Peek head (requeues — does not steal from workers)
+              Peek head (requeues; does not steal from workers)
             </p>
             <button
               type="button"

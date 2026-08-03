@@ -7,7 +7,7 @@ export const STOP_SUBSCRIPTION_LABEL = 'Stop subscription'
 export const CANCEL_SUBSCRIPTION_LABEL = 'Cancel & refund'
 
 export const MANAGE_BILLING_HINT =
-  'Stop keeps Engineer until the end of this billing period and turns off renewal (resume anytime before then in the portal). Cancel ends Engineer now with a full refund — only if you have not used Engineer this billing period.'
+  'Stop keeps Engineer until the end of this billing period and turns off renewal (resume anytime before then in the portal). Cancel ends Engineer now with a full refund, only if you have not used Engineer this billing period.'
 
 export const MANAGE_BILLING_HINT_STOP_ONLY =
   'Stop keeps Engineer until the end of this billing period and turns off renewal. Cancel & refund is unavailable after you use Engineer this billing period.'

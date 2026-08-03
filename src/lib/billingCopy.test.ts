@@ -34,6 +34,7 @@ describe('billingCopy', () => {
     expect(STOP_SUBSCRIPTION_LABEL).toBe('Stop subscription')
     expect(CANCEL_SUBSCRIPTION_LABEL).toBe('Cancel & refund')
     expect(MANAGE_BILLING_HINT.length).toBeGreaterThan(20)
+    expect(MANAGE_BILLING_HINT).not.toContain('—')
   })
 
   it('exposes free-tier upgrade tooltips', () => {
