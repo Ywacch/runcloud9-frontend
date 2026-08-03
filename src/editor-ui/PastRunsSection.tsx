@@ -1,21 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   listDeploymentHistory,
+  listActiveDeployments,
   getDeployment,
-  type DeploymentHistoryItem,
+  getTemplates,
+  type TemplateInfo,
 } from '../lib/api'
 import { sessionSummaryFromApiMetrics } from '../lib/sessionCapture'
 import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { SessionSummaryView } from './SessionSummary'
 import { fmtInt, fmtMs } from '../lib/format'
 import { C9Card } from './c9Primitives'
+import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview'
+import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
+import {
+  filterPastRuns,
+  mergeActiveAndHistory,
+  type PastRunDateRange,
+  type PastRunListItem,
+  type PastRunStatusFilter,
+} from '../lib/pastRunsFilters'
 
 type DetailState =
   | { kind: 'summary'; summary: SessionSummary; title: string; statusLabel: string }
   | { kind: 'no-metrics'; title: string; statusLabel: string }
 
 function fmtDuration(secs: number | undefined): string {
-  if (secs == null || !Number.isFinite(secs)) return 'Unavailable'
+  if (secs == null || !Number.isFinite(secs)) return '—'
   return `${Math.floor(secs / 60)}m ${secs % 60}s`
 }
 
@@ -23,18 +34,50 @@ function fmtOptional(
   val: number | undefined,
   fmt: (n: number) => string,
 ): string {
-  return val === undefined ? 'Unavailable' : fmt(val)
+  return val === undefined ? '—' : fmt(val)
 }
 
 function capLabel(label: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
+function useDebouncedValue<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), ms)
+    return () => window.clearTimeout(id)
+  }, [value, ms])
+  return debounced
+}
+
+const STATUS_OPTIONS: { value: PastRunStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'running', label: 'Running' },
+  { value: 'terminated', label: 'Terminated' },
+  { value: 'failed', label: 'Failed' },
+]
+
+const DATE_OPTIONS: { value: PastRunDateRange; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'last_7_days', label: 'Last 7 days' },
+  { value: 'last_30_days', label: 'Last 30 days' },
+  { value: 'all', label: 'All time' },
+]
+
+const controlClass =
+  'rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-2.5 py-1.5 text-xs text-[var(--c9-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]'
+
 export function PastRunsSection() {
-  const [history, setHistory] = useState<DeploymentHistoryItem[]>([])
+  const [runs, setRuns] = useState<PastRunListItem[]>([])
+  const [templates, setTemplates] = useState<TemplateInfo[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
+
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 250)
+  const [statusFilter, setStatusFilter] = useState<PastRunStatusFilter>('all')
+  const [dateRange, setDateRange] = useState<PastRunDateRange>('all')
 
   const [detail, setDetail] = useState<DetailState | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -42,9 +85,14 @@ export function PastRunsSection() {
   useEffect(() => {
     setHistoryLoading(true)
     setHistoryError(null)
-    listDeploymentHistory(20)
-      .then((items) => {
-        setHistory(items)
+    void Promise.all([
+      listActiveDeployments().catch(() => []),
+      listDeploymentHistory(50),
+      getTemplates().catch(() => [] as TemplateInfo[]),
+    ])
+      .then(([active, history, tpls]) => {
+        setRuns(mergeActiveAndHistory({ active, history }))
+        setTemplates(tpls)
         setHistoryLoading(false)
       })
       .catch((err: unknown) => {
@@ -55,7 +103,48 @@ export function PastRunsSection() {
       })
   }, [retryKey])
 
-  const handleCardClick = async (item: DeploymentHistoryItem) => {
+  const filtered = useMemo(
+    () =>
+      filterPastRuns(runs, {
+        search: debouncedSearch,
+        status: statusFilter,
+        dateRange,
+      }),
+    [runs, debouncedSearch, statusFilter, dateRange],
+  )
+
+  const snapshotByTemplate = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        nodes: { id: string; type: string; position: [number, number, number] }[]
+        edges: { sourceId: string; targetId: string }[]
+      }
+    >()
+    for (const t of templates) {
+      const preset = t.preset ?? t.presetLite
+      if (!preset) continue
+      try {
+        const snap = templatePresetToCanvasSnapshot(preset, t.id)
+        map.set(t.id, {
+          nodes: snap.nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
+          })),
+          edges: snap.edges.map((e) => ({
+            sourceId: e.sourceId,
+            targetId: e.targetId,
+          })),
+        })
+      } catch {
+        /* skip broken preset */
+      }
+    }
+    return map
+  }, [templates])
+
+  const handleCardClick = async (item: PastRunListItem) => {
     if (detailLoading) return
     setDetailLoading(true)
     try {
@@ -80,20 +169,85 @@ export function PastRunsSection() {
     }
   }
 
+  const filtersActive =
+    debouncedSearch.trim() !== '' ||
+    statusFilter !== 'all' ||
+    dateRange !== 'all'
+
   return (
     <>
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
-          Past runs
-        </h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--c9-muted)]">
+            Past runs
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative min-w-[10rem] flex-1 sm:flex-none">
+              <span className="sr-only">Search by template name</span>
+              <svg
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--c9-muted)]"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden
+              >
+                <circle cx="7" cy="7" r="4.5" stroke="currentColor" />
+                <path
+                  d="M10.5 10.5 13.5 13.5"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by template name"
+                className={`${controlClass} w-full pl-8 sm:w-52`}
+              />
+            </label>
+            <label>
+              <span className="sr-only">Status</span>
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as PastRunStatusFilter)
+                }
+                className={controlClass}
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Date range</span>
+              <select
+                value={dateRange}
+                onChange={(e) =>
+                  setDateRange(e.target.value as PastRunDateRange)
+                }
+                className={controlClass}
+              >
+                {DATE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
 
         {historyLoading ? (
-          <div className="flex items-center gap-3 text-sm text-[var(--c9-muted)]">
-            <div
-              className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--c9-accent)] border-t-transparent"
-              aria-hidden
-            />
-            Loading…
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-44 animate-pulse rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)]"
+              />
+            ))}
           </div>
         ) : historyError ? (
           <C9Card className="p-5 text-center">
@@ -101,64 +255,77 @@ export function PastRunsSection() {
             <button
               type="button"
               onClick={() => setRetryKey((k) => k + 1)}
-              className="mt-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-1.5 text-xs text-[var(--c9-muted)] transition-colors hover:text-[var(--c9-text)]"
+              className="mt-3 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-4 py-1.5 text-xs text-[var(--c9-muted)] transition-colors hover:text-[var(--c9-text)]"
             >
               Retry
             </button>
           </C9Card>
-        ) : history.length === 0 ? (
-          <C9Card className="p-5 text-center">
-            <p className="text-sm text-[var(--c9-muted)]">No completed runs yet.</p>
-          </C9Card>
+        ) : runs.length === 0 ? (
+          <div className="rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] px-5 py-10 text-center">
+            <p className="text-sm text-[var(--c9-muted)]">No runs yet.</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] px-5 py-10 text-center">
+            <p className="text-sm text-[var(--c9-muted)]">
+              {filtersActive
+                ? 'No runs match your filters'
+                : 'No runs yet.'}
+            </p>
+          </div>
         ) : (
-          <div className="space-y-2">
-            {history.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                disabled={detailLoading}
-                onClick={() => void handleCardClick(item)}
-                className="w-full rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 px-4 py-3 text-left shadow-xl shadow-black/20 transition-colors hover:border-[var(--c9-accent)]/60 hover:bg-[var(--c9-surface)] disabled:opacity-60"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[var(--c9-text)]">
-                      {item.template}
-                    </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((item) => {
+              const topo = snapshotByTemplate.get(item.template)
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={detailLoading}
+                  title={item.template}
+                  onClick={() => void handleCardClick(item)}
+                  className="flex flex-col overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] text-left transition-colors hover:border-[var(--c9-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] disabled:opacity-60"
+                >
+                  <div className="h-28 border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/40 p-3">
+                    <MiniTopologyPreview
+                      nodes={topo?.nodes ?? []}
+                      edges={topo?.edges ?? []}
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 truncate text-sm font-semibold text-[var(--c9-text)]">
+                        {item.template}
+                      </p>
+                      <StatusBadge status={item.status} />
+                    </div>
                     <p className="text-xs text-[var(--c9-muted)]">
-                      {item.archetype} ·{' '}
+                      {item.archetype} —{' '}
                       {new Date(item.createdAt).toLocaleString(undefined, {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                     </p>
+                    <div className="mt-auto grid grid-cols-3 gap-1.5">
+                      <MetricPill
+                        label="Duration"
+                        value={fmtDuration(item.durationSeconds)}
+                      />
+                      <MetricPill
+                        label="Peak RPS"
+                        value={fmtOptional(item.peakRps, fmtInt)}
+                      />
+                      <MetricPill
+                        label="Peak P99"
+                        value={fmtOptional(item.peakP99Ms, fmtMs)}
+                      />
+                    </div>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      item.status === 'terminated'
-                        ? 'bg-emerald-500/20 text-emerald-300'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {capLabel(item.status)}
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                  <RunStat
-                    label="Duration"
-                    value={fmtDuration(item.durationSeconds)}
-                  />
-                  <RunStat
-                    label="Peak RPS"
-                    value={fmtOptional(item.peakRps, fmtInt)}
-                  />
-                  <RunStat
-                    label="Peak p99"
-                    value={fmtOptional(item.peakP99Ms, fmtMs)}
-                  />
-                </div>
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
         )}
       </section>
@@ -200,11 +367,32 @@ export function PastRunsSection() {
   )
 }
 
-function RunStat({ label, value }: { label: string; value: string }) {
+function StatusBadge({ status }: { status: PastRunListItem['status'] }) {
+  const styles =
+    status === 'running'
+      ? 'bg-sky-500/15 text-sky-300'
+      : status === 'terminated'
+        ? 'bg-emerald-500/15 text-emerald-300'
+        : 'bg-red-500/15 text-red-300'
+
   return (
-    <span className="text-xs text-[var(--c9-muted)]">
-      <span className="uppercase tracking-wider">{label}: </span>
-      <span className="font-mono text-[var(--c9-text)]">{value}</span>
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${styles}`}
+    >
+      {capLabel(status)}
     </span>
+  )
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-1.5 py-1.5 text-center">
+      <p className="text-[9px] font-medium uppercase tracking-wider text-[var(--c9-muted)]">
+        {label}
+      </p>
+      <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--c9-text)]">
+        {value}
+      </p>
+    </div>
   )
 }

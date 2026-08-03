@@ -1,7 +1,41 @@
 import { Link, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../product/stores/authStore'
 import { loginPathWithReturnTo } from '../lib/authReturn'
+
+const linkBase =
+  'relative px-2 py-1.5 text-sm transition-colors duration-200 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)]'
+
+function NavLink({
+  to,
+  children,
+  active,
+}: {
+  to: string
+  children: ReactNode
+  active: boolean
+}) {
+  return (
+    <Link
+      to={to}
+      className={`${linkBase} ${
+        active
+          ? 'text-[var(--c9-text-heading)]'
+          : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+      }`}
+      aria-current={active ? 'page' : undefined}
+    >
+      {children}
+      {active ? (
+        <span
+          className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[var(--c9-accent)]"
+          aria-hidden
+        />
+      ) : null}
+    </Link>
+  )
+}
 
 export default function NavHeader() {
   const { pathname } = useLocation()
@@ -19,43 +53,31 @@ export default function NavHeader() {
     <header className="fixed top-0 z-50 flex w-full items-center justify-between border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/90 px-6 py-3 backdrop-blur-sm">
       <Link
         to={session ? '/dashboard' : '/'}
-        className="text-lg font-semibold tracking-tight text-[var(--c9-text)]"
+        className="text-lg font-semibold tracking-tight text-[var(--c9-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)]"
       >
         RunCloud9
       </Link>
-      <div className="flex items-center gap-2">
+      <nav className="flex items-center gap-1 sm:gap-3">
         {session ? (
-          <Link
-            to="/dashboard"
-            className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-          >
+          <NavLink to="/dashboard" active={pathname === '/dashboard'}>
             Dashboard
-          </Link>
+          </NavLink>
         ) : null}
-        <Link
-          to="/pricing"
-          className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-        >
+        <NavLink to="/pricing" active={pathname === '/pricing'}>
           Pricing
-        </Link>
-        <Link
-          to="/canvas"
-          className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-        >
+        </NavLink>
+        <NavLink to="/canvas" active={false}>
           Open Canvas
-        </Link>
+        </NavLink>
         {session ? (
           <>
-            <Link
-              to="/profile"
-              className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
-            >
+            <NavLink to="/profile" active={pathname === '/profile'}>
               Profile
-            </Link>
+            </NavLink>
             <button
               type="button"
               onClick={() => void supabase.auth.signOut()}
-              className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-2 text-sm text-[var(--c9-muted)] transition-colors duration-200 hover:text-[var(--c9-text)]"
+              className={`${linkBase} text-[var(--c9-muted)] hover:text-[var(--c9-text)]`}
             >
               Sign out
             </button>
@@ -63,12 +85,12 @@ export default function NavHeader() {
         ) : (
           <Link
             to={loginHref}
-            className="rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+            className="ml-1 rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)] active:scale-[0.98]"
           >
             Sign in
           </Link>
         )}
-      </div>
+      </nav>
     </header>
   )
 }
