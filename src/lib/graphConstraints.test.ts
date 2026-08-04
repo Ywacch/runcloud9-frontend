@@ -29,6 +29,10 @@ function edge(id: string, sourceId: string, targetId: string): CanvasEdge {
 }
 
 describe('assessGraphConstraints', () => {
+  it('returns null for an empty canvas', () => {
+    expect(assessGraphConstraints({}, {})).toBeNull()
+  })
+
   it('flags designs with no app-server', () => {
     const nodes = {
       db: node('db', 'database'),

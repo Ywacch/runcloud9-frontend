@@ -118,7 +118,7 @@ export const FALLBACK_TOPOLOGY_RULES: TopologyRulesResponse = {
     {
       id: 'missing_app_server',
       message:
-        'Add an App Server. Live sessions need something to receive traffic. A database alone cannot run the workload',
+        'Add an App Server. Live sessions need something to receive traffic',
     },
     {
       id: 'cache_without_db',
