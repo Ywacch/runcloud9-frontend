@@ -172,6 +172,16 @@ export function mapDeployRequestError(
     }
 
     if (error.status === 400) {
+      if (
+        normalized.includes('app server') &&
+        (normalized.includes('receive traffic') ||
+          normalized.includes('database alone'))
+      ) {
+        return {
+          title: 'Add an App Server',
+          body: scrubEmDashCopy(raw),
+        }
+      }
       return {
         title: 'Deployment request was not accepted',
         body: 'We could not start this deployment. Please review your design and try again.',

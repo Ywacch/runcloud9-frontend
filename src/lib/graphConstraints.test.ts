@@ -29,6 +29,13 @@ function edge(id: string, sourceId: string, targetId: string): CanvasEdge {
 }
 
 describe('assessGraphConstraints', () => {
+  it('flags designs with no app-server', () => {
+    const nodes = {
+      db: node('db', 'database'),
+    }
+    expect(assessGraphConstraints(nodes, {})).toMatch(/App Server/i)
+  })
+
   it('returns null for a valid worker topology', () => {
     const nodes = {
       app: node('app', 'compute'),
