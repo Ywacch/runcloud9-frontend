@@ -116,6 +116,11 @@ export const FALLBACK_TOPOLOGY_RULES: TopologyRulesResponse = {
   connections: buildFallbackConnections(),
   presence: [
     {
+      id: 'missing_app_server',
+      message:
+        'Add an App Server. Live sessions need something to receive traffic. A database alone cannot run the workload',
+    },
+    {
       id: 'cache_without_db',
       message:
         'A cache node is present but no database. Clarify whether Redis is your primary store or add a database; for now this topology is rejected',

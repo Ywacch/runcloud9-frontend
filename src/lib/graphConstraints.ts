@@ -33,6 +33,7 @@ export function assessGraphConstraints(
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
 ): string | null {
+  let hasApp = false
   let hasCache = false
   let hasDB = false
   let hasMQ = false
@@ -44,6 +45,7 @@ export function assessGraphConstraints(
     const semantic = semanticOf(node)
     if (!semantic) continue
     counts.set(semantic, (counts.get(semantic) ?? 0) + 1)
+    if (semantic === 'app-server') hasApp = true
     if (semantic === 'cache') hasCache = true
     if (semantic === 'db') hasDB = true
     if (semantic === 'mq') hasMQ = true
@@ -53,6 +55,9 @@ export function assessGraphConstraints(
     }
   }
 
+  if (!hasApp) {
+    return presenceMessage('missing_app_server') ?? null
+  }
   if (hasCache && !hasDB) {
     return presenceMessage('cache_without_db') ?? null
   }

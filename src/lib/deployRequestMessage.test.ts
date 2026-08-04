@@ -169,4 +169,15 @@ describe('mapDeployRequestError', () => {
     const msg = mapDeployRequestError(err)
     expect(msg.title).toBe('Design exceeds your resource quota')
   })
+
+  it('maps missing app-server 400 to clear title', () => {
+    const err = new ApiError(
+      400,
+      'Add an App Server — live sessions need something to receive traffic. A database alone cannot run the workload',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Add an App Server')
+    expect(msg.body).toMatch(/receive traffic/i)
+    expect(msg.body).not.toContain('—')
+  })
 })
