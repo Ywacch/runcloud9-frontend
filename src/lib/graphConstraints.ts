@@ -38,6 +38,7 @@ export function assessGraphConstraints(
   let hasDB = false
   let hasMQ = false
   let hasWorker = false
+  let hasLB = false
   const workers: CanvasNode[] = []
   const counts = new Map<string, number>()
 
@@ -49,13 +50,17 @@ export function assessGraphConstraints(
     if (semantic === 'cache') hasCache = true
     if (semantic === 'db') hasDB = true
     if (semantic === 'mq') hasMQ = true
+    if (semantic === 'lb') hasLB = true
     if (semantic === 'worker') {
       hasWorker = true
       workers.push(node)
     }
   }
 
-  if (!hasApp) {
+  const hasAnyComponent =
+    hasApp || hasCache || hasDB || hasMQ || hasWorker || hasLB
+  // Empty canvas: no nag. Incomplete graph (e.g. db-only): require App Server.
+  if (hasAnyComponent && !hasApp) {
     return presenceMessage('missing_app_server') ?? null
   }
   if (hasCache && !hasDB) {

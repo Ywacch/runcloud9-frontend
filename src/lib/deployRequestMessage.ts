@@ -174,8 +174,7 @@ export function mapDeployRequestError(
     if (error.status === 400) {
       if (
         normalized.includes('app server') &&
-        (normalized.includes('receive traffic') ||
-          normalized.includes('database alone'))
+        normalized.includes('receive traffic')
       ) {
         return {
           title: 'Add an App Server',

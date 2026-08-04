@@ -173,7 +173,7 @@ describe('mapDeployRequestError', () => {
   it('maps missing app-server 400 to clear title', () => {
     const err = new ApiError(
       400,
-      'Add an App Server — live sessions need something to receive traffic. A database alone cannot run the workload',
+      'Add an App Server — live sessions need something to receive traffic',
     )
     const msg = mapDeployRequestError(err)
     expect(msg.title).toBe('Add an App Server')
