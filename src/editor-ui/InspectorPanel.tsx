@@ -77,12 +77,25 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
+import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
 const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
 const badgeClass =
   'rounded border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1 text-xs text-[var(--c9-muted)]'
+
+const INSPECTOR_MIN_W = 420
+const INSPECTOR_MAX_W = 900
+
+function clampInspectorWidth(px: number): number {
+  const cap = Math.min(INSPECTOR_MAX_W, Math.round(window.innerWidth * 0.55))
+  return Math.min(cap, Math.max(INSPECTOR_MIN_W, Math.round(px)))
+}
+
+function defaultInspectorWidth(): number {
+  return clampInspectorWidth(window.innerWidth * 0.45)
+}
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
@@ -139,6 +152,8 @@ export function InspectorPanel() {
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
+  const [dockWidth, setDockWidth] = useState(defaultInspectorWidth)
+  const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
 
   const prevInspectorNodeIdRef = useRef<string | null>(null)
   useEffect(() => {
@@ -157,6 +172,37 @@ export function InspectorPanel() {
     setLiveTab('metrics')
   }, [open, selectedId])
 
+  /** One-shot fit after dock claims canvas width (Layout Contract). */
+  useEffect(() => {
+    if (!open) return
+    const id = window.setTimeout(() => requestCanvasFit(), 80)
+    return () => window.clearTimeout(id)
+  }, [open, inspectorNodeId])
+
+  useEffect(() => {
+    const onResize = () => setDockWidth((w) => clampInspectorWidth(w))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const drag = resizeDragRef.current
+      if (!drag) return
+      const delta = drag.startX - e.clientX
+      setDockWidth(clampInspectorWidth(drag.startW + delta))
+    }
+    const onUp = () => {
+      resizeDragRef.current = null
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [])
+
   const onDelete = () => {
     if (!node) return
     removeNode(node.id)
@@ -165,11 +211,26 @@ export function InspectorPanel() {
 
   return (
     <aside
-      className={`fixed top-0 right-0 z-30 flex h-full w-80 flex-col border-l border-[var(--c9-border)] bg-[var(--c9-bg)]/95 text-[var(--c9-text)] shadow-xl backdrop-blur-sm transition-transform duration-200 ease-out ${
-        open ? 'translate-x-0' : 'pointer-events-none translate-x-full'
+      className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-[var(--c9-bg)]/95 text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
+        open
+          ? 'border-l border-[var(--c9-border)]'
+          : 'pointer-events-none w-0 border-0'
       }`}
+      style={open ? { width: dockWidth } : undefined}
       aria-hidden={!open}
     >
+      {open ? (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize inspector"
+          className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize hover:bg-[var(--c9-accent)]/40"
+          onPointerDown={(e) => {
+            e.preventDefault()
+            resizeDragRef.current = { startX: e.clientX, startW: dockWidth }
+          }}
+        />
+      ) : null}
       {open && node ? (
         <>
           <header className="flex shrink-0 items-center gap-3 border-b border-[var(--c9-border)] p-4">
@@ -205,7 +266,9 @@ export function InspectorPanel() {
               className="shrink-0 rounded p-2 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
               aria-label="Close inspector"
             >
-              ✕
+              <span aria-hidden className="text-sm font-medium">
+                X
+              </span>
             </button>
           </header>
 

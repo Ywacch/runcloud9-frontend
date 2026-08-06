@@ -143,7 +143,6 @@ export default function CanvasPage() {
         <LogPanel />
         <DesignToolStrip />
         <WalkthroughOverlay />
-        {!walkthroughActive ? <InspectorPanel /> : null}
         {mode === 'design' ? (
           <RequestJourneyPanel
             open={designJourneyUi.open}
@@ -164,6 +163,7 @@ export default function CanvasPage() {
           />
         ) : null}
       </div>
+      {!walkthroughActive ? <InspectorPanel /> : null}
     </div>
   )
 }

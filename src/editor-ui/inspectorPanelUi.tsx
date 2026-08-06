@@ -197,7 +197,10 @@ export function CapacityBar({
 }
 
 const chartClass =
-  'rounded-lg border border-[var(--c9-border)]/60 bg-[var(--c9-bg-card)]/80 p-2.5 shadow-none'
+  'rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-2.5 shadow-none'
+
+/** Shared shell for metric / chart cards in the docked inspector. */
+export const METRIC_CARD_SHELL = chartClass
 
 export function MetricSeriesGraph({
   data,
@@ -265,22 +268,22 @@ export function RuntimeHealthSection({
   const hasIssue = restarting || unreadyCount > 0
 
   return (
-    <section className="space-y-2 rounded-lg border border-gray-800/80 bg-gray-950/40 p-2.5">
+    <section className={`space-y-2 ${METRIC_CARD_SHELL}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4
           className={`text-[11px] font-bold uppercase tracking-wide ${
-            hasIssue ? 'text-red-400' : 'text-gray-200'
+            hasIssue ? 'text-red-400' : 'text-[var(--c9-text)]'
           }`}
         >
           Pod status
         </h4>
-        <span className="font-mono text-[10px] text-gray-500">
+        <span className="font-mono text-[10px] text-[var(--c9-muted)]">
           Ready {readyCount}/{pods.length}
           {restarting ? ' · restarting' : ''}
           {unreadyCount > 0 ? ` · ${unreadyCount} not ready` : ''}
         </span>
       </div>
-      <ul className="min-w-0 space-y-1.5 font-mono text-[10px] text-gray-300">
+      <ul className="min-w-0 space-y-1.5 font-mono text-[10px] text-[var(--c9-text)]">
         {pods.map((pod) => {
           const detail = [
             pod.ready ? 'ready' : 'not ready',

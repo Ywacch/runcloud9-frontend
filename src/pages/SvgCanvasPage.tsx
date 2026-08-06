@@ -181,7 +181,6 @@ export default function SvgCanvasPage() {
         <LogPanel />
         <DesignToolStrip />
         <WalkthroughOverlay />
-        {!walkthroughActive ? <InspectorPanel /> : null}
         {mode === 'design' ? (
           <RequestJourneyPanel
             open={designJourneyUi.open}
@@ -202,6 +201,7 @@ export default function SvgCanvasPage() {
           />
         ) : null}
       </div>
+      {!walkthroughActive ? <InspectorPanel /> : null}
     </div>
   )
 }
