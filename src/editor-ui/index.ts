@@ -1,5 +1,9 @@
 export { CanvasContextMenu } from './CanvasContextMenu'
 export { CascadeToast } from './CascadeToast'
+export {
+  AlertToastStack,
+  InspectorAlertWatcher,
+} from './AlertToastStack'
 export { ChaosOverlayTicker } from './ChaosOverlayTicker'
 export { CanvasErrorBoundary } from './CanvasErrorBoundary'
 export { DesignToolStrip } from './DesignToolStrip'
