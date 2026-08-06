@@ -15,7 +15,7 @@ import { containerFreshnessHint } from '../lib/metricsFreshness'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import type { RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
 import { MetricChart } from './MetricChart'
-import { MetricHelpIcon, HoverInsight } from './MetricHelpIcon'
+import { MetricHelpIcon } from './MetricHelpIcon'
 import { InfoTooltip } from './InfoTooltip'
 
 export type MetricsTimeframe = 'live' | 'session'
@@ -121,11 +121,7 @@ export function PedagogicalHint({
 
 export function PedagogicalCaption({ children }: { children: ReactNode }) {
   return (
-    <p className="pt-0.5">
-      <HoverInsight icon="💬" tone="muted">
-        <span className="text-gray-400">{children}</span>
-      </HoverInsight>
-    </p>
+    <p className="text-[10px] leading-snug text-[var(--c9-muted)]">{children}</p>
   )
 }
 
