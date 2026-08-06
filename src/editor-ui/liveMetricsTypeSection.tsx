@@ -61,6 +61,7 @@ import {
   podDistributionSkew,
   type PanelViewState,
 } from './inspectorPanelUi'
+import { InlineDisclosure } from './InlineDisclosure'
 
 function truncatePodName(name: string, max = 28): string {
   if (name.length <= max) return name
@@ -207,10 +208,12 @@ export function LiveMetricsTypeSection({
                 />
               }
             />
-            <PedagogicalHint>
-              p99 matters as much as RPS. A server at moderate RPS can be degraded if p99 is
-              high because of slow downstream calls.
-            </PedagogicalHint>
+            <InlineDisclosure label="Why p99 matters">
+              <PedagogicalHint>
+                p99 matters as much as RPS. A server at moderate RPS can be degraded if p99 is
+                high because of slow downstream calls.
+              </PedagogicalHint>
+            </InlineDisclosure>
           </PedagogicalSection>
 
           <PedagogicalSection
@@ -499,10 +502,12 @@ export function LiveMetricsTypeSection({
               </div>
             ) : null}
             {skew.skewed ? (
-              <PedagogicalHint>
-                Uneven distribution? Switching to &apos;least-connections&apos; balances
-                long-lived traffic more evenly.
-              </PedagogicalHint>
+              <InlineDisclosure label="Why distribution is uneven">
+                <PedagogicalHint>
+                  Uneven distribution? Switching to &apos;least-connections&apos; balances
+                  long-lived traffic more evenly.
+                </PedagogicalHint>
+              </InlineDisclosure>
             ) : null}
           </PedagogicalSection>
 
@@ -611,11 +616,13 @@ export function LiveMetricsTypeSection({
               }
             />
             {growingBacklog ? (
-              <PedagogicalHint>
-                Growing backlog: Consume rate ({fmtRate(consumeRate)}/s) is lower than Publish
-                rate ({fmtRate(produceRate)}/s). Consider scaling up Worker replicas to drain
-                the queue faster before memory limits are breached.
-              </PedagogicalHint>
+              <InlineDisclosure label="Why backlog is growing">
+                <PedagogicalHint>
+                  Growing backlog: Consume rate ({fmtRate(consumeRate)}/s) is lower than Publish
+                  rate ({fmtRate(produceRate)}/s). Consider scaling up Worker replicas to drain
+                  the queue faster before memory limits are breached.
+                </PedagogicalHint>
+              </InlineDisclosure>
             ) : null}
           </PedagogicalSection>
 
@@ -629,10 +636,12 @@ export function LiveMetricsTypeSection({
                 <div>Saturation · {m.mqSaturationRatio.toFixed(2)}×</div>
               ) : null}
             </div>
-            <PedagogicalHint tone="muted">
-              Engine-specific (RabbitMQ) counters. Unacked messages represent jobs currently
-              being processed by workers but not yet completed.
-            </PedagogicalHint>
+            <InlineDisclosure label="About these metrics">
+              <PedagogicalHint tone="muted">
+                Engine-specific (RabbitMQ) counters. Unacked messages represent jobs currently
+                being processed by workers but not yet completed.
+              </PedagogicalHint>
+            </InlineDisclosure>
           </InspectorDisclosure>
 
           <EngineHealthDisclosure m={m} cpuPercent={cpuPercent} memPercent={memPercent} />
@@ -726,11 +735,13 @@ export function LiveMetricsTypeSection({
             </div>
             <StatBlock label="Queue depth" value={fmtInt(Math.round(m.queueDepth))} />
             {cpuPercent > 90 ? (
-              <PedagogicalHint>
-                Compute bound: Workers are heavily saturating CPU ({fmtPct(cpuPercent)}),
-                capping the process rate at {fmtRate(consumeRate)}/s. Scale up worker replicas
-                to process the message queue backlog in parallel.
-              </PedagogicalHint>
+              <InlineDisclosure label="Why processing is slow">
+                <PedagogicalHint>
+                  Compute bound: Workers are heavily saturating CPU ({fmtPct(cpuPercent)}),
+                  capping the process rate at {fmtRate(consumeRate)}/s. Scale up worker replicas
+                  to process the message queue backlog in parallel.
+                </PedagogicalHint>
+              </InlineDisclosure>
             ) : null}
           </PedagogicalSection>
 

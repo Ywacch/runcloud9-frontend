@@ -5,6 +5,7 @@ import {
   clampWorkerReplicas,
 } from '../lib/replicaConfig'
 import { ResourceProfileFields } from './ResourceProfileFields'
+import { InfoTooltip } from './InfoTooltip'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -35,12 +36,13 @@ export function WorkerInspectorFields({
     <>
       <div>
         <label className={labelClass} htmlFor="worker-replicas">
-          Replicas
+          <span className="inline-flex items-center gap-1">
+            Replicas
+            <InfoTooltip
+              text={`Scale fan-out with replicas on a single worker node (max ${WORKER_REPLICA_MAX}).`}
+            />
+          </span>
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          Scale fan-out with replicas on a single worker node (max{' '}
-          {WORKER_REPLICA_MAX}).
-        </p>
         <input
           id="worker-replicas"
           type="number"
@@ -63,11 +65,11 @@ export function WorkerInspectorFields({
       </div>
       <div>
         <label className={labelClass} htmlFor="worker-prefetch">
-          Prefetch
+          <span className="inline-flex items-center gap-1">
+            Prefetch
+            <InfoTooltip text="RabbitMQ QoS prefetch per consumer (empty = image default)." />
+          </span>
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          RabbitMQ QoS prefetch per consumer (empty = image default).
-        </p>
         <input
           id="worker-prefetch"
           type="number"
@@ -93,11 +95,11 @@ export function WorkerInspectorFields({
       </div>
       <div>
         <label className={labelClass} htmlFor="worker-concurrency">
-          Concurrency
+          <span className="inline-flex items-center gap-1">
+            Concurrency
+            <InfoTooltip text="Concurrent handlers per worker process (empty = image default)." />
+          </span>
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          Concurrent handlers per worker process (empty = image default).
-        </p>
         <input
           id="worker-concurrency"
           type="number"

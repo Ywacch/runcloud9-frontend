@@ -16,6 +16,7 @@ import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/m
 import type { RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
 import { MetricChart } from './MetricChart'
 import { MetricHelpIcon, HoverInsight } from './MetricHelpIcon'
+import { InfoTooltip } from './InfoTooltip'
 
 export type MetricsTimeframe = 'live' | 'session'
 
@@ -93,11 +94,11 @@ export function PedagogicalSection({
 }) {
   return (
     <section className="space-y-2.5">
-      <div>
-        <h4 className="text-[11px] font-bold uppercase tracking-wide text-gray-200">
-          ▼ {title}
+      <div className="flex items-center gap-1">
+        <h4 className="text-[11px] font-bold uppercase tracking-wide text-[var(--c9-text)]">
+          {title}
         </h4>
-        <p className="mt-0.5 text-[10px] leading-snug text-gray-500">{subtitle}</p>
+        <InfoTooltip text={subtitle} />
       </div>
       {children}
     </section>
@@ -106,23 +107,15 @@ export function PedagogicalSection({
 
 export function PedagogicalHint({
   children,
-  tone = 'violet',
 }: {
   children: ReactNode
+  /** @deprecated Tone is unused; kept for call-site compatibility. */
   tone?: 'violet' | 'sky' | 'muted'
 }) {
-  const toneClass =
-    tone === 'sky'
-      ? 'text-sky-300/90'
-      : tone === 'muted'
-        ? 'text-gray-500'
-        : 'text-violet-300/90'
   return (
-    <p className="pt-0.5">
-      <HoverInsight icon="💡" tone={tone}>
-        <span className={toneClass}>{children}</span>
-      </HoverInsight>
-    </p>
+    <span className="text-[11px] leading-relaxed text-[var(--c9-muted)]">
+      {children}
+    </span>
   )
 }
 

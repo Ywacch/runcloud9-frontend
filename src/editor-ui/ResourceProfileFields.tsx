@@ -12,6 +12,7 @@ import {
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
 import { RESOURCE_PROFILE_HELPER } from '../lib/billingCopy'
+import { InfoTooltip } from './InfoTooltip'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -66,11 +67,11 @@ export function ResourceProfileFields({
     <>
       <div>
         <label className={labelClass} htmlFor={`${idPrefix}-size`}>
-          {label}
+          <span className="inline-flex items-center gap-1">
+            {label}
+            <InfoTooltip text={isProxy ? PROXY_SIZE_HELPER : helperText} />
+          </span>
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          {isProxy ? PROXY_SIZE_HELPER : helperText}
-        </p>
         <select
           id={`${idPrefix}-size`}
           className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
