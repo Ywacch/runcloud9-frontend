@@ -254,6 +254,11 @@ export function LiveMetricsTypeSection({
                 />
               }
             />
+            {resourceHelp ? (
+              <InlineDisclosure label="About these metrics">
+                <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
+              </InlineDisclosure>
+            ) : null}
           </PedagogicalSection>
 
           {computeReplicaList.length > 0 ? (
@@ -741,6 +746,11 @@ export function LiveMetricsTypeSection({
                   capping the process rate at {fmtRate(consumeRate)}/s. Scale up worker replicas
                   to process the message queue backlog in parallel.
                 </PedagogicalHint>
+              </InlineDisclosure>
+            ) : null}
+            {resourceHelp ? (
+              <InlineDisclosure label="About these metrics">
+                <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
               </InlineDisclosure>
             ) : null}
           </PedagogicalSection>

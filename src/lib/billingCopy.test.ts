@@ -52,7 +52,7 @@ describe('billingCopy', () => {
     )
     expect(REPLICAS_HELP_FREE).toBe('Explorer runs one App Server pod.')
     expect(replicasHelpPaid(3)).toBe(
-      'Deploy runs this many App Server pods (1–3). Click an App Server on the grid to add another.',
+      'Deploy runs this many App Server pods (1-3). Click the grid to add replicas.',
     )
   })
 

@@ -227,7 +227,9 @@ export function DbLoadSection({
         </InlineDisclosure>
       ) : null}
       {io.patternNote?.trim() ? (
-        <p className="text-[10px] leading-snug text-gray-500">{io.patternNote.trim()}</p>
+        <InlineDisclosure label="About this access pattern">
+          <PedagogicalHint tone="muted">{io.patternNote.trim()}</PedagogicalHint>
+        </InlineDisclosure>
       ) : null}
       <StorageIoScopeFooter m={m} isPostgres />
     </PedagogicalSection>

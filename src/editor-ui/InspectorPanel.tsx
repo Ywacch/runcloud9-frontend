@@ -1053,13 +1053,17 @@ function TypeFields({
         <>
           <div>
             <label className={labelClass} htmlFor="compute-replicas">
-              Replicas
+              <span className="inline-flex items-center gap-1">
+                Replicas
+                <InfoTooltip
+                  text={
+                    replicasLocked
+                      ? REPLICAS_HELP_FREE
+                      : replicasHelpPaid(maxAppReplicas)
+                  }
+                />
+              </span>
             </label>
-            <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-              {replicasLocked
-                ? REPLICAS_HELP_FREE
-                : replicasHelpPaid(maxAppReplicas)}
-            </p>
             <input
               id="compute-replicas"
               type="number"

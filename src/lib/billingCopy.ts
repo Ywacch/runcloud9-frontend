@@ -31,7 +31,7 @@ export const RESOURCE_PROFILE_HELPER =
 export const REPLICAS_HELP_FREE = 'Explorer runs one App Server pod.'
 
 export function replicasHelpPaid(maxReplicas: number): string {
-  return `Deploy runs this many App Server pods (1–${maxReplicas}). Click an App Server on the grid to add another.`
+  return `Deploy runs this many App Server pods (1-${maxReplicas}). Click the grid to add replicas.`
 }
 
 export function isChaosTrialUsedMessage(raw: string): boolean {
