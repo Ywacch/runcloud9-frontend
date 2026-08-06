@@ -36,6 +36,7 @@ import {
   shouldShowDbClusterUtilizationCharts,
   type PanelViewState,
 } from './inspectorPanelUi'
+import { InlineDisclosure } from './InlineDisclosure'
 import { useDbTierCWarmup } from './useDbTierCWarmup'
 
 /** RED — app SQL intent (app-server instrumentation). */
@@ -217,11 +218,13 @@ export function DbLoadSection({
         </p>
       ) : null}
       {!hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
-        <PedagogicalHint>
-          Inefficient access pattern: {fmtRate(dbQueryRate)} logical queries are causing{' '}
-          {fmtRate(readRate)} row/document reads per second. Check the Data tab for a missing
-          index that may be causing O(N) sequential scans.
-        </PedagogicalHint>
+        <InlineDisclosure label="Why reads look high">
+          <PedagogicalHint>
+            Inefficient access pattern: {fmtRate(dbQueryRate)} logical queries are causing{' '}
+            {fmtRate(readRate)} row/document reads per second. Check the Data tab for a missing
+            index that may be causing O(N) sequential scans.
+          </PedagogicalHint>
+        </InlineDisclosure>
       ) : null}
       {io.patternNote?.trim() ? (
         <p className="text-[10px] leading-snug text-gray-500">{io.patternNote.trim()}</p>
@@ -302,7 +305,9 @@ export function DbClusterResourcesSection({
       />
       {showUtilizationCharts ? <CapacityBar pct={cpuPercent} /> : null}
       {resourceHelp ? (
-        <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
+        <InlineDisclosure label="About these metrics">
+          <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
+        </InlineDisclosure>
       ) : null}
     </PedagogicalSection>
   )
@@ -333,10 +338,12 @@ export function DbDiagnosticsDisclosure({
           <div>Rollbacks · {fmtRate(io.errorRate)}/s</div>
         ) : null}
       </div>
-      <PedagogicalHint tone="muted">
-        Engine-specific (PostgreSQL) metrics. High connection counts can lead to connection
-        pooling bottlenecks.
-      </PedagogicalHint>
+      <InlineDisclosure label="About these metrics">
+        <PedagogicalHint tone="muted">
+          Engine-specific (PostgreSQL) metrics. High connection counts can lead to connection
+          pooling bottlenecks.
+        </PedagogicalHint>
+      </InlineDisclosure>
     </InspectorDisclosure>
   )
 }

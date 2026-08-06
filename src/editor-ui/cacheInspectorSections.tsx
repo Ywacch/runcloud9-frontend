@@ -36,6 +36,7 @@ import {
   StatRow,
   type PanelViewState,
 } from './inspectorPanelUi'
+import { InlineDisclosure } from './InlineDisclosure'
 
 export function CacheStrategyBanner({ strategy }: { strategy: string }) {
   const banner = cacheStrategyBanner(strategy)
@@ -447,11 +448,13 @@ export function CacheSessionTotalsDisclosure({
           Connected clients · {fmtInt(Math.round(m.redisConnectedClients ?? 0))}
         </div>
       ) : null}
-      <PedagogicalHint tone="sky">
-        {keyspaceDrift
-          ? 'App hit rate and keyspace counters differ by more than 10%. Check pod aggregation scope.'
-          : 'Session totals use a rolling 9-minute window; live hit rate above uses a shorter window.'}
-      </PedagogicalHint>
+      <InlineDisclosure label="Why counters differ">
+        <PedagogicalHint tone="sky">
+          {keyspaceDrift
+            ? 'App hit rate and keyspace counters differ by more than 10%. Check pod aggregation scope.'
+            : 'Session totals use a rolling 9-minute window; live hit rate above uses a shorter window.'}
+        </PedagogicalHint>
+      </InlineDisclosure>
     </InspectorDisclosure>
   )
 }
