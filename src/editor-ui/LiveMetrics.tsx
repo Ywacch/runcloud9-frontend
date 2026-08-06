@@ -10,7 +10,11 @@ import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasSto
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import { MetricHelpIcon } from './MetricHelpIcon'
-import { PanelViewControls, type PanelViewState } from './inspectorPanelUi'
+import {
+  METRIC_CARD_SHELL,
+  PanelViewControls,
+  type PanelViewState,
+} from './inspectorPanelUi'
 import { LiveMetricsTypeSection } from './liveMetricsTypeSection'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
@@ -25,12 +29,12 @@ function MetricTile({
   help?: string
 }) {
   return (
-    <div className="rounded-lg border border-gray-700/50 bg-gray-800/50 p-2.5">
-      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+    <div className={METRIC_CARD_SHELL}>
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
         <span>{label}</span>
         {help ? <MetricHelpIcon title={help} /> : null}
       </div>
-      <div className="mt-0.5 font-mono text-sm font-semibold text-white">
+      <div className="mt-0.5 font-mono text-sm font-semibold text-[var(--c9-text)]">
         {value}
       </div>
     </div>

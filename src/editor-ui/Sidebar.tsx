@@ -58,6 +58,7 @@ import {
 } from '../lib/spawnClientNode'
 import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { useWalkthroughStore } from '../editor-core/stores/walkthroughStore'
 import { useAuthStore } from '../product/stores/authStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
@@ -133,6 +134,8 @@ export function Sidebar() {
   const mode = useCanvasStore((s) => s.mode)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const selectedId = useCanvasStore((s) => s.selectedId)
+  const selectedIds = useCanvasStore((s) => s.selectedIds)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
@@ -142,6 +145,7 @@ export function Sidebar() {
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const topologyBanner = useCanvasStore((s) => s.topologyBanner)
   const setTopologyBanner = useCanvasStore((s) => s.setTopologyBanner)
+  const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -181,6 +185,14 @@ export function Sidebar() {
   const [templateInfoById, setTemplateInfoById] = useState<
     Record<string, TemplateInfo>
   >({})
+
+  /** Prefer user collapse preference; force icon rail while inspector dock is open. */
+  const inspectorOpen = useMemo(() => {
+    if (walkthroughActive) return false
+    const id = selectedIds.length === 1 ? selectedIds[0] : selectedId
+    return Boolean(id && nodes[id])
+  }, [walkthroughActive, selectedIds, selectedId, nodes])
+  const rail = collapsed || inspectorOpen
 
   useEffect(() => {
     try {
@@ -715,11 +727,11 @@ export function Sidebar() {
   return (
     <aside
       className={`relative flex h-full shrink-0 flex-col bg-[var(--c9-bg)] text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
-        collapsed ? 'w-12' : 'w-64'
+        rail ? 'w-12' : 'w-64'
       }`}
     >
       <div className="flex items-center justify-between gap-1 border-b border-[var(--c9-border)] bg-[var(--c9-surface)] p-2">
-        {!collapsed ? (
+        {!rail ? (
           <Link
             to="/"
             className="min-w-0 truncate rounded px-2 text-left text-lg font-semibold tracking-tight text-[var(--c9-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
@@ -732,17 +744,23 @@ export function Sidebar() {
         )}
         <button
           type="button"
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!rail}
+          aria-label={rail ? 'Expand sidebar' : 'Collapse sidebar'}
+          disabled={inspectorOpen && !collapsed}
+          title={
+            inspectorOpen && !collapsed
+              ? 'Sidebar stays collapsed while the inspector is open'
+              : undefined
+          }
           onClick={() => setCollapsed((c) => !c)}
-          className="shrink-0 rounded p-1.5 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+          className="shrink-0 rounded p-1.5 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {collapsed ? '▶' : '◀'}
+          {rail ? '▶' : '◀'}
         </button>
       </div>
       <div
         className={`flex-1 space-y-3 overflow-y-auto p-4 ${
-          collapsed ? 'hidden' : ''
+          rail ? 'hidden' : ''
         }`}
       >
         <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
@@ -865,7 +883,7 @@ export function Sidebar() {
       </div>
       <div
         className={`space-y-2 border-t border-[var(--c9-border)] bg-[var(--c9-surface)]/80 p-4 ${
-          collapsed ? 'hidden' : ''
+          rail ? 'hidden' : ''
         }`}
       >
         {statusLine ? (
