@@ -144,3 +144,33 @@ body {
     transparent 1px
   );
 }
+
+@keyframes inspector-alert-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes inspector-alert-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.inspector-alert-enter {
+  animation: inspector-alert-slide-in 300ms ease-out both;
+}
+
+.inspector-alert-progress {
+  animation-name: inspector-alert-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

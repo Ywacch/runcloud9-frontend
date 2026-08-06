@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 import {
+  AlertToastStack,
   CascadeToast,
   ChaosOverlayTicker,
   EventTimeline,
+  InspectorAlertWatcher,
   LiveOverlay,
   ProvisioningOverlay,
   RejoinBanner,
@@ -108,6 +110,8 @@ export function CanvasSessionOverlays({
         <>
           <ChaosOverlayTicker />
           <CascadeToast />
+          <InspectorAlertWatcher />
+          <AlertToastStack />
         </>
       ) : null}
       {terminationMessage ? (
