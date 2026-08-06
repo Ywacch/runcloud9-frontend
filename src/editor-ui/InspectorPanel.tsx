@@ -68,6 +68,8 @@ import { QueueBrowser } from './QueueBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
 import { ResourceProfileFields } from './ResourceProfileFields'
+import { InfoTooltip } from './InfoTooltip'
+import { InlineDisclosure } from './InlineDisclosure'
 import { WorkerInspectorFields } from './WorkerInspectorFields'
 import { getResourceProfilesCached } from '../lib/resourceProfileStore'
 import {
@@ -386,7 +388,6 @@ export function CacheNodeInspectorFields({
     String(storedWriteBehindInterval),
   )
   const writeBehindDraftValid = isValidWriteBehindInterval(writeBehindDraft)
-  const [readThroughTipOpen, setReadThroughTipOpen] = useState(false)
 
   const templateTtlDefault = defaultCacheTtlSecondsForTemplate(templateId)
   const storedCacheTtl = parseCacheTtlSeconds(c.cacheTtlSeconds)
@@ -493,10 +494,6 @@ export function CacheNodeInspectorFields({
         <label className={labelClass} htmlFor="cache-strat">
           Cache strategy
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          Proxy needs cache-to-database. Cache-aside needs the app talking to the
-          database.
-        </p>
         <select
           id="cache-strat"
           className={`${fieldClass}${readOnly || ambiguousTopology ? ' cursor-not-allowed opacity-60' : ''}`}
@@ -552,23 +549,15 @@ export function CacheNodeInspectorFields({
             ))
           )}
         </select>
+        <InlineDisclosure label="How strategies differ">
+          Proxy needs cache-to-database. Cache-aside needs the app talking to the
+          database.
+        </InlineDisclosure>
         {showProxyReadThroughNote ? (
-          <div className="mt-2">
-            <button
-              type="button"
-              className="text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)] underline-offset-2 hover:text-[var(--c9-text)] hover:underline"
-              aria-expanded={readThroughTipOpen}
-              onClick={() => setReadThroughTipOpen((open) => !open)}
-            >
-              Read-through (always on)
-            </button>
-            {readThroughTipOpen ? (
-              <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-                On miss, the proxy loads from Postgres and refills Redis. The app
-                does not read the database.
-              </p>
-            ) : null}
-          </div>
+          <InlineDisclosure label="Read-through (always on)">
+            On miss, the proxy loads from Postgres and refills Redis. The app does
+            not read the database.
+          </InlineDisclosure>
         ) : null}
         {!readOnly && ambiguousTopology ? (
           <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
@@ -581,11 +570,11 @@ export function CacheNodeInspectorFields({
       {showWriteBehindInterval ? (
         <div>
           <label className={labelClass} htmlFor="cache-write-behind-interval">
-            Write-behind flush interval (seconds)
+            <span className="inline-flex items-center gap-1">
+              Write-behind flush interval (seconds)
+              <InfoTooltip text="How often the proxy flushes writes to the database." />
+            </span>
           </label>
-          <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-            How often the proxy flushes writes to the database.
-          </p>
           <input
             id="cache-write-behind-interval"
             type="number"
@@ -627,11 +616,11 @@ export function CacheNodeInspectorFields({
       ) : null}
       <div>
         <label className={labelClass} htmlFor="cache-ttl">
-          Cache TTL
+          <span className="inline-flex items-center gap-1">
+            Cache TTL
+            <InfoTooltip text={CACHE_TTL_HELPER} />
+          </span>
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          {CACHE_TTL_HELPER}
-        </p>
         <label className="mb-2 flex items-center gap-2 text-xs text-[var(--c9-text)]">
           <input
             id="cache-ttl-no-expiry"
@@ -720,21 +709,24 @@ export function CacheNodeInspectorFields({
             ) : null}
           </>
         ) : null}
+        <InlineDisclosure label="TTL vs eviction">
+          TTL is a per-key timer set when the key is written. Eviction is a
+          memory-pressure policy that removes keys when maxmemory is reached.
+          Both can remove the same key, but they operate independently.
+        </InlineDisclosure>
       </div>
       <div>
         <label className={labelClass} htmlFor="cache-eviction">
-          Eviction policy
+          <span className="inline-flex items-center gap-1">
+            Eviction policy
+            <InfoTooltip text="How Redis frees memory when full. TTL expiry is independent." />
+          </span>
         </label>
-        <p className="mb-1 text-[10px] leading-snug text-[var(--c9-muted)]">
-          When memory is full, Redis removes keys by this policy. TTL expiry still
-          runs separately.
-        </p>
         <select
           id="cache-eviction"
           className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
           value={evictionPolicy}
           disabled={readOnly}
-          title={REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
           onChange={(e) =>
             {
               if (readOnly) return
@@ -761,9 +753,9 @@ export function CacheNodeInspectorFields({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-[10px] leading-snug text-[var(--c9-muted)]">
+        <InlineDisclosure label="What this means">
           {REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
-        </p>
+        </InlineDisclosure>
         {showVolatileWarning ? (
           <p className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-snug text-amber-700 dark:text-amber-200">
             {VOLATILE_NO_EXPIRY_WARNING}

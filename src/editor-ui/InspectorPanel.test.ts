@@ -162,14 +162,17 @@ function renderCacheInspector(opts: {
 
 describe('CacheNodeInspectorFields eviction policy copy', () => {
   it.each(['volatile-lru', 'volatile-lfu', 'volatile-random', 'volatile-ttl'] as const)(
-    'shows the selected description without amber warning for %s when TTL is set',
+    'shows What this means disclosure without amber warning for %s when TTL is set',
     (policy) => {
       const html = renderCacheInspector({
         evictionPolicy: policy,
         cacheTtlSeconds: 300,
       })
 
-      expect(html).toContain(`>${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}</p>`)
+      expect(html).toContain('What this means')
+      expect(html).toContain(
+        `title="${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}"`,
+      )
       expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )
@@ -187,14 +190,17 @@ describe('CacheNodeInspectorFields eviction policy copy', () => {
   )
 
   it.each(['noeviction', 'allkeys-lru', 'allkeys-lfu', 'allkeys-random'] as const)(
-    'shows the selected description without the volatile warning for %s',
+    'shows What this means disclosure without the volatile warning for %s',
     (policy) => {
       const html = renderCacheInspector({
         evictionPolicy: policy,
         cacheTtlSeconds: 0,
       })
 
-      expect(html).toContain(`>${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}</p>`)
+      expect(html).toContain('What this means')
+      expect(html).toContain(
+        `title="${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}"`,
+      )
       expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )

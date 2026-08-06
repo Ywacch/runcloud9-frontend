@@ -45,7 +45,9 @@ export function CacheStrategyBanner({ strategy }: { strategy: string }) {
       <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-300">
         {banner.title}
       </h3>
-      <p className="text-[10px] leading-snug text-gray-500">{banner.subtitle}</p>
+      <InlineDisclosure label="How this strategy works">
+        {banner.subtitle}
+      </InlineDisclosure>
     </section>
   )
 }
