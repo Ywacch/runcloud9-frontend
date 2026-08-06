@@ -6,10 +6,17 @@ import {
   type KeyInfo,
   type KeyValue,
 } from '../lib/introspectApi'
+import {
+  canShowTimelineView,
+  parseZsetRows,
+} from '../lib/timelineMember'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { trackEvent } from '../lib/analytics'
+import { InlineDisclosure } from './InlineDisclosure'
+import { TimelineCard } from './TimelineCard'
 
 type RedisType = string
+type DetailViewMode = 'raw' | 'timeline'
 
 function typePillClass(t: string): string {
   const k = t.toLowerCase()
@@ -38,6 +45,32 @@ function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }
       >
         Retry
       </button>
+    </div>
+  )
+}
+
+function ZsetRawTable({ value }: { value: unknown }) {
+  const parsed = parseZsetRows(value)
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-max border-collapse font-mono text-[10px]">
+        <thead>
+          <tr className="border-b border-[var(--c9-border)] text-[var(--c9-muted)]">
+            <th className="px-1 py-1 text-left">Rank</th>
+            <th className="px-1 py-1 text-left">Member</th>
+            <th className="px-1 py-1 text-left">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {parsed.map((r, i) => (
+            <tr key={i} className="border-b border-[var(--c9-border)]/50">
+              <td className="px-1 py-1">{i + 1}</td>
+              <td className="px-1 py-1 text-[var(--c9-text)]">{r.member}</td>
+              <td className="px-1 py-1 text-[var(--c9-muted)]">{r.score}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -75,44 +108,7 @@ function KeyValueView({ kv }: { kv: KeyValue }) {
   }
 
   if (t === 'zset' && Array.isArray(v)) {
-    const rows = v as unknown[]
-    const parsed = rows.map((row) => {
-      if (Array.isArray(row) && row.length >= 2) {
-        return { member: row[0], score: row[1] }
-      }
-      if (row && typeof row === 'object' && !Array.isArray(row)) {
-        const o = row as Record<string, unknown>
-        return {
-          member: o.member ?? o.m ?? o[0],
-          score: o.score ?? o.s ?? o[1],
-        }
-      }
-      return { member: row, score: '' }
-    })
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max border-collapse font-mono text-[10px]">
-          <thead>
-            <tr className="border-b border-[var(--c9-border)] text-[var(--c9-muted)]">
-              <th className="px-1 py-1 text-left">Rank</th>
-              <th className="px-1 py-1 text-left">Member</th>
-              <th className="px-1 py-1 text-left">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {parsed.map((r, i) => (
-              <tr key={i} className="border-b border-[var(--c9-border)]/50">
-                <td className="px-1 py-1">{i + 1}</td>
-                <td className="px-1 py-1 text-[var(--c9-text)]">
-                  {typeof r.member === 'object' ? JSON.stringify(r.member) : String(r.member)}
-                </td>
-                <td className="px-1 py-1 text-[var(--c9-muted)]">{String(r.score)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+    return <ZsetRawTable value={v} />
   }
 
   if (t === 'hash' && v && typeof v === 'object' && !Array.isArray(v)) {
@@ -180,12 +176,29 @@ export function CacheBrowser({
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [detailView, setDetailView] = useState<DetailViewMode>('raw')
 
   useEffect(() => {
     setPattern((current) =>
       patterns.includes(current) ? current : (patterns[0] ?? '*'),
     )
   }, [patterns])
+
+  const timelineEligible = useMemo(() => {
+    if (!selectedKey || !keyValue) return false
+    return canShowTimelineView({
+      key: selectedKey,
+      type: keyValue.type,
+      value: keyValue.value,
+      keyPatterns: patterns,
+    })
+  }, [selectedKey, keyValue, patterns])
+
+  useEffect(() => {
+    if (!timelineEligible && detailView === 'timeline') {
+      setDetailView('raw')
+    }
+  }, [timelineEligible, detailView])
 
   const scanFromStart = useCallback(
     async (pat: string) => {
@@ -195,12 +208,17 @@ export function CacheBrowser({
       setNextCursor(0)
       setSelectedKey(null)
       setKeyValue(null)
+      setDetailView('raw')
       try {
         const res = await fetchKeys(deploymentId, component, pat, 0, 50)
         setKeys(res.keys)
         setNextCursor(res.cursor)
         const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-        trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'scan_keys' })
+        trackEvent('data_inspector_used', {
+          template,
+          componentType: component,
+          operationCategory: 'scan_keys',
+        })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to scan keys')
         setKeys([])
@@ -235,11 +253,16 @@ export function CacheBrowser({
       setSelectedKey(keyName)
       setDetailLoading(true)
       setKeyValue(null)
+      setDetailView('raw')
       try {
         const kv = await fetchKeyValue(deploymentId, component, keyName)
         setKeyValue(kv)
         const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-        trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'fetch_value' })
+        trackEvent('data_inspector_used', {
+          template,
+          componentType: component,
+          operationCategory: 'fetch_value',
+        })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load key value')
       } finally {
@@ -369,12 +392,42 @@ export function CacheBrowser({
 
       {selectedKey ? (
         <div className="border-t border-[var(--c9-border)] pt-3">
-          <div className="mb-2 text-[10px] font-semibold text-[var(--c9-muted)]">
-            <span className="text-[var(--c9-text)]">{selectedKey}</span>
-            {keyValue ? (
-              <span className="ml-2 text-[var(--c9-muted)]">
-                ({keyValue.type})
-              </span>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[10px] font-semibold text-[var(--c9-muted)]">
+              <span className="text-[var(--c9-text)]">{selectedKey}</span>
+              {keyValue ? (
+                <span className="ml-2 text-[var(--c9-muted)]">
+                  ({keyValue.type})
+                </span>
+              ) : null}
+            </div>
+            {timelineEligible ? (
+              <div
+                className="inline-flex rounded border border-[var(--c9-border)] p-0.5 text-[10px]"
+                role="group"
+                aria-label="Key value view mode"
+              >
+                {(
+                  [
+                    ['raw', 'Raw'],
+                    ['timeline', 'Timeline'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={detailView === id}
+                    onClick={() => setDetailView(id)}
+                    className={`rounded px-2 py-0.5 font-semibold transition-colors ${
+                      detailView === id
+                        ? 'bg-[var(--c9-accent)]/20 text-[var(--c9-text)]'
+                        : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             ) : null}
           </div>
           {detailLoading ? (
@@ -382,9 +435,32 @@ export function CacheBrowser({
               <div className="h-8 rounded bg-[var(--c9-surface)]" />
             </div>
           ) : keyValue ? (
-            <div className="max-h-64 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50 p-2">
-              <KeyValueView kv={keyValue} />
-            </div>
+            detailView === 'timeline' && timelineEligible ? (
+              <div className="space-y-2">
+                <div className="max-h-80 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50">
+                  {parseZsetRows(keyValue.value).map((row, i) => (
+                    <TimelineCard
+                      key={`${i}-${row.score}`}
+                      member={row.member}
+                      rank={i + 1}
+                    />
+                  ))}
+                </div>
+                <InlineDisclosure label="Why sorted sets?">
+                  <p>
+                    Redis sorted sets (ZSET) store timeline feeds ranked by timestamp.
+                    Each user&apos;s feed is a separate key (timeline:{'{'}userId{'}'}),
+                    giving O(1) reads for the most recent posts. This is the push model:
+                    the fan-out worker pre-computes feeds at write time so reads are
+                    instant.
+                  </p>
+                </InlineDisclosure>
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50 p-2">
+                <KeyValueView kv={keyValue} />
+              </div>
+            )
           ) : null}
         </div>
       ) : null}
