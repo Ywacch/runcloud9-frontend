@@ -70,6 +70,7 @@ export function EventTimeline() {
   const nodes = useCanvasStore((s) => s.nodes)
   const [expandedEvent, setExpandedEvent] = useState<WsEvent | null>(null)
   const [sortMode, setSortMode] = useState<TimelineEventSort>(readTimelineEventSort)
+  const [stripOpen, setStripOpen] = useState(false)
 
   useEffect(() => {
     if (snapshotTemplateId) restorePredicted(snapshotTemplateId)
@@ -93,7 +94,7 @@ export function EventTimeline() {
     } else {
       el.scrollLeft = 0
     }
-  }, [sorted, sortMode])
+  }, [sorted, sortMode, stripOpen])
 
   const showStrip = sorted.length > 0
   if (!showStrip && !expandedEvent) return null
@@ -121,77 +122,89 @@ export function EventTimeline() {
       {showStrip ? (
         <div className="pointer-events-auto w-full max-w-2xl">
           <div className="mb-0.5 flex items-center justify-between gap-2">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)]">
-              Event timeline
-            </span>
-            <div
-              role="group"
-              aria-label="Sort timeline events"
-              className="flex rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-px text-[9px] font-medium"
+            <button
+              type="button"
+              aria-expanded={stripOpen}
+              onClick={() => setStripOpen((v) => !v)}
+              className="text-left text-[9px] font-bold uppercase tracking-wider text-[var(--c9-muted)] hover:text-[var(--c9-text)]"
             >
-              <button
-                type="button"
-                aria-pressed={sortMode === 'severity'}
-                onClick={() => setSort('severity')}
-                className={`rounded px-1.5 py-0.5 transition-colors ${
-                  sortMode === 'severity'
-                    ? 'bg-[var(--c9-surface)] text-[var(--c9-text)] shadow-sm'
-                    : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-                }`}
+              {stripOpen ? '▾' : '▸'} Events
+              <span className="ml-1 font-mono font-medium normal-case tracking-normal">
+                ({sorted.length})
+              </span>
+            </button>
+            {stripOpen ? (
+              <div
+                role="group"
+                aria-label="Sort timeline events"
+                className="flex rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-px text-[9px] font-medium"
               >
-                Importance
-              </button>
-              <button
-                type="button"
-                aria-pressed={sortMode === 'time'}
-                onClick={() => setSort('time')}
-                className={`rounded px-1.5 py-0.5 transition-colors ${
-                  sortMode === 'time'
-                    ? 'bg-[var(--c9-surface)] text-[var(--c9-text)] shadow-sm'
-                    : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-                }`}
-              >
-                Time
-              </button>
-            </div>
-          </div>
-          <div
-            ref={scrollRef}
-            className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/85 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
-          >
-            {sorted.map((e, i) => {
-              const anchorLabel = workloadAnchorLabel(e)
-              return (
                 <button
-                  key={`${e.timestamp}-${i}-${e.title}`}
                   type="button"
-                  title={eventTooltip(e)}
-                  onClick={() => onPillClick(e)}
-                  disabled={!pillInteractive(e)}
-                  className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e)} ${
-                    pillInteractive(e) ? 'cursor-pointer' : ''
+                  aria-pressed={sortMode === 'severity'}
+                  onClick={() => setSort('severity')}
+                  className={`rounded px-1.5 py-0.5 transition-colors ${
+                    sortMode === 'severity'
+                      ? 'bg-[var(--c9-surface)] text-[var(--c9-text)] shadow-sm'
+                      : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
                   }`}
                 >
-                  <span className="flex flex-wrap items-center gap-1">
-                    <span className="mr-1 font-mono text-[var(--c9-muted)]">
-                      {formatTime(e.timestamp)}
-                    </span>
-                    {anchorLabel ? (
-                      <span className="rounded bg-white/10 px-1 text-[8px] font-semibold uppercase tracking-wide">
-                        {anchorLabel}
-                      </span>
-                    ) : null}
-                    <span className="text-[var(--c9-text)]">{e.title}</span>
-                    {isPredicted(e) ? (
-                      <span className="rounded bg-cyan-500/20 px-1 text-[8px] font-semibold uppercase text-cyan-200">
-                        predicted
-                      </span>
-                    ) : null}
-                  </span>
+                  Importance
                 </button>
-              )
-            })}
+                <button
+                  type="button"
+                  aria-pressed={sortMode === 'time'}
+                  onClick={() => setSort('time')}
+                  className={`rounded px-1.5 py-0.5 transition-colors ${
+                    sortMode === 'time'
+                      ? 'bg-[var(--c9-surface)] text-[var(--c9-text)] shadow-sm'
+                      : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                  }`}
+                >
+                  Time
+                </button>
+              </div>
+            ) : null}
           </div>
+          {stripOpen ? (
+            <div
+              ref={scrollRef}
+              className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/85 py-1.5 pl-1.5 pr-1 shadow-md backdrop-blur-md [scrollbar-width:thin]"
+            >
+              {sorted.map((e, i) => {
+                const anchorLabel = workloadAnchorLabel(e)
+                return (
+                  <button
+                    key={`${e.timestamp}-${i}-${e.title}`}
+                    type="button"
+                    title={eventTooltip(e)}
+                    onClick={() => onPillClick(e)}
+                    disabled={!pillInteractive(e)}
+                    className={`shrink-0 max-w-[min(100%,14rem)] rounded-full px-2 py-0.5 text-left text-[10px] ring-1 transition-all duration-200 hover:brightness-110 disabled:cursor-default disabled:opacity-90 ${pillClass(e)} ${
+                      pillInteractive(e) ? 'cursor-pointer' : ''
+                    }`}
+                  >
+                    <span className="flex flex-wrap items-center gap-1">
+                      <span className="mr-1 font-mono text-[var(--c9-muted)]">
+                        {formatTime(e.timestamp)}
+                      </span>
+                      {anchorLabel ? (
+                        <span className="rounded bg-white/10 px-1 text-[8px] font-semibold uppercase tracking-wide">
+                          {anchorLabel}
+                        </span>
+                      ) : null}
+                      <span className="text-[var(--c9-text)]">{e.title}</span>
+                      {isPredicted(e) ? (
+                        <span className="rounded bg-cyan-500/20 px-1 text-[8px] font-semibold uppercase text-cyan-200">
+                          predicted
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {expandedEvent ? (

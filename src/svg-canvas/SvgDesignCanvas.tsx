@@ -102,6 +102,10 @@ import {
   writeStoredGridMode,
 } from './utils/gridModePreference'
 import {
+  readCanvasChromeExpanded,
+  writeCanvasChromeExpanded,
+} from './utils/canvasChromePreference'
+import {
   floorThemeTokens,
   type FloorThemeId,
 } from './theme/floorTheme'
@@ -274,6 +278,14 @@ export default function SvgDesignCanvas({
   const marqueeActive = useRef(false)
   const rubberLineRef = useRef<SVGLineElement | null>(null)
   const rubberFromRef = useRef<WorldPoint | null>(null)
+  const skipAspectSyncRef = useRef(0)
+  const [chromeExpanded, setChromeExpanded] = useState(() =>
+    readCanvasChromeExpanded(),
+  )
+  const inspectorOpen = useCanvasStore((s) => {
+    const id = s.selectedIds.length === 1 ? s.selectedIds[0] : s.selectedId
+    return Boolean(id && s.nodes[id])
+  })
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
@@ -302,6 +314,22 @@ export default function SvgDesignCanvas({
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.supportsWorker !== false : true,
   )
   useSvgCanvasKeyboard()
+
+  useEffect(() => {
+    if (inspectorOpen) {
+      setChromeExpanded(false)
+      return
+    }
+    setChromeExpanded(readCanvasChromeExpanded())
+  }, [inspectorOpen])
+
+  const toggleChromeExpanded = useCallback(() => {
+    setChromeExpanded((prev) => {
+      const next = !prev
+      writeCanvasChromeExpanded(next)
+      return next
+    })
+  }, [])
 
   const topologyFlags = useMemo(
     () => getTopologyFlags(canvasNodes),
@@ -335,10 +363,18 @@ export default function SvgDesignCanvas({
   const fitDefault = useCallback(() => {
     const host = hostRef.current
     if (!host) return
-    const { width, height } = host.getBoundingClientRect()
-    setView(
-      fitViewToNodes(useSvgCanvasStore.getState().nodes, width, height),
-    )
+    skipAspectSyncRef.current = 3
+    const apply = () => {
+      const el = hostRef.current
+      if (!el) return
+      const { width, height } = el.getBoundingClientRect()
+      if (width < 1 || height < 1) return
+      setView(fitViewToNodes(useSvgCanvasStore.getState().nodes, width, height))
+    }
+    apply()
+    requestAnimationFrame(() => {
+      requestAnimationFrame(apply)
+    })
   }, [])
 
   const [exporting, setExporting] = useState(false)
@@ -382,6 +418,10 @@ export default function SvgDesignCanvas({
     const host = hostRef.current
     if (!host) return
     const sync = () => {
+      if (skipAspectSyncRef.current > 0) {
+        skipAspectSyncRef.current -= 1
+        return
+      }
       const { width, height } = host.getBoundingClientRect()
       if (width < 1 || height < 1) return
       setView((v) => {
@@ -1013,53 +1053,83 @@ export default function SvgDesignCanvas({
         </div>
       ) : (
         <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
-          {import.meta.env.DEV ? <FxDemoControls compact /> : null}
-          <GridModeToggle mode={mode} onChange={setGridMode} compact />
-          <FloorThemeToggle
-            theme={floorThemeId}
-            onChange={setFloorTheme}
-            compact
-          />
-          <EdgeStylePresetToggle
-            preset={edgeStylePreset}
-            onChange={setEdgeStylePreset}
-            compact
-          />
-          <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-zinc-300/80 bg-white/90 p-0.5 shadow-sm backdrop-blur-sm">
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100"
-              onClick={() => zoomBy(ZOOM_FACTOR)}
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100"
-              onClick={() => zoomBy(1 / ZOOM_FACTOR)}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100"
-              onClick={fitDefault}
-              title="Fit (F)"
-            >
-              Fit
-            </button>
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
-              onClick={() => void exportSvg()}
-              disabled={exporting}
-              title="Download SVG (bounded board, or design + padding)"
-            >
-              {exporting ? '…' : 'SVG'}
-            </button>
-          </div>
+          {chromeExpanded ? (
+            <>
+              {import.meta.env.DEV ? <FxDemoControls compact /> : null}
+              <GridModeToggle mode={mode} onChange={setGridMode} compact />
+              <FloorThemeToggle
+                theme={floorThemeId}
+                onChange={setFloorTheme}
+                compact
+              />
+              <EdgeStylePresetToggle
+                preset={edgeStylePreset}
+                onChange={setEdgeStylePreset}
+                compact
+              />
+              <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 p-0.5 shadow-sm backdrop-blur-sm">
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+                  onClick={() => zoomBy(ZOOM_FACTOR)}
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+                  onClick={() => zoomBy(1 / ZOOM_FACTOR)}
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+                  onClick={fitDefault}
+                  title="Fit (F)"
+                >
+                  Fit
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)] disabled:opacity-50"
+                  onClick={() => void exportSvg()}
+                  disabled={exporting}
+                  title="Download SVG (bounded board, or design + padding)"
+                >
+                  {exporting ? '…' : 'SVG'}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={toggleChromeExpanded}
+                className="pointer-events-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)] shadow-sm backdrop-blur-sm hover:text-[var(--c9-text)]"
+              >
+                Hide view
+              </button>
+            </>
+          ) : (
+            <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 p-0.5 shadow-sm backdrop-blur-sm">
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+                onClick={fitDefault}
+                title="Fit (F)"
+              >
+                Fit
+              </button>
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+                onClick={toggleChromeExpanded}
+                aria-expanded={false}
+              >
+                View
+              </button>
+            </div>
+          )}
         </div>
       )}
 
