@@ -172,10 +172,9 @@ export function InspectorPanel() {
     setLiveTab('metrics')
   }, [open, selectedId])
 
-  /** One-shot fit after dock claims canvas width (Layout Contract). */
+  /** One-shot fit after dock width transition (~200ms) settles. */
   useEffect(() => {
-    if (!open) return
-    const id = window.setTimeout(() => requestCanvasFit(), 80)
+    const id = window.setTimeout(() => requestCanvasFit(), 250)
     return () => window.clearTimeout(id)
   }, [open, inspectorNodeId])
 

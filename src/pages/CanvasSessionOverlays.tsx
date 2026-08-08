@@ -5,11 +5,10 @@ import {
   ChaosOverlayTicker,
   EventTimeline,
   InspectorAlertWatcher,
-  LiveOverlay,
+  LiveSessionStrip,
   ProvisioningOverlay,
   RejoinBanner,
   SimulationOverlay,
-  SystemTopBar,
 } from '../editor-ui'
 import type { CanvasSessionLifecycle } from './useCanvasSessionLifecycle'
 
@@ -67,11 +66,10 @@ export function CanvasSessionOverlays({
       ) : null}
       {children}
       {mode !== 'design' ? (
-        <div className="pointer-events-none absolute left-3 top-0 z-30 flex w-fit max-w-[50%] min-w-0 flex-col gap-2 pr-3 pt-3">
-          <SystemTopBar />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex min-w-0 flex-col gap-1.5 px-3 pr-14 pt-3">
+          <LiveSessionStrip />
           <EventTimeline />
-          <div className="pointer-events-auto flex w-full min-w-0 flex-col gap-2">
-            <LiveOverlay />
+          <div className="pointer-events-auto w-fit max-w-full">
             <SimulationOverlay />
           </div>
         </div>
