@@ -154,7 +154,6 @@ export function CanvasContextMenu() {
       nodes,
       addNode,
       updateNodeConfig,
-      selectNode,
     })
     close()
   }

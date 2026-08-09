@@ -12,6 +12,8 @@ import {
   CanvasContextMenu,
   DesignToolStrip,
   InspectorPanel,
+  LiveMetricsDrawer,
+  LiveSessionStrip,
   LogPanel,
   RequestJourneyPanel,
   SessionSummary,
@@ -20,6 +22,10 @@ import {
 } from '../editor-ui'
 import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
 import { TemplatePresetModeBanner } from '../editor-ui/TemplatePresetModeBanner'
+import {
+  useDevCanvasToolsVisible,
+  useDevLiveStripVisible,
+} from '../lib/devCanvasTools'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
@@ -69,6 +75,11 @@ export default function SvgCanvasPage() {
     id: string | null
   }>({ open: false, overview: false, id: null })
   const [helpOpen, setHelpOpen] = useState(false)
+  const devToolsVisible = useDevCanvasToolsVisible()
+  const liveStripVisible = useDevLiveStripVisible()
+  const chipOverlay =
+    liveStripVisible &&
+    (mode === 'live' || mode === 'simulate' || import.meta.env.DEV)
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
@@ -107,27 +118,30 @@ export default function SvgCanvasPage() {
     <div className="flex h-screen w-screen overflow-hidden bg-[var(--c9-bg)] text-[var(--c9-text)]">
       <SessionSummary />
       <Sidebar />
-      <div
-        className={`relative min-w-0 flex-1 ${
-          placingNodeType ||
-          (isCanvasEditMode(mode) && designTool === 'connect')
-            ? 'cursor-crosshair'
-            : ''
-        }`}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault()
-          if (useCanvasStore.getState().mode === 'live') return
-          const raw = e.dataTransfer.getData('application/runcloud9-node-type')
-          if (!isNodeType(raw)) return
-          dispatchSpawnAtScreen({
-            clientX: e.clientX,
-            clientY: e.clientY,
-            nodeType: raw,
-          })
-        }}
-      >
-        {import.meta.env.DEV ? (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <LiveSessionStrip />
+        <div className="flex min-h-0 min-w-0 flex-1">
+        <div
+          className={`relative min-h-0 min-w-0 flex-1 ${
+            placingNodeType ||
+            (isCanvasEditMode(mode) && designTool === 'connect')
+              ? 'cursor-crosshair'
+              : ''
+          }`}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            if (useCanvasStore.getState().mode === 'live') return
+            const raw = e.dataTransfer.getData('application/runcloud9-node-type')
+            if (!isNodeType(raw)) return
+            dispatchSpawnAtScreen({
+              clientX: e.clientX,
+              clientY: e.clientY,
+              nodeType: raw,
+            })
+          }}
+        >
+        {devToolsVisible ? (
           <div className="pointer-events-none absolute left-3 top-3 z-40">
             <Link
               to="/canvas-pixi"
@@ -146,7 +160,9 @@ export default function SvgCanvasPage() {
             setHelpOpen(true)
             trackEvent('canvas_help_opened', {})
           }}
-          className="absolute right-3 top-3 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 text-sm font-semibold text-[var(--c9-muted)] shadow backdrop-blur-sm transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)]"
+          className={`absolute right-3 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 text-sm font-semibold text-[var(--c9-muted)] shadow backdrop-blur-sm transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)] ${
+            chipOverlay ? 'top-12' : 'top-3'
+          }`}
         >
           ?
         </button>
@@ -157,9 +173,9 @@ export default function SvgCanvasPage() {
 
         <CanvasSessionOverlays session={session}>
           {mode === 'design' ? (
-            <div
+              <div
               className={`pointer-events-none absolute left-3 z-30 flex flex-col gap-2 ${
-                import.meta.env.DEV ? 'top-12' : 'top-3'
+                devToolsVisible || chipOverlay ? 'top-12' : 'top-3'
               }`}
             >
               <TemplatePresetModeBanner />
@@ -200,6 +216,9 @@ export default function SvgCanvasPage() {
             onStartWalkthrough={handleDesignStartWalkthrough}
           />
         ) : null}
+        </div>
+        <LiveMetricsDrawer />
+        </div>
       </div>
       {!walkthroughActive ? <InspectorPanel /> : null}
     </div>

@@ -43,6 +43,10 @@ import {
 import { collapseMultiSingletonOnCanvas } from '../lib/collapseSingletonOnCanvas'
 import { APP_SERVER_REPLICA_MAX } from '../lib/replicaConfig'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
+import {
+  setDevCanvasToolsVisible,
+  useDevCanvasToolsVisible,
+} from '../lib/devCanvasTools'
 import { useAuthStore } from '../product/stores/authStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { ConnectToggle } from './components/ConnectToggle'
@@ -102,10 +106,6 @@ import {
   writeStoredGridMode,
 } from './utils/gridModePreference'
 import {
-  readCanvasChromeExpanded,
-  writeCanvasChromeExpanded,
-} from './utils/canvasChromePreference'
-import {
   floorThemeTokens,
   type FloorThemeId,
 } from './theme/floorTheme'
@@ -113,6 +113,8 @@ import type { EdgeStylePresetId } from './fx/edgePresets'
 
 const MIN_VIEW = 400
 const MAX_VIEW = 8000
+/** Half glyph (~CELL_W) plus margin. Larger pad under-zooms small topologies. */
+const FIT_VIEW_PAD = 180
 const ZOOM_FACTOR = 1.12
 const CLICK_SLOP_PX = 5
 
@@ -164,7 +166,7 @@ function fitViewToNodes(
     maxX = Math.max(maxX, n.x)
     maxY = Math.max(maxY, n.y)
   }
-  const pad = 320
+  const pad = FIT_VIEW_PAD
   const contentW = Math.max(maxX - minX, 160) + pad * 2
   const contentH = Math.max(maxY - minY, 160) + pad * 2
   const aspect = hostW > 0 && hostH > 0 ? hostW / hostH : 16 / 9
@@ -201,7 +203,6 @@ function placePickerAtWorld(x: number, y: number, nodeType: CanvasNode['type']):
     nodes: state.nodes,
     addNode: state.addNode,
     updateNodeConfig: state.updateNodeConfig,
-    selectNode: state.selectNode,
   })
   state.setPlacingNodeType(null)
 }
@@ -279,13 +280,7 @@ export default function SvgDesignCanvas({
   const rubberLineRef = useRef<SVGLineElement | null>(null)
   const rubberFromRef = useRef<WorldPoint | null>(null)
   const skipAspectSyncRef = useRef(0)
-  const [chromeExpanded, setChromeExpanded] = useState(() =>
-    readCanvasChromeExpanded(),
-  )
-  const inspectorOpen = useCanvasStore((s) => {
-    const id = s.selectedIds.length === 1 ? s.selectedIds[0] : s.selectedId
-    return Boolean(id && s.nodes[id])
-  })
+  const devToolsVisible = useDevCanvasToolsVisible()
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
@@ -314,22 +309,6 @@ export default function SvgDesignCanvas({
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.supportsWorker !== false : true,
   )
   useSvgCanvasKeyboard()
-
-  useEffect(() => {
-    if (inspectorOpen) {
-      setChromeExpanded(false)
-      return
-    }
-    setChromeExpanded(readCanvasChromeExpanded())
-  }, [inspectorOpen])
-
-  const toggleChromeExpanded = useCallback(() => {
-    setChromeExpanded((prev) => {
-      const next = !prev
-      writeCanvasChromeExpanded(next)
-      return next
-    })
-  }, [])
 
   const topologyFlags = useMemo(
     () => getTopologyFlags(canvasNodes),
@@ -400,6 +379,13 @@ export default function SvgDesignCanvas({
     registerCanvasFitScheduler(fitDefault)
     return () => unregisterCanvasFitScheduler()
   }, [fitDefault])
+
+  useEffect(() => {
+    if (canvasMode !== 'live' && canvasMode !== 'simulate') return
+    skipAspectSyncRef.current = 4
+    const id = window.setTimeout(() => fitDefault(), 80)
+    return () => window.clearTimeout(id)
+  }, [canvasMode, fitDefault])
 
   useEffect(() => {
     const onSpawn = (event: Event) => {
@@ -1051,87 +1037,65 @@ export default function SvgDesignCanvas({
           </div>
           <span className="ml-auto text-xs text-zinc-500">{latticeHint}</span>
         </div>
-      ) : (
-        <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-2">
-          {chromeExpanded ? (
-            <>
-              {import.meta.env.DEV ? <FxDemoControls compact /> : null}
-              <GridModeToggle mode={mode} onChange={setGridMode} compact />
-              <FloorThemeToggle
-                theme={floorThemeId}
-                onChange={setFloorTheme}
-                compact
-              />
-              <EdgeStylePresetToggle
-                preset={edgeStylePreset}
-                onChange={setEdgeStylePreset}
-                compact
-              />
-              <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 p-0.5 shadow-sm backdrop-blur-sm">
-                <button
-                  type="button"
-                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
-                  onClick={() => zoomBy(ZOOM_FACTOR)}
-                  aria-label="Zoom out"
-                >
-                  −
-                </button>
-                <button
-                  type="button"
-                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
-                  onClick={() => zoomBy(1 / ZOOM_FACTOR)}
-                  aria-label="Zoom in"
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
-                  onClick={fitDefault}
-                  title="Fit (F)"
-                >
-                  Fit
-                </button>
-                <button
-                  type="button"
-                  className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)] disabled:opacity-50"
-                  onClick={() => void exportSvg()}
-                  disabled={exporting}
-                  title="Download SVG (bounded board, or design + padding)"
-                >
-                  {exporting ? '…' : 'SVG'}
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={toggleChromeExpanded}
-                className="pointer-events-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)] shadow-sm backdrop-blur-sm hover:text-[var(--c9-text)]"
-              >
-                Hide view
-              </button>
-            </>
-          ) : (
-            <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 p-0.5 shadow-sm backdrop-blur-sm">
-              <button
-                type="button"
-                className="rounded px-2 py-1 text-[10px] text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
-                onClick={fitDefault}
-                title="Fit (F)"
-              >
-                Fit
-              </button>
-              <button
-                type="button"
-                className="rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
-                onClick={toggleChromeExpanded}
-                aria-expanded={false}
-              >
-                View
-              </button>
-            </div>
-          )}
+      ) : devToolsVisible ? (
+        <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-1.5">
+          <FxDemoControls compact />
+          <GridModeToggle mode={mode} onChange={setGridMode} compact />
+          <FloorThemeToggle
+            theme={floorThemeId}
+            onChange={setFloorTheme}
+            compact
+          />
+          <EdgeStylePresetToggle
+            preset={edgeStylePreset}
+            onChange={setEdgeStylePreset}
+            compact
+          />
+          <div className="pointer-events-auto flex items-center gap-0.5">
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
+              onClick={() => zoomBy(ZOOM_FACTOR)}
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
+              onClick={() => zoomBy(1 / ZOOM_FACTOR)}
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
+              onClick={fitDefault}
+              title="Fit (F)"
+            >
+              Fit
+            </button>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)] disabled:opacity-50"
+              onClick={() => void exportSvg()}
+              disabled={exporting}
+              title="Download SVG (bounded board, or design + padding)"
+            >
+              {exporting ? '…' : 'SVG'}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDevCanvasToolsVisible(false)}
+            title="Hide view tools. Press ` to cycle HUD, tools, and clean."
+            className="pointer-events-auto rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
+          >
+            Hide
+          </button>
         </div>
-      )}
+      ) : null}
 
       <div ref={hostRef} className="relative min-h-0 flex-1">
         <svg

@@ -50,7 +50,6 @@ function placePickerNode(
     nodes: state.nodes,
     addNode: state.addNode,
     updateNodeConfig: state.updateNodeConfig,
-    selectNode: state.selectNode,
   })
   state.setPlacingNodeType(null)
 }

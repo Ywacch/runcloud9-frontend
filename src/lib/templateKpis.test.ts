@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TopologyFlags } from './componentRole'
-import { templateKpiRows } from './templateKpis'
+import { kpiChipIsAlert, templateKpiRows } from './templateKpis'
 
 const pullTopology: TopologyFlags = {
   hasMQ: false,
@@ -88,5 +88,37 @@ describe('templateKpiRows social-feed-pull', () => {
     expect(templateKpiRows('unknown-template', {}, {}, {}, null, {}, pullTopology)).toEqual(
       [],
     )
+  })
+})
+
+describe('kpiChipIsAlert', () => {
+  it('keeps error chips neutral at zero', () => {
+    expect(
+      kpiChipIsAlert({
+        id: 'fanout',
+        label: 'Fan-out errors',
+        value: '0',
+        numeric: 0,
+        kind: 'error',
+      }),
+    ).toBe(false)
+  })
+
+  it('flags error chips when the value is above zero', () => {
+    expect(
+      kpiChipIsAlert({
+        id: 'fanout',
+        label: 'Fan-out errors',
+        value: '12',
+        numeric: 12,
+        kind: 'error',
+      }),
+    ).toBe(true)
+  })
+
+  it('never alerts non-error chips', () => {
+    expect(
+      kpiChipIsAlert({ id: 'posts', label: 'Posts', value: '470', numeric: 470 }),
+    ).toBe(false)
   })
 })

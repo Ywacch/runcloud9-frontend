@@ -14,12 +14,18 @@ import {
   CanvasErrorBoundary,
   DesignToolStrip,
   InspectorPanel,
+  LiveMetricsDrawer,
+  LiveSessionStrip,
   LogPanel,
   RequestJourneyPanel,
   SessionSummary,
   Sidebar,
   WalkthroughOverlay,
 } from '../editor-ui'
+import {
+  useDevCanvasToolsVisible,
+  useDevLiveStripVisible,
+} from '../lib/devCanvasTools'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
@@ -59,6 +65,11 @@ export default function CanvasPage() {
     overview: boolean
     id: string | null
   }>({ open: false, overview: false, id: null })
+  const devToolsVisible = useDevCanvasToolsVisible()
+  const liveStripVisible = useDevLiveStripVisible()
+  const chipOverlay =
+    liveStripVisible &&
+    (mode === 'live' || mode === 'simulate' || import.meta.env.DEV)
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
@@ -92,27 +103,30 @@ export default function CanvasPage() {
     <div className="flex h-screen w-screen overflow-hidden">
       <SessionSummary />
       <Sidebar />
-      <div
-        className={`relative min-w-0 flex-1 ${
-          placingNodeType ||
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <LiveSessionStrip />
+        <div className="flex min-h-0 min-w-0 flex-1">
+        <div
+          className={`relative min-h-0 min-w-0 flex-1 ${
+            placingNodeType ||
             (isCanvasEditMode(mode) && designTool === 'connect')
-            ? 'cursor-crosshair'
-            : ''
-        }`}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault()
-          if (useCanvasStore.getState().mode === 'live') return
-          const raw = e.dataTransfer.getData('application/runcloud9-node-type')
-          if (!isNodeType(raw)) return
-          dispatchSpawnAtScreen({
-            clientX: e.clientX,
-            clientY: e.clientY,
-            nodeType: raw,
-          })
-        }}
-      >
-        {import.meta.env.DEV ? (
+              ? 'cursor-crosshair'
+              : ''
+          }`}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            if (useCanvasStore.getState().mode === 'live') return
+            const raw = e.dataTransfer.getData('application/runcloud9-node-type')
+            if (!isNodeType(raw)) return
+            dispatchSpawnAtScreen({
+              clientX: e.clientX,
+              clientY: e.clientY,
+              nodeType: raw,
+            })
+          }}
+        >
+        {devToolsVisible ? (
           <div className="pointer-events-none absolute left-3 top-3 z-40">
             <Link
               to="/canvas"
@@ -127,7 +141,11 @@ export default function CanvasPage() {
         </CanvasErrorBoundary>
         <CanvasSessionOverlays session={session}>
           {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
-            <div className="pointer-events-none absolute left-3 top-12 z-30">
+            <div
+              className={`pointer-events-none absolute left-3 z-30 ${
+                devToolsVisible || chipOverlay ? 'top-12' : 'top-3'
+              }`}
+            >
               <button
                 type="button"
                 className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
@@ -162,6 +180,9 @@ export default function CanvasPage() {
             onStartWalkthrough={handleDesignStartWalkthrough}
           />
         ) : null}
+        </div>
+        <LiveMetricsDrawer />
+        </div>
       </div>
       {!walkthroughActive ? <InspectorPanel /> : null}
     </div>
