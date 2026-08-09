@@ -111,7 +111,7 @@ export function MetricChart({
             </p>
           ) : null}
         </div>
-        {legend.length > 0 ? (
+        {legend.length > 0 && !compact ? (
           <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5">
             {legend.map((s) => (
               <span
@@ -155,6 +155,22 @@ export function MetricChart({
           />
         </div>
       </div>
+      {legend.length > 0 && compact ? (
+        <div className="mt-1.5 flex flex-wrap justify-center gap-x-3 gap-y-0.5">
+          {legend.map((s) => (
+            <span
+              key={s.label}
+              className="inline-flex items-center gap-1 text-[9px] text-[var(--c9-text-muted)]"
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: s.color }}
+              />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

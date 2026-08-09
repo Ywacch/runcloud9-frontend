@@ -156,6 +156,39 @@ export interface TemplateKpiRow {
   id: string
   label: string
   value: string
+  kind?: 'error'
+  numeric?: number
+}
+
+export function kpiKindFromText(id: string, label: string): TemplateKpiRow['kind'] {
+  const s = `${id} ${label}`.toLowerCase()
+  if (/error|fail|conflict|collision/.test(s)) return 'error'
+  return undefined
+}
+
+/** Error-type chips go red only when the numeric value is greater than zero. */
+export function kpiChipIsAlert(row: TemplateKpiRow): boolean {
+  if (row.kind !== 'error') return false
+  if (typeof row.numeric === 'number' && Number.isFinite(row.numeric)) {
+    return row.numeric > 0
+  }
+  const n = Number(String(row.value).replace(/[^0-9.+-]/g, ''))
+  return Number.isFinite(n) && n > 0
+}
+
+function kpiRow(
+  id: string,
+  label: string,
+  value: string,
+  numeric?: number,
+): TemplateKpiRow {
+  return {
+    id,
+    label,
+    value,
+    numeric,
+    kind: kpiKindFromText(id, label),
+  }
 }
 
 function isMetricRelevant(
@@ -194,8 +227,8 @@ function isMetricRelevant(
   return true
 }
 
-/** Journey KPIs in SystemTopBar — keep scannable (metrics-component-panels §2.7). */
-const MAX_TEMPLATE_KPI_ROWS = 6
+/** Journey KPIs in the live chip strip (3-8; metrics-component-panels §2.7). */
+const MAX_TEMPLATE_KPI_ROWS = 8
 
 export function templateKpiRows(
   templateId: string | null | undefined,
@@ -228,7 +261,7 @@ export function templateKpiRows(
     }
     const n = d.compute(metrics, inspector, nodes, loadgen)
     if (n == null) continue
-    rows.push({ id: d.id, label: d.label, value: d.format(n) })
+    rows.push(kpiRow(d.id, d.label, d.format(n), n))
   }
 
   if (templateId === 'ecommerce' && preferEcommerceCheckoutTotals(templateMetrics)) {
@@ -239,22 +272,28 @@ export function templateKpiRows(
       Number.isFinite(s) &&
       isMetricRelevant(templateId, 'checkout.sync_total', topology)
     ) {
-      rows.push({
-        id: 'tm-checkout-sync-total',
-        label: 'Checkouts written (sync)',
-        value: fmtInt(Math.round(s)),
-      })
+      rows.push(
+        kpiRow(
+          'tm-checkout-sync-total',
+          'Checkouts written (sync)',
+          fmtInt(Math.round(s)),
+          Math.round(s),
+        ),
+      )
     }
     if (
       a != null &&
       Number.isFinite(a) &&
       isMetricRelevant(templateId, 'checkout.async_total', topology)
     ) {
-      rows.push({
-        id: 'tm-checkout-async-total',
-        label: 'Checkouts written (async)',
-        value: fmtInt(Math.round(a)),
-      })
+      rows.push(
+        kpiRow(
+          'tm-checkout-async-total',
+          'Checkouts written (async)',
+          fmtInt(Math.round(a)),
+          Math.round(a),
+        ),
+      )
     }
   }
 
@@ -266,11 +305,14 @@ export function templateKpiRows(
       Number.isFinite(s) &&
       isMetricRelevant(templateId, 'posts.total_sync', topology)
     ) {
-      rows.push({
-        id: 'tm-posts-sync',
-        label: 'Posts written (sync)',
-        value: fmtInt(Math.round(s)),
-      })
+      rows.push(
+        kpiRow(
+          'tm-posts-sync',
+          'Posts written (sync)',
+          fmtInt(Math.round(s)),
+          Math.round(s),
+        ),
+      )
     }
     if (
       templateId === 'social-feed' &&
@@ -278,22 +320,28 @@ export function templateKpiRows(
       Number.isFinite(a) &&
       isMetricRelevant(templateId, 'posts.total_async', topology)
     ) {
-      rows.push({
-        id: 'tm-posts-async',
-        label: 'Posts written (async)',
-        value: fmtInt(Math.round(a)),
-      })
+      rows.push(
+        kpiRow(
+          'tm-posts-async',
+          'Posts written (async)',
+          fmtInt(Math.round(a)),
+          Math.round(a),
+        ),
+      )
     }
   }
 
   if (templateId === 'url-shortener') {
     const c = templateMetrics['shortener.collisions']
-    rows.push({
-      id: 'collisions',
-      label: 'Collisions',
-      value:
-        c != null && Number.isFinite(c) ? fmtInt(Math.round(c)) : TELEMETRY_PENDING,
-    })
+    const numeric = c != null && Number.isFinite(c) ? Math.round(c) : undefined
+    rows.push(
+      kpiRow(
+        'collisions',
+        'Collisions',
+        numeric != null ? fmtInt(numeric) : TELEMETRY_PENDING,
+        numeric,
+      ),
+    )
   }
 
   const skipKeys = new Set<string>()
@@ -313,11 +361,7 @@ export function templateKpiRows(
       if (!isMetricRelevant(templateId, key, topology)) continue
       const v = templateMetrics[key]
       if (v == null || !Number.isFinite(v)) continue
-      rows.push({
-        id: `tm-${key}`,
-        label,
-        value: format(v),
-      })
+      rows.push(kpiRow(`tm-${key}`, label, format(v), v))
     }
   }
   return rows.slice(0, MAX_TEMPLATE_KPI_ROWS)

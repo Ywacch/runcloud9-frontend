@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { requestCanvasFit } from '../../canvas/utils/canvasFitBridge'
+import { cycleDevCanvasChromeMode } from '../../lib/devCanvasTools'
 import { canMutateCanvasTopology, useCanvasStore } from '../stores/canvasStore'
 
 export function useCanvasKeyboard(): void {
@@ -33,6 +34,18 @@ export function useCanvasKeyboard(): void {
         setPendingSource(null)
         setPlacingNodeType(null)
         setDesignTool('select')
+        return
+      }
+
+      if (
+        import.meta.env.DEV &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        e.code === 'Backquote'
+      ) {
+        e.preventDefault()
+        cycleDevCanvasChromeMode()
         return
       }
 

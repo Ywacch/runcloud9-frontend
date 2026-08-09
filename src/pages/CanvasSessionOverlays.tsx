@@ -5,7 +5,6 @@ import {
   ChaosOverlayTicker,
   EventTimeline,
   InspectorAlertWatcher,
-  LiveSessionStrip,
   ProvisioningOverlay,
   RejoinBanner,
   SimulationOverlay,
@@ -66,8 +65,7 @@ export function CanvasSessionOverlays({
       ) : null}
       {children}
       {mode !== 'design' ? (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex min-w-0 flex-col gap-1.5 px-3 pr-14 pt-3">
-          <LiveSessionStrip />
+        <div className="pointer-events-none absolute left-3 top-3 z-30 flex min-w-0 max-w-[min(100%,28rem)] flex-col gap-1.5 pr-14">
           <EventTimeline />
           <div className="pointer-events-auto w-fit max-w-full">
             <SimulationOverlay />

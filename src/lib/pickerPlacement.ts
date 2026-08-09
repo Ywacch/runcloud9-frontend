@@ -50,16 +50,8 @@ export function placeFromPicker(params: {
   nodes: Record<string, CanvasNode>
   addNode: (node: CanvasNode) => void
   updateNodeConfig: (id: string, config: Partial<CanvasNode['config']>) => void
-  selectNode: (id: string | null) => void
 }): string {
-  const {
-    nodeType,
-    position,
-    nodes,
-    addNode,
-    updateNodeConfig,
-    selectNode,
-  } = params
+  const { nodeType, position, nodes, addNode, updateNodeConfig } = params
 
   // Find the nearest node of the same type within snap radius.
   let existing: CanvasNode | undefined
@@ -85,7 +77,6 @@ export function placeFromPicker(params: {
       recordCanvasHistory(st.nodes, st.edges)
       updateNodeConfig(existing.id, { replicas: next })
     }
-    selectNode(existing.id)
     return existing.id
   }
 
@@ -98,6 +89,5 @@ export function placeFromPicker(params: {
     )
   }
   addNode(node)
-  selectNode(node.id)
   return node.id
 }

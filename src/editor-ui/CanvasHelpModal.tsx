@@ -13,6 +13,9 @@ const TOOL_SHORTCUTS: ShortcutRow[] = [
   { label: 'Erase', keys: ['E'] },
   { label: 'Fit view', keys: ['F'] },
   { label: 'Pan', keys: ['drag empty'] },
+  ...(import.meta.env.DEV
+    ? [{ label: 'Cycle chrome', keys: ['`'] }]
+    : []),
 ]
 
 const EDITOR_SHORTCUTS: ShortcutRow[] = [

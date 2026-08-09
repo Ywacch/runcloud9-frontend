@@ -52,7 +52,7 @@ export function SystemMetricsCharts() {
           unit="app-reported /s"
           showPlaybackDelay={false}
           series={[
-            { data: hits, color: '#22d3ee', label: 'Hits', showArea: true },
+            { data: hits, color: '#22d3ee', label: 'Hits', showArea: false },
             { data: misses, color: 'var(--c9-warning)', label: 'Misses', showArea: false },
           ]}
         />

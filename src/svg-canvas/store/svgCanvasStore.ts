@@ -355,7 +355,6 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
       nodes: canvas.nodes,
       addNode: canvas.addNode,
       updateNodeConfig: canvas.updateNodeConfig,
-      selectNode: canvas.selectNode,
     })
     canvas.setPlacingNodeType(null)
   },
