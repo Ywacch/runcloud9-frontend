@@ -570,7 +570,7 @@ export function LiveSessionStrip() {
                 max={500}
                 autoFocus
                 value={rps}
-                title={mode === 'simulate' ? INGRESS_HELP_SIM : INGRESS_HELP_LIVE}
+                title={INGRESS_HELP_LIVE}
                 onChange={(e) => {
                   setHasUserSetRps(true)
                   setRps(Math.max(1, Number(e.target.value) || 1))
