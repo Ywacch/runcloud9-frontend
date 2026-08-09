@@ -4,6 +4,8 @@ import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 export const DEV_CANVAS_CHROME_KEY = 'runcloud9.devCanvasChrome'
 /** @deprecated Migrated into DEV_CANVAS_CHROME_KEY. */
 export const DEV_CANVAS_TOOLS_KEY = 'runcloud9.devCanvasTools'
+/** Product Fit / grid / floor chrome. Default on. */
+export const CANVAS_VIEW_TOOLS_KEY = 'runcloud9.canvasViewTools'
 
 export type DevCanvasChromeMode = 'hud' | 'debug' | 'clean'
 
@@ -24,6 +26,16 @@ export function nextDevCanvasChromeMode(
 }
 
 export function viewToolsVisibleForMode(
+  mode: DevCanvasChromeMode,
+  dev: boolean,
+  prefVisible = true,
+): boolean {
+  if (dev && mode === 'clean') return false
+  return prefVisible
+}
+
+/** Pixi fallback / FX demo: DEV debug only. */
+export function debugExtrasVisibleForMode(
   mode: DevCanvasChromeMode,
   dev: boolean,
 ): boolean {
@@ -69,6 +81,53 @@ export function writeDevCanvasChromeMode(
 
 let cached: DevCanvasChromeMode | null = null
 const listeners = new Set<(mode: DevCanvasChromeMode) => void>()
+let viewToolsPref: boolean | null = null
+const viewToolsListeners = new Set<(visible: boolean) => void>()
+
+export function readCanvasViewToolsVisible(
+  storage: Pick<Storage, 'getItem'> | null = typeof localStorage !== 'undefined'
+    ? localStorage
+    : null,
+): boolean {
+  try {
+    return storage?.getItem(CANVAS_VIEW_TOOLS_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
+export function writeCanvasViewToolsVisible(
+  visible: boolean,
+  storage: Pick<Storage, 'setItem'> | null = typeof localStorage !== 'undefined'
+    ? localStorage
+    : null,
+): void {
+  try {
+    storage?.setItem(CANVAS_VIEW_TOOLS_KEY, visible ? '1' : '0')
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+export function getCanvasViewToolsPref(): boolean {
+  if (viewToolsPref === null) viewToolsPref = readCanvasViewToolsVisible()
+  return viewToolsPref
+}
+
+export function setCanvasViewToolsPref(visible: boolean): void {
+  viewToolsPref = visible
+  writeCanvasViewToolsVisible(visible)
+  viewToolsListeners.forEach((listener) => listener(visible))
+}
+
+export function subscribeCanvasViewToolsPref(
+  listener: (visible: boolean) => void,
+): () => void {
+  viewToolsListeners.add(listener)
+  return () => {
+    viewToolsListeners.delete(listener)
+  }
+}
 
 function isDev(): boolean {
   return import.meta.env.DEV
@@ -97,21 +156,20 @@ export function cycleDevCanvasChromeMode(): DevCanvasChromeMode {
 }
 
 export function getDevCanvasToolsVisible(): boolean {
-  return viewToolsVisibleForMode(getDevCanvasChromeMode(), isDev())
+  return viewToolsVisibleForMode(
+    getDevCanvasChromeMode(),
+    isDev(),
+    getCanvasViewToolsPref(),
+  )
 }
 
 export function getDevLiveStripVisible(): boolean {
   return liveStripVisibleForMode(getDevCanvasChromeMode(), isDev())
 }
 
-/** Hide Fit/View tools but keep the live topbar (debug → hud). */
+/** Hide or show Fit / grid / floor chrome (persists in prod and DEV). */
 export function setDevCanvasToolsVisible(next: boolean): void {
-  if (!isDev()) return
-  if (next) {
-    setDevCanvasChromeMode('debug')
-    return
-  }
-  if (getDevCanvasChromeMode() === 'debug') setDevCanvasChromeMode('hud')
+  setCanvasViewToolsPref(next)
 }
 
 export function toggleDevCanvasToolsVisible(): DevCanvasChromeMode {
@@ -130,9 +188,21 @@ export function subscribeDevCanvasChromeMode(
 export function subscribeDevCanvasToolsVisible(
   listener: (visible: boolean) => void,
 ): () => void {
-  return subscribeDevCanvasChromeMode((mode) => {
-    listener(viewToolsVisibleForMode(mode, isDev()))
-  })
+  const emit = () => {
+    listener(
+      viewToolsVisibleForMode(
+        getDevCanvasChromeMode(),
+        isDev(),
+        getCanvasViewToolsPref(),
+      ),
+    )
+  }
+  const unChrome = subscribeDevCanvasChromeMode(() => emit())
+  const unPref = subscribeCanvasViewToolsPref(() => emit())
+  return () => {
+    unChrome()
+    unPref()
+  }
 }
 
 export function useDevCanvasChromeMode(): DevCanvasChromeMode {
@@ -141,9 +211,17 @@ export function useDevCanvasChromeMode(): DevCanvasChromeMode {
   return isDev() ? mode : 'hud'
 }
 
-/** Fit / grid / floor / host switch. */
+/** Fit / grid / floor / zoom. On in prod; off in DEV clean or after Hide. */
 export function useDevCanvasToolsVisible(): boolean {
-  return viewToolsVisibleForMode(useDevCanvasChromeMode(), isDev())
+  const mode = useDevCanvasChromeMode()
+  const [pref, setPref] = useState(getCanvasViewToolsPref)
+  useEffect(() => subscribeCanvasViewToolsPref(setPref), [])
+  return viewToolsVisibleForMode(mode, isDev(), pref)
+}
+
+/** DEV-only extras (Pixi fallback, FX demo). */
+export function useDevDebugExtrasVisible(): boolean {
+  return debugExtrasVisibleForMode(useDevCanvasChromeMode(), isDev())
 }
 
 /** Live / sim topbar. Always on in production. */

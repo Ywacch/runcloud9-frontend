@@ -176,6 +176,54 @@ export function kpiChipIsAlert(row: TemplateKpiRow): boolean {
   return Number.isFinite(n) && n > 0
 }
 
+/** Live HUD only: short labels, not inspector sentence names. */
+export const HUD_KPI_MAX = 4
+
+const HUD_LABEL_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^posts written/i, 'Posts'],
+  [/^feed reads\/s/i, 'Feed/s'],
+  [/^feed read p95/i, 'Feed p95'],
+  [/^feed reads/i, 'Feed reads'],
+  [/^fan-out jobs/i, 'Fan-out'],
+  [/^fan-out errors/i, 'Fan-out errors'],
+  [/^fan-out p99/i, 'Fan-out p99'],
+  [/^messages published/i, 'Published'],
+  [/^urls shortened/i, 'Shortens'],
+  [/^checkouts written/i, 'Checkouts'],
+  [/^inventory conflicts/i, 'Conflicts'],
+  [/^checkout p95/i, 'Checkout p95'],
+  [/^publish failures/i, 'Publish fail'],
+  [/^collisions/i, 'Collisions'],
+]
+
+export function hudKpiLabel(label: string): string {
+  const stripped = label.replace(/\s*\((?:async|sync|push|pull)\)/gi, '').trim()
+  for (const [re, short] of HUD_LABEL_RULES) {
+    if (re.test(stripped)) return short
+  }
+  if (stripped.length > 18) return `${stripped.slice(0, 16)}…`
+  return stripped
+}
+
+/** Error-first, short labels, hard cap for the live HUD. */
+export function hudKpiRows(
+  rows: TemplateKpiRow[],
+  max = HUD_KPI_MAX,
+): TemplateKpiRow[] {
+  const alerts = rows.filter((r) => kpiChipIsAlert(r))
+  const rest = rows.filter((r) => !kpiChipIsAlert(r))
+  const out: TemplateKpiRow[] = []
+  const seen = new Set<string>()
+  for (const row of [...alerts, ...rest]) {
+    const label = hudKpiLabel(row.label)
+    if (seen.has(label)) continue
+    seen.add(label)
+    out.push({ ...row, label })
+    if (out.length >= max) break
+  }
+  return out
+}
+
 function kpiRow(
   id: string,
   label: string,

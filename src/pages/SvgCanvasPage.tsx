@@ -22,10 +22,7 @@ import {
 } from '../editor-ui'
 import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
 import { TemplatePresetModeBanner } from '../editor-ui/TemplatePresetModeBanner'
-import {
-  useDevCanvasToolsVisible,
-  useDevLiveStripVisible,
-} from '../lib/devCanvasTools'
+import { useDevDebugExtrasVisible } from '../lib/devCanvasTools'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
@@ -75,11 +72,7 @@ export default function SvgCanvasPage() {
     id: string | null
   }>({ open: false, overview: false, id: null })
   const [helpOpen, setHelpOpen] = useState(false)
-  const devToolsVisible = useDevCanvasToolsVisible()
-  const liveStripVisible = useDevLiveStripVisible()
-  const chipOverlay =
-    liveStripVisible &&
-    (mode === 'live' || mode === 'simulate' || import.meta.env.DEV)
+  const debugExtrasVisible = useDevDebugExtrasVisible()
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
@@ -141,7 +134,7 @@ export default function SvgCanvasPage() {
             })
           }}
         >
-        {devToolsVisible ? (
+        {debugExtrasVisible ? (
           <div className="pointer-events-none absolute left-3 top-3 z-40">
             <Link
               to="/canvas-pixi"
@@ -161,7 +154,7 @@ export default function SvgCanvasPage() {
             trackEvent('canvas_help_opened', {})
           }}
           className={`absolute right-3 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 text-sm font-semibold text-[var(--c9-muted)] shadow backdrop-blur-sm transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)] ${
-            chipOverlay ? 'top-12' : 'top-3'
+            debugExtrasVisible ? 'top-12' : 'top-3'
           }`}
         >
           ?
@@ -175,7 +168,7 @@ export default function SvgCanvasPage() {
           {mode === 'design' ? (
               <div
               className={`pointer-events-none absolute left-3 z-30 flex flex-col gap-2 ${
-                devToolsVisible || chipOverlay ? 'top-12' : 'top-3'
+                debugExtrasVisible ? 'top-12' : 'top-3'
               }`}
             >
               <TemplatePresetModeBanner />

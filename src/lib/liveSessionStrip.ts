@@ -49,7 +49,6 @@ export const DEV_LIVE_STRIP_PREVIEW = {
       kind: 'error',
     },
     { id: 'cache-hit', label: 'Cache hit', value: '91%' },
-    { id: 'mq-published', label: 'MQ published', value: '1,280', numeric: 1280 },
   ] satisfies TemplateKpiRow[],
 }
 
@@ -108,4 +107,30 @@ export function loadMixSegmentsForTemplate(
 
 export function mixSegmentShowsLabel(pct: number): boolean {
   return pct >= MIX_LABEL_MIN_PCT
+}
+
+export type SessionHealth = 'ok' | 'degraded' | 'critical'
+
+/** Live HUD health from error rate, p99, and node deploy status. */
+export function sessionHealth(opts: {
+  errPct: number
+  p99Ms: number | null | undefined
+  nodeStatus?: 'Running' | 'Degraded' | 'Provisioning'
+}): SessionHealth {
+  const p99 = opts.p99Ms ?? 0
+  if (
+    opts.errPct >= 15 ||
+    p99 >= 2000 ||
+    opts.nodeStatus === 'Degraded'
+  ) {
+    return 'critical'
+  }
+  if (
+    opts.errPct >= 5 ||
+    p99 >= 500 ||
+    opts.nodeStatus === 'Provisioning'
+  ) {
+    return 'degraded'
+  }
+  return 'ok'
 }

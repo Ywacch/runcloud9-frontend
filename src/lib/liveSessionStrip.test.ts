@@ -7,6 +7,7 @@ import {
   loadMixSegmentsForTemplate,
   MIX_LABEL_MIN_PCT,
   mixSegmentShowsLabel,
+  sessionHealth,
 } from './liveSessionStrip'
 
 describe('formatSessionMmSs', () => {
@@ -81,5 +82,19 @@ describe('loadMixSegmentsForTemplate', () => {
     expect(segs).not.toBeNull()
     expect(segs).toHaveLength(2)
     expect(segs![0]!.pct).toBeGreaterThan(segs![1]!.pct)
+  })
+})
+
+describe('sessionHealth', () => {
+  it('is critical when error rate or p99 is catastrophic', () => {
+    expect(sessionHealth({ errPct: 100, p99Ms: 50 })).toBe('critical')
+    expect(sessionHealth({ errPct: 0, p99Ms: 10000 })).toBe('critical')
+    expect(sessionHealth({ errPct: 0, p99Ms: 20, nodeStatus: 'Degraded' })).toBe(
+      'critical',
+    )
+  })
+
+  it('is ok on a healthy run', () => {
+    expect(sessionHealth({ errPct: 0, p99Ms: 115 })).toBe('ok')
   })
 })

@@ -45,7 +45,9 @@ import { APP_SERVER_REPLICA_MAX } from '../lib/replicaConfig'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
 import {
   setDevCanvasToolsVisible,
+  useDevCanvasChromeMode,
   useDevCanvasToolsVisible,
+  useDevDebugExtrasVisible,
 } from '../lib/devCanvasTools'
 import { useAuthStore } from '../product/stores/authStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
@@ -281,6 +283,8 @@ export default function SvgDesignCanvas({
   const rubberFromRef = useRef<WorldPoint | null>(null)
   const skipAspectSyncRef = useRef(0)
   const devToolsVisible = useDevCanvasToolsVisible()
+  const debugExtrasVisible = useDevDebugExtrasVisible()
+  const chromeMode = useDevCanvasChromeMode()
 
   const nodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useSvgCanvasStore((s) => s.edges)
@@ -1039,7 +1043,7 @@ export default function SvgDesignCanvas({
         </div>
       ) : devToolsVisible ? (
         <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-1.5">
-          <FxDemoControls compact />
+          {debugExtrasVisible ? <FxDemoControls compact /> : null}
           <GridModeToggle mode={mode} onChange={setGridMode} compact />
           <FloorThemeToggle
             theme={floorThemeId}
@@ -1089,12 +1093,24 @@ export default function SvgDesignCanvas({
           <button
             type="button"
             onClick={() => setDevCanvasToolsVisible(false)}
-            title="Hide view tools. Press ` to cycle HUD, tools, and clean."
+            title={
+              import.meta.env.DEV
+                ? 'Hide view tools. Press ` for clean chrome.'
+                : 'Hide view tools'
+            }
             className="pointer-events-auto rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
           >
             Hide
           </button>
         </div>
+      ) : chromeMounted && chromeMode !== 'clean' ? (
+        <button
+          type="button"
+          onClick={() => setDevCanvasToolsVisible(true)}
+          className="pointer-events-auto absolute bottom-20 right-3 z-20 rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
+        >
+          View
+        </button>
       ) : null}
 
       <div ref={hostRef} className="relative min-h-0 flex-1">

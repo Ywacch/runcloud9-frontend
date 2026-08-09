@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 import { startLoadGen, stopLoadGen } from '../lib/api'
 import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import { trackEvent } from '../lib/analytics'
@@ -11,12 +12,17 @@ import {
   formatSessionMmSs,
   loadMixSegmentsForTemplate,
   mixSegmentShowsLabel,
+  sessionHealth,
   type LoadMixSegment,
 } from '../lib/liveSessionStrip'
 import { getTopologyFlags } from '../lib/componentRole'
 import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
-import { kpiChipIsAlert, templateKpiRows } from '../lib/templateKpis'
+import {
+  hudKpiRows,
+  kpiChipIsAlert,
+  templateKpiRows,
+} from '../lib/templateKpis'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
@@ -38,9 +44,9 @@ const chromeBtn =
 
 function readChipsOpen(): boolean {
   try {
-    return localStorage.getItem(CHIPS_KEY) !== '0'
+    return localStorage.getItem(CHIPS_KEY) === '1'
   } catch {
-    return true
+    return false
   }
 }
 
@@ -177,13 +183,6 @@ export function LiveSessionStrip() {
     return 'Running'
   }, [nodes])
 
-  const statusDot =
-    deployStatus === 'Degraded'
-      ? 'bg-red-400'
-      : deployStatus === 'Provisioning'
-        ? 'bg-amber-400'
-        : 'bg-emerald-400'
-
   const devDesignPreview = import.meta.env.DEV && mode === 'design'
   const mixSegments = useMemo(
     () =>
@@ -210,33 +209,32 @@ export function LiveSessionStrip() {
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
 
-  const kpiRows = useMemo(
-    () =>
-      devDesignPreview
-        ? DEV_LIVE_STRIP_PREVIEW.kpiRows.map((row) => ({ ...row }))
-        : mode === 'live' || mode === 'simulate'
-          ? templateKpiRows(
-              snapshotTemplateId,
-              metrics,
-              lastInspector,
-              nodes,
-              loadgen,
-              templateMetrics,
-              topology,
-            )
-          : [],
-    [
-      devDesignPreview,
-      mode,
-      snapshotTemplateId,
-      metrics,
-      lastInspector,
-      nodes,
-      loadgen,
-      templateMetrics,
-      topology,
-    ],
-  )
+  const kpiRows = useMemo(() => {
+    const raw = devDesignPreview
+      ? DEV_LIVE_STRIP_PREVIEW.kpiRows.map((row) => ({ ...row }))
+      : mode === 'live' || mode === 'simulate'
+        ? templateKpiRows(
+            snapshotTemplateId,
+            metrics,
+            lastInspector,
+            nodes,
+            loadgen,
+            templateMetrics,
+            topology,
+          )
+        : []
+    return hudKpiRows(raw)
+  }, [
+    devDesignPreview,
+    mode,
+    snapshotTemplateId,
+    metrics,
+    lastInspector,
+    nodes,
+    loadgen,
+    templateMetrics,
+    topology,
+  ])
 
   const allJourneys = useMemo(
     () => getJourneys(snapshotTemplateId, topology, storytelling),
@@ -338,19 +336,35 @@ export function LiveSessionStrip() {
   const p99Ms = devDesignPreview
     ? DEV_LIVE_STRIP_PREVIEW.p99Ms
     : aggregates?.systemP99Ms
-  const errTone =
-    errPct >= 15
+  const health = sessionHealth({
+    errPct,
+    p99Ms,
+    nodeStatus: devDesignPreview ? 'Running' : deployStatus,
+  })
+  const healthTone =
+    health === 'critical'
       ? 'text-red-300'
-      : errPct >= 5
+      : health === 'degraded'
         ? 'text-amber-200'
         : 'text-[var(--c9-text)]'
-  const ingressHelp = mode === 'simulate' ? INGRESS_HELP_SIM : INGRESS_HELP_LIVE
+  const statusDot =
+    health === 'critical'
+      ? 'bg-red-400'
+      : health === 'degraded'
+        ? 'bg-amber-400'
+        : 'bg-emerald-400'
   const showLoad =
     (mode === 'live' && Boolean(deploymentId)) || devDesignPreview
   const showLiveChrome = mode === 'live' || devDesignPreview
-  const statusLabel = devDesignPreview ? 'Running' : deployStatus
-  const pulseOk =
-    showLiveChrome && (devDesignPreview || deployStatus === 'Running')
+  const statusLabel =
+    health === 'critical'
+      ? 'Failing'
+      : health === 'degraded'
+        ? 'Degraded'
+        : devDesignPreview
+          ? 'Running'
+          : deployStatus
+  const pulseOk = showLiveChrome && health === 'ok'
   const loadRunning = devDesignPreview
     ? previewLoadActive
     : Boolean(loadgen?.active)
@@ -377,9 +391,12 @@ export function LiveSessionStrip() {
       } catch {
         /* private mode / quota */
       }
+      window.setTimeout(() => requestCanvasFit(), 200)
       return next
     })
   }
+
+  const alertKpi = kpiRows.find((row) => kpiChipIsAlert(row))
 
   return (
     <>
@@ -388,7 +405,7 @@ export function LiveSessionStrip() {
           className="flex h-11 min-w-0 items-center gap-3 overflow-visible border-b border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3"
           title={sessionTitle}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+          <div className="flex shrink-0 items-center gap-3">
             <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-[var(--c9-text)]">
               <span
                 className={`h-2 w-2 shrink-0 rounded-full ${statusDot} ${
@@ -406,37 +423,48 @@ export function LiveSessionStrip() {
             </span>
 
             <span className="shrink-0 text-[12px] text-[var(--c9-muted)]">
-              P99 latency:{' '}
-              <span className="font-mono font-semibold tabular-nums text-[var(--c9-text)]">
+              P99{' '}
+              <span className={`font-mono font-semibold tabular-nums ${healthTone}`}>
                 {showWaiting ? '…' : fmtMs(p99Ms)}
               </span>
             </span>
             <span className="shrink-0 text-[12px] text-[var(--c9-muted)]">
-              Error rate:{' '}
-              <span className={`font-mono font-semibold tabular-nums ${errTone}`}>
+              Err{' '}
+              <span className={`font-mono font-semibold tabular-nums ${healthTone}`}>
                 {showWaiting ? '…' : fmtPct(errPct)}
               </span>
             </span>
-
-            {mixSegments ? (
-              <MixBar
-                segments={mixSegments}
-                onClick={allJourneys.length > 0 ? openJourneyOverview : undefined}
-              />
-            ) : null}
-
-            <span
-              className="hidden shrink-0 text-[12px] text-[var(--c9-muted)] lg:inline"
-              title={ingressHelp}
-            >
-              Traffic in rate:{' '}
-              <span className="font-mono font-semibold tabular-nums text-[var(--c9-text)]">
-                {showWaiting ? '…' : fmtRate(throughput)} rps
+            {alertKpi ? (
+              <span className="shrink-0 text-[12px] text-red-300">
+                {alertKpi.label}{' '}
+                <span className="font-mono font-semibold tabular-nums">
+                  {alertKpi.value}
+                </span>
               </span>
-            </span>
+            ) : null}
+            {mode === 'simulate' ? (
+              <span
+                className="shrink-0 text-[12px] text-[var(--c9-muted)]"
+                title={INGRESS_HELP_SIM}
+              >
+                In{' '}
+                <span className="font-mono font-semibold tabular-nums text-[var(--c9-text)]">
+                  {showWaiting ? '…' : fmtRate(throughput)}
+                </span>
+              </span>
+            ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          {mixSegments ? (
+            <MixBar
+              segments={mixSegments}
+              onClick={allJourneys.length > 0 ? openJourneyOverview : undefined}
+            />
+          ) : (
+            <div className="min-w-0 flex-1" />
+          )}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {showLoad ? (
               <button
                 ref={loadBtnRef}
@@ -459,78 +487,52 @@ export function LiveSessionStrip() {
               Detailed metrics
             </button>
 
+            {kpiRows.length > 0 ? (
+              <button
+                type="button"
+                aria-label={chipsOpen ? 'Hide journey metrics' : 'Show journey metrics'}
+                aria-expanded={chipsOpen}
+                onClick={toggleChips}
+                className="rounded p-1 text-[var(--c9-muted)] transition-colors hover:text-[var(--c9-text)] active:scale-[0.96]"
+              >
+                <ChevronIcon open={chipsOpen} />
+              </button>
+            ) : null}
+
             {loadRunning && showLoad ? (
-              <>
-                <span className="text-[12px] text-[var(--c9-muted)]">
-                  RPS{' '}
-                  <span className="font-mono font-semibold tabular-nums text-[var(--c9-text)]">
-                    {fmtRate(runningRps)}
-                  </span>
-                  {' | '}
-                  Total{' '}
-                  <span className="font-mono font-semibold tabular-nums text-[var(--c9-text)]">
-                    {fmtInt(runningTotal)}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onStopLoad()}
-                  className="rounded-md bg-red-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-red-500 active:scale-[0.98] disabled:opacity-60"
-                >
-                  Stop
-                </button>
-              </>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onStopLoad()}
+                className="rounded-md bg-red-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-red-500 active:scale-[0.98] disabled:opacity-60"
+              >
+                Stop
+              </button>
             ) : null}
           </div>
         </div>
 
-        {kpiRows.length > 0 ? (
-          <div
-            className={`pointer-events-none absolute top-full left-0 z-20 ${
-              metricsDrawerOpen ? `right-[22rem]` : 'right-0'
-            }`}
-          >
-            <div className="pointer-events-auto flex items-start gap-2 px-3 pt-1.5">
-              <div
-                className={`flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto transition-opacity duration-200 ${
-                  chipsOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-                }`}
-              >
-                {kpiRows.map((row) => {
-                  const alert = kpiChipIsAlert(row)
-                  return (
-                    <span
-                      key={row.id}
-                      title={row.label}
-                      className={`inline-flex shrink-0 items-baseline gap-1.5 rounded-md border px-2.5 py-1 text-[12px] ${
-                        alert
-                          ? 'border-red-500/60 bg-[var(--c9-bg-subtle)] text-[var(--c9-text)]'
-                          : 'border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] text-[var(--c9-text)]'
-                      }`}
-                    >
-                      <span className="text-[var(--c9-muted)]">{row.label}:</span>
-                      <span
-                        className={`font-mono tabular-nums ${
-                          alert ? 'text-red-300' : 'text-[var(--c9-text)]'
-                        }`}
-                      >
-                        {row.value}
-                      </span>
-                    </span>
-                  )
-                })}
-              </div>
-              <button
-                type="button"
-                aria-label={chipsOpen ? 'Hide metric chips' : 'Show metric chips'}
-                aria-expanded={chipsOpen}
-                onClick={toggleChips}
-                className="mt-0.5 shrink-0 rounded p-0.5 text-[var(--c9-muted)] transition-transform duration-150 hover:text-[var(--c9-text)] active:scale-[0.96]"
-              >
-                <ChevronIcon open={chipsOpen} />
-              </button>
-            </div>
+        {chipsOpen && kpiRows.length > 0 ? (
+          <div className="flex min-h-8 items-center gap-x-4 gap-y-1 overflow-x-auto border-b border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3 py-1.5">
+            {kpiRows.map((row) => {
+              const alert = kpiChipIsAlert(row)
+              return (
+                <span
+                  key={row.id}
+                  title={row.label}
+                  className="inline-flex shrink-0 items-baseline gap-1.5 text-[12px]"
+                >
+                  <span className="text-[var(--c9-muted)]">{row.label}</span>
+                  <span
+                    className={`font-mono tabular-nums ${
+                      alert ? 'text-red-300' : 'text-[var(--c9-text)]'
+                    }`}
+                  >
+                    {row.value}
+                  </span>
+                </span>
+              )
+            })}
           </div>
         ) : null}
 
@@ -568,12 +570,19 @@ export function LiveSessionStrip() {
                 max={500}
                 autoFocus
                 value={rps}
+                title={INGRESS_HELP_LIVE}
                 onChange={(e) => {
                   setHasUserSetRps(true)
                   setRps(Math.max(1, Number(e.target.value) || 1))
                 }}
                 className="mt-2 w-full rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3 py-2 font-mono text-base text-[var(--c9-text)]"
               />
+              {loadRunning ? (
+                <p className="mt-2 text-[12px] text-[var(--c9-muted)]">
+                  Running {fmtRate(runningRps)} rps
+                  {runningTotal > 0 ? ` · ${fmtInt(runningTotal)} total` : ''}
+                </p>
+              ) : null}
               <button
                 type="button"
                 disabled={busy}
@@ -646,7 +655,7 @@ function MixBar({
     </span>
   ))
   const className =
-    'flex h-5 min-w-0 max-w-[22rem] flex-1 overflow-hidden rounded-[4px]'
+    'flex h-5 min-w-[10rem] max-w-[22rem] flex-1 overflow-hidden rounded-[4px]'
   if (onClick) {
     return (
       <button

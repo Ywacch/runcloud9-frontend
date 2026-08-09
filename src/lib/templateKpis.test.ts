@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { TopologyFlags } from './componentRole'
-import { kpiChipIsAlert, templateKpiRows } from './templateKpis'
+import {
+  hudKpiLabel,
+  hudKpiRows,
+  kpiChipIsAlert,
+  templateKpiRows,
+} from './templateKpis'
 
 const pullTopology: TopologyFlags = {
   hasMQ: false,
@@ -120,5 +125,39 @@ describe('kpiChipIsAlert', () => {
     expect(
       kpiChipIsAlert({ id: 'posts', label: 'Posts', value: '470', numeric: 470 }),
     ).toBe(false)
+  })
+})
+
+describe('hudKpiLabel / hudKpiRows', () => {
+  it('shortens inspector social-feed labels', () => {
+    expect(hudKpiLabel('Posts written (async)')).toBe('Posts')
+    expect(hudKpiLabel('Feed reads/s (push)')).toBe('Feed/s')
+    expect(hudKpiLabel('Feed read p95 (push)')).toBe('Feed p95')
+    expect(hudKpiLabel('Fan-out errors')).toBe('Fan-out errors')
+  })
+
+  it('caps at 4 and keeps firing error metrics first', () => {
+    const rows = hudKpiRows([
+      { id: 'a', label: 'Posts written (async)', value: '5265', numeric: 5265 },
+      { id: 'b', label: 'Feed reads/s (push)', value: '8/s', numeric: 8 },
+      { id: 'c', label: 'Feed reads (push)', value: '2866', numeric: 2866 },
+      { id: 'd', label: 'Feed read p95 (push)', value: '2500ms', numeric: 2500 },
+      {
+        id: 'e',
+        label: 'Fan-out errors',
+        value: '161',
+        numeric: 161,
+        kind: 'error',
+      },
+      { id: 'f', label: 'Fan-out jobs done', value: '1304', numeric: 1304 },
+    ])
+    expect(rows).toHaveLength(4)
+    expect(rows[0]?.label).toBe('Fan-out errors')
+    expect(rows.map((r) => r.label)).toEqual([
+      'Fan-out errors',
+      'Posts',
+      'Feed/s',
+      'Feed reads',
+    ])
   })
 })
