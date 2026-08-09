@@ -9,10 +9,20 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { DataViewPanel } from './DataViewPanel'
 import { FlowPanel } from './FlowPanel'
+import { LatencyNeedleChart } from './LatencyNeedleChart'
 import { MetricChart, type MetricChartSeries } from './MetricChart'
 
 const LINE = '#4ade80'
 const MISS = '#fb923c'
+
+/** Calm cluster + a few outliers so DEV preview matches the p50/mean/p95/p99 teaching chart. */
+const PREVIEW_LATENCIES_MS = Array.from({ length: 80 }, (_, i) => {
+  const base = 28 + ((i * 17) % 22)
+  if (i === 12 || i === 41) return 180
+  if (i === 63) return 320
+  if (i === 71) return 410
+  return base
+})
 
 function wave(n: number, base: number, amp: number, phase: number): number[] {
   return Array.from({ length: n }, (_, i) =>
@@ -160,6 +170,19 @@ export function LiveMetricsDrawer() {
       .slice(0, 6)
   }, [devPreview, series])
 
+  const latenciesMs = devPreview
+    ? PREVIEW_LATENCIES_MS
+    : (loadgen?.recentLatenciesMs ?? [])
+  const throttleHint =
+    !devPreview &&
+    loadgen?.active &&
+    loadgen.targetRps > 0 &&
+    loadgen.actualRps > 0 &&
+    loadgen.actualRps < loadgen.targetRps * 0.85
+      ? 'Generator may be throttling. Achieved RPS is well below target.'
+      : null
+  const statusCodes = devPreview ? null : loadgen?.statusCodes
+
   if (!visible) return null
 
   const target = devPreview
@@ -225,11 +248,41 @@ export function LiveMetricsDrawer() {
         </p>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {cards.length === 0 ? (
+        {latenciesMs.length >= 2 ? (
+          <div className="mb-2">
+            <LatencyNeedleChart latenciesMs={latenciesMs} />
+            {throttleHint ? (
+              <p className="mt-1.5 px-0.5 text-[10px] leading-snug text-amber-200/90">
+                {throttleHint}
+              </p>
+            ) : null}
+            {statusCodes && Object.keys(statusCodes).length > 0 ? (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {Object.entries(statusCodes)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([code, count]) => (
+                    <span
+                      key={code}
+                      className={`rounded border px-1.5 py-0.5 font-mono text-[10px] leading-none ${
+                        Number(code) >= 500
+                          ? 'border-red-500/40 bg-red-500/10 text-red-200/90'
+                          : Number(code) >= 400
+                            ? 'border-amber-500/40 bg-amber-500/10 text-amber-200/90'
+                            : 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-muted)]'
+                      }`}
+                    >
+                      {code} · {fmtInt(count)}
+                    </span>
+                  ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {cards.length === 0 && latenciesMs.length < 2 ? (
           <p className="px-1 py-6 text-center text-[12px] text-[var(--c9-muted)]">
             Metrics will appear once telemetry arrives.
           </p>
-        ) : (
+        ) : cards.length > 0 ? (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {cards.map((card) => (
               <MetricChart
@@ -243,7 +296,7 @@ export function LiveMetricsDrawer() {
               />
             ))}
           </div>
-        )}
+        ) : null}
         {mode === 'simulate' || mode === 'live' ? (
           <div className="mt-2 flex gap-2 px-1">
             {mode === 'simulate' ? (

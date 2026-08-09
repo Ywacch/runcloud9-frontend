@@ -22,10 +22,7 @@ import {
   Sidebar,
   WalkthroughOverlay,
 } from '../editor-ui'
-import {
-  useDevCanvasToolsVisible,
-  useDevLiveStripVisible,
-} from '../lib/devCanvasTools'
+import { useDevDebugExtrasVisible } from '../lib/devCanvasTools'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
@@ -65,11 +62,7 @@ export default function CanvasPage() {
     overview: boolean
     id: string | null
   }>({ open: false, overview: false, id: null })
-  const devToolsVisible = useDevCanvasToolsVisible()
-  const liveStripVisible = useDevLiveStripVisible()
-  const chipOverlay =
-    liveStripVisible &&
-    (mode === 'live' || mode === 'simulate' || import.meta.env.DEV)
+  const debugExtrasVisible = useDevDebugExtrasVisible()
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(
@@ -126,7 +119,7 @@ export default function CanvasPage() {
             })
           }}
         >
-        {devToolsVisible ? (
+        {debugExtrasVisible ? (
           <div className="pointer-events-none absolute left-3 top-3 z-40">
             <Link
               to="/canvas"
@@ -143,7 +136,7 @@ export default function CanvasPage() {
           {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
             <div
               className={`pointer-events-none absolute left-3 z-30 ${
-                devToolsVisible || chipOverlay ? 'top-12' : 'top-3'
+                debugExtrasVisible ? 'top-12' : 'top-3'
               }`}
             >
               <button

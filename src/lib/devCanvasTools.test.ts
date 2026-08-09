@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEV_CANVAS_CHROME_KEY,
   DEV_CANVAS_TOOLS_KEY,
+  debugExtrasVisibleForMode,
   liveStripVisibleForMode,
   nextDevCanvasChromeMode,
   parseDevCanvasChromeMode,
@@ -29,11 +30,16 @@ describe('devCanvasTools', () => {
     expect(liveStripVisibleForMode('clean', false)).toBe(true)
   })
 
-  it('shows view tools only in debug dev', () => {
-    expect(viewToolsVisibleForMode('hud', true)).toBe(false)
+  it('shows view tools in prod and hud; hides in clean or when pref is off', () => {
+    expect(viewToolsVisibleForMode('hud', true)).toBe(true)
     expect(viewToolsVisibleForMode('debug', true)).toBe(true)
     expect(viewToolsVisibleForMode('clean', true)).toBe(false)
-    expect(viewToolsVisibleForMode('debug', false)).toBe(false)
+    expect(viewToolsVisibleForMode('hud', false)).toBe(true)
+    expect(viewToolsVisibleForMode('debug', false)).toBe(true)
+    expect(viewToolsVisibleForMode('hud', true, false)).toBe(false)
+    expect(debugExtrasVisibleForMode('debug', true)).toBe(true)
+    expect(debugExtrasVisibleForMode('hud', true)).toBe(false)
+    expect(debugExtrasVisibleForMode('debug', false)).toBe(false)
   })
 
   it('round-trips chrome mode', () => {
