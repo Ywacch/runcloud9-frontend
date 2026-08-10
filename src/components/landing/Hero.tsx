@@ -3,9 +3,6 @@ import { trackEvent } from '../../lib/analytics'
 import { useAuthStore } from '../../product/stores/authStore'
 import { InteractiveCanvasHero } from './InteractiveCanvasHero'
 
-const GRAIN_BG =
-  "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
-
 const HERO_SVG_STYLE = {
   filter: 'drop-shadow(0 24px 48px rgba(0,0,0,0.45))',
   maskImage:
@@ -36,19 +33,13 @@ export function Hero() {
             'radial-gradient(ellipse 70% 80% at 75% 50%, rgba(89,73,122,0.28) 0%, rgba(89,73,122,0.10) 45%, transparent 70%)',
         }}
       />
-      <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-[0.03]"
-        style={{ backgroundImage: GRAIN_BG }}
-        aria-hidden
-      />
-
       <div className="relative z-10 mx-auto grid w-full max-w-[1360px] grid-cols-1 items-center gap-16 px-6 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10 lg:px-10 lg:py-24">
         <div className="flex flex-col justify-center gap-6">
           <h1 className="font-serif text-4xl font-medium leading-tight text-c9-text-heading md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
             Design and deploy live architecture on a canvas.
           </h1>
 
-          <p className="max-w-md text-lg leading-relaxed text-c9-text-muted">
+          <p className="max-w-[65ch] font-serif text-lg leading-relaxed text-c9-text-muted">
             Place load balancers, app servers, databases, caches, and queues on
             the canvas. One deploy spins up a live stack. Metrics display for
             each node while traffic runs for 9 minutes.

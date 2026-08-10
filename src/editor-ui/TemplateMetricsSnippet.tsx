@@ -90,7 +90,7 @@ function formatTemplateMetricValue(key: string, v: number): string {
   if (key.includes('fanout')) {
     return Math.abs(v - Math.round(v)) < 1e-3 ? fmtInt(Math.round(v)) : v.toFixed(2)
   }
-  if (key.includes('p95') || key.includes('p99') || key.includes('_p9')) {
+  if (key.includes('p95') || key.includes('p99') || key.includes('p50') || /_p\d+$/.test(key)) {
     return fmtMs(v * 1000)
   }
   if (key.includes('rate') || key.includes('pull_') || key.includes('push_')) {

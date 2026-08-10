@@ -13,63 +13,165 @@ import {
 } from '../lib/billingCopy'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
-import { C9Card } from './c9Primitives'
 
-function LimitRow({ label, value }: { label: string; value: string }) {
+function PlanMark({ included }: { included: boolean }) {
+  if (!included) {
+    return (
+      <svg
+        viewBox="0 0 16 16"
+        className="mt-0.5 h-4 w-4 shrink-0 text-[var(--c9-muted)]"
+        aria-hidden
+      >
+        <circle
+          cx="8"
+          cy="8"
+          r="5.25"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+      </svg>
+    )
+  }
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[var(--c9-border)] py-2.5 last:border-0">
-      <span className="text-sm text-[var(--c9-muted)]">{label}</span>
-      <span className="text-right text-sm font-medium text-[var(--c9-text)]">
-        {value}
-      </span>
-    </div>
+    <svg
+      viewBox="0 0 16 16"
+      className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300"
+      aria-hidden
+    >
+      <circle cx="8" cy="8" r="6" fill="rgb(16 185 129 / 0.18)" />
+      <path
+        d="M4.6 8.2 7 10.6 11.5 5.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
-function BenefitChecklist({
+function PlanBenefitMarks({
   limits,
   isFree,
+  className,
 }: {
   limits: CurrentUserLimits | undefined
   isFree: boolean
+  className?: string
 }) {
   return (
-    <div className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
-        {isFree ? 'Unlock on Engineer' : 'Included on Engineer'}
-      </p>
-      <ul className="mt-2 space-y-2">
-        {ENGINEER_BENEFIT_ROWS.map((row) => {
-          const included = engineerBenefitIncluded(row.id, limits)
-          return (
-            <li key={row.id} className="flex items-start gap-2 text-sm">
-              <span
-                className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                  included
-                    ? 'bg-emerald-500/20 text-emerald-300'
-                    : 'bg-zinc-700/60 text-[var(--c9-muted)]'
-                }`}
-                aria-hidden
-              >
-                {included ? '✓' : '·'}
-              </span>
-              <span
-                className={
-                  included ? 'text-[var(--c9-text)]' : 'text-[var(--c9-muted)]'
-                }
-              >
-                {row.label}
-                {isFree && row.explorerNote ? (
-                  <span className="mt-0.5 block text-xs text-[var(--c9-muted)]">
-                    {row.explorerNote}
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+    <ul className={className}>
+      {ENGINEER_BENEFIT_ROWS.map((row) => {
+        const included = engineerBenefitIncluded(row.id, limits)
+        return (
+          <li key={row.id} className="flex items-start gap-2.5 text-sm">
+            <PlanMark included={included} />
+            <span
+              className={
+                included ? 'text-[var(--c9-text)]' : 'text-[var(--c9-muted)]'
+              }
+            >
+              {row.label}
+              {isFree && row.explorerNote ? (
+                <span className="mt-0.5 block text-xs text-[var(--c9-muted)]">
+                  {row.explorerNote}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function PlanBillingActions({
+  isFree,
+  showPaidBilling,
+  upgradeCta,
+  checkoutBusy,
+  checkoutError,
+  onUpgrade,
+  onStop,
+  onCancel,
+  billingBusy,
+  billingError,
+  canCancelAndRefund,
+}: {
+  isFree: boolean
+  showPaidBilling: boolean
+  upgradeCta: { label: string } | null
+  checkoutBusy: boolean
+  checkoutError: string | null
+  onUpgrade: () => void
+  onStop: () => void
+  onCancel: () => void
+  billingBusy: boolean
+  billingError: string | null
+  canCancelAndRefund: boolean
+}) {
+  return (
+    <>
+      {isFree && upgradeCta ? (
+        <div className="space-y-2">
+          <button
+            type="button"
+            disabled={checkoutBusy}
+            onClick={onUpgrade}
+            className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {checkoutBusy ? 'Starting checkout…' : upgradeCta.label}
+          </button>
+          {checkoutError ? (
+            <p className="text-xs text-red-400" role="alert">
+              {checkoutError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {isFree && !upgradeCta ? (
+        <Link
+          to="/pricing"
+          className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--c9-border)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]"
+        >
+          See Free tier vs Engineer
+        </Link>
+      ) : null}
+      {showPaidBilling && BILLING_ENABLED ? (
+        <div className="space-y-3">
+          <p className="text-xs text-[var(--c9-muted)]">
+            {canCancelAndRefund
+              ? MANAGE_BILLING_HINT
+              : MANAGE_BILLING_HINT_STOP_ONLY}
+          </p>
+          <button
+            type="button"
+            disabled={billingBusy}
+            onClick={onStop}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-transparent px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {billingBusy ? 'Opening portal…' : STOP_SUBSCRIPTION_LABEL}
+          </button>
+          {canCancelAndRefund ? (
+            <button
+              type="button"
+              disabled={billingBusy}
+              onClick={onCancel}
+              className="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-red-300/90 transition-colors hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {billingBusy ? 'Working…' : CANCEL_SUBSCRIPTION_LABEL}
+            </button>
+          ) : null}
+          {billingError ? (
+            <p className="text-xs text-red-400" role="alert">
+              {billingError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   )
 }
 
@@ -105,132 +207,117 @@ export function PlanLimitsCard({
   const isFree = effectiveTier === 'free'
   const showPaidBilling = !isFree && !isInternal
   const upgradeCta = engineerUpgradeCta(BILLING_ENABLED)
+  const statusLabel = isFree ? 'Free' : 'Active'
+  const statusClass = isFree
+    ? 'bg-zinc-700/50 text-[var(--c9-muted)]'
+    : 'bg-emerald-500/15 text-emerald-300'
+  const quotaRows = [
+    {
+      label: 'Session default',
+      value: `${limits?.sessionDefaultMins ?? '—'} min`,
+    },
+    {
+      label: 'Session cap',
+      value: `${limits?.sessionCapMins ?? '—'} min`,
+    },
+    {
+      label: 'Max concurrent deployments',
+      value: String(limits?.maxConcurrent ?? '—'),
+    },
+    ...(limits?.maxSessionsPerMonth != null &&
+    sessionsRemainingThisMonth != null
+      ? [
+          {
+            label: 'Sessions this month',
+            value: formatSessionsLeftThisMonth(
+              sessionsRemainingThisMonth,
+              limits.maxSessionsPerMonth,
+            ),
+          },
+        ]
+      : []),
+    {
+      label: 'Max app-server & worker replicas',
+      value: String(limits?.maxAppServerReplicas ?? '—'),
+    },
+  ]
 
   return (
-    <C9Card className="overflow-hidden p-0">
-      <div className="border-b border-[var(--c9-border)] bg-[var(--c9-surface)]/80 px-4 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
-              Current plan
-            </p>
-            <p className="mt-1 text-xl font-semibold text-[var(--c9-text)]">
-              {planLabel}
-            </p>
-          </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              isFree
-                ? 'bg-zinc-700/50 text-[var(--c9-muted)]'
-                : 'bg-emerald-500/15 text-emerald-300'
-            }`}
+    <section
+      className="c9-plan-card overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 shadow-xl shadow-black/20"
+      aria-labelledby="c9-plan-card-title"
+    >
+      <div className="border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-[1.2rem] pt-[1.15rem] pb-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <h2
+            id="c9-plan-card-title"
+            className="text-[1.35rem] font-semibold tracking-[-0.03em] text-[var(--c9-text-heading)]"
           >
-            {isFree ? 'Free' : 'Active'}
-          </span>
+            {planLabel}
+          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}
+            >
+              {statusLabel}
+            </span>
+            <Link
+              to="/pricing"
+              className="text-sm font-medium text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]"
+            >
+              Full comparison →
+            </Link>
+          </div>
         </div>
-        <p className="mt-2 text-sm text-[var(--c9-muted)]">
+        <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-muted)]">
           {isFree
             ? 'Full architecture preview shows Engineer components locked. Compare plans for the full matrix.'
             : 'Engineer features are active on your account.'}
         </p>
-        <Link
-          to="/pricing"
-          className="mt-3 inline-block text-sm font-medium text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)]"
-        >
-          Full comparison →
-        </Link>
       </div>
-
-      <div className="space-y-1 px-4 py-3">
-        <LimitRow
-          label="Session default"
-          value={`${limits?.sessionDefaultMins ?? '—'} min`}
-        />
-        <LimitRow
-          label="Session cap"
-          value={`${limits?.sessionCapMins ?? '—'} min`}
-        />
-        <LimitRow
-          label="Max concurrent deployments"
-          value={String(limits?.maxConcurrent ?? '—')}
-        />
-        {limits?.maxSessionsPerMonth != null &&
-        sessionsRemainingThisMonth != null ? (
-          <LimitRow
-            label="Sessions this month"
-            value={formatSessionsLeftThisMonth(
-              sessionsRemainingThisMonth,
-              limits.maxSessionsPerMonth,
-            )}
-          />
-        ) : null}
-        <LimitRow
-          label="Max app-server & worker replicas"
-          value={String(limits?.maxAppServerReplicas ?? '—')}
-        />
-      </div>
-
-      <div className="space-y-4 border-t border-[var(--c9-border)] px-4 py-4">
-        <BenefitChecklist limits={limits} isFree={isFree} />
-        {isFree && upgradeCta ? (
-          <div className="space-y-2">
-            <button
-              type="button"
-              disabled={checkoutBusy}
-              onClick={onUpgrade}
-              className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {checkoutBusy ? 'Starting checkout…' : upgradeCta.label}
-            </button>
-            {checkoutError ? (
-              <p className="text-xs text-red-400" role="alert">
-                {checkoutError}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-        {isFree && !upgradeCta ? (
-          <Link
-            to="/pricing"
-            className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--c9-border)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)]"
-          >
-            See Explorer vs Engineer
-          </Link>
-        ) : null}
-        {showPaidBilling && BILLING_ENABLED ? (
-          <div className="space-y-3">
-            <p className="text-xs text-[var(--c9-muted)]">
-              {canCancelAndRefund
-                ? MANAGE_BILLING_HINT
-                : MANAGE_BILLING_HINT_STOP_ONLY}
-            </p>
-            <button
-              type="button"
-              disabled={billingBusy}
-              onClick={onStop}
-              className="w-full rounded-lg border border-[var(--c9-border)] bg-transparent px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {billingBusy ? 'Opening portal…' : STOP_SUBSCRIPTION_LABEL}
-            </button>
-            {canCancelAndRefund ? (
-              <button
-                type="button"
-                disabled={billingBusy}
-                onClick={onCancel}
-                className="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-red-300/90 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+      <div className="flex flex-col gap-[1.35rem] px-[1.2rem] pt-[1.15rem] pb-5">
+        <div className="flex flex-wrap gap-x-7 gap-y-[1.35rem]">
+          <dl className="min-w-[13.5rem] flex-[0.48_1_13.5rem]">
+            {quotaRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-baseline justify-between gap-3 border-b border-[var(--c9-border)] py-[0.7rem] last:border-0"
               >
-                {billingBusy ? 'Working…' : CANCEL_SUBSCRIPTION_LABEL}
-              </button>
-            ) : null}
-            {billingError ? (
-              <p className="text-xs text-red-400" role="alert">
-                {billingError}
+                <dt className="text-sm text-[var(--c9-muted)]">{row.label}</dt>
+                <dd className="text-right text-sm font-medium tabular-nums text-[var(--c9-text)]">
+                  {row.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="min-w-[16rem] flex-[0.52_1_16rem]">
+            {isFree ? (
+              <p className="mb-2.5 text-sm text-[var(--c9-muted)]">
+                Unlock on Engineer
               </p>
             ) : null}
+            <PlanBenefitMarks
+              limits={limits}
+              isFree={isFree}
+              className="space-y-2.5"
+            />
           </div>
-        ) : null}
+        </div>
+        <PlanBillingActions
+          isFree={isFree}
+          showPaidBilling={showPaidBilling}
+          upgradeCta={upgradeCta}
+          checkoutBusy={checkoutBusy}
+          checkoutError={checkoutError}
+          onUpgrade={onUpgrade}
+          onStop={onStop}
+          onCancel={onCancel}
+          billingBusy={billingBusy}
+          billingError={billingError}
+          canCancelAndRefund={canCancelAndRefund}
+        />
       </div>
-    </C9Card>
+    </section>
   )
 }
 

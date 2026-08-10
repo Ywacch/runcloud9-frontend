@@ -125,6 +125,93 @@ body {
     background: color-mix(in srgb, #10b981 10%, transparent);
     color: #86efac;
   }
+
+  .c9-nav-header {
+    box-shadow: inset 0 -2px 0 0 var(--c9-accent);
+  }
+
+  .c9-plan-compare {
+    scrollbar-color: var(--c9-border-strong) transparent;
+  }
+
+  .c9-plan-compare td {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .c9-plan-compare .c9-plan-compare-group th {
+    letter-spacing: 0.08em;
+    background: var(--c9-bg);
+  }
+
+  .c9-plan-compare tbody tr:not(.c9-plan-compare-group):nth-child(even) th,
+  .c9-plan-compare tbody tr:not(.c9-plan-compare-group):nth-child(even) td {
+    background: color-mix(in srgb, var(--c9-surface) 70%, transparent);
+  }
+
+}
+
+.c9-plan-card ::selection,
+.c9-hud-btn ::selection,
+.c9-load-panel ::selection {
+  background: color-mix(in srgb, var(--c9-accent) 45%, transparent);
+  color: var(--c9-text-heading);
+}
+
+.c9-load-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  width: 18rem;
+  padding: 0.95rem 1.05rem 1.05rem;
+  border-radius: 12px;
+  border: 1px solid var(--c9-border);
+  background: var(--c9-bg-card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  position: fixed;
+  z-index: 80;
+}
+
+.c9-load-panel-status {
+  min-height: 1.15rem;
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.1rem;
+  border-bottom: 1px solid var(--c9-border);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--c9-muted);
+}
+
+.c9-load-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.c9-load-panel-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c9-text);
+}
+
+.c9-load-panel-field input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--c9-border);
+  background: var(--c9-surface);
+  padding: 0.45rem 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1rem;
+  color: var(--c9-text);
+  caret-color: var(--c9-text-heading);
+}
+
+.c9-load-panel-field input:focus-visible {
+  outline: none;
+  box-shadow: var(--c9-shadow-focus);
+}
+
+.c9-load-panel-cta {
+  margin-top: 0.35rem;
 }
 
 .dot-grid {

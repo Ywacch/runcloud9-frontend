@@ -6,6 +6,11 @@ import { fmtInt, fmtMs, fmtRate } from './format'
 import { readWriteFractions } from '../editor-core/domain/simulation/workload'
 import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
+import {
+  groupTemplateMetricDistributions,
+  isConventionMetricKey,
+  type TemplateMetricDistribution,
+} from './templateMetricDistributions'
 
 export interface TemplateKpi {
   id: string
@@ -116,15 +121,11 @@ const TEMPLATE_METRIC_ROWS: Record<
   Array<{ key: string; label: string; format: (n: number) => string }>
 > = {
   'social-feed': [
-    { key: 'feed.pull_rate', label: 'Feed reads/s (pull)', format: (n) => `${fmtRate(n)}/s` },
-    { key: 'feed.push_rate', label: 'Feed reads/s (push)', format: (n) => `${fmtRate(n)}/s` },
     {
       key: 'feed.push_total',
       label: 'Feed reads (push)',
       format: (n) => fmtInt(Math.round(n)),
     },
-    { key: 'feed.pull_p95', label: 'Feed read p95 (pull)', format: (n) => fmtMs(n * 1000) },
-    { key: 'feed.push_p95', label: 'Feed read p95 (push)', format: (n) => fmtMs(n * 1000) },
     { key: 'worker.processed', label: 'Fan-out jobs done', format: (n) => fmtInt(Math.round(n)) },
     { key: 'worker.errors', label: 'Fan-out errors', format: (n) => fmtInt(Math.round(n)) },
     {
@@ -135,8 +136,6 @@ const TEMPLATE_METRIC_ROWS: Record<
     { key: 'mq.publish_total', label: 'Messages published', format: (n) => fmtInt(Math.round(n)) },
   ],
   'social-feed-pull': [
-    { key: 'feed.pull_rate', label: 'Feed reads/s (pull)', format: (n) => `${fmtRate(n)}/s` },
-    { key: 'feed.pull_p95', label: 'Feed read p95 (pull)', format: (n) => fmtMs(n * 1000) },
     { key: 'posts.total_sync', label: 'Posts written (sync)', format: (n) => fmtInt(Math.round(n)) },
   ],
   ecommerce: [
@@ -145,8 +144,6 @@ const TEMPLATE_METRIC_ROWS: Record<
       label: 'Inventory conflicts',
       format: (n) => fmtInt(Math.round(n)),
     },
-    { key: 'checkout.sync_p95', label: 'Checkout p95 (sync)', format: (n) => fmtMs(n * 1000) },
-    { key: 'checkout.async_p95', label: 'Checkout p95 (async)', format: (n) => fmtMs(n * 1000) },
     { key: 'mq.publish_errors', label: 'Publish failures', format: (n) => fmtInt(Math.round(n)) },
     { key: 'mq.publish_total', label: 'Messages published', format: (n) => fmtInt(Math.round(n)) },
   ],
@@ -181,8 +178,10 @@ export const HUD_KPI_MAX = 4
 
 const HUD_LABEL_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^posts written/i, 'Posts'],
-  [/^feed reads\/s/i, 'Feed/s'],
-  [/^feed read p95/i, 'Feed p95'],
+  [/^feed push rate$/i, 'Feed/s'],
+  [/^feed pull rate$/i, 'Feed/s'],
+  [/^feed push p9/i, 'Feed p95'],
+  [/^feed pull p9/i, 'Feed p95'],
   [/^feed reads/i, 'Feed reads'],
   [/^fan-out jobs/i, 'Fan-out'],
   [/^fan-out errors/i, 'Fan-out errors'],
@@ -191,7 +190,7 @@ const HUD_LABEL_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^urls shortened/i, 'Shortens'],
   [/^checkouts written/i, 'Checkouts'],
   [/^inventory conflicts/i, 'Conflicts'],
-  [/^checkout p95/i, 'Checkout p95'],
+  [/^checkout .+ p9/i, 'Checkout p95'],
   [/^publish failures/i, 'Publish fail'],
   [/^collisions/i, 'Collisions'],
 ]
@@ -239,7 +238,7 @@ function kpiRow(
   }
 }
 
-function isMetricRelevant(
+export function isMetricRelevant(
   templateId: string,
   key: string,
   topology: TopologyFlags | undefined,
@@ -273,6 +272,58 @@ function isMetricRelevant(
     if (!hasMQ && key === 'checkout.async_p95') return false
   }
   return true
+}
+
+function distributionIsRelevant(
+  templateId: string,
+  dist: TemplateMetricDistribution,
+  topology: TopologyFlags | undefined,
+): boolean {
+  const keys = [
+    `${dist.prefix}_rate`,
+    `${dist.prefix}_p50`,
+    `${dist.prefix}_p95`,
+    `${dist.prefix}_p99`,
+  ]
+  return keys.some((key) => isMetricRelevant(templateId, key, topology))
+}
+
+function conventionKpiRows(
+  templateId: string,
+  templateMetrics: Record<string, number>,
+  topology?: TopologyFlags,
+): TemplateKpiRow[] {
+  const rows: TemplateKpiRow[] = []
+  for (const dist of groupTemplateMetricDistributions(templateMetrics)) {
+    if (!distributionIsRelevant(templateId, dist, topology)) continue
+
+    const rateKey = `${dist.prefix}_rate`
+    if (dist.rate != null && dist.rate > 0 && isMetricRelevant(templateId, rateKey, topology)) {
+      rows.push(
+        kpiRow(`tm-${rateKey}`, `${dist.label} rate`, `${fmtRate(dist.rate)}/s`, dist.rate),
+      )
+    }
+
+    const p95Key = `${dist.prefix}_p95`
+    if (
+      dist.p95Ms != null &&
+      dist.p95Ms > 0 &&
+      isMetricRelevant(templateId, p95Key, topology)
+    ) {
+      rows.push(kpiRow(`tm-${p95Key}`, `${dist.label} p95`, fmtMs(dist.p95Ms), dist.p95Ms))
+      continue
+    }
+
+    const p99Key = `${dist.prefix}_p99`
+    if (
+      dist.p99Ms != null &&
+      dist.p99Ms > 0 &&
+      isMetricRelevant(templateId, p99Key, topology)
+    ) {
+      rows.push(kpiRow(`tm-${p99Key}`, `${dist.label} p99`, fmtMs(dist.p99Ms), dist.p99Ms))
+    }
+  }
+  return rows
 }
 
 /** Journey KPIs in the live chip strip (3-8; metrics-component-panels §2.7). */
@@ -406,11 +457,14 @@ export function templateKpiRows(
   if (extra?.length) {
     for (const { key, label, format } of extra) {
       if (skipKeys.has(key)) continue
+      if (isConventionMetricKey(key)) continue
       if (!isMetricRelevant(templateId, key, topology)) continue
       const v = templateMetrics[key]
       if (v == null || !Number.isFinite(v)) continue
       rows.push(kpiRow(`tm-${key}`, label, format(v), v))
     }
   }
+
+  rows.push(...conventionKpiRows(templateId, templateMetrics, topology))
   return rows.slice(0, MAX_TEMPLATE_KPI_ROWS)
 }

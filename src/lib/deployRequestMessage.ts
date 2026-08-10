@@ -19,7 +19,7 @@ export interface DeployRequestMessage {
   body: string
   technicalDetails?: string
   actionLabel?: string
-  /** Optional second CTA (e.g. switch to Explorer runnable). */
+  /** Optional second CTA (e.g. switch to Free tier design). */
   secondaryActionLabel?: string
   resourceBudget?: ResourceBudgetErrorResponse
 }
@@ -119,7 +119,7 @@ export function mapDeployRequestError(
         if (opts?.isFreeUser) {
           return {
             title: 'Out of sessions this month',
-            body: 'You hit the Explorer monthly limit. Upgrade to Engineer for more sessions, or try again next month.',
+            body: 'You hit the Free tier monthly limit. Upgrade to Engineer for more sessions, or try again next month.',
             technicalDetails: technicalDetailsFrom(raw),
             actionLabel: upgradeActionLabel(),
           }
@@ -134,7 +134,7 @@ export function mapDeployRequestError(
         if (opts?.isFreeUser) {
           return {
             title: 'Concurrent session limit',
-            body: 'Explorer allows one active deployment. Upgrade to Engineer for more concurrent sessions, or end your current deployment first.',
+            body: 'Free tier allows one active deployment. Upgrade to Engineer for more concurrent sessions, or end your current deployment first.',
             technicalDetails: technicalDetailsFrom(raw),
             actionLabel: upgradeActionLabel(),
           }

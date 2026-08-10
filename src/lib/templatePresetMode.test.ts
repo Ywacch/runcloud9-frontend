@@ -6,6 +6,7 @@ import {
   selectTemplatePreset,
   templateHasExplorerRunnable,
 } from './templatePresetMode'
+import { SWITCH_TO_FREE_TIER_DESIGN_LABEL } from './billingCopy'
 import {
   engineerLockedNodeOpacity,
   isEngineerPreviewLocked,
@@ -94,7 +95,7 @@ describe('templatePresetMode', () => {
       billingEnabled: true,
       hasExplorerRunnable: true,
     })
-    expect(block?.secondaryActionLabel).toBe('Switch to Explorer runnable')
+    expect(block?.secondaryActionLabel).toBe(SWITCH_TO_FREE_TIER_DESIGN_LABEL)
     expect(block?.actionLabel).toBe('Upgrade to Engineer')
     expect(
       explorerFullModeDeployBlock({

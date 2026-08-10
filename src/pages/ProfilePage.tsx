@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../product/stores/authStore'
 import { loginPathWithReturnTo } from '../lib/authReturn'
+import { refreshCurrentUser } from '../lib/auth'
 import { getMe } from '../lib/api'
 import { PlanLimitsCard, startEngineerUpgrade } from '../editor-ui/PlanLimitsCard'
 import { C9Card } from '../editor-ui/c9Primitives'
@@ -11,6 +12,7 @@ import {
   CANCEL_SUCCESS_BODY_REFUNDED,
   CANCEL_SUCCESS_TITLE,
 } from '../lib/billingCopy'
+import { hasDevAccountAccess } from '../lib/devAccountPreview'
 import { BILLING_ENABLED } from '../lib/featureFlags'
 import {
   checkCancelEligibility,
@@ -39,6 +41,11 @@ export default function ProfilePage() {
     !currentUser.isInternal
 
   useEffect(() => {
+    if (!hasDevAccountAccess(session) || currentUser) return
+    void refreshCurrentUser()
+  }, [session, currentUser])
+
+  useEffect(() => {
     if (!BILLING_ENABLED || !showPaidBilling) {
       setCanCancelAndRefund(false)
       return
@@ -56,7 +63,7 @@ export default function ProfilePage() {
     }
   }, [showPaidBilling, currentUser?.userId, currentUser?.effectiveTier])
 
-  if (!session) {
+  if (!hasDevAccountAccess(session)) {
     return (
       <main className="dot-grid flex min-h-[100dvh] flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
         <div className="w-full max-w-md rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)] p-6 text-center shadow-xl shadow-black/20">
@@ -159,6 +166,7 @@ export default function ProfilePage() {
             <p className="text-sm text-[var(--c9-muted)]">Loading plan info…</p>
           ) : (
             <PlanLimitsCard
+              key={`${currentUser.userId}-${currentUser.effectiveTier}`}
               effectiveTier={currentUser.effectiveTier}
               isInternal={currentUser.isInternal}
               limits={currentUser.limits}

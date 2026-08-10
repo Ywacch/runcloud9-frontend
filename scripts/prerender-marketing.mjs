@@ -44,7 +44,7 @@ const pageBodies = {
   </nav>
 </main>`,
   '/pricing': `<main>
-  <h1>Plans for the architecture lab</h1>
+  <h1>Subscription plans</h1>
   <p>
     Design on a canvas, deploy to real Kubernetes, and watch the system under load.
     Invite-only alpha.

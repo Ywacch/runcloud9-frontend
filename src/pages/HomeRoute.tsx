@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { applyDevAccountPreviewUser } from '../lib/devAccountPreview'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../product/stores/authStore'
 import Landing from './Landing'
@@ -13,6 +14,10 @@ export default function HomeRoute() {
     void supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return
       useAuthStore.getState().setSession(data.session)
+      applyDevAccountPreviewUser(
+        useAuthStore.getState().setCurrentUser,
+        data.session,
+      )
       setHydrated(true)
     })
     return () => {

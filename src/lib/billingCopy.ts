@@ -28,7 +28,13 @@ export const UPGRADE_TO_SCALE_REPLICAS_TOOLTIP =
 export const RESOURCE_PROFILE_HELPER =
   'Adjust CPU and memory for this component.'
 
-export const REPLICAS_HELP_FREE = 'Explorer runs one App Server pod.'
+export const FREE_TIER_LABEL = 'Free tier'
+
+export const FREE_TIER_DESIGN_LABEL = 'Free tier design'
+
+export const SWITCH_TO_FREE_TIER_DESIGN_LABEL = 'Switch to Free tier design'
+
+export const REPLICAS_HELP_FREE = 'Free tier runs one App Server pod.'
 
 export function replicasHelpPaid(maxReplicas: number): string {
   return `Deploy runs this many App Server pods (1-${maxReplicas}). Click the grid to add replicas.`
@@ -55,9 +61,9 @@ export function displayPlanTierLabel(
     case 'internal':
       return 'Engineer'
     case 'free':
-      return 'Explorer'
+      return FREE_TIER_LABEL
     default:
-      return 'Explorer'
+      return FREE_TIER_LABEL
   }
 }
 
@@ -207,18 +213,18 @@ export const ENGINEER_BENEFIT_ROWS: EngineerBenefitRow[] = [
     id: 'load_balancer',
     label: 'Load balancers in presets and on canvas',
     explorerNote:
-      'Shown locked on full architecture; switch to Explorer runnable to deploy without them',
+      'Shown locked on full architecture; switch to Free tier design to deploy without them',
   },
   {
     id: 'mq_worker',
     label: 'Message queue + worker (async fan-out)',
     explorerNote:
-      'Shown locked on full architecture; switch to Explorer runnable to deploy without them',
+      'Shown locked on full architecture; switch to Free tier design to deploy without them',
   },
   {
     id: 'proxy_cache',
     label: 'Write-through & write-behind cache proxy strategies',
-    explorerNote: 'Cache-aside only on Explorer',
+    explorerNote: 'Cache-aside only on Free tier',
   },
   {
     id: 'higher_quotas',

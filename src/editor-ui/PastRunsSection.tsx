@@ -276,6 +276,7 @@ export function PastRunsSection() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((item) => {
               const topo = snapshotByTemplate.get(item.template)
+              const hasTopo = (topo?.nodes.length ?? 0) > 0
               return (
                 <button
                   key={item.id}
@@ -285,43 +286,59 @@ export function PastRunsSection() {
                   onClick={() => void handleCardClick(item)}
                   className="flex flex-col overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] text-left transition-colors hover:border-[var(--c9-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] disabled:opacity-60"
                 >
-                  <div className="h-28 border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/40 p-3">
+                  {hasTopo ? (
+                  <div className="aspect-[2.5/1] border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/40 p-3">
                     <MiniTopologyPreview
                       nodes={topo?.nodes ?? []}
                       edges={topo?.edges ?? []}
                     />
                   </div>
+                  ) : null}
                   <div className="flex flex-1 flex-col gap-3 p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 truncate text-sm font-semibold text-[var(--c9-text)]">
-                        {item.template}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[var(--c9-text-heading)]">
+                          {item.template}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-[var(--c9-text-muted)]">
+                          {item.archetype} ·{' '}
+                          {new Date(item.createdAt).toLocaleString(undefined, {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
                       <StatusBadge status={item.status} />
                     </div>
-                    <p className="text-xs text-[var(--c9-muted)]">
-                      {item.archetype} ·{' '}
-                      {new Date(item.createdAt).toLocaleString(undefined, {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                    <div className="mt-auto grid grid-cols-3 gap-1.5">
-                      <MetricPill
-                        label="Duration"
-                        value={fmtDuration(item.durationSeconds)}
-                      />
-                      <MetricPill
-                        label="Peak RPS"
-                        value={fmtOptional(item.peakRps, fmtInt)}
-                      />
-                      <MetricPill
-                        label="Peak P99"
-                        value={fmtOptional(item.peakP99Ms, fmtMs)}
-                      />
-                    </div>
+                    <dl className="grid grid-cols-3 gap-2">
+                      <div>
+                        <dt className="text-[10px] text-[var(--c9-text-muted)]">
+                          Duration
+                        </dt>
+                        <dd className="font-mono text-[0.72rem] tabular-nums text-[var(--c9-text)]">
+                          {fmtDuration(item.durationSeconds)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] text-[var(--c9-text-muted)]">
+                          Peak RPS
+                        </dt>
+                        <dd className="font-mono text-[0.72rem] tabular-nums text-[var(--c9-text)]">
+                          {fmtOptional(item.peakRps, fmtInt)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] text-[var(--c9-text-muted)]">
+                          Peak P99
+                        </dt>
+                        <dd className="font-mono text-[0.72rem] tabular-nums text-[var(--c9-text)]">
+                          {fmtOptional(item.peakP99Ms, fmtMs)}
+                        </dd>
+                      </div>
+                    </dl>
                   </div>
                 </button>
               )
@@ -329,6 +346,7 @@ export function PastRunsSection() {
           </div>
         )}
       </section>
+
 
       {detail?.kind === 'summary' && (
         <SessionSummaryView
@@ -381,18 +399,5 @@ function StatusBadge({ status }: { status: PastRunListItem['status'] }) {
     >
       {capLabel(status)}
     </span>
-  )
-}
-
-function MetricPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-1.5 py-1.5 text-center">
-      <p className="text-[9px] font-medium uppercase tracking-wider text-[var(--c9-muted)]">
-        {label}
-      </p>
-      <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--c9-text)]">
-        {value}
-      </p>
-    </div>
   )
 }

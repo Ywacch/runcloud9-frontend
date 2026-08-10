@@ -3,16 +3,25 @@ import { DISCORD_INVITE_URL } from '../../lib/featureFlags'
 
 function RunCloud9Logo() {
   return (
-    <div className="flex items-center gap-2">
-      <svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden>
+    <div className="flex items-center gap-[0.45rem]">
+      <svg
+        width="28"
+        height="20"
+        viewBox="0 0 28 20"
+        fill="none"
+        aria-hidden
+        className="shrink-0"
+      >
         <path
           d="M6.2 16.8h13.4a5 5 0 0 0 .6-9.97 6.8 6.8 0 0 0-13.1 2A4.2 4.2 0 0 0 6.2 16.8Z"
-          fill="color-mix(in srgb, var(--color-c9-500) 16%, transparent)"
-          stroke="var(--color-c9-400)"
-          strokeWidth="1.6"
+          fill="color-mix(in srgb, var(--color-c9-400) 42%, transparent)"
+          stroke="var(--color-c9-200)"
+          strokeWidth="1.4"
         />
       </svg>
-      <span className="font-sans text-base font-medium text-c9-text-heading">RunCloud9</span>
+      <span className="font-sans text-base font-semibold tracking-[-0.02em] text-c9-text-heading">
+        RunCloud9
+      </span>
     </div>
   )
 }
@@ -26,41 +35,33 @@ const FOOTER_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-c9-border bg-c9-bg pb-10 pt-14">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-6 md:px-10">
-        <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
-          <div>
-            <Link to="/" className="inline-block transition-opacity hover:opacity-90">
-              <RunCloud9Logo />
+    <footer className="border-t border-c9-border bg-c9-bg py-5">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-[1.025rem] px-6 md:px-10">
+        <Link to="/" className="inline-block transition-opacity hover:opacity-90">
+          <RunCloud9Logo />
+        </Link>
+        <nav className="flex flex-wrap gap-x-5 gap-y-1" aria-label="Footer">
+          {FOOTER_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+            >
+              {link.label}
             </Link>
-            <p className="mt-3 max-w-xs text-sm text-c9-text-muted">
-              Design distributed systems on a canvas, deploy to real Kubernetes, and observe
-              them under load.
-            </p>
-          </div>
-          <nav className="flex flex-wrap gap-x-6 gap-y-2">
-            {FOOTER_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
-              >
-                {link.label}
-              </Link>
-            ))}
-            {DISCORD_INVITE_URL ? (
-              <a
-                href={DISCORD_INVITE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
-              >
-                Discord
-              </a>
-            ) : null}
-          </nav>
-        </div>
-        <p className="border-t border-c9-border pt-6 text-xs text-c9-text-muted">
+          ))}
+          {DISCORD_INVITE_URL ? (
+            <a
+              href={DISCORD_INVITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+            >
+              Discord
+            </a>
+          ) : null}
+        </nav>
+        <p className="text-xs text-c9-text-muted">
           © {new Date().getFullYear()} RunCloud9. Invite-only alpha.
         </p>
       </div>

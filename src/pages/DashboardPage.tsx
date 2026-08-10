@@ -8,6 +8,7 @@ import { DashboardHero } from '../components/dashboard/DashboardHero'
 import { DashboardStatusStrip } from '../components/dashboard/DashboardStatusStrip'
 import { loginPathWithReturnTo } from '../lib/authReturn'
 import { refreshCurrentUser } from '../lib/auth'
+import { hasDevAccountAccess } from '../lib/devAccountPreview'
 
 export default function DashboardPage() {
   const session = useAuthStore((s) => s.session)
@@ -15,7 +16,7 @@ export default function DashboardPage() {
   const [planLoading, setPlanLoading] = useState(() => !currentUser)
 
   useEffect(() => {
-    if (!session) return
+    if (!hasDevAccountAccess(session)) return
     if (currentUser) {
       setPlanLoading(false)
       return
@@ -30,7 +31,7 @@ export default function DashboardPage() {
     }
   }, [session, currentUser])
 
-  if (!session) {
+  if (!hasDevAccountAccess(session)) {
     return (
       <main className="dot-grid flex min-h-[100dvh] flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
         <C9Card className="w-full max-w-md p-6 text-center">

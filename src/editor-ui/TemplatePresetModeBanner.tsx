@@ -7,6 +7,7 @@ import {
   type TemplatePresetMode,
 } from '../lib/templatePresetMode'
 import { switchTemplatePresetMode } from '../lib/switchTemplatePresetMode'
+import { FREE_TIER_DESIGN_LABEL } from '../lib/billingCopy'
 import type { TemplateInfo } from '../lib/api'
 
 /** Explorer-only control to switch full architecture preview vs runnable preset. */
@@ -36,12 +37,12 @@ export function TemplatePresetModeBanner() {
       <p className="font-medium text-[var(--c9-text)]">
         {templatePresetMode === 'full'
           ? 'Full architecture (preview)'
-          : 'Explorer runnable'}
+          : FREE_TIER_DESIGN_LABEL}
       </p>
       <p className="leading-snug text-[var(--c9-muted)]">
         {templatePresetMode === 'full'
-          ? 'Engineer components are dimmed and not deployable. Switch to deploy on Explorer.'
-          : 'Deployable Explorer design. Switch back to preview the full template shape.'}
+          ? 'Engineer components are dimmed and not deployable. Switch to deploy on Free tier.'
+          : 'Deployable Free tier design. Switch back to preview the full template shape.'}
       </p>
       <div className="mt-1 flex flex-wrap gap-2">
         <button
@@ -64,7 +65,7 @@ export function TemplatePresetModeBanner() {
               : 'border border-[var(--c9-border)] text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
           }`}
         >
-          Explorer runnable
+          {FREE_TIER_DESIGN_LABEL}
         </button>
         <Link
           to="/pricing"
