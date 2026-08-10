@@ -29,6 +29,13 @@ import {
   redHeadlines,
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
+import { getTopologyFlags } from '../lib/componentRole'
+import { isMetricRelevant } from '../lib/templateKpis'
+import {
+  distributionHasLatency,
+  groupTemplateMetricDistributions,
+} from '../lib/templateMetricDistributions'
+import { LatencyDistribution } from './LatencyDistribution'
 import {
   buildCacheHeadlines,
   CacheCanvasFootnote,
@@ -132,6 +139,22 @@ export function LiveMetricsTypeSection({
   switch (nodeType) {
     case 'compute': {
       const red = redHeadlines(m, view.timeframe, fmtErrorRate)
+      const p50Latency = useLiveMetricNumber(nodeId, 'p50Latency', mode, m.p50Latency)
+      const p95Latency = useLiveMetricNumber(nodeId, 'p95Latency', mode, m.p95Latency)
+      const p99Latency = useLiveMetricNumber(nodeId, 'p99Latency', mode, m.p99Latency)
+      const sessionP99Ms =
+        view.timeframe === 'session' && m.p99Latency9m > 0 ? m.p99Latency9m : p99Latency
+      const topology = getTopologyFlags(nodes)
+      const perOpDistributions =
+        snapshotTemplateId != null
+          ? groupTemplateMetricDistributions(templateMetrics).filter(
+              (d) =>
+                distributionHasLatency(d) &&
+                [`_p50`, `_p95`, `_p99`].some((suffix) =>
+                  isMetricRelevant(snapshotTemplateId, `${d.prefix}${suffix}`, topology),
+                ),
+            )
+          : []
       const rpsSeries = history.map((h) => h.requestRate)
       const latencySeries = history.map((h) => h.p99Latency)
       const errorSeries = history.map((h) => h.errorRate)
@@ -195,6 +218,21 @@ export function LiveMetricsTypeSection({
                 />
               }
             />
+            {view.timeframe === 'live' ? (
+              <LatencyDistribution
+                p50Ms={p50Latency}
+                p95Ms={p95Latency}
+                p99Ms={p99Latency}
+                label="Latency distribution (live)"
+                compact
+              />
+            ) : (
+              <LatencyDistribution
+                p99Ms={sessionP99Ms}
+                label="Latency distribution (session)"
+                compact
+              />
+            )}
             <StatBlock
               label={red.errorLabel}
               value={red.errorDisplay}
@@ -215,6 +253,25 @@ export function LiveMetricsTypeSection({
               </PedagogicalHint>
             </InlineDisclosure>
           </PedagogicalSection>
+
+          {perOpDistributions.length > 0 ? (
+            <PedagogicalSection
+              title="Per-operation latency"
+              subtitle="Template-scoped latency from Prometheus (p50 / p95 / p99)."
+            >
+              <div className="space-y-3">
+                {perOpDistributions.map((d) => (
+                  <LatencyDistribution
+                    key={d.prefix}
+                    label={d.label}
+                    p50Ms={d.p50Ms}
+                    p95Ms={d.p95Ms}
+                    p99Ms={d.p99Ms}
+                  />
+                ))}
+              </div>
+            </PedagogicalSection>
+          ) : null}
 
           <PedagogicalSection
             title="Cluster resources (USE)"

@@ -39,8 +39,8 @@ const INGRESS_HELP_SIM =
 
 const CHIPS_KEY = 'runcloud9.liveKpiChipsOpen'
 
-const chromeBtn =
-  'rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-2.5 py-1 text-[12px] text-[var(--c9-text)] transition-colors duration-150 hover:bg-[var(--c9-bg-card)] active:scale-[0.98]'
+const hudChromeBtn =
+  'c9-hud-btn inline-flex items-center gap-[0.45rem] rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-[0.7rem] py-[0.3rem] text-[12px] text-[var(--c9-text)] transition-colors duration-150 hover:bg-[var(--c9-bg-card)] focus-visible:outline-none focus-visible:shadow-[var(--c9-shadow-focus)] active:scale-[0.98]'
 
 function readChipsOpen(): boolean {
   try {
@@ -401,6 +401,7 @@ export function LiveSessionStrip() {
   return (
     <>
       <div className="relative z-30 shrink-0 overflow-visible">
+
         <div
           className="flex h-11 min-w-0 items-center gap-3 overflow-visible border-b border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3"
           title={sessionTitle}
@@ -471,20 +472,38 @@ export function LiveSessionStrip() {
                 type="button"
                 aria-expanded={loadOpen}
                 aria-haspopup="dialog"
+                aria-label="Load control"
                 onClick={() => setLoadOpen((v) => !v)}
-                className={chromeBtn}
+                className={hudChromeBtn}
               >
-                Load control
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path
+                    d="M2 13h12M5 13V8m3 5V4m3 9V7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Load
               </button>
             ) : null}
 
             <button
               type="button"
               aria-expanded={metricsDrawerOpen}
+              aria-label="Detailed metrics"
               onClick={() => setMetricsDrawerOpen(!metricsDrawerOpen)}
-              className={chromeBtn}
+              className={hudChromeBtn}
             >
-              Detailed metrics
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M2 12h12M2 8h8M2 4h5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Metrics
             </button>
 
             {kpiRows.length > 0 ? (
@@ -511,6 +530,7 @@ export function LiveSessionStrip() {
             ) : null}
           </div>
         </div>
+
 
         {chipsOpen && kpiRows.length > 0 ? (
           <div className="flex min-h-8 items-center gap-x-4 gap-y-1 overflow-x-auto border-b border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3 py-1.5">
@@ -550,60 +570,58 @@ export function LiveSessionStrip() {
 
       {loadOpen && loadPos && showLoad
         ? createPortal(
-            <div
-              ref={loadPanelRef}
-              role="dialog"
-              aria-label="Load control"
-              className="fixed z-[80] w-72 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
-              style={{ top: loadPos.top, right: loadPos.right }}
-            >
-              <label
-                htmlFor="live-load-rps"
-                className="block text-[12px] font-semibold text-[var(--c9-text)]"
+            <div ref={loadPanelRef}>
+              <div
+                role="dialog"
+                aria-label="Load control"
+                className="c9-load-panel"
+                style={{ top: loadPos.top, right: loadPos.right }}
               >
-                RPS
-              </label>
-              <input
-                id="live-load-rps"
-                type="number"
-                min={1}
-                max={500}
-                autoFocus
-                value={rps}
-                title={INGRESS_HELP_LIVE}
-                onChange={(e) => {
-                  setHasUserSetRps(true)
-                  setRps(Math.max(1, Number(e.target.value) || 1))
-                }}
-                className="mt-2 w-full rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3 py-2 font-mono text-base text-[var(--c9-text)]"
-              />
-              {loadRunning ? (
-                <p className="mt-2 text-[12px] text-[var(--c9-muted)]">
-                  Running {fmtRate(runningRps)} rps
-                  {runningTotal > 0 ? ` · ${fmtInt(runningTotal)} total` : ''}
+                <p className="c9-load-panel-status" aria-live="polite">
+                  {loadRunning
+                    ? `Running ${fmtRate(runningRps)} rps${
+                        runningTotal > 0 ? ` · ${fmtInt(runningTotal)} total` : ''
+                      }`
+                    : '\u00a0'}
                 </p>
-              ) : null}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  if (loadRunning) void onStopLoad()
-                  else void onStartLoad()
-                }}
-                className={`mt-3 w-full rounded-md px-3 py-2 text-[13px] font-medium text-white active:scale-[0.98] ${
-                  loadRunning
-                    ? 'bg-red-600 hover:bg-red-500'
-                    : 'bg-emerald-700 hover:bg-emerald-600'
-                } disabled:opacity-60`}
-              >
-                {busy
-                  ? loadRunning
-                    ? 'Stopping…'
-                    : 'Starting…'
-                  : loadRunning
-                    ? 'Stop load'
-                    : 'Start load'}
-              </button>
+                <div className="c9-load-panel-field">
+                  <label htmlFor="live-load-rps">RPS</label>
+                  <input
+                    id="live-load-rps"
+                    type="number"
+                    min={1}
+                    max={500}
+                    autoFocus
+                    value={rps}
+                    title={INGRESS_HELP_LIVE}
+                    onChange={(e) => {
+                      setHasUserSetRps(true)
+                      setRps(Math.max(1, Number(e.target.value) || 1))
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (loadRunning) void onStopLoad()
+                    else void onStartLoad()
+                  }}
+                  className={`c9-load-panel-cta w-full rounded-md px-3 py-2 text-[13px] font-medium text-white active:scale-[0.98] ${
+                    loadRunning
+                      ? 'bg-red-600 hover:bg-red-500'
+                      : 'bg-emerald-700 hover:bg-emerald-600'
+                  } disabled:opacity-60`}
+                >
+                  {busy
+                    ? loadRunning
+                      ? 'Stopping…'
+                      : 'Starting…'
+                    : loadRunning
+                      ? 'Stop load'
+                      : 'Start load'}
+                </button>
+              </div>
             </div>,
             document.body,
           )

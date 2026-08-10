@@ -6,6 +6,11 @@ import {
   resetAnalytics,
   trackEvent,
 } from './analytics'
+import {
+  applyDevAccountPreviewUser,
+  DEV_ENGINEER_USER,
+  isDevAccountPreviewEnabled,
+} from './devAccountPreview'
 import { supabase } from './supabase'
 import { useAuthStore } from '../product/stores/authStore'
 
@@ -18,6 +23,11 @@ export function initAuth(): void {
     useAuthStore.getState().setSession(session)
     if (session?.user?.id) {
       void refreshCurrentUser()
+    } else {
+      applyDevAccountPreviewUser(
+        useAuthStore.getState().setCurrentUser,
+        session,
+      )
     }
   })
   supabase.auth.onAuthStateChange((_event, session) => {
@@ -25,9 +35,12 @@ export function initAuth(): void {
     if (session?.user?.id) {
       void refreshCurrentUser()
     } else {
-      useAuthStore.getState().setCurrentUser(null)
       identifiedUserId = null
       resetAnalytics()
+      applyDevAccountPreviewUser(
+        useAuthStore.getState().setCurrentUser,
+        session,
+      )
     }
   })
 }
@@ -48,10 +61,15 @@ export async function refreshCurrentUser(): Promise<void> {
     if (err instanceof ApiError && err.status === 401) {
       useAuthStore.getState().setSession(null)
       void supabase.auth.signOut()
+      applyDevAccountPreviewUser(useAuthStore.getState().setCurrentUser, null)
       trackEvent('auth_failed', { errorCategory: 'unauthorized' })
       return
     }
     console.warn('refreshCurrentUser:', err)
+    if (isDevAccountPreviewEnabled()) {
+      useAuthStore.getState().setCurrentUser(DEV_ENGINEER_USER)
+      return
+    }
     useAuthStore.getState().setCurrentUser(null)
     trackEvent('auth_failed', { errorCategory: categorizeSafeError(err) })
   }

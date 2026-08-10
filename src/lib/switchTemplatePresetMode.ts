@@ -4,6 +4,7 @@ import {
   templateHasExplorerRunnable,
   type TemplatePresetMode,
 } from './templatePresetMode'
+import { FREE_TIER_DESIGN_LABEL } from './billingCopy'
 import { hasPaidTier, type UserRecord } from './userTier'
 import type { TemplateInfo } from './api'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -33,7 +34,7 @@ export function switchTemplatePresetMode(
 
   if (opts?.confirmIfDirty !== false && Object.keys(st.nodes).length > 0) {
     const label =
-      mode === 'explorer' ? 'Explorer runnable' : 'full architecture preview'
+      mode === 'explorer' ? FREE_TIER_DESIGN_LABEL : 'full architecture preview'
     if (
       !window.confirm(
         `Replace the canvas with the ${label} preset? Unsaved layout changes will be lost.`,

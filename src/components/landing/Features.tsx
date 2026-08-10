@@ -107,23 +107,16 @@ function FeatureVisual({
 }
 
 function FeatureCopy({
-  category,
-  categoryClass,
   title,
   body,
   bullets,
-}: Pick<FeatureBlockConfig, 'category' | 'categoryClass' | 'title' | 'body' | 'bullets'>) {
+}: Pick<FeatureBlockConfig, 'title' | 'body' | 'bullets'>) {
   return (
     <div>
-      <p
-        className={`text-xs font-medium uppercase tracking-widest ${categoryClass}`}
-      >
-        {category}
-      </p>
-      <h3 className="mt-3 whitespace-pre-line font-serif text-3xl font-medium leading-snug text-c9-text-heading lg:text-4xl">
+      <h3 className="whitespace-pre-line font-serif text-3xl font-medium leading-snug text-c9-text-heading lg:text-4xl">
         {title}
       </h3>
-      <p className="mt-4 max-w-md text-base leading-relaxed text-c9-text-muted">
+      <p className="mt-4 max-w-[65ch] font-serif text-base leading-relaxed text-c9-text-muted">
         {body}
       </p>
       <ul className="mt-6 flex flex-col gap-3">
@@ -141,78 +134,71 @@ function FeatureCopy({
   )
 }
 
+function featureAlt(block: FeatureBlockConfig) {
+  return block.category === 'Design'
+    ? 'RunCloud9 isometric architecture canvas'
+    : `${block.title} preview`
+}
+
 export function Features() {
   return (
     <section
       id="features"
-      className="py-32"
-      style={{ background: '#08070C' }}
+      className="bg-[#08070c] px-6 py-16 text-[var(--c9-text)] lg:px-10"
     >
-      <div className="mx-auto max-w-[1360px] px-6 lg:px-10">
-        <header className="mb-20 text-center">
-          <p className="text-xs font-medium uppercase tracking-widest text-c9-accent">
-            What you can do
-          </p>
-          <h2 className="mt-3 font-serif text-4xl font-medium text-c9-text-heading lg:text-5xl">
+      <div className="mx-auto max-w-[1360px]">
+        <header className="mb-12 max-w-3xl">
+          <h2 className="font-serif text-4xl font-medium tracking-[-0.02em] text-c9-text-heading lg:text-5xl">
             Live infrastructure from your canvas diagram.
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-lg leading-relaxed text-c9-text-muted">
+          <p className="mt-4 max-w-[65ch] font-serif text-lg leading-relaxed text-c9-text-muted">
             You deploy what you placed on the canvas, run traffic for nine
             minutes, trigger chaos scenarios, and read metrics on each node.
           </p>
         </header>
-
-        <div className="flex flex-col">
-          {FEATURE_BLOCKS.map((block) => (
-            <article
-              key={block.category}
-              className="grid grid-cols-1 items-center gap-12 py-20 lg:grid-cols-12 lg:gap-16"
-              style={{ borderTop: '1px solid var(--c9-border)' }}
-            >
-              {block.visualFirst ? (
-                <>
-                  <div className="lg:col-span-8 lg:order-1">
-                    <FeatureVisual
-                      screenshotSrc={block.screenshotSrc}
-                      framed={block.category === 'Design' ? false : true}
-                      alt={
-                        block.category === 'Design'
-                          ? 'RunCloud9 isometric architecture canvas'
-                          : `${block.title} preview`
-                      }
-                    />
-                  </div>
-                  <div className="lg:col-span-4 lg:order-2">
-                    <FeatureCopy
-                      category={block.category}
-                      categoryClass={block.categoryClass}
-                      title={block.title}
-                      body={block.body}
-                      bullets={block.bullets}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="lg:col-span-4 lg:order-1">
-                    <FeatureCopy
-                      category={block.category}
-                      categoryClass={block.categoryClass}
-                      title={block.title}
-                      body={block.body}
-                      bullets={block.bullets}
-                    />
-                  </div>
-                  <div className="lg:col-span-8 lg:order-2">
-                    <FeatureVisual
-                      screenshotSrc={block.screenshotSrc}
-                      alt={`${block.title} preview`}
-                    />
-                  </div>
-                </>
-              )}
-            </article>
-          ))}
+        <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
+          <nav
+            className="w-[13.3rem] shrink-0 lg:sticky lg:top-24"
+            aria-label="Session steps"
+          >
+            <ol className="flex flex-row gap-4 lg:flex-col lg:gap-1">
+              {FEATURE_BLOCKS.map((block, i) => (
+                <li key={block.category}>
+                  <a
+                    href={`#feature-${block.category.toLowerCase()}`}
+                    className={`block rounded-md px-2 py-2 text-sm text-c9-text-muted transition-colors hover:text-c9-text-heading focus-visible:shadow-[var(--c9-shadow-focus)] focus-visible:outline-none ${block.categoryClass}`}
+                  >
+                    <span className="font-mono text-[11px] text-c9-text-disabled">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>{' '}
+                    {block.category}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+          <div className="flex min-w-0 flex-1 flex-col gap-14">
+            {FEATURE_BLOCKS.map((block) => (
+              <article
+                key={block.category}
+                id={`feature-${block.category.toLowerCase()}`}
+                className="border-t border-[var(--c9-border)] py-10"
+              >
+                <FeatureCopy
+                  title={block.title}
+                  body={block.body}
+                  bullets={block.bullets}
+                />
+                <div className="mt-8">
+                  <FeatureVisual
+                    screenshotSrc={block.screenshotSrc}
+                    framed={block.category !== 'Design'}
+                    alt={featureAlt(block)}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </section>

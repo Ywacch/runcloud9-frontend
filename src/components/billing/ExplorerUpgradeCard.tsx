@@ -5,6 +5,7 @@ import {
   ENGINEER_BENEFIT_ROWS,
   engineerUpgradeCta,
   formatSessionsLeftThisMonth,
+  FREE_TIER_LABEL,
 } from '../../lib/billingCopy'
 import { BILLING_ENABLED } from '../../lib/featureFlags'
 import { startEngineerUpgrade } from '../../editor-ui/PlanLimitsCard'
@@ -51,7 +52,7 @@ export function ExplorerUpgradeCard({
               Your plan
             </p>
             <p className="mt-1 text-xl font-semibold text-[var(--c9-text)]">
-              Explorer
+              {FREE_TIER_LABEL}
             </p>
             <p className="mt-1 text-sm text-[var(--c9-muted)]">
               {sessionsLine

@@ -20,6 +20,41 @@ export type TopologyPreviewEdge = {
   targetId: string
 }
 
+/** Wide thumb matching dashboard / template cards (~2.5:1), not a stretched square. */
+export const PREVIEW_VB_W = 250
+export const PREVIEW_VB_H = 100
+const PREVIEW_PAD = 16
+
+export function layoutTopologyPreview(
+  nodes: TopologyPreviewNode[],
+  vbW = PREVIEW_VB_W,
+  vbH = PREVIEW_VB_H,
+  pad = PREVIEW_PAD,
+): Map<string, { x: number; y: number }> {
+  const xs = nodes.map((n) => n.position[0])
+  const zs = nodes.map((n) => n.position[2])
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minZ = Math.min(...zs)
+  const maxZ = Math.max(...zs)
+  const spanX = Math.max(maxX - minX, 1e-6)
+  const spanZ = Math.max(maxZ - minZ, 1e-6)
+  const usableW = vbW - pad * 2
+  const usableH = vbH - pad * 2
+  const scale = Math.min(usableW / spanX, usableH / spanZ)
+  const offsetX = pad + (usableW - spanX * scale) / 2
+  const offsetY = pad + (usableH - spanZ * scale) / 2
+  return new Map(
+    nodes.map((n) => [
+      n.id,
+      {
+        x: offsetX + (n.position[0] - minX) * scale,
+        y: offsetY + (n.position[2] - minZ) * scale,
+      },
+    ]),
+  )
+}
+
 /** Flat SVG topology preview for template cards and dashboards. */
 export function MiniTopologyPreview({
   nodes,
@@ -30,59 +65,47 @@ export function MiniTopologyPreview({
   edges: TopologyPreviewEdge[]
   className?: string
 }) {
-  if (nodes.length === 0) {
-    return (
-      <div
-        className={`flex items-center justify-center ${className}`}
-        aria-hidden
-      >
-        <div className="h-8 w-8 rounded-md bg-[var(--c9-bg-subtle)]/60" />
-      </div>
-    )
-  }
+  if (nodes.length === 0) return null
 
-  const positions = new Map(
-    nodes.map((n) => [n.id, { x: n.position[0], z: n.position[2] }]),
-  )
-
-  const xs = nodes.map((n) => n.position[0])
-  const zs = nodes.map((n) => n.position[2])
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minZ = Math.min(...zs)
-  const maxZ = Math.max(...zs)
-  const rangeX = maxX - minX || 1
-  const rangeZ = maxZ - minZ || 1
-  const padded = (v: number, min: number, range: number) =>
-    15 + ((v - min) / range) * 70
+  const laid = layoutTopologyPreview(nodes)
+  const r = 7
 
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden>
+    <svg
+      viewBox={`0 0 ${PREVIEW_VB_W} ${PREVIEW_VB_H}`}
+      preserveAspectRatio="xMidYMid meet"
+      className={className}
+      aria-hidden
+    >
       {edges.map((e) => {
-        const s = positions.get(e.sourceId)
-        const t = positions.get(e.targetId)
+        const s = laid.get(e.sourceId)
+        const t = laid.get(e.targetId)
         if (!s || !t) return null
         return (
           <line
             key={`${e.sourceId}-${e.targetId}`}
-            x1={padded(s.x, minX, rangeX)}
-            y1={padded(s.z, minZ, rangeZ)}
-            x2={padded(t.x, minX, rangeX)}
-            y2={padded(t.z, minZ, rangeZ)}
-            stroke="rgba(255,255,255,0.15)"
-            strokeWidth="0.8"
+            x1={s.x}
+            y1={s.y}
+            x2={t.x}
+            y2={t.y}
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth="1.2"
           />
         )
       })}
-      {nodes.map((n) => (
-        <circle
-          key={n.id}
-          cx={padded(n.position[0], minX, rangeX)}
-          cy={padded(n.position[2], minZ, rangeZ)}
-          r="5"
-          fill={TOPOLOGY_NODE_COLORS[n.type] ?? '#878593'}
-        />
-      ))}
+      {nodes.map((n) => {
+        const p = laid.get(n.id)
+        if (!p) return null
+        return (
+          <circle
+            key={n.id}
+            cx={p.x}
+            cy={p.y}
+            r={r}
+            fill={TOPOLOGY_NODE_COLORS[n.type] ?? '#878593'}
+          />
+        )
+      })}
     </svg>
   )
 }

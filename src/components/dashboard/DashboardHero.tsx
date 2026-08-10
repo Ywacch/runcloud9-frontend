@@ -11,14 +11,14 @@ const DASHBOARD_SVG_STYLE = {
 export function DashboardHero() {
   return (
     <section>
-      <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-8 lg:gap-12">
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <Link
           to="/canvas"
-          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[var(--c9-accent)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)] active:scale-[0.98]"
+          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)] active:scale-[0.98]"
         >
           Open canvas
         </Link>
-        <div className="w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px]">
+        <div className="w-full max-w-[240px] sm:max-w-[280px]">
           <InteractiveCanvasHero
             className="w-full"
             imgStyle={DASHBOARD_SVG_STYLE}

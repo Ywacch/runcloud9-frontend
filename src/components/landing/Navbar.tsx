@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../product/stores/authStore'
 import { loginPathWithReturnTo } from '../../lib/authReturn'
+import { hasDevAccountAccess } from '../../lib/devAccountPreview'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const session = useAuthStore((s) => s.session)
+  const accountAccess = hasDevAccountAccess(session)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -34,7 +36,7 @@ export function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-3 md:flex">
-          {session ? (
+          {accountAccess ? (
             <>
               <Link
                 to="/dashboard"
@@ -42,13 +44,22 @@ export function Navbar() {
               >
                 Dashboard
               </Link>
-              <button
-                type="button"
-                onClick={() => void supabase.auth.signOut()}
-                className="rounded border border-c9-border-strong px-4 py-1.5 text-sm text-c9-text-muted transition-colors hover:border-c9-accent hover:text-c9-text"
-              >
-                Log out
-              </button>
+              {session ? (
+                <button
+                  type="button"
+                  onClick={() => void supabase.auth.signOut()}
+                  className="rounded border border-c9-border-strong px-4 py-1.5 text-sm text-c9-text-muted transition-colors hover:border-c9-accent hover:text-c9-text"
+                >
+                  Log out
+                </button>
+              ) : (
+                <Link
+                  to={loginPathWithReturnTo('/dashboard')}
+                  className="px-3 py-1.5 text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+                >
+                  Log in
+                </Link>
+              )}
             </>
           ) : (
             <Link
@@ -87,7 +98,7 @@ export function Navbar() {
       {open ? (
         <div className="border-t border-c9-border bg-c9-bg/95 px-6 py-4 backdrop-blur-sm md:hidden">
           <div className="flex flex-col gap-3">
-            {session ? (
+            {accountAccess ? (
               <>
                 <Link
                   to="/dashboard"
@@ -96,13 +107,23 @@ export function Navbar() {
                 >
                   Dashboard
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => void supabase.auth.signOut()}
-                  className="rounded border border-c9-border-strong px-4 py-2 text-left text-sm text-c9-text-muted"
-                >
-                  Log out
-                </button>
+                {session ? (
+                  <button
+                    type="button"
+                    onClick={() => void supabase.auth.signOut()}
+                    className="rounded border border-c9-border-strong px-4 py-2 text-left text-sm text-c9-text-muted"
+                  >
+                    Log out
+                  </button>
+                ) : (
+                  <Link
+                    to={loginPathWithReturnTo('/dashboard')}
+                    className="px-3 py-1.5 text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+                    onClick={() => setOpen(false)}
+                  >
+                    Log in
+                  </Link>
+                )}
               </>
             ) : (
               <Link

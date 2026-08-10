@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMe } from './api'
 import { ApiError } from './apiError'
 import { refreshCurrentUser } from './auth'
+import { DEV_ENGINEER_USER } from './devAccountPreview'
 import { supabase } from './supabase'
 import { useAuthStore } from '../product/stores/authStore'
 
@@ -75,13 +76,22 @@ describe('refreshCurrentUser', () => {
 
     expect(useAuthStore.getState().session).toBeNull()
     expect(supabase.auth.signOut).toHaveBeenCalled()
+    if (import.meta.env.DEV) {
+      expect(useAuthStore.getState().currentUser).toEqual(DEV_ENGINEER_USER)
+    } else {
+      expect(useAuthStore.getState().currentUser).toBeNull()
+    }
   })
 
   it('falls back to null currentUser on other errors', async () => {
     vi.mocked(getMe).mockRejectedValue(new Error('network'))
     await refreshCurrentUser()
 
-    expect(useAuthStore.getState().currentUser).toBeNull()
+    if (import.meta.env.DEV) {
+      expect(useAuthStore.getState().currentUser).toEqual(DEV_ENGINEER_USER)
+    } else {
+      expect(useAuthStore.getState().currentUser).toBeNull()
+    }
     expect(useAuthStore.getState().session).not.toBeNull()
   })
 })

@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildWsBaseForApi,
   deleteDeployment,
+  getDeployment,
   getMe,
+  listActiveDeployments,
   listDeploymentHistory,
   startLoadGen,
   stopLoadGen,
 } from './api'
+import { DEV_ENGINEER_USER } from './devAccountPreview'
 import { getAccessToken } from './auth'
 
 vi.mock('./auth', () => ({
@@ -98,6 +101,44 @@ describe('getMe', () => {
     expect(fetchMock).toHaveBeenCalledWith('/me', {
       headers: { Authorization: 'Bearer tok-me' },
     })
+  })
+
+  it('returns the dev preview user when /me is down in Vite dev', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('tok-me')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      text: async () => 'bad gateway',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    if (!import.meta.env.DEV) {
+      await expect(getMe()).rejects.toMatchObject({ status: 502 })
+      return
+    }
+
+    await expect(getMe()).resolves.toEqual(DEV_ENGINEER_USER)
+  })
+
+  it('returns the dev preview user when unsigned in Vite dev', async () => {
+    vi.mocked(getAccessToken).mockReturnValue(null)
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    if (!import.meta.env.DEV) {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        text: async () => JSON.stringify({ error: 'missing token' }),
+      })
+      await expect(getMe()).rejects.toMatchObject({ status: 401 })
+      return
+    }
+
+    await expect(getMe()).resolves.toEqual(DEV_ENGINEER_USER)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('throws ApiError on 401', async () => {
@@ -196,6 +237,28 @@ describe('listDeploymentHistory', () => {
     expect(item.peakP99Ms).toBeUndefined()
   })
 
+  it('returns preview history when unsigned in Vite dev', async () => {
+    vi.mocked(getAccessToken).mockReturnValue(null)
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    if (!import.meta.env.DEV) {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        text: async () => JSON.stringify({ error: 'missing token' }),
+      })
+      await expect(listDeploymentHistory(20)).rejects.toMatchObject({ status: 401 })
+      return
+    }
+
+    const rows = await listDeploymentHistory(2)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.template).toBe('url-shortener')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('throws ApiError on failure', async () => {
     vi.mocked(getAccessToken).mockReturnValue('tok')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -209,5 +272,34 @@ describe('listDeploymentHistory', () => {
       status: 403,
       rawMessage: 'access denied',
     })
+  })
+})
+
+describe('dev account preview deployments', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getAccessToken).mockReturnValue(null)
+  })
+
+  it('lists a running preview deploy without fetching', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    if (!import.meta.env.DEV) return
+
+    const rows = await listActiveDeployments()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.status).toBe('running')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('returns preview metrics by namespace', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    if (!import.meta.env.DEV) return
+
+    const rec = await getDeployment('cloud9-url-shortener-devpreview-c4d5e6')
+    expect(rec.template).toBe('url-shortener')
+    expect(rec.metricsSummary).toMatchObject({ peak_rps: 86 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

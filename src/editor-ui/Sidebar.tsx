@@ -39,7 +39,10 @@ import {
   explorerComponentLocksActive,
   isEngineerOnlyNodeType,
 } from '../lib/canvasContextMenuCatalog'
-import { UPGRADE_TO_UNLOCK_TOOLTIP } from '../lib/billingCopy'
+import {
+  SWITCH_TO_FREE_TIER_DESIGN_LABEL,
+  UPGRADE_TO_UNLOCK_TOOLTIP,
+} from '../lib/billingCopy'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   designExceedsResourceQuota,
@@ -1011,7 +1014,7 @@ export function Sidebar() {
         requestSecondaryActionLabel={deployRequestMessage?.secondaryActionLabel}
         onRequestSecondaryAction={
           deployRequestMessage?.secondaryActionLabel ===
-          'Switch to Explorer runnable'
+          SWITCH_TO_FREE_TIER_DESIGN_LABEL
             ? () => {
                 const ok = switchTemplatePresetMode('explorer', {
                   user: useAuthStore.getState().userRecord,
@@ -1021,7 +1024,7 @@ export function Sidebar() {
                   setDeployModalOpen(false)
                   setDeployModalMode('progress')
                   setDeployRequestMessage(null)
-                  setBanner('Switched to Explorer runnable design.')
+                  setBanner('Switched to Free tier design.')
                 }
               }
             : undefined

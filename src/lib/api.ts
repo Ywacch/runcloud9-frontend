@@ -1,5 +1,13 @@
 import { getAccessToken } from './auth'
 import { ApiError } from './apiError'
+import {
+  DEV_ENGINEER_USER,
+  devActiveDeployments,
+  devDeploymentHistory,
+  devDeploymentRecord,
+  shouldFallbackToDevAccountFixtures,
+  shouldUseDevAccountFixtures,
+} from './devAccountPreview'
 import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
 import type { DeploymentDesign, ResourceProfilesResponse } from './deploymentTypes'
 import { ResourceBudgetApiError } from './resourceBudgetError'
@@ -197,15 +205,27 @@ export interface CurrentUserResponse {
 
 /** GET /me — authenticated caller profile (tier, quota, deployment limits). */
 export async function getMe(): Promise<CurrentUserResponse> {
-  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
-  const res = await fetch(`${base}/me`, {
-    headers: authHeader() ?? {},
-  })
-  if (!res.ok) {
-    const message = await readApiErrorMessage(res)
-    throw new ApiError(res.status, message)
+  if (shouldUseDevAccountFixtures(getAccessToken())) {
+    return DEV_ENGINEER_USER
   }
-  return res.json() as Promise<CurrentUserResponse>
+  try {
+    const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+    const res = await fetch(`${base}/me`, {
+      headers: authHeader() ?? {},
+    })
+    if (!res.ok) {
+      if (shouldFallbackToDevAccountFixtures(res.status)) {
+        return DEV_ENGINEER_USER
+      }
+      const message = await readApiErrorMessage(res)
+      throw new ApiError(res.status, message)
+    }
+    return res.json() as Promise<CurrentUserResponse>
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    if (shouldFallbackToDevAccountFixtures()) return DEV_ENGINEER_USER
+    throw err
+  }
 }
 
 /** JSON `{ "error": "..." }` or plain text — same parsing as other deployment API calls. */
@@ -295,11 +315,30 @@ export interface DeploymentRecord {
 
 export async function getDeployment(id: string): Promise<DeploymentRecord> {
   const token = getAccessToken()
-  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  })
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
-  return res.json() as Promise<DeploymentRecord>
+  if (shouldUseDevAccountFixtures(token)) {
+    const rec = devDeploymentRecord(id)
+    if (!rec) throw new Error(`Deployment not found: ${id}`)
+    return rec
+  }
+  try {
+    const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) {
+      const preview = shouldFallbackToDevAccountFixtures(res.status)
+        ? devDeploymentRecord(id)
+        : null
+      if (preview) return preview
+      throw new Error(await readApiErrorMessage(res))
+    }
+    return res.json() as Promise<DeploymentRecord>
+  } catch (err) {
+    if (shouldFallbackToDevAccountFixtures()) {
+      const preview = devDeploymentRecord(id)
+      if (preview) return preview
+    }
+    throw err
+  }
 }
 
 /** GET /deployments — list active deployments for the current user (or all, if unauthenticated). */
@@ -314,11 +353,24 @@ export interface ActiveDeploymentSummary {
 
 export async function listActiveDeployments(): Promise<ActiveDeploymentSummary[]> {
   const token = getAccessToken()
-  const res = await fetch(API_BASE, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  })
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
-  return res.json() as Promise<ActiveDeploymentSummary[]>
+  if (shouldUseDevAccountFixtures(token)) {
+    return devActiveDeployments()
+  }
+  try {
+    const res = await fetch(API_BASE, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) {
+      if (shouldFallbackToDevAccountFixtures(res.status)) {
+        return devActiveDeployments()
+      }
+      throw new Error(await readApiErrorMessage(res))
+    }
+    return res.json() as Promise<ActiveDeploymentSummary[]>
+  } catch (err) {
+    if (shouldFallbackToDevAccountFixtures()) return devActiveDeployments()
+    throw err
+  }
 }
 
 /** Past terminated/failed deployments for the signed-in user (newest first). */
@@ -340,10 +392,22 @@ export async function listDeploymentHistory(
   limit = 20,
 ): Promise<DeploymentHistoryItem[]> {
   const clamped = Math.min(50, Math.max(1, Math.floor(Number(limit) || 20)))
-  const res = await fetch(`${API_BASE}/history?limit=${clamped}`, {
-    headers: authHeader() ?? {},
-  })
+  if (shouldUseDevAccountFixtures(getAccessToken())) {
+    return devDeploymentHistory(clamped)
+  }
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/history?limit=${clamped}`, {
+      headers: authHeader() ?? {},
+    })
+  } catch (err) {
+    if (shouldFallbackToDevAccountFixtures()) return devDeploymentHistory(clamped)
+    throw err
+  }
   if (!res.ok) {
+    if (shouldFallbackToDevAccountFixtures(res.status)) {
+      return devDeploymentHistory(clamped)
+    }
     const message = await readApiErrorMessage(res)
     throw new ApiError(res.status, message)
   }

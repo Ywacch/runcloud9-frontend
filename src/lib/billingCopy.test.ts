@@ -50,14 +50,14 @@ describe('billingCopy', () => {
     expect(RESOURCE_PROFILE_HELPER).toBe(
       'Adjust CPU and memory for this component.',
     )
-    expect(REPLICAS_HELP_FREE).toBe('Explorer runs one App Server pod.')
+    expect(REPLICAS_HELP_FREE).toBe('Free tier runs one App Server pod.')
     expect(replicasHelpPaid(3)).toBe(
       'Deploy runs this many App Server pods (1-3). Click the grid to add replicas.',
     )
   })
 
   it('maps plan labels without exposing internal', () => {
-    expect(displayPlanTierLabel('free')).toBe('Explorer')
+    expect(displayPlanTierLabel('free')).toBe('Free tier')
     expect(displayPlanTierLabel('engineer')).toBe('Engineer')
     expect(displayPlanTierLabel('internal')).toBe('Engineer')
   })
@@ -98,6 +98,7 @@ describe('billingCopy', () => {
     const lb = ENGINEER_BENEFIT_ROWS.find((r) => r.id === 'load_balancer')
     const mq = ENGINEER_BENEFIT_ROWS.find((r) => r.id === 'mq_worker')
     expect(lb?.explorerNote).toMatch(/full architecture/i)
+    expect(lb?.explorerNote).toMatch(/Free tier design/)
     expect(lb?.explorerNote).not.toMatch(/omit/i)
     expect(mq?.explorerNote).toMatch(/full architecture/i)
   })

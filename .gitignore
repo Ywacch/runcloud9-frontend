@@ -46,4 +46,6 @@ test-results/
 
 throwaway/
 .agents/
+.impeccable/
 skills-lock.json
+PRODUCT.md

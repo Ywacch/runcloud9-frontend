@@ -4,6 +4,13 @@ type ScreenshotFrameProps = {
   className?: string
 }
 
+const SHOT_MASK = {
+  maskImage:
+    'radial-gradient(ellipse 78% 82% at 50% 48%, black 55%, transparent 88%)',
+  WebkitMaskImage:
+    'radial-gradient(ellipse 78% 82% at 50% 48%, black 55%, transparent 88%)',
+} as const
+
 export function ScreenshotFrame({
   screenshotSrc,
   alt = 'RunCloud9 canvas preview',
@@ -18,6 +25,7 @@ export function ScreenshotFrame({
           src={screenshotSrc}
           alt={alt}
           className="block h-auto w-full bg-[var(--c9-bg-surface)] object-contain"
+          style={SHOT_MASK}
           decoding="async"
         />
       ) : (

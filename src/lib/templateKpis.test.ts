@@ -39,7 +39,7 @@ describe('templateKpiRows social-feed', () => {
       pushTopology,
     )
     const labels = rows.map((r) => r.label)
-    expect(labels).toContain('Feed reads/s (push)')
+    expect(labels).toContain('Feed push rate')
     expect(labels).toContain('Feed reads (push)')
     const total = rows.find((r) => r.label === 'Feed reads (push)')
     expect(total?.value).toBe('1,280')
@@ -59,7 +59,7 @@ describe('templateKpiRows social-feed', () => {
       pullTopology,
     )
     const labels = rows.map((r) => r.label)
-    expect(labels).not.toContain('Feed reads/s (push)')
+    expect(labels).not.toContain('Feed push rate')
     expect(labels).not.toContain('Feed reads (push)')
   })
 })
@@ -82,10 +82,10 @@ describe('templateKpiRows social-feed-pull', () => {
       pullTopology,
     )
     const labels = rows.map((r) => r.label)
-    expect(labels).toContain('Feed reads/s (pull)')
-    expect(labels).toContain('Feed read p95 (pull)')
+    expect(labels).toContain('Feed pull rate')
+    expect(labels).toContain('Feed pull p95')
     expect(labels).toContain('Posts written (sync)')
-    expect(labels).not.toContain('Feed reads/s (push)')
+    expect(labels).not.toContain('Feed push rate')
     expect(labels.some((l) => l.includes('Fan-out'))).toBe(false)
   })
 
@@ -131,17 +131,17 @@ describe('kpiChipIsAlert', () => {
 describe('hudKpiLabel / hudKpiRows', () => {
   it('shortens inspector social-feed labels', () => {
     expect(hudKpiLabel('Posts written (async)')).toBe('Posts')
-    expect(hudKpiLabel('Feed reads/s (push)')).toBe('Feed/s')
-    expect(hudKpiLabel('Feed read p95 (push)')).toBe('Feed p95')
+    expect(hudKpiLabel('Feed push rate')).toBe('Feed/s')
+    expect(hudKpiLabel('Feed push p95')).toBe('Feed p95')
     expect(hudKpiLabel('Fan-out errors')).toBe('Fan-out errors')
   })
 
   it('caps at 4 and keeps firing error metrics first', () => {
     const rows = hudKpiRows([
       { id: 'a', label: 'Posts written (async)', value: '5265', numeric: 5265 },
-      { id: 'b', label: 'Feed reads/s (push)', value: '8/s', numeric: 8 },
+      { id: 'b', label: 'Feed push rate', value: '8/s', numeric: 8 },
       { id: 'c', label: 'Feed reads (push)', value: '2866', numeric: 2866 },
-      { id: 'd', label: 'Feed read p95 (push)', value: '2500ms', numeric: 2500 },
+      { id: 'd', label: 'Feed push p95', value: '2500ms', numeric: 2500 },
       {
         id: 'e',
         label: 'Fan-out errors',
