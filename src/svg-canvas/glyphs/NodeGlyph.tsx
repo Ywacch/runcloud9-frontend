@@ -1,6 +1,13 @@
-import { memo, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useEffect, useMemo, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { composeGlyph } from '../compose/composeGlyph'
-import { useUnitOffsetsTween } from '../hooks/useUnitOffsetsTween'
+import { resolveDisplayUnits } from '../compose/resolveDisplayUnits'
+import { useExpanded } from '../store/expandStore'
+import {
+  motionKeyForNode,
+  retarget,
+  subscribeUnitMotion,
+  type MotionUnit,
+} from '../store/unitMotionStore'
 import { resolveSkin } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
@@ -14,11 +21,20 @@ type NodeGlyphProps = {
   y: number
   selected?: boolean
   interactive?: boolean
-  /** Demo / live overlay; falls back to node.healthVisual. */
   healthVisual?: HealthVisualState
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
+}
+
+function motionUnitsFromKey(key: string, fallback: MotionUnit[]): MotionUnit[] {
+  if (!key) return fallback
+  return key.split('|').filter(Boolean).map((part) => {
+    const colon = part.indexOf(':')
+    const id = part.slice(0, colon)
+    const [dx, dy, opacity, scale] = part.slice(colon + 1).split(',').map(Number)
+    return { id, dx, dy, opacity, scale }
+  })
 }
 
 function NodeGlyphInner({
@@ -33,8 +49,44 @@ function NodeGlyphInner({
   onPointerLeave,
 }: NodeGlyphProps) {
   const skin = resolveSkin(node.archetype, node.engine)
+  const expanded = useExpanded(node)
+  const resolved = useMemo(
+    () => resolveDisplayUnits(node, expanded),
+    [
+      node,
+      expanded,
+      node.topology.replicas,
+      node.topology.shards,
+      node.topology.packing,
+      node.archetype,
+      node.engine,
+    ],
+  )
+  const unitsKey = resolved.units.map((u) => `${u.dx},${u.dy}`).join('|')
+  const staticUnits: MotionUnit[] = useMemo(
+    () =>
+      resolved.units.map((u, i) => ({
+        id: `u${i}`,
+        dx: u.dx,
+        dy: u.dy,
+        opacity: 1,
+        scale: 1,
+      })),
+    [unitsKey],
+  )
+
+  useEffect(() => {
+    retarget(node.id, resolved.units)
+  }, [node.id, unitsKey, expanded, resolved.units])
+
+  const motionKey = useSyncExternalStore(
+    subscribeUnitMotion,
+    () => motionKeyForNode(node.id),
+    () => '',
+  )
+  const units = motionUnitsFromKey(motionKey, staticUnits)
+
   const composed = composeGlyph(node)
-  const units = useUnitOffsetsTween(composed.units)
   const health = healthVisual ?? node.healthVisual ?? 'off'
   const common = {
     x,
@@ -48,7 +100,6 @@ function NodeGlyphInner({
     onPointerLeave,
   }
 
-  // Redis keeps the measured brand 3-slab mark for now.
   if (composed.brandBody === 'redis') {
     return <RedisBrandGlyph {...common} units={units} />
   }
@@ -91,7 +142,7 @@ function NodeGlyphInner({
         <SpriteBackedGlyph
           {...common}
           kind="load-balancer"
-          units={[{ dx: 0, dy: 0 }]}
+          units={[{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }]}
           logoId={skin.logoId}
           tint={skin.brandTint}
         />

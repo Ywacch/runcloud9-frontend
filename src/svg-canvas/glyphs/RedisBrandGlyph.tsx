@@ -5,7 +5,7 @@ import {
   CC_REDIS_SIDE_H,
   composeRedisBrandSlabs,
 } from '../compose/cloudcraftRedisBrand'
-import type { UnitOffset } from '../compose/composeAppServer'
+import type { MotionUnit } from '../store/unitMotionStore'
 import { compareUnitPaintOrder } from '../compose/composePacking'
 import {
   resolveRimStyle,
@@ -21,7 +21,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 type RedisBrandGlyphProps = {
   x: number
   y: number
-  units?: UnitOffset[]
+  units?: MotionUnit[]
   selected?: boolean
   healthVisual?: HealthVisualState
   interactive?: boolean
@@ -102,7 +102,7 @@ function RedisMark({
 export function RedisBrandGlyph({
   x,
   y,
-  units = [{ dx: 0, dy: 0 }],
+  units = [{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }],
   selected = false,
   healthVisual = 'off',
   interactive = false,
@@ -110,7 +110,7 @@ export function RedisBrandGlyph({
   onPointerEnter,
   onPointerLeave,
 }: RedisBrandGlyphProps) {
-  // Multi-replica nest uses ZoneLayer for selection — not per-mark outlines.
+  // Multi-replica nest uses ZoneLayer for selection â€” not per-mark outlines.
   const multi = units.length > 1
   const stroke = selected && !multi ? '#3b82f6' : '#2b0908'
   const strokeWidth = selected && !multi ? 2 : 1
@@ -139,8 +139,8 @@ export function RedisBrandGlyph({
         onPointerEnter={interactive ? onPointerEnter : undefined}
         onPointerLeave={interactive ? onPointerLeave : undefined}
       >
-        {ordered.map((u, i) => (
-          <g key={i} transform={`translate(${u.dx} ${u.dy})`}>
+        {ordered.map((u) => (
+          <g key={u.id} transform={`translate(${u.dx} ${u.dy}) scale(${u.scale})`} opacity={u.opacity}>
             <RedisMark
               stroke={stroke}
               strokeWidth={strokeWidth}

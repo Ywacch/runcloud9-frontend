@@ -48,6 +48,7 @@ import {
   type SvgZone,
 } from './svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
+import { syncExpandWithSelection } from './expandStore'
 
 export type { Archetype, SvgEdge, SvgNode, SvgZone } from './svgTypes'
 
@@ -116,6 +117,7 @@ function patchSelectionFromCanvas(): void {
   const prev = useSvgCanvasStore.getState()
   if (selectionEqual(next, prev.selectedIds)) return
   useSvgCanvasStore.setState({ selectedIds: next })
+  syncExpandWithSelection(next, prev.nodes)
 }
 
 function patchPlacementFromCanvas(): void {
@@ -192,11 +194,12 @@ function syncFromCanvas(): void {
   )
 
   const edgeIds = new Set(projected.edges.map((e) => e.id))
+  const selectedIds = selectionFromCanvas()
   useSvgCanvasStore.setState({
     nodes,
     edges: projected.edges,
     zones: projected.zones,
-    selectedIds: selectionFromCanvas(),
+    selectedIds,
     selectedEdgeIds: prev.selectedEdgeIds.filter((id) => edgeIds.has(id)),
     placingArchetype: c.placingNodeType
       ? canvasTypeToArchetype(c.placingNodeType)
@@ -204,6 +207,7 @@ function syncFromCanvas(): void {
     connectMode: c.designTool === 'connect',
     connectSourceId: c.pendingSourceId,
   })
+  syncExpandWithSelection(selectedIds, nodes)
 }
 
 /** Metrics/chaos-only patch — avoids full topology reproject on every sample. */

@@ -133,7 +133,7 @@ type DragSession = {
   /** Live delta from grab. */
   dx: number
   dy: number
-  /** Screen coords at pointerdown — used to distinguish click vs drag. */
+  /** Screen coords at pointerdown ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â used to distinguish click vs drag. */
   pointerStartClient: { x: number; y: number }
   /**
    * When true, the node was not selected on pointerdown. Select it on
@@ -341,7 +341,7 @@ export default function SvgDesignCanvas({
     }
   }, [spaceDown, panning, marquee])
 
-  // Read live store nodes — React state is stale right after auto-arrange /
+  // Read live store nodes ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â React state is stale right after auto-arrange /
   // LB inject sync (requestCanvasFit runs before paint).
   const fitDefault = useCallback(() => {
     const host = hostRef.current
@@ -792,7 +792,7 @@ export default function SvgDesignCanvas({
           })
           moveNodes(updates)
         } else if (session.selectOnClick) {
-          // Click (no drag): select → opens inspector.
+          // Click (no drag): select ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ opens inspector.
           selectOnly(session.primaryId)
         }
         dragRef.current = null
@@ -913,26 +913,26 @@ export default function SvgDesignCanvas({
   const latticeHint = useMemo(() => {
     if (connectMode) {
       return connectSourceId
-        ? `connect: pick target · ${edges.length} edges`
-        : `connect: pick source · ${edges.length} edges`
+        ? `connect: pick target Ãƒâ€šÃ‚Â· ${edges.length} edges`
+        : `connect: pick source Ãƒâ€šÃ‚Â· ${edges.length} edges`
     }
     const nSel = selectedIds.length
     if (placingArchetype) {
-      return `placing ${placingArchetype} · ${nodes.length} nodes`
+      return `placing ${placingArchetype} Ãƒâ€šÃ‚Â· ${nodes.length} nodes`
     }
     if (selectedEdgeIds.length > 0) {
-      return `${selectedEdgeIds.length} edge(s) · ${edges.length} total`
+      return `${selectedEdgeIds.length} edge(s) Ãƒâ€šÃ‚Â· ${edges.length} total`
     }
-    if (nSel === 0) return `${nodes.length} nodes · ${edges.length} edges`
+    if (nSel === 0) return `${nodes.length} nodes Ãƒâ€šÃ‚Â· ${edges.length} edges`
     if (nSel === 1) {
       const id = selectedIds[0]
       const node = nodes.find((n) => n.id === id)
-      if (!node) return `1 selected · ${nodes.length} nodes`
+      if (!node) return `1 selected Ãƒâ€šÃ‚Â· ${nodes.length} nodes`
       const snapped = snapWorld(node.x, node.y)
       const iso = screenToIso(snapped.x, snapped.y)
-      return `rest ${node.label} → (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
+      return `rest ${node.label} ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ (${iso.i.toFixed(1)}, ${iso.j.toFixed(1)})`
     }
-    return `${nSel} selected · ${nodes.length} nodes`
+    return `${nSel} selected Ãƒâ€šÃ‚Â· ${nodes.length} nodes`
   }, [
     nodes,
     edges.length,
@@ -986,7 +986,7 @@ export default function SvgDesignCanvas({
           <span className="font-medium text-zinc-900">SVG canvas spike</span>
           <span className="text-zinc-300">|</span>
           <span className="text-zinc-500">
-            Connect · Ctrl+A/C/V · undo Ctrl+Z · drag empty to pan
+            Connect Ãƒâ€šÃ‚Â· Ctrl+A/C/V Ãƒâ€šÃ‚Â· undo Ctrl+Z Ãƒâ€šÃ‚Â· drag empty to pan
           </span>
           <MiniPalette />
           <ConnectToggle />
@@ -1013,7 +1013,7 @@ export default function SvgDesignCanvas({
               onClick={() => zoomBy(ZOOM_FACTOR)}
               aria-label="Zoom out"
             >
-              −
+              ÃƒÂ¢Ã‹â€ Ã¢â‚¬â„¢
             </button>
             <button
               type="button"
@@ -1036,7 +1036,7 @@ export default function SvgDesignCanvas({
               onClick={() => void exportSvg()}
               disabled={exporting}
             >
-              {exporting ? 'Exporting…' : 'Export SVG'}
+              {exporting ? 'ExportingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦' : 'Export SVG'}
             </button>
           </div>
           <span className="ml-auto text-xs text-zinc-500">{latticeHint}</span>
@@ -1062,7 +1062,7 @@ export default function SvgDesignCanvas({
               onClick={() => zoomBy(ZOOM_FACTOR)}
               aria-label="Zoom out"
             >
-              −
+              ÃƒÂ¢Ã‹â€ Ã¢â‚¬â„¢
             </button>
             <button
               type="button"
@@ -1087,7 +1087,7 @@ export default function SvgDesignCanvas({
               disabled={exporting}
               title="Download SVG (bounded board, or design + padding)"
             >
-              {exporting ? '…' : 'SVG'}
+              {exporting ? 'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦' : 'SVG'}
             </button>
           </div>
           <button

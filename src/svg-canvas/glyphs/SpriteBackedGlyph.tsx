@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
-import type { UnitOffset } from '../compose/composeAppServer'
+import type { MotionUnit } from '../store/unitMotionStore'
 import { compareUnitPaintOrder } from '../compose/composePacking'
 import {
   resolveRimStyle,
@@ -26,11 +26,11 @@ type SpriteBackedGlyphProps = {
   y: number
   label: string
   /** Replica / shard offsets in node space. */
-  units?: UnitOffset[]
+  units?: MotionUnit[]
   logoId?: string | null
   /** Engine accent; greyscale sprites get a single-channel feColorMatrix. */
   tint?: BrandTint | null
-  /** When false, skip face logo (rare). Default true — still no-ops if logoId null. */
+  /** When false, skip face logo (rare). Default true â€” still no-ops if logoId null. */
   showBadge?: boolean
   selected?: boolean
   healthVisual?: HealthVisualState
@@ -45,7 +45,7 @@ export function SpriteBackedGlyph({
   kind,
   x,
   y,
-  units = [{ dx: 0, dy: 0 }],
+  units = [{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }],
   logoId = null,
   tint = null,
   showBadge = true,
@@ -58,7 +58,7 @@ export function SpriteBackedGlyph({
 }: SpriteBackedGlyphProps) {
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
-  // Multi-unit in-plane nests use ZoneLayer — not per-unit boxes for selection.
+  // Multi-unit in-plane nests use ZoneLayer â€” not per-unit boxes for selection.
   // Health rims still paint per unit so stacks and fans both show FX.
   const perUnitSelect =
     selected &&
@@ -102,8 +102,8 @@ export function SpriteBackedGlyph({
         onPointerEnter={interactive ? onPointerEnter : undefined}
         onPointerLeave={interactive ? onPointerLeave : undefined}
       >
-        {ordered.map((u, i) => (
-          <g key={i} transform={`translate(${u.dx} ${u.dy})`}>
+        {ordered.map((u) => (
+          <g key={u.id} transform={`translate(${u.dx} ${u.dy}) scale(${u.scale})`} opacity={u.opacity}>
             <rect
               x={-spec.tipX}
               y={-spec.tipY}

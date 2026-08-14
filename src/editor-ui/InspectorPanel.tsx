@@ -77,7 +77,6 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
-import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -171,12 +170,6 @@ export function InspectorPanel() {
     if (!open) return
     setLiveTab('metrics')
   }, [open, selectedId])
-
-  /** One-shot fit after dock width transition (~200ms) settles. */
-  useEffect(() => {
-    const id = window.setTimeout(() => requestCanvasFit(), 250)
-    return () => window.clearTimeout(id)
-  }, [open, inspectorNodeId])
 
   useEffect(() => {
     const onResize = () => setDockWidth((w) => clampInspectorWidth(w))
