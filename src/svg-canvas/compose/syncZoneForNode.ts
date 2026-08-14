@@ -1,24 +1,24 @@
 import {
   CC_HALF_W,
 } from './cloudcraftRedisBrand'
-import { composeGlyph } from './composeGlyph'
+import { composeGlyph, type ComposedGlyph } from './composeGlyph'
 import { HALF_W, screenToIso } from '../math/iso'
 import { SPRITE_METRICS, type SpriteKind } from '../glyphs/spriteMetrics'
 import type { SvgNode, SvgZone } from '../store/svgTypes'
 
 /**
  * How far a unit extends past its left tip along the +i lattice axis
- * (top-face width). Tip is already the left edge — do not pad −i the same amount.
+ * (top-face width). Tip is already the left edge â€” do not pad âˆ’i the same amount.
  */
 function unitHalfPad(node: SvgNode, brandBody: 'redis' | null): number {
   if (brandBody === 'redis') {
-    return CC_HALF_W / HALF_W // ≈ 0.98
+    return CC_HALF_W / HALF_W // â‰ˆ 0.98
   }
   if (node.archetype in SPRITE_METRICS) {
     const metric = SPRITE_METRICS[node.archetype as SpriteKind]
     return metric.w / (2 * HALF_W)
   }
-  // Client / unknown procedural — compact pad.
+  // Client / unknown procedural â€” compact pad.
   return 0.85
 }
 
@@ -27,12 +27,17 @@ function unitHalfPad(node: SvgNode, brandBody: 'redis' | null): number {
  * Redis multi-replica marks, DB shard nests, or MQ parallel shards.
  * Collapsed vertical `stack` = no zone.
  *
- * Sized from unit *tip* lattice positions + a compact per-unit pad — not a
+ * Sized from unit *tip* lattice positions + a compact per-unit pad â€” not a
  * screen AABB (which balloons diamond nests into huge iso diamonds).
  * `cols` / `rows` are half-cell counts (same units as originI / originJ).
  */
-export function syncZoneForNode(node: SvgNode): SvgZone | null {
-  const composed = composeGlyph(node)
+export type ZoneGlyphOverride = ComposedGlyph & { units: { dx: number; dy: number }[] }
+
+export function syncZoneForNode(
+  node: SvgNode,
+  override?: ZoneGlyphOverride,
+): SvgZone | null {
+  const composed = override ?? composeGlyph(node)
   if (composed.units.length <= 1) return null
   if (composed.packing !== 'fan') return null
 
@@ -42,7 +47,7 @@ export function syncZoneForNode(node: SvgNode): SvgZone | null {
   const pad = unitHalfPad(node, composed.brandBody)
   const edge = 0.15
 
-  // Left tip → body extends mainly +i / ±j, not −i.
+  // Left tip â†’ body extends mainly +i / Â±j, not âˆ’i.
   let minI = Math.min(...tips.map((t) => t.i)) - edge
   let maxI = Math.max(...tips.map((t) => t.i)) + pad + edge
   let minJ = Math.min(...tips.map((t) => t.j)) - pad * 0.55 - edge

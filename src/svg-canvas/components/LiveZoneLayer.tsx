@@ -1,8 +1,22 @@
-import { useMemo } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import {
+  getExpanded,
+  getExpandEpoch,
+  subscribeExpand,
+} from '../store/expandStore'
+import {
+  defaultExpanded,
+  resolveDisplayUnits,
+} from '../compose/resolveDisplayUnits'
 import { syncZoneForNode } from '../compose/syncZoneForNode'
 import { useDragLiveEpoch } from '../hooks/useEdgeRenderModel'
 import { getDragLive } from '../store/dragLiveStore'
+import {
+  getUnitMotionEpoch,
+  motionKeyForNode,
+  subscribeUnitMotion,
+} from '../store/unitMotionStore'
 import type { SvgNode, SvgZone } from '../store/svgTypes'
 import { ZoneLayer } from './ZoneLayer'
 
@@ -19,7 +33,16 @@ type LiveZoneLayerProps = {
   onZonePointerLeave?: (ownerNodeId: string) => void
 }
 
-/** Zones that follow drag-live without re-rendering SvgDesignCanvas. */
+function motionUnitsFromKey(key: string): { dx: number; dy: number }[] | null {
+  if (!key) return null
+  return key.split('|').filter(Boolean).map((part) => {
+    const colon = part.indexOf(':')
+    const rest = part.slice(colon + 1)
+    const [dx, dy] = rest.split(',').map(Number)
+    return { dx, dy }
+  })
+}
+
 export function LiveZoneLayer({
   zones,
   nodes,
@@ -29,7 +52,9 @@ export function LiveZoneLayer({
   onZonePointerEnter,
   onZonePointerLeave,
 }: LiveZoneLayerProps) {
-  const epoch = useDragLiveEpoch()
+  useDragLiveEpoch()
+  useSyncExternalStore(subscribeUnitMotion, () => getUnitMotionEpoch(), () => 0)
+  useSyncExternalStore(subscribeExpand, () => getExpandEpoch(), () => 0)
   const drag = getDragLive()
   const nodeById = useMemo(() => {
     const map = new Map<string, SvgNode>()
@@ -38,21 +63,42 @@ export function LiveZoneLayer({
   }, [nodes])
 
   const liveZones = useMemo(() => {
-    if (!drag) return zones
-    return zones.map((zone) => {
-      if (!drag.idSet.has(zone.ownerNodeId)) return zone
+    const out: SvgZone[] = []
+    for (const zone of zones) {
       const n = nodeById.get(zone.ownerNodeId)
-      const o = drag.origins[zone.ownerNodeId]
-      if (!n || !o) return zone
-      return (
-        syncZoneForNode({
-          ...n,
-          x: o.x + drag.dx,
-          y: o.y + drag.dy,
-        }) ?? zone
-      )
-    })
-  }, [zones, nodeById, drag, epoch])
+      if (!n) {
+        out.push(zone)
+        continue
+      }
+      let placed = n
+      if (drag?.idSet.has(zone.ownerNodeId)) {
+        const o = drag.origins[zone.ownerNodeId]
+        if (o) placed = { ...n, x: o.x + drag.dx, y: o.y + drag.dy }
+      }
+
+      const expanded = getExpanded(n.id) ?? defaultExpanded(n)
+      const needsLiveZone =
+        motionKeyForNode(n.id) !== '' || expanded !== defaultExpanded(n)
+
+      if (!needsLiveZone && !drag?.idSet.has(zone.ownerNodeId)) {
+        out.push(zone)
+        continue
+      }
+
+      const resolved = resolveDisplayUnits(n, expanded)
+      const motionKey = motionKeyForNode(n.id)
+      const motionOffsets = motionUnitsFromKey(motionKey)
+      const override = {
+        units: motionOffsets ?? resolved.units,
+        packing: resolved.packing,
+        brandBody: resolved.brandBody,
+        tubeCount: resolved.tubeCount,
+      }
+      const z = syncZoneForNode(placed, override)
+      if (z) out.push(z)
+    }
+    return out
+  }, [zones, nodeById, drag, getUnitMotionEpoch(), getExpandEpoch()])
 
   return (
     <ZoneLayer
