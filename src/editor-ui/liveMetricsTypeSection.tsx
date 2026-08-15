@@ -120,6 +120,9 @@ export function LiveMetricsTypeSection({
   const dbQueryRate = useLiveMetricNumber(nodeId, 'dbQueryRate', mode, m.dbQueryRate)
   const cpuPercent = useLiveMetricNumber(nodeId, 'cpuPercent', mode, m.cpuPercent)
   const memPercent = useLiveMetricNumber(nodeId, 'memPercent', mode, m.memPercent)
+  const p50Latency = useLiveMetricNumber(nodeId, 'p50Latency', mode, m.p50Latency)
+  const p95Latency = useLiveMetricNumber(nodeId, 'p95Latency', mode, m.p95Latency)
+  const p99Latency = useLiveMetricNumber(nodeId, 'p99Latency', mode, m.p99Latency)
   const isSocialFeed = snapshotTemplateId === 'social-feed'
   const tmMqProduceRate = templateMetrics['mq.produce_rate']
   const tmMqConsumeRate = templateMetrics['mq.consume_rate']
@@ -139,9 +142,6 @@ export function LiveMetricsTypeSection({
   switch (nodeType) {
     case 'compute': {
       const red = redHeadlines(m, view.timeframe, fmtErrorRate)
-      const p50Latency = useLiveMetricNumber(nodeId, 'p50Latency', mode, m.p50Latency)
-      const p95Latency = useLiveMetricNumber(nodeId, 'p95Latency', mode, m.p95Latency)
-      const p99Latency = useLiveMetricNumber(nodeId, 'p99Latency', mode, m.p99Latency)
       const sessionP99Ms =
         view.timeframe === 'session' && m.p99Latency9m > 0 ? m.p99Latency9m : p99Latency
       const topology = getTopologyFlags(nodes)
