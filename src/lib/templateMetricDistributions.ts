@@ -6,7 +6,7 @@ export type QuantileSuffix = (typeof QUANTILE_SUFFIXES)[number]
 export interface TemplateMetricDistribution {
   /** Key prefix before `_p50` / `_rate`, e.g. `feed.pull`. */
   prefix: string
-  /** Human label derived from the prefix, e.g. `Feed pull`. */
+  /** Teaching label derived from the prefix, e.g. `Feed read (Redis)`. */
   label: string
   /** Milliseconds (converted from backend seconds). */
   p50Ms?: number
@@ -14,6 +14,42 @@ export interface TemplateMetricDistribution {
   p99Ms?: number
   /** Throughput from `<prefix>_rate` when present. */
   rate?: number
+}
+
+/** Plain-language copy for known neutral metric prefixes (backend keys stay jargon). */
+export interface MetricPrefixCopy {
+  /** Inspector / chip strip full label base. */
+  label: string
+  hudRate: string
+  hudP95: string
+  hudP99: string
+}
+
+const METRIC_PREFIX_COPY: Record<string, MetricPrefixCopy> = {
+  'feed.push': {
+    label: 'Feed read (Redis)',
+    hudRate: 'Read/s · Redis',
+    hudP95: 'Read p95 · Redis',
+    hudP99: 'Read p99 · Redis',
+  },
+  'feed.pull': {
+    label: 'Feed read (database)',
+    hudRate: 'Read/s · DB',
+    hudP95: 'Read p95 · DB',
+    hudP99: 'Read p99 · DB',
+  },
+  'checkout.sync': {
+    label: 'Checkout (sync)',
+    hudRate: 'Checkout/s · sync',
+    hudP95: 'Checkout p95 · sync',
+    hudP99: 'Checkout p99 · sync',
+  },
+  'checkout.async': {
+    label: 'Checkout (async)',
+    hudRate: 'Checkout/s · async',
+    hudP95: 'Checkout p95 · async',
+    hudP99: 'Checkout p99 · async',
+  },
 }
 
 function parseQuantileKey(
@@ -36,7 +72,7 @@ export function isConventionMetricKey(key: string): boolean {
   return key.endsWith('_rate') && !/_p\d+$/.test(key)
 }
 
-/** Derive a short label from a neutral dot key prefix (`feed.pull` → `Feed pull`). */
+/** Fallback label for unknown prefixes (`foo.bar` → `Foo bar`). */
 export function humanizeMetricPrefix(prefix: string): string {
   const words = prefix
     .split('.')
@@ -45,6 +81,23 @@ export function humanizeMetricPrefix(prefix: string): string {
     .join(' ')
   if (!words) return prefix
   return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
+}
+
+/** Teaching labels + HUD short labels for a neutral metric prefix. */
+export function metricPrefixCopy(prefix: string): MetricPrefixCopy {
+  const known = METRIC_PREFIX_COPY[prefix]
+  if (known) return known
+  const base = humanizeMetricPrefix(prefix)
+  return {
+    label: base,
+    hudRate: `${base} · /s`,
+    hudP95: `${base} · p95`,
+    hudP99: `${base} · p99`,
+  }
+}
+
+export function labelForMetricPrefix(prefix: string): string {
+  return metricPrefixCopy(prefix).label
 }
 
 function secondsToMs(seconds: number): number {
@@ -56,7 +109,7 @@ function secondsToMs(seconds: number): number {
  * - `<prefix>_p50|p95|p99` → latency quantiles on `<prefix>`
  * - `<prefix>_rate` → throughput on `<prefix>`
  *
- * New templates only need YAML keys; no frontend whitelist per template.
+ * New templates only need YAML keys; add glossary entries for teaching labels.
  */
 export function groupTemplateMetricDistributions(
   templateMetrics: Record<string, number>,
@@ -66,7 +119,7 @@ export function groupTemplateMetricDistributions(
   const ensure = (prefix: string): TemplateMetricDistribution => {
     let g = groups.get(prefix)
     if (!g) {
-      g = { prefix, label: humanizeMetricPrefix(prefix) }
+      g = { prefix, label: labelForMetricPrefix(prefix) }
       groups.set(prefix, g)
     }
     return g

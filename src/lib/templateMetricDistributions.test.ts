@@ -3,6 +3,8 @@ import {
   groupTemplateMetricDistributions,
   humanizeMetricPrefix,
   isConventionMetricKey,
+  labelForMetricPrefix,
+  metricPrefixCopy,
 } from './templateMetricDistributions'
 
 describe('templateMetricDistributions', () => {
@@ -28,13 +30,19 @@ describe('templateMetricDistributions', () => {
 
     const checkout = groups.find((g) => g.prefix === 'checkout.async')
     expect(checkout).toMatchObject({
-      label: 'Checkout async',
+      label: 'Checkout (async)',
       p95Ms: 120,
     })
   })
 
-  it('humanizes dot-separated prefixes', () => {
-    expect(humanizeMetricPrefix('feed.pull')).toBe('Feed pull')
+  it('uses teaching labels for known feed prefixes', () => {
+    expect(labelForMetricPrefix('feed.push')).toBe('Feed read (Redis)')
+    expect(labelForMetricPrefix('feed.pull')).toBe('Feed read (database)')
+    expect(metricPrefixCopy('feed.push').hudRate).toBe('Read/s · Redis')
+    expect(metricPrefixCopy('feed.push').hudP95).toBe('Read p95 · Redis')
+  })
+
+  it('humanizes unknown dot-separated prefixes', () => {
     expect(humanizeMetricPrefix('worker.fanout_size')).toBe('Worker fanout size')
   })
 
