@@ -1,5 +1,8 @@
 import { readWriteFractions } from '../editor-core/domain/simulation/workload'
 import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
+import type { TopologyFlags } from './componentRole'
+import { getJourneys } from './requestJourney'
+import type { StorytellingSpec } from './storytellingTypes'
 import type { TemplateKpiRow } from './templateKpis'
 
 export function formatSessionMmSs(totalSeconds: number): string {
@@ -85,11 +88,14 @@ export const MIX_LABEL_MIN_PCT = 15
 export type LoadMixSegment = {
   id: string
   label: string
+  /** Label / tooltip percent (from journey trafficPercent when set). */
   pct: number
   color: string
+  /** Bar width share when journey percents do not sum to 100. */
+  share?: number
 }
 
-/** Archetype split for the compact topbar (2-4 segments). */
+/** Archetype split from simulation workload (fallback when storytelling has no journeys). */
 export function loadMixSegmentsForTemplate(
   templateId: string | null | undefined,
 ): LoadMixSegment[] | null {
@@ -103,6 +109,43 @@ export function loadMixSegmentsForTemplate(
     pct: Math.round((a.weight / total) * 100),
     color: MIX_COLORS[i] ?? MIX_COLORS[0],
   }))
+}
+
+/**
+ * Request-journey mix for the live strip — same journeys as the Request journeys modal.
+ * Falls back to workload archetypes when storytelling has no visible journeys.
+ */
+export function loadMixSegmentsForSession(
+  templateId: string | null | undefined,
+  topology: TopologyFlags,
+  storytelling: StorytellingSpec | null | undefined,
+): LoadMixSegment[] | null {
+  const journeys = getJourneys(templateId ?? null, topology, storytelling)
+  if (journeys.length > 0) {
+    const slice = journeys.slice(0, 4)
+    const weights = slice.map((j) =>
+      j.trafficPercent != null && j.trafficPercent > 0 ? j.trafficPercent : 0,
+    )
+    const hasExplicit = weights.some((w) => w > 0)
+    const totalWeight = hasExplicit
+      ? weights.reduce((sum, w) => sum + w, 0) || slice.length
+      : slice.length
+    return slice.map((j, i) => {
+      const share = hasExplicit ? weights[i] || 0 : 1
+      const pct =
+        j.trafficPercent != null && j.trafficPercent > 0
+          ? Math.round(j.trafficPercent)
+          : Math.round((share / totalWeight) * 100)
+      return {
+        id: j.id,
+        label: j.label,
+        pct,
+        color: MIX_COLORS[i] ?? MIX_COLORS[0],
+        share: share / totalWeight,
+      }
+    })
+  }
+  return loadMixSegmentsForTemplate(templateId)
 }
 
 export function mixSegmentShowsLabel(pct: number): boolean {

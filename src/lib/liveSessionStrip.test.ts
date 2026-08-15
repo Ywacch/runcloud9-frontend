@@ -1,14 +1,54 @@
 import { describe, expect, it } from 'vitest'
+import type { TopologyFlags } from './componentRole'
 import {
   DEV_LIVE_STRIP_PREVIEW,
   formatDeployLabel,
   formatSessionMmSs,
   loadMixForTemplate,
+  loadMixSegmentsForSession,
   loadMixSegmentsForTemplate,
   MIX_LABEL_MIN_PCT,
   mixSegmentShowsLabel,
   sessionHealth,
 } from './liveSessionStrip'
+import type { StorytellingSpec } from './storytellingTypes'
+
+const defaultTopology: TopologyFlags = {
+  hasMQ: true,
+  hasWorker: true,
+  hasCache: true,
+  hasLB: true,
+  cacheStrategy: 'cache-aside',
+}
+
+const socialFeedStorytelling: StorytellingSpec = {
+  journeys: [
+    {
+      id: 'feed-read',
+      method: 'GET',
+      path: '/feed/{userId}',
+      label: 'Feed reads',
+      trafficPercent: 60,
+      steps: [
+        { component: 'lb', action: 'Route', requires: ['lb'] },
+        { component: 'app-server', action: 'Read feed' },
+      ],
+    },
+    {
+      id: 'post-create',
+      method: 'POST',
+      path: '/post',
+      label: 'Create post',
+      trafficPercent: 30,
+      steps: [
+        { component: 'lb', action: 'Route', requires: ['lb'] },
+        { component: 'app-server', action: 'Create post' },
+        { component: 'mq', action: 'Publish', requires: ['mq'] },
+        { component: 'worker', action: 'Fan out', requires: ['worker'] },
+      ],
+    },
+  ],
+}
 
 describe('formatSessionMmSs', () => {
   it('formats minutes and seconds', () => {
@@ -32,10 +72,14 @@ describe('formatDeployLabel', () => {
 
 describe('DEV_LIVE_STRIP_PREVIEW', () => {
   it('uses a social-feed mix the live strip can render', () => {
-    const mix = loadMixSegmentsForTemplate(DEV_LIVE_STRIP_PREVIEW.templateId)
+    const mix = loadMixSegmentsForSession(
+      DEV_LIVE_STRIP_PREVIEW.templateId,
+      defaultTopology,
+      socialFeedStorytelling,
+    )
     expect(mix).not.toBeNull()
-    expect(mix!.length).toBeGreaterThanOrEqual(2)
-    expect(mix!.length).toBeLessThanOrEqual(4)
+    expect(mix!.length).toBe(2)
+    expect(mix!.map((s) => s.label)).toEqual(['Feed reads', 'Create post'])
     expect(formatDeployLabel(DEV_LIVE_STRIP_PREVIEW.deploymentId)).toBe(
       'social-feed · 3cace8',
     )
@@ -66,15 +110,10 @@ describe('loadMixSegmentsForTemplate', () => {
     expect(loadMixSegmentsForTemplate('unknown-template')).toBeNull()
   })
 
-  it('returns 2-4 colored segments for social-feed', () => {
+  it('returns workload archetypes for social-feed (simulation granularity)', () => {
     const segs = loadMixSegmentsForTemplate('social-feed')
     expect(segs).not.toBeNull()
-    expect(segs!.length).toBeGreaterThanOrEqual(2)
-    expect(segs!.length).toBeLessThanOrEqual(4)
-    const labeled = segs!.filter((s) => mixSegmentShowsLabel(s.pct))
-    const unlabeled = segs!.filter((s) => !mixSegmentShowsLabel(s.pct))
-    expect(labeled.every((s) => s.pct >= MIX_LABEL_MIN_PCT)).toBe(true)
-    expect(unlabeled.every((s) => s.pct < MIX_LABEL_MIN_PCT)).toBe(true)
+    expect(segs!.length).toBe(4)
   })
 
   it('returns two segments for url-shortener', () => {
@@ -85,16 +124,52 @@ describe('loadMixSegmentsForTemplate', () => {
   })
 })
 
+describe('loadMixSegmentsForSession', () => {
+  it('matches storytelling journeys for social-feed', () => {
+    const segs = loadMixSegmentsForSession(
+      'social-feed',
+      defaultTopology,
+      socialFeedStorytelling,
+    )
+    expect(segs).toHaveLength(2)
+    expect(segs![0]!.id).toBe('feed-read')
+    expect(segs![0]!.pct).toBe(60)
+    expect(segs![1]!.id).toBe('post-create')
+    expect(segs![1]!.pct).toBe(30)
+    expect(segs![0]!.share).toBeCloseTo(0.667, 2)
+    expect(segs![1]!.share).toBeCloseTo(0.333, 2)
+  })
+
+  it('falls back to workload archetypes without storytelling', () => {
+    const segs = loadMixSegmentsForSession('social-feed', defaultTopology, null)
+    expect(segs).toHaveLength(4)
+  })
+
+  it('label visibility follows MIX_LABEL_MIN_PCT', () => {
+    const segs = loadMixSegmentsForSession(
+      'social-feed',
+      defaultTopology,
+      socialFeedStorytelling,
+    )
+    const labeled = segs!.filter((s) => mixSegmentShowsLabel(s.pct))
+    const unlabeled = segs!.filter((s) => !mixSegmentShowsLabel(s.pct))
+    expect(labeled.every((s) => s.pct >= MIX_LABEL_MIN_PCT)).toBe(true)
+    expect(unlabeled.every((s) => s.pct < MIX_LABEL_MIN_PCT)).toBe(true)
+  })
+})
+
 describe('sessionHealth', () => {
   it('is critical when error rate or p99 is catastrophic', () => {
     expect(sessionHealth({ errPct: 100, p99Ms: 50 })).toBe('critical')
-    expect(sessionHealth({ errPct: 0, p99Ms: 10000 })).toBe('critical')
-    expect(sessionHealth({ errPct: 0, p99Ms: 20, nodeStatus: 'Degraded' })).toBe(
+    expect(sessionHealth({ errPct: 0, p99Ms: 3000 })).toBe('critical')
+    expect(sessionHealth({ errPct: 0, p99Ms: 50, nodeStatus: 'Degraded' })).toBe(
       'critical',
     )
   })
 
-  it('is ok on a healthy run', () => {
-    expect(sessionHealth({ errPct: 0, p99Ms: 115 })).toBe('ok')
+  it('is ok for healthy sessions', () => {
+    expect(sessionHealth({ errPct: 0, p99Ms: 50, nodeStatus: 'Running' })).toBe(
+      'ok',
+    )
   })
 })
