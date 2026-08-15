@@ -10,7 +10,7 @@ import { useLiveChromeStore } from '../lib/liveChromeStore'
 import {
   DEV_LIVE_STRIP_PREVIEW,
   formatSessionMmSs,
-  loadMixSegmentsForTemplate,
+  loadMixSegmentsForSession,
   mixSegmentShowsLabel,
   sessionHealth,
   type LoadMixSegment,
@@ -67,6 +67,13 @@ export function LiveSessionStrip() {
   const setActiveTraceId = useLogStore((s) => s.setActiveTraceId)
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
+  )
+  const devDesignPreview = import.meta.env.DEV && mode === 'design'
+  const mixTemplateId = devDesignPreview
+    ? DEV_LIVE_STRIP_PREVIEW.templateId
+    : snapshotTemplateId
+  const mixStorytelling = useTemplateRegistryStore((s) =>
+    mixTemplateId ? s.byId[mixTemplateId]?.storytelling : undefined,
   )
   const templateDefaultRps = useTemplateRegistryStore((s) => {
     if (!snapshotTemplateId) return 50
@@ -183,13 +190,12 @@ export function LiveSessionStrip() {
     return 'Running'
   }, [nodes])
 
-  const devDesignPreview = import.meta.env.DEV && mode === 'design'
+  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+
   const mixSegments = useMemo(
     () =>
-      loadMixSegmentsForTemplate(
-        devDesignPreview ? DEV_LIVE_STRIP_PREVIEW.templateId : snapshotTemplateId,
-      ),
-    [devDesignPreview, snapshotTemplateId],
+      loadMixSegmentsForSession(mixTemplateId, topology, mixStorytelling),
+    [mixTemplateId, topology, mixStorytelling],
   )
 
   const aggregates = useMemo(
@@ -206,8 +212,6 @@ export function LiveSessionStrip() {
         : null,
     [metrics, nodes, loadgen, mode, lastInspector, simRunning],
   )
-
-  const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
 
   const kpiRows = useMemo(() => {
     const raw = devDesignPreview
@@ -654,12 +658,14 @@ function MixBar({
   segments: LoadMixSegment[]
   onClick?: () => void
 }) {
-  const inner = segments.map((seg) => (
+  const inner = segments.map((seg) => {
+    const flexShare = seg.share != null ? seg.share * 100 : seg.pct
+    return (
     <span
       key={seg.id}
       className="flex min-w-[4px] items-center justify-center overflow-hidden px-1.5 text-[10px] font-medium leading-none text-white/90"
       style={{
-        flexGrow: Math.max(seg.pct, 2),
+        flexGrow: Math.max(flexShare, 2),
         flexBasis: 0,
         backgroundColor: seg.color,
       }}
@@ -671,7 +677,8 @@ function MixBar({
         </span>
       ) : null}
     </span>
-  ))
+    )
+  })
   const className =
     'flex h-5 min-w-[10rem] max-w-[22rem] flex-1 overflow-hidden rounded-[4px]'
   if (onClick) {
