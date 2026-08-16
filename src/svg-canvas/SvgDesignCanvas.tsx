@@ -873,6 +873,23 @@ export default function SvgDesignCanvas({
     return [...nodes].sort((a, b) => a.y - b.y || a.x - b.x)
   }, [nodes])
 
+  const prevNodeIdsRef = useRef<Set<string>>(new Set())
+  const hasRenderedNodesRef = useRef(false)
+  const appearIds = useMemo(() => {
+    const currentIds = new Set(nodes.map((n) => n.id))
+    if (!hasRenderedNodesRef.current) {
+      hasRenderedNodesRef.current = true
+      prevNodeIdsRef.current = currentIds
+      return new Set<string>()
+    }
+    const appear = new Set<string>()
+    for (const id of currentIds) {
+      if (!prevNodeIdsRef.current.has(id)) appear.add(id)
+    }
+    prevNodeIdsRef.current = currentIds
+    return appear
+  }, [nodes])
+
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   const edgeRenderModel = useEdgeRenderModel(edges)
@@ -1190,6 +1207,7 @@ export default function SvgDesignCanvas({
               }
               interactive={!spaceDown && !panning && !marquee}
               opacity={nodeOpacityById?.get(node.id) ?? 1}
+              appear={appearIds.has(node.id)}
               onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
               onPointerEnter={() => onNodePointerEnter(node.id)}
               onPointerLeave={() => onNodePointerLeave(node.id)}
