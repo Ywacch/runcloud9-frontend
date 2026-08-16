@@ -1,6 +1,16 @@
-import { memo, useEffect, useMemo, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactElement,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { composeGlyph } from '../compose/composeGlyph'
 import { resolveDisplayUnits } from '../compose/resolveDisplayUnits'
+import { useReducedMotion } from '../fx/reducedMotion'
+import { getDragLive, subscribeDragLive } from '../store/dragLiveStore'
 import { useExpanded } from '../store/expandStore'
 import {
   motionKeyForNode,
@@ -86,11 +96,29 @@ function NodeGlyphInner({
   )
   const units = motionUnitsFromKey(motionKey, staticUnits)
 
+  const reducedMotion = useReducedMotion()
+  const isDragging = useSyncExternalStore(
+    subscribeDragLive,
+    () => getDragLive()?.idSet.has(node.id) ?? false,
+    () => false,
+  )
+  const isAnimating = motionKey !== ''
+  const [selectScale, setSelectScale] = useState(1)
+  useEffect(() => {
+    if (!selected || reducedMotion || isDragging || isAnimating) {
+      setSelectScale(1)
+      return
+    }
+    setSelectScale(1.02)
+    const t = window.setTimeout(() => setSelectScale(1), 120)
+    return () => window.clearTimeout(t)
+  }, [selected, reducedMotion, isDragging, isAnimating, node.id])
+
   const composed = composeGlyph(node)
   const health = healthVisual ?? node.healthVisual ?? 'off'
   const common = {
-    x,
-    y,
+    x: 0,
+    y: 0,
     label: node.label,
     selected,
     interactive,
@@ -100,75 +128,93 @@ function NodeGlyphInner({
     onPointerLeave,
   }
 
+  let glyph: ReactElement
   if (composed.brandBody === 'redis') {
-    return <RedisBrandGlyph {...common} units={units} />
+    glyph = <RedisBrandGlyph {...common} units={units} />
+  } else {
+    switch (node.archetype) {
+      case 'client':
+        glyph = <ClientLoadgenGlyph {...common} />
+        break
+      case 'database':
+        glyph = (
+          <SpriteBackedGlyph
+            {...common}
+            kind="database"
+            units={units}
+            logoId={skin.logoId}
+            tint={skin.brandTint}
+          />
+        )
+        break
+      case 'cache':
+        glyph = (
+          <SpriteBackedGlyph
+            {...common}
+            kind="cache"
+            units={units}
+            logoId={skin.logoId}
+            tint={skin.brandTint}
+          />
+        )
+        break
+      case 'message-queue':
+        glyph = (
+          <SpriteBackedGlyph
+            {...common}
+            kind="message-queue"
+            units={units}
+            logoId={skin.logoId}
+            tint={skin.brandTint}
+          />
+        )
+        break
+      case 'load-balancer':
+        glyph = (
+          <SpriteBackedGlyph
+            {...common}
+            kind="load-balancer"
+            units={[{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }]}
+            logoId={skin.logoId}
+            tint={skin.brandTint}
+          />
+        )
+        break
+      case 'worker':
+        glyph = (
+          <SpriteBackedGlyph
+            {...common}
+            kind="worker"
+            units={units}
+            logoId={skin.logoId}
+            tint={skin.brandTint}
+          />
+        )
+        break
+      case 'app-server':
+      default:
+        glyph = (
+          <SpriteBackedGlyph
+            {...common}
+            kind="app-server"
+            units={units}
+            logoId={skin.logoId}
+            tint={skin.brandTint}
+          />
+        )
+    }
   }
 
-  switch (node.archetype) {
-    case 'client':
-      return <ClientLoadgenGlyph {...common} />
-    case 'database':
-      return (
-        <SpriteBackedGlyph
-          {...common}
-          kind="database"
-          units={units}
-          logoId={skin.logoId}
-          tint={skin.brandTint}
-        />
-      )
-    case 'cache':
-      return (
-        <SpriteBackedGlyph
-          {...common}
-          kind="cache"
-          units={units}
-          logoId={skin.logoId}
-          tint={skin.brandTint}
-        />
-      )
-    case 'message-queue':
-      return (
-        <SpriteBackedGlyph
-          {...common}
-          kind="message-queue"
-          units={units}
-          logoId={skin.logoId}
-          tint={skin.brandTint}
-        />
-      )
-    case 'load-balancer':
-      return (
-        <SpriteBackedGlyph
-          {...common}
-          kind="load-balancer"
-          units={[{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }]}
-          logoId={skin.logoId}
-          tint={skin.brandTint}
-        />
-      )
-    case 'worker':
-      return (
-        <SpriteBackedGlyph
-          {...common}
-          kind="worker"
-          units={units}
-          logoId={skin.logoId}
-          tint={skin.brandTint}
-        />
-      )
-    case 'app-server':
-    default:
-      return (
-        <SpriteBackedGlyph
-          {...common}
-          kind="app-server"
-          units={units}
-          logoId={skin.logoId}
-          tint={skin.brandTint}
-        />
-      )
-  }
+  return (
+    <g
+      transform={`translate(${x} ${y}) scale(${selectScale})`}
+      style={{
+        transition: reducedMotion ? undefined : 'transform 120ms ease-out',
+      }}
+    >
+      {glyph}
+    </g>
+  )
 }
 
 function nodeGlyphPropsEqual(a: NodeGlyphProps, b: NodeGlyphProps): boolean {

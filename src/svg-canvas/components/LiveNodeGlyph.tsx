@@ -1,4 +1,11 @@
-import { memo, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  memo,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
+import { useReducedMotion } from '../fx/reducedMotion'
 import {
   dragLiveKeyForNode,
   parseDragLiveKey,
@@ -12,6 +19,7 @@ type LiveNodeGlyphProps = {
   selected: boolean
   interactive: boolean
   opacity: number
+  appear?: boolean
   onPointerDown: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter: () => void
   onPointerLeave: () => void
@@ -26,10 +34,12 @@ function LiveNodeGlyphInner({
   selected,
   interactive,
   opacity,
+  appear = false,
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
 }: LiveNodeGlyphProps) {
+  const reducedMotion = useReducedMotion()
   const key = useSyncExternalStore(
     subscribeDragLive,
     () => liveKey(node.id),
@@ -39,9 +49,29 @@ function LiveNodeGlyphInner({
   const x = live?.x ?? node.x
   const y = live?.y ?? node.y
 
+  const shouldAnimateAppear = appear && !reducedMotion
+  const [appeared, setAppeared] = useState(!shouldAnimateAppear)
+  useEffect(() => {
+    if (!shouldAnimateAppear) {
+      setAppeared(true)
+      return
+    }
+    setAppeared(false)
+    const id = requestAnimationFrame(() => setAppeared(true))
+    return () => cancelAnimationFrame(id)
+  }, [shouldAnimateAppear, node.id])
+
+  const appearOpacity = appeared ? 1 : 0
+  const appearScale = appeared ? 1 : 0.9
+  const transition = reducedMotion
+    ? undefined
+    : 'opacity 300ms ease-out, transform 300ms ease-out'
+
   return (
     <g
-      opacity={opacity}
+      opacity={opacity * appearOpacity}
+      transform={`scale(${appearScale})`}
+      style={{ transition }}
       data-export-node=""
       data-node-id={node.id}
       data-node-label={node.label}
@@ -77,6 +107,7 @@ function propsEqual(a: LiveNodeGlyphProps, b: LiveNodeGlyphProps): boolean {
     a.selected === b.selected &&
     a.interactive === b.interactive &&
     a.opacity === b.opacity &&
+    a.appear === b.appear &&
     a.onPointerDown === b.onPointerDown &&
     a.onPointerEnter === b.onPointerEnter &&
     a.onPointerLeave === b.onPointerLeave
