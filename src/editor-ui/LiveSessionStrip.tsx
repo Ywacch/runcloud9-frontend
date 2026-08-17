@@ -380,6 +380,8 @@ export function LiveSessionStrip() {
   const runningTotal = devDesignPreview
     ? previewTotal
     : (loadgen?.totalRequests ?? 0)
+  const loadPhaseLabel =
+    !devDesignPreview && loadgen?.currentPhase ? loadgen.currentPhase : null
   const sessionTitle =
     mode === 'live' && deploymentId
       ? deploymentId
@@ -584,6 +586,8 @@ export function LiveSessionStrip() {
                 <p className="c9-load-panel-status" aria-live="polite">
                   {loadRunning
                     ? `Running ${fmtRate(runningRps)} rps${
+                        loadPhaseLabel ? ` · ${loadPhaseLabel}` : ''
+                      }${
                         runningTotal > 0 ? ` · ${fmtInt(runningTotal)} total` : ''
                       }`
                     : '\u00a0'}

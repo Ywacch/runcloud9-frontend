@@ -167,6 +167,9 @@ export interface LiveLoadgenState {
   elapsedSeconds: number
   /** HTTP status code → count for the run (e.g. "200", "499", "500"). */
   statusCodes: Record<string, number>
+  scheduleId?: string
+  currentPhase?: string
+  phaseIndex?: number
 }
 
 /** Buffered WS ticks for system teaching charts (~2s cadence). */

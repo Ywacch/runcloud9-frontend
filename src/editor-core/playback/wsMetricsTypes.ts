@@ -112,6 +112,9 @@ export interface WsDeploymentMetrics {
     successRate?: number
     durationSeconds?: number
     statusCodes?: Record<string, number>
+    scheduleId?: string
+    currentPhase?: string
+    phaseIndex?: number
   }
 }
 

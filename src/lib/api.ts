@@ -82,6 +82,8 @@ export interface LoadProfile {
   template?: string
   baseUrl?: string
   distribution?: Record<string, number>
+  scheduleId?: string
+  actorParams?: Record<string, number>
 }
 
 export interface TemplateInfo {
@@ -451,6 +453,8 @@ export async function startLoadGen(
     template: profile?.template,
     baseUrl: profile?.baseUrl,
     distribution: profile?.distribution,
+    scheduleId: profile?.scheduleId,
+    actorParams: profile?.actorParams,
   }
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
     method: 'POST',

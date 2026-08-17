@@ -346,6 +346,9 @@ export function applyWsFrameToStore(
       durationSeconds: 0,
       elapsedSeconds: Number(lg.durationSeconds ?? 0),
       statusCodes: parseStatusCodes(lg.statusCodes),
+      scheduleId: typeof lg.scheduleId === 'string' ? lg.scheduleId : undefined,
+      currentPhase: typeof lg.currentPhase === 'string' ? lg.currentPhase : undefined,
+      phaseIndex: Number.isFinite(Number(lg.phaseIndex)) ? Number(lg.phaseIndex) : undefined,
     })
   }
 
