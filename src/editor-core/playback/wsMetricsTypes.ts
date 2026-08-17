@@ -115,6 +115,7 @@ export interface WsDeploymentMetrics {
     scheduleId?: string
     currentPhase?: string
     phaseIndex?: number
+    distribution?: Record<string, number>
   }
 }
 

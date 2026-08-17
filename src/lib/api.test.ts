@@ -4,10 +4,12 @@ import {
   deleteDeployment,
   getDeployment,
   getMe,
+  getTemplateLoadgen,
   listActiveDeployments,
   listDeploymentHistory,
   startLoadGen,
   stopLoadGen,
+  updateLoadGen,
 } from './api'
 import { DEV_ENGINEER_USER } from './devAccountPreview'
 import { getAccessToken } from './auth'
@@ -62,6 +64,60 @@ describe('auth headers for protected deployment calls', () => {
 
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
     expect(body.scheduleId).toBe('world_cup_goal')
+  })
+
+  it('includes actorParams in startLoadGen JSON body', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('abc123')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      status: 200,
+      statusText: 'OK',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await startLoadGen('dep-1', {
+      rps: 20,
+      actorParams: { celebrityPostPct: 90 },
+    })
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(body.actorParams).toEqual({ celebrityPostPct: 90 })
+  })
+
+  it('sends Authorization on PATCH updateLoadGen', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('abc123')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      status: 200,
+      statusText: 'OK',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateLoadGen('dep-1', 120)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toContain('/dep-1/loadgen')
+    expect(init?.method).toBe('PATCH')
+    expect(init?.headers.Authorization).toBe('Bearer abc123')
+    expect(JSON.parse(String(init?.body))).toEqual({ rps: 120 })
+  })
+
+  it('fetches template loadgen config from /templates/{id}/loadgen', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        defaultRps: 50,
+        schedules: [{ id: 'steady', label: 'Steady', phases: [] }],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const cfg = await getTemplateLoadgen('social-feed')
+    expect(cfg.defaultRps).toBe(50)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/templates/social-feed/loadgen')
   })
 
   it('throws ApiError with status/message on unauthorized', async () => {

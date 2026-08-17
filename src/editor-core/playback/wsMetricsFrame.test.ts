@@ -263,6 +263,26 @@ describe('applyWsFrameToStore loadgen latencies', () => {
     expect(lg?.phaseIndex).toBe(0)
     expect(lg?.scheduleId).toBe('world_cup_goal')
   })
+
+  it('stores distribution from WS loadgen payload', () => {
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: true,
+          targetRps: 40,
+          distribution: {
+            'GET /feed/{userId}': 60,
+            'POST /post': 30,
+          },
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    expect(useMetricsStore.getState().loadgen?.distribution).toEqual({
+      'GET /feed/{userId}': 60,
+      'POST /post': 30,
+    })
+  })
 })
 
 describe('applyWsFrameToStore chart history', () => {

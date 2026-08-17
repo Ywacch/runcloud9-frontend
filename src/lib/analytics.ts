@@ -61,7 +61,12 @@ export type AnalyticsEventMap = {
   }
   session_summary_viewed: { template: string; sessionDuration: string }
   session_summary_dismissed: { template: string; visibleSeconds: number }
-  loadgen_started: { template: string; rps: number; durationSeconds: number }
+  loadgen_started: {
+    template: string
+    rps: number
+    durationSeconds: number
+    scheduleId?: string
+  }
   loadgen_stopped: { template: string }
   chaos_injected: {
     template: string

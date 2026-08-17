@@ -27,6 +27,16 @@ import {
 } from '../stores/metricsStore'
 import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
 
+function parseLoadgenDistribution(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const out: Record<string, number> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const n = Number(value)
+    if (Number.isFinite(n) && n > 0) out[key] = Math.round(n)
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
 function nodeIdsForBackendKey(
   nodes: Record<string, CanvasNode>,
   backendKey: string,
@@ -156,6 +166,7 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
     const kind =
       e.kind === 'loadgen_start' ||
       e.kind === 'loadgen_stop' ||
+      e.kind === 'loadgen_rate' ||
       e.kind === 'chaos_inject'
         ? e.kind
         : undefined
@@ -349,6 +360,7 @@ export function applyWsFrameToStore(
       scheduleId: typeof lg.scheduleId === 'string' ? lg.scheduleId : undefined,
       currentPhase: typeof lg.currentPhase === 'string' ? lg.currentPhase : undefined,
       phaseIndex: Number.isFinite(Number(lg.phaseIndex)) ? Number(lg.phaseIndex) : undefined,
+      distribution: parseLoadgenDistribution(lg.distribution),
     })
   }
 

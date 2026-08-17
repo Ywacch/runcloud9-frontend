@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
-import { startLoadGen, stopLoadGen } from '../lib/api'
+import { startLoadGen, stopLoadGen, updateLoadGen, getTemplateLoadgen } from '../lib/api'
+import { ApiError } from '../lib/apiError'
 import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import { trackEvent } from '../lib/analytics'
 import { fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
@@ -11,10 +12,21 @@ import {
   DEV_LIVE_STRIP_PREVIEW,
   formatSessionMmSs,
   loadMixSegmentsForSession,
+  loadMixSegmentsFromDistribution,
   mixSegmentShowsLabel,
   sessionHealth,
   type LoadMixSegment,
 } from '../lib/liveSessionStrip'
+import {
+  defaultActorParams,
+  defaultScheduleId,
+  DEV_LOADGEN_CONFIG,
+  formatActorParamLabel,
+  formatSchedulePhaseSummary,
+  readLoadSessionPrefs,
+  writeLoadSessionPrefs,
+} from '../lib/loadSessionPrefs'
+import type { LoadgenActorParamSpec } from '../lib/api'
 import { getTopologyFlags } from '../lib/componentRole'
 import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
@@ -68,7 +80,12 @@ export function LiveSessionStrip() {
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
   )
+  const loadgenConfig = useTemplateRegistryStore((s) =>
+    snapshotTemplateId ? s.loadgenConfigById[snapshotTemplateId] : undefined,
+  )
+  const setLoadgenConfig = useTemplateRegistryStore((s) => s.setLoadgenConfig)
   const devDesignPreview = import.meta.env.DEV && mode === 'design'
+  const resolvedLoadgenConfig = devDesignPreview ? DEV_LOADGEN_CONFIG : loadgenConfig
   const mixTemplateId = devDesignPreview
     ? DEV_LIVE_STRIP_PREVIEW.templateId
     : snapshotTemplateId
@@ -85,8 +102,12 @@ export function LiveSessionStrip() {
   const [remaining, setRemaining] = useState(0)
   const [rps, setRps] = useState(templateDefaultRps)
   const [hasUserSetRps, setHasUserSetRps] = useState(false)
+  const [scheduleId, setScheduleId] = useState('')
+  const [actorParams, setActorParams] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const lastPatchRpsRef = useRef<number | null>(null)
+  const patchTimerRef = useRef<number | null>(null)
   const [loadOpen, setLoadOpen] = useState(false)
   const [chipsOpen, setChipsOpen] = useState(readChipsOpen)
   const [previewLoadActive, setPreviewLoadActive] = useState(true)
@@ -105,14 +126,47 @@ export function LiveSessionStrip() {
   )
 
   useEffect(() => {
-    if (!hasUserSetRps) {
-      setRps(
-        import.meta.env.DEV && mode === 'design'
-          ? DEV_LIVE_STRIP_PREVIEW.targetRps
-          : templateDefaultRps,
-      )
+    if (devDesignPreview) return
+    if (!snapshotTemplateId || loadgenConfig) return
+    let cancelled = false
+    getTemplateLoadgen(snapshotTemplateId)
+      .then((cfg) => {
+        if (!cancelled) setLoadgenConfig(snapshotTemplateId, cfg)
+      })
+      .catch(() => {
+        /* template may have no loadgen config */
+      })
+    return () => {
+      cancelled = true
     }
-  }, [templateDefaultRps, hasUserSetRps, mode])
+  }, [snapshotTemplateId, loadgenConfig, setLoadgenConfig, devDesignPreview])
+
+  useEffect(() => {
+    const cfg = resolvedLoadgenConfig
+    const prefs = deploymentId ? readLoadSessionPrefs(deploymentId) : null
+    if (prefs) {
+      setRps(prefs.rps)
+      setHasUserSetRps(true)
+      setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
+      setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
+      lastPatchRpsRef.current = prefs.rps
+      return
+    }
+    const defaultRps =
+      cfg?.defaultRps ??
+      (devDesignPreview ? DEV_LIVE_STRIP_PREVIEW.targetRps : templateDefaultRps)
+    setHasUserSetRps(false)
+    setRps(defaultRps)
+    setScheduleId(defaultScheduleId(cfg))
+    setActorParams(defaultActorParams(cfg))
+    lastPatchRpsRef.current = null
+  }, [
+    deploymentId,
+    snapshotTemplateId,
+    resolvedLoadgenConfig,
+    devDesignPreview,
+    templateDefaultRps,
+  ])
 
   useEffect(() => {
     if (import.meta.env.DEV && mode === 'design') {
@@ -192,11 +246,33 @@ export function LiveSessionStrip() {
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
 
-  const mixSegments = useMemo(
-    () =>
-      loadMixSegmentsForSession(mixTemplateId, topology, mixStorytelling),
-    [mixTemplateId, topology, mixStorytelling],
+  const allJourneys = useMemo(
+    () => getJourneys(snapshotTemplateId, topology, storytelling),
+    [snapshotTemplateId, topology, storytelling],
   )
+
+  const mixSegments = useMemo(() => {
+    if (
+      !devDesignPreview &&
+      loadgen?.active &&
+      loadgen.distribution &&
+      Object.keys(loadgen.distribution).length > 0
+    ) {
+      const fromDist = loadMixSegmentsFromDistribution(
+        loadgen.distribution,
+        allJourneys,
+      )
+      if (fromDist) return fromDist
+    }
+    return loadMixSegmentsForSession(mixTemplateId, topology, mixStorytelling)
+  }, [
+    devDesignPreview,
+    loadgen,
+    allJourneys,
+    mixTemplateId,
+    topology,
+    mixStorytelling,
+  ])
 
   const aggregates = useMemo(
     () =>
@@ -240,10 +316,59 @@ export function LiveSessionStrip() {
     topology,
   ])
 
-  const allJourneys = useMemo(
-    () => getJourneys(snapshotTemplateId, topology, storytelling),
-    [snapshotTemplateId, topology, storytelling],
+  const loadRunning = devDesignPreview
+    ? previewLoadActive
+    : Boolean(loadgen?.active)
+
+  const selectedSchedule = resolvedLoadgenConfig?.schedules?.find(
+    (s) => s.id === scheduleId,
   )
+  const schedulePhaseSummary = formatSchedulePhaseSummary(selectedSchedule?.phases)
+  const visibleActorParams = (resolvedLoadgenConfig?.params ?? []).filter(
+    (p) => p.key !== 'tier',
+  )
+  const hasSchedulePicker = (resolvedLoadgenConfig?.schedules?.length ?? 0) > 0
+
+  useEffect(() => {
+    if (!deploymentId || loadRunning) return
+    writeLoadSessionPrefs(deploymentId, { rps, scheduleId, actorParams })
+  }, [deploymentId, rps, scheduleId, actorParams, loadRunning])
+
+  useEffect(() => {
+    if (devDesignPreview || !loadRunning || !deploymentId) return
+    if (lastPatchRpsRef.current === rps) return
+    if (patchTimerRef.current) window.clearTimeout(patchTimerRef.current)
+    patchTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        if (!session?.access_token) return
+        try {
+          await updateLoadGen(deploymentId, rps)
+          lastPatchRpsRef.current = rps
+          writeLoadSessionPrefs(deploymentId, { rps, scheduleId, actorParams })
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 409) {
+            setError('Load is not running.')
+          } else {
+            debugAuthError(e, 'loadgen-rate')
+            setError(
+              mapAuthErrorMessage(e, 'Could not update load rate. Please try again.'),
+            )
+          }
+        }
+      })()
+    }, 300)
+    return () => {
+      if (patchTimerRef.current) window.clearTimeout(patchTimerRef.current)
+    }
+  }, [
+    rps,
+    loadRunning,
+    deploymentId,
+    devDesignPreview,
+    session?.access_token,
+    scheduleId,
+    actorParams,
+  ])
 
   const activeJourney = useMemo(() => {
     if (!journeyUi.open || journeyUi.overview || !journeyUi.id) return null
@@ -276,11 +401,17 @@ export function LiveSessionStrip() {
         rps,
         durationSeconds: 0,
         template: snapshotTemplateId ?? '',
+        scheduleId: scheduleId || undefined,
+        actorParams:
+          Object.keys(actorParams).length > 0 ? actorParams : undefined,
       })
+      lastPatchRpsRef.current = rps
+      writeLoadSessionPrefs(deploymentId, { rps, scheduleId, actorParams })
       trackEvent('loadgen_started', {
         template: snapshotTemplateId ?? '',
         rps,
         durationSeconds: 0,
+        scheduleId: scheduleId || undefined,
       })
     } catch (e) {
       debugAuthError(e, 'loadgen-start')
@@ -290,7 +421,15 @@ export function LiveSessionStrip() {
     } finally {
       setBusy(false)
     }
-  }, [deploymentId, rps, session?.access_token, snapshotTemplateId, devDesignPreview])
+  }, [
+    deploymentId,
+    rps,
+    scheduleId,
+    actorParams,
+    session?.access_token,
+    snapshotTemplateId,
+    devDesignPreview,
+  ])
 
   const onStopLoad = useCallback(async () => {
     if (devDesignPreview) {
@@ -369,9 +508,6 @@ export function LiveSessionStrip() {
           ? 'Running'
           : deployStatus
   const pulseOk = showLiveChrome && health === 'ok'
-  const loadRunning = devDesignPreview
-    ? previewLoadActive
-    : Boolean(loadgen?.active)
   const runningRps = devDesignPreview
     ? rps
     : loadgen?.targetRps && loadgen.targetRps > 0
@@ -593,7 +729,7 @@ export function LiveSessionStrip() {
                     : '\u00a0'}
                 </p>
                 <div className="c9-load-panel-field">
-                  <label htmlFor="live-load-rps">RPS</label>
+                  <label htmlFor="live-load-rps">Base RPS</label>
                   <input
                     id="live-load-rps"
                     type="number"
@@ -604,10 +740,71 @@ export function LiveSessionStrip() {
                     title={INGRESS_HELP_LIVE}
                     onChange={(e) => {
                       setHasUserSetRps(true)
-                      setRps(Math.max(1, Number(e.target.value) || 1))
+                      setRps(
+                        Math.min(500, Math.max(1, Number(e.target.value) || 1)),
+                      )
+                    }}
+                  />
+                  <input
+                    type="range"
+                    min={1}
+                    max={500}
+                    step={1}
+                    value={rps}
+                    aria-label="Base RPS slider"
+                    className="c9-load-panel-range"
+                    onChange={(e) => {
+                      setHasUserSetRps(true)
+                      setRps(Number(e.target.value))
                     }}
                   />
                 </div>
+                {hasSchedulePicker ? (
+                  <div className="c9-load-panel-field">
+                    <label htmlFor="live-load-schedule">Schedule</label>
+                    <select
+                      id="live-load-schedule"
+                      value={scheduleId}
+                      disabled={loadRunning}
+                      onChange={(e) => setScheduleId(e.target.value)}
+                    >
+                      {(resolvedLoadgenConfig?.schedules ?? []).map((sched) => (
+                        <option key={sched.id} value={sched.id}>
+                          {sched.label}
+                        </option>
+                      ))}
+                    </select>
+                    {schedulePhaseSummary ? (
+                      <p className="c9-load-panel-hint">{schedulePhaseSummary}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {visibleActorParams.map((param) => {
+                  const bounds = actorParamBounds(param)
+                  const value = actorParams[param.key] ?? param.default
+                  return (
+                    <div key={param.key} className="c9-load-panel-field">
+                      <label htmlFor={`live-load-${param.key}`}>
+                        {formatActorParamLabel(param.key)}
+                        <span className="c9-load-panel-value">{value}</span>
+                      </label>
+                      <input
+                        id={`live-load-${param.key}`}
+                        type="range"
+                        min={bounds.min}
+                        max={bounds.max}
+                        step={bounds.step}
+                        value={value}
+                        disabled={loadRunning}
+                        className="c9-load-panel-range"
+                        onChange={(e) => {
+                          const next = Number(e.target.value)
+                          setActorParams((prev) => ({ ...prev, [param.key]: next }))
+                        }}
+                      />
+                    </div>
+                  )
+                })}
                 <button
                   type="button"
                   disabled={busy}
@@ -653,6 +850,20 @@ export function LiveSessionStrip() {
       />
     </>
   )
+}
+
+function actorParamBounds(param: LoadgenActorParamSpec): {
+  min: number
+  max: number
+  step: number
+} {
+  if (param.type === 'percent') {
+    return { min: param.min ?? 0, max: param.max ?? 100, step: 1 }
+  }
+  const min = param.min ?? 0
+  const max = param.max ?? 100
+  const step = max - min <= 10 ? 0.1 : 1
+  return { min, max, step }
 }
 
 function MixBar({
