@@ -5,7 +5,11 @@ import { loadWsEventsJson } from '../../lib/wsEventsPersist'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
 
-export type WorkloadEventKind = 'loadgen_start' | 'loadgen_stop' | 'chaos_inject'
+export type WorkloadEventKind =
+  | 'loadgen_start'
+  | 'loadgen_stop'
+  | 'loadgen_rate'
+  | 'chaos_inject'
 export type EventAudience = 'user' | 'ai' | 'both'
 
 /** Event from backend metrics stream (threshold, cascade, workload/runtime actions). */
@@ -170,6 +174,8 @@ export interface LiveLoadgenState {
   scheduleId?: string
   currentPhase?: string
   phaseIndex?: number
+  /** Effective endpoint weights from the running loadgen (METHOD path → weight). */
+  distribution?: Record<string, number>
 }
 
 /** Buffered WS ticks for system teaching charts (~2s cadence). */
@@ -213,6 +219,7 @@ function parsePersistedWsEvents(raw: string): WsEvent[] {
       kind:
         r.kind === 'loadgen_start' ||
         r.kind === 'loadgen_stop' ||
+        r.kind === 'loadgen_rate' ||
         r.kind === 'chaos_inject'
           ? r.kind
           : undefined,

@@ -86,6 +86,38 @@ export interface LoadProfile {
   actorParams?: Record<string, number>
 }
 
+export interface LoadgenPhaseSpec {
+  durationSeconds: number
+  rpsMultiplier: number
+  endpointBoost?: Record<string, number>
+  actorOverride?: Record<string, number>
+  note?: string
+}
+
+export interface LoadgenScheduleSpec {
+  id: string
+  label: string
+  phases: LoadgenPhaseSpec[]
+}
+
+export interface LoadgenActorParamSpec {
+  key: string
+  type: string
+  default: number
+  min?: number
+  max?: number
+  pools?: { name: string; poolEndpoint: string; poolField: string }[]
+  applyTo?: string[]
+  tier?: string
+}
+
+/** Projected load UI config from GET /templates/{id}/loadgen. */
+export interface LoadgenConfigView {
+  defaultRps?: number
+  params?: LoadgenActorParamSpec[]
+  schedules?: LoadgenScheduleSpec[]
+}
+
 export interface TemplateInfo {
   id: string
   name: string
@@ -153,15 +185,28 @@ export {
 } from './resourceBudgetError'
 export { isResourceBudgetErrorResponse } from './sumDesignBudget'
 
+function templatesApiBase(): string {
+  return DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+}
+
 /**
  * Fetch the template registry from the backend.
  * Path: strip "/deployments" suffix from DEPLOYMENTS_API_PREFIX and replace with "/templates".
  */
 export async function getTemplates(): Promise<TemplateInfo[]> {
-  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
-  const res = await fetch(`${base}/templates`)
+  const res = await fetch(`${templatesApiBase()}/templates`)
   if (!res.ok) throw new Error(await readApiErrorMessage(res))
   return res.json() as Promise<TemplateInfo[]>
+}
+
+export async function getTemplateLoadgen(
+  templateId: string,
+): Promise<LoadgenConfigView> {
+  const res = await fetch(
+    `${templatesApiBase()}/templates/${encodeURIComponent(templateId)}/loadgen`,
+  )
+  if (!res.ok) throw new ApiError(res.status, await readApiErrorMessage(res))
+  return res.json() as Promise<LoadgenConfigView>
 }
 
 export async function getResourceProfiles(): Promise<ResourceProfilesResponse> {
@@ -471,6 +516,18 @@ export async function stopLoadGen(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
     method: 'DELETE',
     headers: authHeader(),
+  })
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
+}
+
+export async function updateLoadGen(id: string, rps: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(authHeader() ?? {}) },
+    body: JSON.stringify({ rps }),
   })
   if (!res.ok) {
     const message = await readApiErrorMessage(res)

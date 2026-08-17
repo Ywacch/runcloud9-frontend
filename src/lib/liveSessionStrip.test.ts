@@ -6,6 +6,7 @@ import {
   formatSessionMmSs,
   loadMixForTemplate,
   loadMixSegmentsForSession,
+  loadMixSegmentsFromDistribution,
   loadMixSegmentsForTemplate,
   MIX_LABEL_MIN_PCT,
   mixSegmentShowsLabel,
@@ -155,6 +156,38 @@ describe('loadMixSegmentsForSession', () => {
     const unlabeled = segs!.filter((s) => !mixSegmentShowsLabel(s.pct))
     expect(labeled.every((s) => s.pct >= MIX_LABEL_MIN_PCT)).toBe(true)
     expect(unlabeled.every((s) => s.pct < MIX_LABEL_MIN_PCT)).toBe(true)
+  })
+})
+
+describe('loadMixSegmentsFromDistribution', () => {
+  it('maps distribution keys to journey labels and percents', () => {
+    const journeys = socialFeedStorytelling.journeys!.map((j) => ({
+      id: j.id,
+      method: j.method,
+      path: j.path,
+      label: j.label,
+      steps: [],
+      explanation: '',
+    }))
+    const segs = loadMixSegmentsFromDistribution(
+      {
+        'GET /feed/{userId}': 60,
+        'POST /post': 30,
+        'GET /users/{userId}': 10,
+      },
+      journeys,
+    )
+    expect(segs).toHaveLength(3)
+    expect(segs![0]!.label).toBe('Feed reads')
+    expect(segs![0]!.pct).toBe(60)
+    expect(segs![1]!.label).toBe('Create post')
+    expect(segs![1]!.pct).toBe(30)
+    expect(segs![2]!.label).toBe('users/{userId}')
+    expect(segs![2]!.pct).toBe(10)
+  })
+
+  it('returns null for empty distribution', () => {
+    expect(loadMixSegmentsFromDistribution({}, [])).toBeNull()
   })
 })
 

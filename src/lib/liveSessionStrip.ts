@@ -2,6 +2,7 @@ import { readWriteFractions } from '../editor-core/domain/simulation/workload'
 import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
 import type { TopologyFlags } from './componentRole'
 import { getJourneys } from './requestJourney'
+import type { JourneySpec } from './requestJourney'
 import type { StorytellingSpec } from './storytellingTypes'
 import type { TemplateKpiRow } from './templateKpis'
 
@@ -146,6 +147,35 @@ export function loadMixSegmentsForSession(
     })
   }
   return loadMixSegmentsForTemplate(templateId)
+}
+
+/** Live mix from WS loadgen.distribution keys (METHOD path → weight). */
+export function loadMixSegmentsFromDistribution(
+  distribution: Record<string, number>,
+  journeys: JourneySpec[],
+): LoadMixSegment[] | null {
+  const entries = Object.entries(distribution).filter(
+    ([, weight]) => Number.isFinite(weight) && weight > 0,
+  )
+  if (entries.length === 0) return null
+
+  const journeyByKey = new Map(journeys.map((j) => [`${j.method} ${j.path}`, j]))
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0)
+  if (total <= 0) return null
+
+  return entries.slice(0, 4).map(([key, weight], i) => {
+    const journey = journeyByKey.get(key)
+    const pathTail = key.split(' ').pop()?.replace(/^\//, '') ?? key
+    const label = journey?.label ?? pathTail
+    const pct = Math.round((weight / total) * 100)
+    return {
+      id: journey?.id ?? key,
+      label,
+      pct,
+      color: MIX_COLORS[i] ?? MIX_COLORS[0],
+      share: weight / total,
+    }
+  })
 }
 
 export function mixSegmentShowsLabel(pct: number): boolean {
