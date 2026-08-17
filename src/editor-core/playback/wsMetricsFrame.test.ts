@@ -244,6 +244,25 @@ describe('applyWsFrameToStore loadgen latencies', () => {
       10, 20, 30,
     ])
   })
+
+  it('stores schedule phase fields from WS loadgen payload', () => {
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: true,
+          targetRps: 40,
+          currentPhase: 'baseline',
+          phaseIndex: 0,
+          scheduleId: 'world_cup_goal',
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    const lg = useMetricsStore.getState().loadgen
+    expect(lg?.currentPhase).toBe('baseline')
+    expect(lg?.phaseIndex).toBe(0)
+    expect(lg?.scheduleId).toBe('world_cup_goal')
+  })
 })
 
 describe('applyWsFrameToStore chart history', () => {

@@ -44,6 +44,26 @@ describe('auth headers for protected deployment calls', () => {
     expect(deleteDepHeaders.Authorization).toBe('Bearer abc123')
   })
 
+  it('includes scheduleId in startLoadGen JSON body', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('abc123')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      status: 200,
+      statusText: 'OK',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await startLoadGen('dep-1', {
+      rps: 20,
+      template: 'social-feed',
+      scheduleId: 'world_cup_goal',
+    })
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(body.scheduleId).toBe('world_cup_goal')
+  })
+
   it('throws ApiError with status/message on unauthorized', async () => {
     vi.mocked(getAccessToken).mockReturnValue('expired')
     vi.stubGlobal(
