@@ -9,6 +9,7 @@ import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 import {
   groupTemplateMetricDistributions,
   isConventionMetricKey,
+  metricPrefixCopy,
   type TemplateMetricDistribution,
 } from './templateMetricDistributions'
 
@@ -155,6 +156,8 @@ export interface TemplateKpiRow {
   value: string
   kind?: 'error'
   numeric?: number
+  /** Live HUD chip text; defaults to a shortened `label`. */
+  hudLabel?: string
 }
 
 export function kpiKindFromText(id: string, label: string): TemplateKpiRow['kind'] {
@@ -178,10 +181,6 @@ export const HUD_KPI_MAX = 4
 
 const HUD_LABEL_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^posts written/i, 'Posts'],
-  [/^feed push rate$/i, 'Feed/s'],
-  [/^feed pull rate$/i, 'Feed/s'],
-  [/^feed push p9/i, 'Feed p95'],
-  [/^feed pull p9/i, 'Feed p95'],
   [/^feed reads/i, 'Feed reads'],
   [/^fan-out jobs/i, 'Fan-out'],
   [/^fan-out errors/i, 'Fan-out errors'],
@@ -190,7 +189,6 @@ const HUD_LABEL_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^urls shortened/i, 'Shortens'],
   [/^checkouts written/i, 'Checkouts'],
   [/^inventory conflicts/i, 'Conflicts'],
-  [/^checkout .+ p9/i, 'Checkout p95'],
   [/^publish failures/i, 'Publish fail'],
   [/^collisions/i, 'Collisions'],
 ]
@@ -214,7 +212,7 @@ export function hudKpiRows(
   const out: TemplateKpiRow[] = []
   const seen = new Set<string>()
   for (const row of [...alerts, ...rest]) {
-    const label = hudKpiLabel(row.label)
+    const label = row.hudLabel ?? hudKpiLabel(row.label)
     if (seen.has(label)) continue
     seen.add(label)
     out.push({ ...row, label })
@@ -228,12 +226,14 @@ function kpiRow(
   label: string,
   value: string,
   numeric?: number,
+  hudLabel?: string,
 ): TemplateKpiRow {
   return {
     id,
     label,
     value,
     numeric,
+    hudLabel,
     kind: kpiKindFromText(id, label),
   }
 }
@@ -297,10 +297,17 @@ function conventionKpiRows(
   for (const dist of groupTemplateMetricDistributions(templateMetrics)) {
     if (!distributionIsRelevant(templateId, dist, topology)) continue
 
+    const copy = metricPrefixCopy(dist.prefix)
     const rateKey = `${dist.prefix}_rate`
     if (dist.rate != null && dist.rate > 0 && isMetricRelevant(templateId, rateKey, topology)) {
       rows.push(
-        kpiRow(`tm-${rateKey}`, `${dist.label} rate`, `${fmtRate(dist.rate)}/s`, dist.rate),
+        kpiRow(
+          `tm-${rateKey}`,
+          `${copy.label} · reads/s`,
+          `${fmtRate(dist.rate)}/s`,
+          dist.rate,
+          copy.hudRate,
+        ),
       )
     }
 
@@ -310,7 +317,15 @@ function conventionKpiRows(
       dist.p95Ms > 0 &&
       isMetricRelevant(templateId, p95Key, topology)
     ) {
-      rows.push(kpiRow(`tm-${p95Key}`, `${dist.label} p95`, fmtMs(dist.p95Ms), dist.p95Ms))
+      rows.push(
+        kpiRow(
+          `tm-${p95Key}`,
+          `${copy.label} · p95`,
+          fmtMs(dist.p95Ms),
+          dist.p95Ms,
+          copy.hudP95,
+        ),
+      )
       continue
     }
 
@@ -320,7 +335,15 @@ function conventionKpiRows(
       dist.p99Ms > 0 &&
       isMetricRelevant(templateId, p99Key, topology)
     ) {
-      rows.push(kpiRow(`tm-${p99Key}`, `${dist.label} p99`, fmtMs(dist.p99Ms), dist.p99Ms))
+      rows.push(
+        kpiRow(
+          `tm-${p99Key}`,
+          `${copy.label} · p99`,
+          fmtMs(dist.p99Ms),
+          dist.p99Ms,
+          copy.hudP99,
+        ),
+      )
     }
   }
   return rows

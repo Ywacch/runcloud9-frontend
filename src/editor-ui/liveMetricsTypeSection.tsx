@@ -257,7 +257,7 @@ export function LiveMetricsTypeSection({
           {perOpDistributions.length > 0 ? (
             <PedagogicalSection
               title="Per-operation latency"
-              subtitle="Template-scoped latency from Prometheus (p50 / p95 / p99)."
+              subtitle="Latency for one request type — not blended app traffic."
             >
               <div className="space-y-3">
                 {perOpDistributions.map((d) => (

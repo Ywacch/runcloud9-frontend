@@ -39,7 +39,8 @@ describe('templateKpiRows social-feed', () => {
       pushTopology,
     )
     const labels = rows.map((r) => r.label)
-    expect(labels).toContain('Feed push rate')
+    expect(labels).toContain('Feed read (Redis) · reads/s')
+    expect(labels).toContain('Feed read (Redis) · p95')
     expect(labels).toContain('Feed reads (push)')
     const total = rows.find((r) => r.label === 'Feed reads (push)')
     expect(total?.value).toBe('1,280')
@@ -59,7 +60,7 @@ describe('templateKpiRows social-feed', () => {
       pullTopology,
     )
     const labels = rows.map((r) => r.label)
-    expect(labels).not.toContain('Feed push rate')
+    expect(labels).not.toContain('Feed read (Redis) · reads/s')
     expect(labels).not.toContain('Feed reads (push)')
   })
 })
@@ -82,10 +83,10 @@ describe('templateKpiRows social-feed-pull', () => {
       pullTopology,
     )
     const labels = rows.map((r) => r.label)
-    expect(labels).toContain('Feed pull rate')
-    expect(labels).toContain('Feed pull p95')
+    expect(labels).toContain('Feed read (database) · reads/s')
+    expect(labels).toContain('Feed read (database) · p95')
     expect(labels).toContain('Posts written (sync)')
-    expect(labels).not.toContain('Feed push rate')
+    expect(labels).not.toContain('Feed read (Redis) · reads/s')
     expect(labels.some((l) => l.includes('Fan-out'))).toBe(false)
   })
 
@@ -131,17 +132,47 @@ describe('kpiChipIsAlert', () => {
 describe('hudKpiLabel / hudKpiRows', () => {
   it('shortens inspector social-feed labels', () => {
     expect(hudKpiLabel('Posts written (async)')).toBe('Posts')
-    expect(hudKpiLabel('Feed push rate')).toBe('Feed/s')
-    expect(hudKpiLabel('Feed push p95')).toBe('Feed p95')
     expect(hudKpiLabel('Fan-out errors')).toBe('Fan-out errors')
+  })
+
+  it('uses explicit hudLabel on convention rows', () => {
+    const rows = hudKpiRows([
+      {
+        id: 'rate',
+        label: 'Feed read (Redis) · reads/s',
+        value: '12/s',
+        numeric: 12,
+        hudLabel: 'Read/s · Redis',
+      },
+      {
+        id: 'p95',
+        label: 'Feed read (Redis) · p95',
+        value: '40ms',
+        numeric: 40,
+        hudLabel: 'Read p95 · Redis',
+      },
+    ])
+    expect(rows.map((r) => r.label)).toEqual(['Read/s · Redis', 'Read p95 · Redis'])
   })
 
   it('caps at 4 and keeps firing error metrics first', () => {
     const rows = hudKpiRows([
       { id: 'a', label: 'Posts written (async)', value: '5265', numeric: 5265 },
-      { id: 'b', label: 'Feed push rate', value: '8/s', numeric: 8 },
+      {
+        id: 'b',
+        label: 'Feed read (Redis) · reads/s',
+        value: '8/s',
+        numeric: 8,
+        hudLabel: 'Read/s · Redis',
+      },
       { id: 'c', label: 'Feed reads (push)', value: '2866', numeric: 2866 },
-      { id: 'd', label: 'Feed push p95', value: '2500ms', numeric: 2500 },
+      {
+        id: 'd',
+        label: 'Feed read (Redis) · p95',
+        value: '2500ms',
+        numeric: 2500,
+        hudLabel: 'Read p95 · Redis',
+      },
       {
         id: 'e',
         label: 'Fan-out errors',
@@ -156,7 +187,7 @@ describe('hudKpiLabel / hudKpiRows', () => {
     expect(rows.map((r) => r.label)).toEqual([
       'Fan-out errors',
       'Posts',
-      'Feed/s',
+      'Read/s · Redis',
       'Feed reads',
     ])
   })
