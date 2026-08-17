@@ -101,7 +101,6 @@ export function LiveSessionStrip() {
 
   const [remaining, setRemaining] = useState(0)
   const [rps, setRps] = useState(templateDefaultRps)
-  const [hasUserSetRps, setHasUserSetRps] = useState(false)
   const [scheduleId, setScheduleId] = useState('')
   const [actorParams, setActorParams] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false)
@@ -146,7 +145,6 @@ export function LiveSessionStrip() {
     const prefs = deploymentId ? readLoadSessionPrefs(deploymentId) : null
     if (prefs) {
       setRps(prefs.rps)
-      setHasUserSetRps(true)
       setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
       setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
       lastPatchRpsRef.current = prefs.rps
@@ -155,7 +153,6 @@ export function LiveSessionStrip() {
     const defaultRps =
       cfg?.defaultRps ??
       (devDesignPreview ? DEV_LIVE_STRIP_PREVIEW.targetRps : templateDefaultRps)
-    setHasUserSetRps(false)
     setRps(defaultRps)
     setScheduleId(defaultScheduleId(cfg))
     setActorParams(defaultActorParams(cfg))
@@ -739,7 +736,6 @@ export function LiveSessionStrip() {
                     value={rps}
                     title={INGRESS_HELP_LIVE}
                     onChange={(e) => {
-                      setHasUserSetRps(true)
                       setRps(
                         Math.min(500, Math.max(1, Number(e.target.value) || 1)),
                       )
@@ -754,7 +750,6 @@ export function LiveSessionStrip() {
                     aria-label="Base RPS slider"
                     className="c9-load-panel-range"
                     onChange={(e) => {
-                      setHasUserSetRps(true)
                       setRps(Number(e.target.value))
                     }}
                   />
