@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 
-const TOOLTIP_MAX_W = 17.5rem
+const TOOLTIP_MAX_W = '17.5rem'
 const VIEWPORT_MARGIN = 8
 const GAP = 6
 
