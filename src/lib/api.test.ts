@@ -95,7 +95,7 @@ describe('auth headers for protected deployment calls', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await updateLoadGen('dep-1', 120)
+    await updateLoadGen('dep-1', { rps: 120 })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]!

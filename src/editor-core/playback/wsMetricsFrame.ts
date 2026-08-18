@@ -167,6 +167,7 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       e.kind === 'loadgen_start' ||
       e.kind === 'loadgen_stop' ||
       e.kind === 'loadgen_rate' ||
+      e.kind === 'loadgen_mix' ||
       e.kind === 'chaos_inject'
         ? e.kind
         : undefined
