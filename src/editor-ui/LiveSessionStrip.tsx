@@ -130,9 +130,11 @@ export function LiveSessionStrip() {
   }>({ open: false, overview: false, id: null })
   const loadBtnRef = useRef<HTMLButtonElement>(null)
   const loadPanelRef = useRef<HTMLDivElement>(null)
-  const [loadPos, setLoadPos] = useState<{ top: number; right: number } | null>(
-    null,
-  )
+  const [loadPos, setLoadPos] = useState<{
+    top: number
+    right: number
+    maxHeight: number
+  } | null>(null)
 
   useEffect(() => {
     if (devDesignPreview) return
@@ -229,9 +231,17 @@ export function LiveSessionStrip() {
       const btn = loadBtnRef.current
       if (!btn) return
       const r = btn.getBoundingClientRect()
+      const gap = 8
+      const margin = 12
+      const availableBelow = window.innerHeight - r.bottom - gap - margin
+      const maxHeight = Math.max(
+        220,
+        Math.min(window.innerHeight * 0.7, availableBelow),
+      )
       setLoadPos({
-        top: r.bottom + 8,
-        right: Math.max(8, window.innerWidth - r.right),
+        top: r.bottom + gap,
+        right: Math.max(margin, window.innerWidth - r.right),
+        maxHeight,
       })
     }
     place()
@@ -773,7 +783,11 @@ export function LiveSessionStrip() {
                 role="dialog"
                 aria-label="Load control"
                 className="c9-load-panel"
-                style={{ top: loadPos.top, right: loadPos.right }}
+                style={{
+                  top: loadPos.top,
+                  right: loadPos.right,
+                  maxHeight: loadPos.maxHeight,
+                }}
               >
                 <p className="c9-load-panel-status" aria-live="polite">
                   {loadRunning
@@ -784,6 +798,7 @@ export function LiveSessionStrip() {
                       }`
                     : '\u00a0'}
                 </p>
+                <div className="c9-load-panel-body">
                 <div className="c9-load-panel-field">
                   <label htmlFor="live-load-rps">Base RPS</label>
                   <input
@@ -883,6 +898,8 @@ export function LiveSessionStrip() {
                     </div>
                   )
                 })}
+                </div>
+                <div className="c9-load-panel-footer">
                 <button
                   type="button"
                   disabled={busy}
@@ -904,6 +921,7 @@ export function LiveSessionStrip() {
                       ? 'Stop load'
                       : 'Start load'}
                 </button>
+                </div>
               </div>
             </div>,
             document.body,
