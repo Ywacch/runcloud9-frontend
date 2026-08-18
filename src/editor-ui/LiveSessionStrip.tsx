@@ -26,7 +26,16 @@ import {
   readLoadSessionPrefs,
   writeLoadSessionPrefs,
 } from '../lib/loadSessionPrefs'
-import type { LoadgenActorParamSpec } from '../lib/api'
+import type { LoadgenActorParamSpec, LoadgenEndpointSpec } from '../lib/api'
+import {
+  defaultEndpointPercents,
+  distributionKey,
+  distributionSnapshot,
+  distributionToPercents,
+  endpointMixLabel,
+  percentsToDistribution,
+  redistributePercents,
+} from '../lib/trafficMix'
 import { getTopologyFlags } from '../lib/componentRole'
 import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
@@ -103,9 +112,10 @@ export function LiveSessionStrip() {
   const [rps, setRps] = useState(templateDefaultRps)
   const [scheduleId, setScheduleId] = useState('')
   const [actorParams, setActorParams] = useState<Record<string, number>>({})
+  const [mixPercents, setMixPercents] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const lastPatchRpsRef = useRef<number | null>(null)
+  const lastPatchRef = useRef<{ rps: number; distSnap: string } | null>(null)
   const patchTimerRef = useRef<number | null>(null)
   const [loadOpen, setLoadOpen] = useState(false)
   const [chipsOpen, setChipsOpen] = useState(readChipsOpen)
@@ -142,12 +152,22 @@ export function LiveSessionStrip() {
 
   useEffect(() => {
     const cfg = resolvedLoadgenConfig
+    const endpoints = cfg?.endpoints ?? []
     const prefs = deploymentId ? readLoadSessionPrefs(deploymentId) : null
     if (prefs) {
       setRps(prefs.rps)
       setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
       setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
-      lastPatchRpsRef.current = prefs.rps
+      if (endpoints.length > 1 && prefs.distribution) {
+        setMixPercents(distributionToPercents(endpoints, prefs.distribution))
+      } else if (endpoints.length > 1) {
+        setMixPercents(defaultEndpointPercents(endpoints))
+      } else {
+        setMixPercents([])
+      }
+      lastPatchRef.current = prefs.distribution
+        ? { rps: prefs.rps, distSnap: distributionSnapshot(prefs.distribution) }
+        : { rps: prefs.rps, distSnap: '' }
       return
     }
     const defaultRps =
@@ -156,7 +176,12 @@ export function LiveSessionStrip() {
     setRps(defaultRps)
     setScheduleId(defaultScheduleId(cfg))
     setActorParams(defaultActorParams(cfg))
-    lastPatchRpsRef.current = null
+    if (endpoints.length > 1) {
+      setMixPercents(defaultEndpointPercents(endpoints))
+    } else {
+      setMixPercents([])
+    }
+    lastPatchRef.current = null
   }, [
     deploymentId,
     snapshotTemplateId,
@@ -324,31 +349,59 @@ export function LiveSessionStrip() {
   const visibleActorParams = (resolvedLoadgenConfig?.params ?? []).filter(
     (p) => p.key !== 'tier',
   )
+  const loadEndpoints = resolvedLoadgenConfig?.endpoints ?? []
+  const hasMixControls = loadEndpoints.length > 1
   const hasSchedulePicker = (resolvedLoadgenConfig?.schedules?.length ?? 0) > 0
+
+  const mixDistribution = useMemo(() => {
+    if (!hasMixControls) return undefined
+    return percentsToDistribution(loadEndpoints, mixPercents)
+  }, [hasMixControls, loadEndpoints, mixPercents])
+
+  const buildSessionPrefs = useCallback(() => {
+    const prefs = { rps, scheduleId, actorParams }
+    if (mixDistribution) {
+      return { ...prefs, distribution: mixDistribution }
+    }
+    return prefs
+  }, [rps, scheduleId, actorParams, mixDistribution])
 
   useEffect(() => {
     if (!deploymentId || loadRunning) return
-    writeLoadSessionPrefs(deploymentId, { rps, scheduleId, actorParams })
-  }, [deploymentId, rps, scheduleId, actorParams, loadRunning])
+    writeLoadSessionPrefs(deploymentId, buildSessionPrefs())
+  }, [deploymentId, buildSessionPrefs, loadRunning])
 
   useEffect(() => {
     if (devDesignPreview || !loadRunning || !deploymentId) return
-    if (lastPatchRpsRef.current === rps) return
+    const distSnap = mixDistribution ? distributionSnapshot(mixDistribution) : ''
+    const last = lastPatchRef.current
+    const rpsChanged = last?.rps !== rps
+    const mixChanged = last?.distSnap !== distSnap
+    if (!rpsChanged && !mixChanged) return
+
     if (patchTimerRef.current) window.clearTimeout(patchTimerRef.current)
     patchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         if (!session?.access_token) return
+        const snap = mixDistribution ? distributionSnapshot(mixDistribution) : ''
+        const prev = lastPatchRef.current
         try {
-          await updateLoadGen(deploymentId, rps)
-          lastPatchRpsRef.current = rps
-          writeLoadSessionPrefs(deploymentId, { rps, scheduleId, actorParams })
+          const patch: { rps?: number; distribution?: Record<string, number> } = {}
+          if (prev?.rps !== rps) patch.rps = rps
+          if (mixDistribution && prev?.distSnap !== snap) {
+            patch.distribution = mixDistribution
+          }
+          if (Object.keys(patch).length === 0) return
+          await updateLoadGen(deploymentId, patch)
+          lastPatchRef.current = { rps, distSnap: snap }
+          writeLoadSessionPrefs(deploymentId, buildSessionPrefs())
         } catch (e) {
           if (e instanceof ApiError && e.status === 409) {
             setError('Load is not running.')
           } else {
-            debugAuthError(e, 'loadgen-rate')
+            debugAuthError(e, 'loadgen-patch')
             setError(
-              mapAuthErrorMessage(e, 'Could not update load rate. Please try again.'),
+              mapAuthErrorMessage(e, 'Could not update load settings. Please try again.'),
             )
           }
         }
@@ -359,12 +412,12 @@ export function LiveSessionStrip() {
     }
   }, [
     rps,
+    mixDistribution,
     loadRunning,
     deploymentId,
     devDesignPreview,
     session?.access_token,
-    scheduleId,
-    actorParams,
+    buildSessionPrefs,
   ])
 
   const activeJourney = useMemo(() => {
@@ -401,9 +454,13 @@ export function LiveSessionStrip() {
         scheduleId: scheduleId || undefined,
         actorParams:
           Object.keys(actorParams).length > 0 ? actorParams : undefined,
+        distribution: mixDistribution,
       })
-      lastPatchRpsRef.current = rps
-      writeLoadSessionPrefs(deploymentId, { rps, scheduleId, actorParams })
+      lastPatchRef.current = {
+        rps,
+        distSnap: mixDistribution ? distributionSnapshot(mixDistribution) : '',
+      }
+      writeLoadSessionPrefs(deploymentId, buildSessionPrefs())
       trackEvent('loadgen_started', {
         template: snapshotTemplateId ?? '',
         rps,
@@ -426,6 +483,8 @@ export function LiveSessionStrip() {
     session?.access_token,
     snapshotTemplateId,
     devDesignPreview,
+    mixDistribution,
+    buildSessionPrefs,
   ])
 
   const onStopLoad = useCallback(async () => {
@@ -754,6 +813,30 @@ export function LiveSessionStrip() {
                     }}
                   />
                 </div>
+                {hasMixControls ? (
+                  <>
+                    <p className="c9-load-panel-hint font-medium text-[var(--c9-text)]">
+                      Traffic mix
+                    </p>
+                    {loadEndpoints.map((endpoint, index) => (
+                      <EndpointMixSlider
+                        key={distributionKey(endpoint.method, endpoint.pathTemplate)}
+                        endpoint={endpoint}
+                        index={index}
+                        value={mixPercents[index] ?? 0}
+                        label={endpointMixLabel(
+                          `${endpoint.method} ${endpoint.pathTemplate}`,
+                          allJourneys,
+                        )}
+                        onChange={(next) => {
+                          setMixPercents((prev) =>
+                            redistributePercents(prev, index, next),
+                          )
+                        }}
+                      />
+                    ))}
+                  </>
+                ) : null}
                 {hasSchedulePicker ? (
                   <div className="c9-load-panel-field">
                     <label htmlFor="live-load-schedule">Schedule</label>
@@ -859,6 +942,41 @@ function actorParamBounds(param: LoadgenActorParamSpec): {
   const max = param.max ?? 100
   const step = max - min <= 10 ? 0.1 : 1
   return { min, max, step }
+}
+
+function EndpointMixSlider({
+  endpoint,
+  index,
+  value,
+  label,
+  onChange,
+}: {
+  endpoint: LoadgenEndpointSpec
+  index: number
+  value: number
+  label: string
+  onChange: (next: number) => void
+}) {
+  const id = `live-load-mix-${index}-${endpoint.pathTemplate.replace(/[^\w]+/g, '-')}`
+  return (
+    <div className="c9-load-panel-field">
+      <label htmlFor={id}>
+        {label}
+        <span className="c9-load-panel-value">{value}%</span>
+      </label>
+      <input
+        id={id}
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        aria-label={`${label} traffic share`}
+        className="c9-load-panel-range"
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </div>
+  )
 }
 
 function MixBar({

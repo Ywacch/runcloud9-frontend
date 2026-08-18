@@ -6,6 +6,7 @@ export interface LoadSessionPrefs {
   rps: number
   scheduleId?: string
   actorParams?: Record<string, number>
+  distribution?: Record<string, number>
 }
 
 type PersistedMap = Record<string, LoadSessionPrefs>
@@ -83,6 +84,11 @@ export function formatSchedulePhaseSummary(phases: LoadgenPhaseSpec[] | undefine
 /** DEV design preview fixture (social-feed schedules + actor params). */
 export const DEV_LOADGEN_CONFIG: LoadgenConfigView = {
   defaultRps: 50,
+  endpoints: [
+    { method: 'GET', pathTemplate: '/feed/{userId}', weight: 60 },
+    { method: 'POST', pathTemplate: '/post', weight: 30 },
+    { method: 'GET', pathTemplate: '/users/{userId}', weight: 10 },
+  ],
   schedules: [
     {
       id: 'steady',

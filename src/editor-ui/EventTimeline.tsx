@@ -30,6 +30,8 @@ function pillClass(event: WsEvent): string {
     return 'bg-slate-900/80 text-slate-100 ring-slate-700/50'
   if (event.kind === 'loadgen_rate')
     return 'bg-sky-950/80 text-sky-100 ring-sky-700/50'
+  if (event.kind === 'loadgen_mix')
+    return 'bg-indigo-950/80 text-indigo-100 ring-indigo-700/50'
   if (event.type === 'cascade') return 'bg-red-950/80 text-red-100 ring-red-800/50'
   if (event.type === 'threshold')
     return 'bg-amber-950/80 text-amber-100 ring-amber-800/50'
@@ -44,6 +46,8 @@ function workloadAnchorLabel(event: WsEvent): string | null {
       return 'load stop'
     case 'loadgen_rate':
       return 'rate change'
+    case 'loadgen_mix':
+      return 'mix change'
     case 'chaos_inject':
       return 'chaos'
     default:

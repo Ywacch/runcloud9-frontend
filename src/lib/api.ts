@@ -111,9 +111,16 @@ export interface LoadgenActorParamSpec {
   tier?: string
 }
 
+export interface LoadgenEndpointSpec {
+  method: string
+  pathTemplate: string
+  weight: number
+}
+
 /** Projected load UI config from GET /templates/{id}/loadgen. */
 export interface LoadgenConfigView {
   defaultRps?: number
+  endpoints?: LoadgenEndpointSpec[]
   params?: LoadgenActorParamSpec[]
   schedules?: LoadgenScheduleSpec[]
 }
@@ -523,11 +530,24 @@ export async function stopLoadGen(id: string): Promise<void> {
   }
 }
 
-export async function updateLoadGen(id: string, rps: number): Promise<void> {
+export interface LoadGenPatch {
+  rps?: number
+  distribution?: Record<string, number>
+}
+
+export async function updateLoadGen(
+  id: string,
+  patch: LoadGenPatch,
+): Promise<void> {
+  const body: Record<string, unknown> = {}
+  if (patch.rps != null) body.rps = patch.rps
+  if (patch.distribution != null) body.distribution = patch.distribution
+  if (Object.keys(body).length === 0) return
+
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...(authHeader() ?? {}) },
-    body: JSON.stringify({ rps }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const message = await readApiErrorMessage(res)

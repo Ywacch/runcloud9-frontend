@@ -9,6 +9,7 @@ export type WorkloadEventKind =
   | 'loadgen_start'
   | 'loadgen_stop'
   | 'loadgen_rate'
+  | 'loadgen_mix'
   | 'chaos_inject'
 export type EventAudience = 'user' | 'ai' | 'both'
 
@@ -220,6 +221,7 @@ function parsePersistedWsEvents(raw: string): WsEvent[] {
         r.kind === 'loadgen_start' ||
         r.kind === 'loadgen_stop' ||
         r.kind === 'loadgen_rate' ||
+        r.kind === 'loadgen_mix' ||
         r.kind === 'chaos_inject'
           ? r.kind
           : undefined,
