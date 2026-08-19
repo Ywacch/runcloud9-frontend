@@ -272,4 +272,45 @@ describe('deployConfigForNode', () => {
     expect(worker.workerPrefetch).toBe(25)
     expect(worker.workerConcurrency).toBe(4)
   })
+
+  it('emits purchaseMode for ticket-drop app servers only', () => {
+    const app = deployConfigForNode(
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App Server',
+        position: [0, 0, 0],
+        config: { replicas: 1, purchaseMode: 'safe' },
+        status: 'idle',
+      },
+      'ticket-drop',
+    )
+    expect(app.purchaseMode).toBe('safe')
+
+    const defaultUnsafe = deployConfigForNode(
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App Server',
+        position: [0, 0, 0],
+        config: {},
+        status: 'idle',
+      },
+      'ticket-drop',
+    )
+    expect(defaultUnsafe.purchaseMode).toBe('unsafe')
+
+    const otherTemplate = deployConfigForNode(
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App Server',
+        position: [0, 0, 0],
+        config: { purchaseMode: 'safe' },
+        status: 'idle',
+      },
+      'ecommerce',
+    )
+    expect(otherTemplate.purchaseMode).toBeUndefined()
+  })
 })

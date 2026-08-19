@@ -22,6 +22,10 @@ import {
   normalizeWriteBehindIntervalSeconds,
   showsWriteBehindIntervalControl,
 } from './writeBehindInterval'
+import {
+  normalizePurchaseMode,
+  templateSupportsPurchaseMode,
+} from './purchaseMode'
 import { deployCacheTtlSeconds } from './cacheTtl'
 
 /**
@@ -56,6 +60,11 @@ export function deployConfigForNode(
   }
   if (n.type === 'compute') {
     config.replicas = clampAppServerReplicas(config.replicas ?? 1)
+    if (templateSupportsPurchaseMode(templateId)) {
+      config.purchaseMode = normalizePurchaseMode(config.purchaseMode)
+    } else {
+      delete config.purchaseMode
+    }
   } else if (n.type === 'worker') {
     config.replicas = clampWorkerReplicas(config.replicas ?? 1)
   } else if (!backendSupportsReplicas(n.type)) {
