@@ -14,12 +14,14 @@ function formatTime(iso: string): string {
 
 function typeLabel(type: string): string {
   if (type === 'cascade') return 'Cascade'
+  if (type === 'invariant') return 'Invariant'
   if (type === 'threshold') return 'Threshold'
   return type
 }
 
 function typeClass(type: string): string {
   if (type === 'cascade') return 'text-red-300'
+  if (type === 'invariant') return 'text-rose-300'
   if (type === 'threshold') return 'text-amber-200'
   return 'text-[var(--c9-muted)]'
 }

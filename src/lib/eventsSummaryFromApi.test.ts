@@ -21,4 +21,18 @@ describe('parseEventsSummary', () => {
     const out = parseEventsSummary([{ type: 'threshold', title: 'High CPU' }])
     expect(out[0].rule).toBe('High CPU')
   })
+
+  it('parses ruleId for invariant events', () => {
+    const out = parseEventsSummary([
+      {
+        timestamp: '2026-01-01T12:00:00Z',
+        type: 'invariant',
+        ruleId: 'oversell',
+        narrative: 'Sold exceeded capacity',
+      },
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0].rule).toBe('oversell')
+    expect(out[0].type).toBe('invariant')
+  })
 })

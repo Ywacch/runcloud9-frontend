@@ -33,6 +33,8 @@ function pillClass(event: WsEvent): string {
   if (event.kind === 'loadgen_mix')
     return 'bg-indigo-950/80 text-indigo-100 ring-indigo-700/50'
   if (event.type === 'cascade') return 'bg-red-950/80 text-red-100 ring-red-800/50'
+  if (event.type === 'invariant')
+    return 'bg-rose-950/80 text-rose-100 ring-rose-800/50'
   if (event.type === 'threshold')
     return 'bg-amber-950/80 text-amber-100 ring-amber-800/50'
   return 'bg-[var(--c9-badge-bg)] text-[var(--c9-text)] ring-[var(--c9-border)]'

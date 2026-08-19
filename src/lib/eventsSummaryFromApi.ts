@@ -20,7 +20,7 @@ export function parseEventsSummary(raw: unknown): SessionEventSummary[] {
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue
     const r = row as Record<string, unknown>
-    const rule = str(r.rule) ?? str(r.title)
+    const rule = str(r.rule) ?? str(r.ruleId) ?? str(r.title)
     if (!rule) continue
     const type = str(r.type) ?? 'threshold'
     const timestamp = str(r.timestamp) ?? new Date().toISOString()
