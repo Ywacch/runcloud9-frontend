@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canAccessPremiumTemplates,
   hasPaidTier,
   resolveEffectiveTier,
   resourceQuotaTier,
@@ -64,5 +65,41 @@ describe('userTier', () => {
 
   it('engineer tier allows proxy cache strategies', () => {
     expect(topologyLimitsForTier('engineer').allowProxyCache).toBe(true)
+  })
+
+  it('canAccessPremiumTemplates follows allTemplates and paid tier', () => {
+    expect(canAccessPremiumTemplates(null, false)).toBe(false)
+    expect(canAccessPremiumTemplates(null, true)).toBe(true)
+    expect(
+      canAccessPremiumTemplates(
+        {
+          isInternal: true,
+          isPremium: false,
+          premiumExpiresAt: null,
+        },
+        false,
+      ),
+    ).toBe(true)
+    const future = new Date(Date.now() + 86_400_000).toISOString()
+    expect(
+      canAccessPremiumTemplates(
+        {
+          isInternal: false,
+          isPremium: true,
+          premiumExpiresAt: future,
+        },
+        false,
+      ),
+    ).toBe(true)
+    expect(
+      canAccessPremiumTemplates(
+        {
+          isInternal: false,
+          isPremium: true,
+          premiumExpiresAt: future,
+        },
+        true,
+      ),
+    ).toBe(true)
   })
 })

@@ -9,7 +9,8 @@ import {
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
-import { hasPaidTier, type UserRecord } from '../lib/userTier'
+import { refreshCurrentUser } from '../lib/auth'
+import { hasPaidTier, canAccessPremiumTemplates, type UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
 import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview'
@@ -179,17 +180,17 @@ const LockIconLarge = (
 function TemplatePickerCard({
   row,
   userRecord,
-  isPremiumUser,
+  canUsePremiumTemplates,
   onSelect,
   onClose,
 }: {
   row: PresetTemplateRow
   userRecord: UserRecord | null
-  isPremiumUser: boolean
+  canUsePremiumTemplates: boolean
   onSelect: (action: TemplateSelectAction) => boolean | void
   onClose: () => void
 }) {
-  const premiumLocked = row.premium && !isPremiumUser
+  const premiumLocked = row.premium && !canUsePremiumTemplates
   const snapshot = row.snapshot
   const display = templateDisplayCopy(row, userRecord)
 
@@ -378,13 +379,17 @@ function SocialFeedVariantCard({
 function RemoteTemplateCard({
   row,
   userRecord,
-  isPremiumUser,
+  canUsePremiumTemplates,
+  onSelect,
+  onClose,
 }: {
   row: ApiTemplateInfo
   userRecord: UserRecord | null
-  isPremiumUser: boolean
+  canUsePremiumTemplates: boolean
+  onSelect: (action: TemplateSelectAction) => boolean | void
+  onClose: () => void
 }) {
-  const premiumLocked = row.premium && !isPremiumUser
+  const premiumLocked = row.premium && !canUsePremiumTemplates
   const display = templateDisplayCopy(row, userRecord)
   const remotePresetTitle = 'Canvas preset not available for this template yet'
 
@@ -393,7 +398,13 @@ function RemoteTemplateCard({
       className={`relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600 ${premiumLocked ? 'opacity-60' : ''}`}
     >
       <div className="flex h-28 items-center justify-center rounded-t-xl bg-gray-800/30 p-3">
-        {LockIconLarge}
+        {premiumLocked ? (
+          LockIconLarge
+        ) : (
+          <p className="px-2 text-center text-xs leading-snug text-gray-400">
+            No canvas preset yet — start blank and build from the component palette.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col p-4">
@@ -429,18 +440,29 @@ function RemoteTemplateCard({
           {display.components} components · {display.bottleneck}
         </p>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           {premiumLocked ? (
-            <PremiumUpgradeButton />
+            <PremiumUpgradeButton onDone={onClose} />
           ) : row.deployable ? (
-            <button
-              type="button"
-              disabled
-              title={remotePresetTitle}
-              className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Use template
-            </button>
+            <>
+              <button
+                type="button"
+                disabled
+                title={remotePresetTitle}
+                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Use preset
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect({ kind: 'scratch', id: row.id })
+                }}
+                className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
+              >
+                Start from scratch
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -458,15 +480,28 @@ export function TemplateModal({
   /** Handle template action in design mode. Return `false` to keep modal open. */
   onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
-  const isPremiumUser = useAuthStore((s) => s.isPremium)
   const userRecord = useAuthStore((s) => s.userRecord)
-  const showExplorerLimitsNotice = !isPremiumUser && !hasPaidTier(userRecord)
+  const allTemplates = useAuthStore((s) => s.currentUser?.limits.allTemplates)
+  const canUsePremiumTemplates = canAccessPremiumTemplates(
+    userRecord,
+    allTemplates === true,
+  )
+  const showExplorerLimitsNotice =
+    !canUsePremiumTemplates && !hasPaidTier(userRecord)
   const [items, setItems] = useState<ModalTemplateItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [socialFeedVariants, setSocialFeedVariants] = useState<
     PresetTemplateRow[] | null
   >(null)
+
+  useEffect(() => {
+    if (!open) return
+    const { session, currentUser } = useAuthStore.getState()
+    if (session?.user?.id && !currentUser) {
+      void refreshCurrentUser()
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) setSocialFeedVariants(null)
@@ -614,7 +649,7 @@ export function TemplateModal({
                     key={item.row.id}
                     row={item.row}
                     userRecord={userRecord}
-                    isPremiumUser={isPremiumUser}
+                    canUsePremiumTemplates={canUsePremiumTemplates}
                     onClose={onClose}
                     onSelect={(action) => {
                       if (onSelect(action) !== false) onClose()
@@ -631,7 +666,11 @@ export function TemplateModal({
                     key={item.row.id}
                     row={item.row}
                     userRecord={userRecord}
-                    isPremiumUser={isPremiumUser}
+                    canUsePremiumTemplates={canUsePremiumTemplates}
+                    onClose={onClose}
+                    onSelect={(action) => {
+                      if (onSelect(action) !== false) onClose()
+                    }}
                   />
                 ),
               )}

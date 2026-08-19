@@ -31,6 +31,14 @@ export function hasPaidTier(user: UserRecord | null): boolean {
   return resolveEffectiveTier(user) !== 'free'
 }
 
+/** Matches ganymede deploy gate: TierLimits.AllTemplates for engineer/internal. */
+export function canAccessPremiumTemplates(
+  user: UserRecord | null,
+  allTemplates = false,
+): boolean {
+  return allTemplates || hasPaidTier(user)
+}
+
 /** Maps effective tier to deployer quota tier names. */
 export function resourceQuotaTier(effectiveTier: EffectiveTier): string {
   switch (effectiveTier) {
