@@ -25,6 +25,12 @@ import {
   templateSupportsWriteBehindInterval,
 } from '../lib/writeBehindInterval'
 import {
+  normalizePurchaseMode,
+  purchaseModeFromConfig,
+  PURCHASE_MODE_HELP,
+  templateSupportsPurchaseMode,
+} from '../lib/purchaseMode'
+import {
   CACHE_TTL_HELPER,
   CACHE_TTL_MAX,
   CACHE_TTL_MIN,
@@ -1041,6 +1047,8 @@ function TypeFields({
       const replicas = clampAppServerReplicas(c.replicas ?? 1, maxAppReplicas)
       const replicasLocked = maxAppReplicas <= 1
       const replicasDisabled = readOnly || replicasLocked
+      const purchaseMode = purchaseModeFromConfig(c)
+      const showPurchaseMode = templateSupportsPurchaseMode(templateId)
       return (
         <>
           <div>
@@ -1098,6 +1106,39 @@ function TypeFields({
             updateConfig={updateConfig}
             readOnly={readOnly}
           />
+          {showPurchaseMode ? (
+            <div>
+              <label className={labelClass} htmlFor="compute-purchase-mode">
+                <span className="inline-flex items-center gap-1">
+                  Purchase mode
+                  <InfoTooltip text={PURCHASE_MODE_HELP} />
+                </span>
+              </label>
+              <select
+                id="compute-purchase-mode"
+                className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                value={purchaseMode}
+                disabled={readOnly}
+                onChange={(e) => {
+                  if (readOnly) return
+                  const prev = purchaseMode
+                  const next = normalizePurchaseMode(e.target.value)
+                  updateConfig({ purchaseMode: next })
+                  const template =
+                    templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+                  trackEvent('design_option_changed', {
+                    template,
+                    optionName: 'purchase_mode',
+                    previousCategory: prev,
+                    newCategory: next,
+                  })
+                }}
+              >
+                <option value="unsafe">Unsafe (can oversell)</option>
+                <option value="safe">Safe (no oversell)</option>
+              </select>
+            </div>
+          ) : null}
           {simulationMode ? (
             <div>
               <label className={labelClass} htmlFor="compute-cap">
