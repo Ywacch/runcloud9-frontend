@@ -268,6 +268,7 @@ interface MetricsState {
   templateMetrics: Record<string, number>
   /** Latest cascade event for a short toast; cleared on dismiss or clearMetrics. */
   cascadeToast: WsEvent | null
+  invariantToast: WsEvent | null
   /** Non-fatal transport/polling issue while live session remains active. */
   streamWarning: string | null
   /** True when playback cannot bracket the playhead (underrun / stale / reconnect). */
@@ -292,6 +293,7 @@ interface MetricsState {
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
   dismissCascadeToast: () => void
+  dismissInvariantToast: () => void
   setStreamWarning: (msg: string | null) => void
   clearMetrics: () => void
   /** Hydrate timeline from sessionStorage (same-tab refresh / rejoin). */
@@ -306,6 +308,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   events: [],
   templateMetrics: {},
   cascadeToast: null,
+  invariantToast: null,
   streamWarning: null,
   chartFrozen: false,
   playbackCatchingUp: false,
@@ -367,16 +370,20 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       if (!incoming?.length) return s
       const merged = [...s.events, ...incoming].slice(-MAX_EVENTS)
       let cascadeToast = s.cascadeToast
+      let invariantToast = s.invariantToast
       for (const e of incoming) {
         if (e.type === 'cascade') cascadeToast = e
+        if (e.type === 'invariant') invariantToast = e
       }
-      return { events: merged, cascadeToast }
+      return { events: merged, cascadeToast, invariantToast }
     }),
 
   setTemplateMetrics: (m) =>
     set({ templateMetrics: m && Object.keys(m).length ? { ...m } : {} }),
 
   dismissCascadeToast: () => set({ cascadeToast: null }),
+
+  dismissInvariantToast: () => set({ invariantToast: null }),
 
   setStreamWarning: (streamWarning) => set({ streamWarning }),
 
@@ -393,6 +400,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       events: [],
       templateMetrics: {},
       cascadeToast: null,
+      invariantToast: null,
       streamWarning: null,
       chartFrozen: false,
       playbackCatchingUp: false,

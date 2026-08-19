@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import {
   AlertToastStack,
   CascadeToast,
+  InvariantToast,
   ChaosOverlayTicker,
   EventTimeline,
   InspectorAlertWatcher,
@@ -106,6 +107,7 @@ export function CanvasSessionOverlays({
         <>
           <ChaosOverlayTicker />
           <CascadeToast />
+          <InvariantToast />
           <InspectorAlertWatcher />
           <AlertToastStack />
         </>

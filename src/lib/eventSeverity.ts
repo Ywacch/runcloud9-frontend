@@ -2,8 +2,9 @@ import type { WsEvent } from '../editor-core/stores/metricsStore'
 
 const SEVERITY_RANK: Record<string, number> = {
   cascade: 0,
-  threshold: 1,
-  action: 2,
+  invariant: 1,
+  threshold: 2,
+  action: 3,
 }
 
 export function eventSeverityRank(type: string): number {
@@ -49,7 +50,7 @@ export function sortEventsByTime(events: WsEvent[]): WsEvent[] {
   return [...events].sort(compareByTimestampAsc)
 }
 
-/** Cascade first, then threshold, then action; newest first within each tier. */
+/** Cascade first, then invariant, threshold, action; newest first within each tier. */
 export function sortEventsBySeverityThenTime(events: WsEvent[]): WsEvent[] {
   return [...events].sort((a, b) => {
     const dr = eventSeverityRank(a.type) - eventSeverityRank(b.type)

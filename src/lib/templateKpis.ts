@@ -148,6 +148,15 @@ const TEMPLATE_METRIC_ROWS: Record<
     { key: 'mq.publish_errors', label: 'Publish failures', format: (n) => fmtInt(Math.round(n)) },
     { key: 'mq.publish_total', label: 'Messages published', format: (n) => fmtInt(Math.round(n)) },
   ],
+  'ticket-drop': [
+    { key: 'ticket.sold', label: 'Tickets sold', format: (n) => fmtInt(Math.round(n)) },
+    { key: 'ticket.capacity', label: 'Event capacity', format: (n) => fmtInt(Math.round(n)) },
+    {
+      key: 'ticket.oversell',
+      label: 'Oversell (DB truth)',
+      format: (n) => fmtInt(Math.round(n)),
+    },
+  ],
 }
 
 export interface TemplateKpiRow {
@@ -162,7 +171,7 @@ export interface TemplateKpiRow {
 
 export function kpiKindFromText(id: string, label: string): TemplateKpiRow['kind'] {
   const s = `${id} ${label}`.toLowerCase()
-  if (/error|fail|conflict|collision/.test(s)) return 'error'
+  if (/error|fail|conflict|collision|oversell/.test(s)) return 'error'
   return undefined
 }
 
@@ -189,7 +198,9 @@ const HUD_LABEL_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^urls shortened/i, 'Shortens'],
   [/^checkouts written/i, 'Checkouts'],
   [/^inventory conflicts/i, 'Conflicts'],
-  [/^publish failures/i, 'Publish fail'],
+  [/^oversell/i, 'Oversell'],
+  [/^tickets sold/i, 'Sold'],
+  [/^event capacity/i, 'Capacity'],
   [/^collisions/i, 'Collisions'],
 ]
 
@@ -363,27 +374,32 @@ export function templateKpiRows(
 ): TemplateKpiRow[] {
   if (!templateId) return []
   const defs = TEMPLATE_KPIS[templateId]
-  if (!defs?.length) return []
+  const hasMetricRows = Boolean(TEMPLATE_METRIC_ROWS[templateId]?.length)
+  if (!defs?.length && !hasMetricRows && templateId !== 'url-shortener') {
+    if (Object.keys(templateMetrics).length === 0) return []
+  }
 
   const rows: TemplateKpiRow[] = []
-  for (const d of defs) {
-    if (
-      templateId === 'ecommerce' &&
-      d.id === 'orders' &&
-      preferEcommerceCheckoutTotals(templateMetrics)
-    ) {
-      continue
+  if (defs?.length) {
+    for (const d of defs) {
+      if (
+        templateId === 'ecommerce' &&
+        d.id === 'orders' &&
+        preferEcommerceCheckoutTotals(templateMetrics)
+      ) {
+        continue
+      }
+      if (
+        isSocialFeedTemplate(templateId) &&
+        d.id === 'posts' &&
+        preferSocialPostTotals(templateMetrics)
+      ) {
+        continue
+      }
+      const n = d.compute(metrics, inspector, nodes, loadgen)
+      if (n == null) continue
+      rows.push(kpiRow(d.id, d.label, d.format(n), n))
     }
-    if (
-      isSocialFeedTemplate(templateId) &&
-      d.id === 'posts' &&
-      preferSocialPostTotals(templateMetrics)
-    ) {
-      continue
-    }
-    const n = d.compute(metrics, inspector, nodes, loadgen)
-    if (n == null) continue
-    rows.push(kpiRow(d.id, d.label, d.format(n), n))
   }
 
   if (templateId === 'ecommerce' && preferEcommerceCheckoutTotals(templateMetrics)) {

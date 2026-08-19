@@ -97,6 +97,27 @@ describe('templateKpiRows social-feed-pull', () => {
   })
 })
 
+describe('templateKpiRows ticket-drop', () => {
+  it('surfaces oversell from templateMetrics', () => {
+    const rows = templateKpiRows(
+      'ticket-drop',
+      {},
+      {},
+      {},
+      null,
+      {
+        'ticket.sold': 105,
+        'ticket.capacity': 100,
+        'ticket.oversell': 5,
+      },
+    )
+    const oversell = rows.find((r) => r.id === 'tm-ticket.oversell')
+    expect(oversell?.value).toBe('5')
+    expect(oversell?.kind).toBe('error')
+    expect(kpiChipIsAlert(oversell!)).toBe(true)
+  })
+})
+
 describe('kpiChipIsAlert', () => {
   it('keeps error chips neutral at zero', () => {
     expect(

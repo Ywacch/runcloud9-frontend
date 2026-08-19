@@ -21,6 +21,7 @@ const TEMPLATE_TITLE_FALLBACK: Record<string, string> = {
   ecommerce: 'E-Commerce',
   'social-feed': 'Social Feed',
   'social-feed-pull': 'Social Feed (Pull)',
+  'ticket-drop': 'Ticket Drop',
 }
 
 const SOCIAL_FEED_VARIANT_IDS = new Set(['social-feed', 'social-feed-pull'])
@@ -86,6 +87,18 @@ const UsersIcon = (
   </svg>
 )
 
+const TicketIcon = (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path
+      d="M4 8h16v3H4V8zm0 5h16v3H4v-3zm2-8h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path d="M8 12h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+)
+
 const TEMPLATE_META_BY_ID: Record<string, LocalTemplateMeta> = {
   'url-shortener': {
     accent: 'var(--c9-info)',
@@ -98,6 +111,10 @@ const TEMPLATE_META_BY_ID: Record<string, LocalTemplateMeta> = {
   'social-feed': {
     accent: 'var(--c9-accent)',
     icon: UsersIcon,
+  },
+  'ticket-drop': {
+    accent: 'var(--c9-warning, #f59e0b)',
+    icon: TicketIcon,
   },
 }
 
