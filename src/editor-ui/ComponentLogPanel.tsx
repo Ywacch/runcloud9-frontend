@@ -46,10 +46,16 @@ function highlightMatch(text: string, query: string): ReactNode {
   )
 }
 
-function matchesSearch(message: string, fields: Record<string, unknown> | undefined, q: string): boolean {
+function matchesSearch(
+  message: string,
+  fields: Record<string, unknown> | undefined,
+  q: string,
+  pod?: string,
+): boolean {
   if (!q) return true
   const lower = q.toLowerCase()
   if (message.toLowerCase().includes(lower)) return true
+  if (pod && pod.toLowerCase().includes(lower)) return true
   if (fields && JSON.stringify(fields).toLowerCase().includes(lower)) return true
   return false
 }
@@ -71,7 +77,7 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
     () =>
       logs
         .filter((l) => l.component === component)
-        .filter((l) => matchesSearch(l.message, l.fields, searchQuery))
+        .filter((l) => matchesSearch(l.message, l.fields, searchQuery, l.pod))
         .slice(-MAX_COMPONENT_LOGS),
     [logs, component, searchQuery],
   )

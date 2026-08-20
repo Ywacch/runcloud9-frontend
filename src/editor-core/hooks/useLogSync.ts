@@ -15,12 +15,14 @@ function isLogLine(x: unknown): x is RawLogLine {
     o.fields === undefined ||
     (typeof o.fields === 'object' && o.fields !== null && !Array.isArray(o.fields))
   const levelOk = o.level === undefined || typeof o.level === 'string'
+  const podOk = o.pod === undefined || typeof o.pod === 'string'
   return (
     typeof o.timestamp === 'string' &&
     typeof o.component === 'string' &&
     typeof o.message === 'string' &&
     fieldsOk &&
-    levelOk
+    levelOk &&
+    podOk
   )
 }
 

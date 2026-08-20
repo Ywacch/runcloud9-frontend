@@ -984,6 +984,32 @@ function TypeFields({
                 </span>
               </label>
             </div>
+            <div>
+              <label className={labelClass} htmlFor="lb-rate-limit-per-ip">
+                <span className="inline-flex items-center gap-1">
+                  Per-IP request limit (RPS)
+                  <InfoTooltip text="0 = off. Nginx 429s that virtual client above this RPS." />
+                </span>
+              </label>
+              <input
+                id="lb-rate-limit-per-ip"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                value={Number(c.rateLimitPerIp ?? 0)}
+                disabled={readOnly}
+                onChange={(e) => {
+                  if (readOnly) return
+                  const next = Math.min(
+                    100,
+                    Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                  )
+                  updateConfig({ rateLimitPerIp: next })
+                }}
+              />
+            </div>
           ) : null}
           <ResourceProfileFields
             idPrefix="lb"

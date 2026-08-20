@@ -3,6 +3,7 @@ import { proxyRequest, type ProxyResponse } from '../lib/proxyApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useLogStore, type LogLine } from '../editor-core/stores/logStore'
 import { templateTitleForId } from './TemplateModal'
+import { compactPodName } from '../lib/replicaMetricsDisplay'
 
 const PROXY_COMPONENT = 'app-server'
 
@@ -1002,13 +1003,17 @@ interface TraceRowModel {
 
 function groupTraceRowsByComponent(
   rows: TraceRowModel[],
-): { component: string; rows: TraceRowModel[] }[] {
-  const groups: { component: string; rows: TraceRowModel[] }[] = []
+): { component: string; pod: string; rows: TraceRowModel[] }[] {
+  const groups: { component: string; pod: string; rows: TraceRowModel[] }[] = []
   for (const row of rows) {
     const component = row.line.component || 'unknown'
+    const pod = row.line.pod?.trim() ?? ''
     const last = groups[groups.length - 1]
-    if (last?.component === component) last.rows.push(row)
-    else groups.push({ component, rows: [row] })
+    if (last && last.component === component && last.pod === pod) {
+      last.rows.push(row)
+    } else {
+      groups.push({ component, pod, rows: [row] })
+    }
   }
   return groups
 }
@@ -1138,9 +1143,11 @@ function TraceWaterfall({ lines }: { lines: LogLine[] }) {
     <div className="overflow-x-auto rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/60 p-2 font-mono text-[10px]">
       <div className="space-y-2">
         {groups.map((group) => (
-          <div key={group.component}>
+          <div key={`${group.component}|${group.pod}`}>
             <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--c9-muted)]">
-              {group.component}
+              {group.pod
+                ? `${group.component}  ·  ${compactPodName(group.pod)}`
+                : group.component}
             </p>
             <div className="space-y-1">
               {group.rows.map((row) => (
