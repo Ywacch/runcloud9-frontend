@@ -253,6 +253,20 @@ describe('deployConfigForNode', () => {
       status: 'idle',
     })
     expect(app.replicas).toBe(2)
+    expect(app.instanceSizes).toEqual(['small', 'small'])
+    expect(app.instanceSize).toBe('small')
+  })
+
+  it('emits weightByInstanceSize on load balancer wire', () => {
+    const lb = deployConfigForNode({
+      id: 'lb',
+      type: 'load_balancer',
+      label: 'LB',
+      position: [0, 0, 0],
+      config: { weightByInstanceSize: true },
+      status: 'idle',
+    })
+    expect(lb.weightByInstanceSize).toBe(true)
   })
 
   it('keeps worker prefetch and concurrency knobs on the deploy wire', () => {

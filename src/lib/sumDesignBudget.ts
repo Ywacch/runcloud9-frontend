@@ -19,6 +19,7 @@ import {
   tierResourceCaps,
 } from './resourceTierCaps'
 import { clampAppServerReplicas } from './replicaConfig'
+import { normalizeInstanceSizes } from './instanceSizes'
 
 export interface ResourceBudgetLine {
   label: string
@@ -98,6 +99,35 @@ export function sumDesignBudget(
     if (!DEPLOYABLE_NODE_TYPES.has(node.type)) continue
     const canvasType = backendComponentToCanvasType[node.type]
     if (!canvasType) continue
+    if (node.type === 'app-server' || node.type === 'worker') {
+      const replicas = replicasForBudget(node)
+      const sizes = normalizeInstanceSizes(node.config, replicas)
+      const name = String(node.name ?? '').trim() || node.type
+      const counts = new Map<string, number>()
+      const order: string[] = []
+      for (const size of sizes) {
+        if (!counts.has(size)) order.push(size)
+        counts.set(size, (counts.get(size) ?? 0) + 1)
+      }
+      for (const size of order) {
+        const count = counts.get(size) ?? 0
+        const limits = resolveProvisionedLimits(
+          canvasType,
+          { ...node.config, instanceSize: size },
+          catalog,
+        )
+        const label =
+          count > 1 ? `${name} ${size}×${count}` : `${name} ${size}`
+        addLine(
+          breakdown,
+          label,
+          scaleCpuMilli(limits.cpu, count),
+          scaleMemoryBytes(limits.memory, count),
+          totals,
+        )
+      }
+      continue
+    }
     const replicas = replicasForBudget(node)
     const limits = resolveProvisionedLimits(canvasType, node.config, catalog)
     const label = budgetNodeLabel(node, replicas)

@@ -55,6 +55,7 @@ import {
   lbAlgorithmForDeploy,
 } from '../lib/replicaConfig'
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
+import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
 import {
@@ -79,6 +80,7 @@ import { QueueBrowser } from './QueueBrowser'
 import { ChaosActions } from './ChaosActions'
 import { LiveMetrics } from './LiveMetrics'
 import { ResourceProfileFields } from './ResourceProfileFields'
+import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
 import { InfoTooltip } from './InfoTooltip'
 import { InlineDisclosure } from './InlineDisclosure'
 import { WorkerInspectorFields } from './WorkerInspectorFields'
@@ -962,6 +964,27 @@ function TypeFields({
               )}
             </select>
           </div>
+          {!simulationMode ? (
+            <div>
+              <label className={`${labelClass} flex items-center gap-2 normal-case`}>
+                <input
+                  id="lb-weight-by-size"
+                  type="checkbox"
+                  className={readOnly ? 'cursor-not-allowed opacity-60' : ''}
+                  checked={Boolean(c.weightByInstanceSize)}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    updateConfig({ weightByInstanceSize: e.target.checked })
+                  }}
+                />
+                <span className="inline-flex items-center gap-1">
+                  Weight by instance size
+                  <InfoTooltip text="Off: equal share per pod. On: small 1, medium 2, large 4." />
+                </span>
+              </label>
+            </div>
+          ) : null}
           <ResourceProfileFields
             idPrefix="lb"
             nodeType="load_balancer"
@@ -1093,7 +1116,12 @@ function TypeFields({
                 if (!Number.isFinite(n)) return
                 const prev = replicas
                 const next = clampAppServerReplicas(n, maxAppReplicas)
-                updateConfig({ replicas: next })
+                const sizes = normalizeInstanceSizes(c, next)
+                updateConfig({
+                  replicas: next,
+                  instanceSizes: sizes,
+                  instanceSize: sizes[0],
+                })
                 if (next > 1) {
                   ensureLoadBalancerForReplicas()
                 }
@@ -1107,13 +1135,30 @@ function TypeFields({
               }}
             />
           </div>
-          <ResourceProfileFields
-            idPrefix="compute"
-            nodeType="compute"
-            config={c}
-            updateConfig={updateConfig}
-            readOnly={readOnly}
-          />
+          {replicas > 1 ? (
+            <InstanceSizeCopyFields
+              idPrefix="compute"
+              config={c}
+              replicaCount={replicas}
+              updateConfig={updateConfig}
+              readOnly={readOnly}
+            />
+          ) : (
+            <ResourceProfileFields
+              idPrefix="compute"
+              nodeType="compute"
+              config={c}
+              updateConfig={(patch) => {
+                const size = String(patch.instanceSize ?? c.instanceSize ?? 'small')
+                updateConfig({
+                  ...patch,
+                  instanceSizes: [size],
+                  instanceSize: size,
+                })
+              }}
+              readOnly={readOnly}
+            />
+          )}
           {showPurchaseMode ? (
             <div>
               <label className={labelClass} htmlFor="compute-purchase-mode">
