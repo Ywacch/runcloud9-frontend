@@ -23,11 +23,12 @@ export function clampWorkerReplicas(
   return clampAppServerReplicas(raw, max)
 }
 
-/** Live deploy LB algorithms (nginx methods teachable under single-IP loadgen). */
+/** Live deploy LB algorithms (nginx methods teachable with virtual client IPs). */
 export const LIVE_LB_ALGORITHMS = [
   'round-robin',
   'least_conn',
   'random',
+  'ip_hash',
 ] as const
 
 export type LiveLBAlgorithm = (typeof LIVE_LB_ALGORITHMS)[number]
@@ -43,10 +44,9 @@ export function lbAlgorithmForDeploy(algorithm: unknown): LiveLBAlgorithm {
     'least-connections': 'least_conn',
     least_conn: 'least_conn',
     random: 'random',
-    // Legacy sticky-IP is not teachable under loadgen — fold to round-robin.
-    'ip-hash': 'round-robin',
-    ip_hash: 'round-robin',
-    iphash: 'round-robin',
+    'ip-hash': 'ip_hash',
+    ip_hash: 'ip_hash',
+    iphash: 'ip_hash',
   }
   const mapped = map[a]
   if (mapped) return mapped

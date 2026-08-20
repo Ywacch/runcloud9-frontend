@@ -5,6 +5,7 @@ export interface LogLine {
   id: number
   timestamp: string
   component: string
+  pod?: string
   level?: string
   message: string
   fields?: Record<string, unknown>

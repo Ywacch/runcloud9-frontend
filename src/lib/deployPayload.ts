@@ -90,6 +90,9 @@ export function deployConfigForNode(
     config.lbAlgorithm = algo
     config.algorithm = algo
     config.weightByInstanceSize = Boolean(config.weightByInstanceSize)
+    const n = Math.floor(Number(config.rateLimitPerIp ?? 0))
+    config.rateLimitPerIp =
+      Number.isFinite(n) && n > 0 ? Math.min(100, n) : 0
   }
   if (n.type === 'cache') {
     const strat = String(

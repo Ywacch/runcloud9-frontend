@@ -965,25 +965,53 @@ function TypeFields({
             </select>
           </div>
           {!simulationMode ? (
-            <div>
-              <label className={`${labelClass} flex items-center gap-2 normal-case`}>
+            <>
+              <div>
+                <label className={`${labelClass} flex items-center gap-2 normal-case`}>
+                  <input
+                    id="lb-weight-by-size"
+                    type="checkbox"
+                    className={readOnly ? 'cursor-not-allowed opacity-60' : ''}
+                    checked={Boolean(c.weightByInstanceSize)}
+                    disabled={readOnly}
+                    onChange={(e) => {
+                      if (readOnly) return
+                      updateConfig({ weightByInstanceSize: e.target.checked })
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-1">
+                    Weight by instance size
+                    <InfoTooltip text="Off: equal share per pod. On: small 1, medium 2, large 4." />
+                  </span>
+                </label>
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="lb-rate-limit-per-ip">
+                  <span className="inline-flex items-center gap-1">
+                    Per-IP request limit (RPS)
+                    <InfoTooltip text="0 = off. Nginx 429s that virtual client above this RPS." />
+                  </span>
+                </label>
                 <input
-                  id="lb-weight-by-size"
-                  type="checkbox"
-                  className={readOnly ? 'cursor-not-allowed opacity-60' : ''}
-                  checked={Boolean(c.weightByInstanceSize)}
+                  id="lb-rate-limit-per-ip"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  value={Number(c.rateLimitPerIp ?? 0)}
                   disabled={readOnly}
                   onChange={(e) => {
                     if (readOnly) return
-                    updateConfig({ weightByInstanceSize: e.target.checked })
+                    const next = Math.min(
+                      100,
+                      Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                    )
+                    updateConfig({ rateLimitPerIp: next })
                   }}
                 />
-                <span className="inline-flex items-center gap-1">
-                  Weight by instance size
-                  <InfoTooltip text="Off: equal share per pod. On: small 1, medium 2, large 4." />
-                </span>
-              </label>
-            </div>
+              </div>
+            </>
           ) : null}
           <ResourceProfileFields
             idPrefix="lb"

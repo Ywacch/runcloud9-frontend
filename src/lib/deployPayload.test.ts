@@ -269,6 +269,38 @@ describe('deployConfigForNode', () => {
     expect(lb.weightByInstanceSize).toBe(true)
   })
 
+  it('emits rateLimitPerIp on load balancer wire', () => {
+    const off = deployConfigForNode({
+      id: 'lb',
+      type: 'load_balancer',
+      label: 'LB',
+      position: [0, 0, 0],
+      config: {},
+      status: 'idle',
+    })
+    expect(off.rateLimitPerIp).toBe(0)
+
+    const capped = deployConfigForNode({
+      id: 'lb',
+      type: 'load_balancer',
+      label: 'LB',
+      position: [0, 0, 0],
+      config: { rateLimitPerIp: 150 },
+      status: 'idle',
+    })
+    expect(capped.rateLimitPerIp).toBe(100)
+
+    const set = deployConfigForNode({
+      id: 'lb',
+      type: 'load_balancer',
+      label: 'LB',
+      position: [0, 0, 0],
+      config: { rateLimitPerIp: 5 },
+      status: 'idle',
+    })
+    expect(set.rateLimitPerIp).toBe(5)
+  })
+
   it('keeps worker prefetch and concurrency knobs on the deploy wire', () => {
     const worker = deployConfigForNode({
       id: 'worker',

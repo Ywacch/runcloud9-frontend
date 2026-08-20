@@ -8,11 +8,9 @@ describe('lbAlgorithmForDeploy', () => {
     expect(lbAlgorithmForDeploy('least_conn')).toBe('least_conn')
     expect(lbAlgorithmForDeploy('least-connections')).toBe('least_conn')
     expect(lbAlgorithmForDeploy('random')).toBe('random')
-  })
-
-  it('folds legacy ip_hash to round-robin', () => {
-    expect(lbAlgorithmForDeploy('ip_hash')).toBe('round-robin')
-    expect(lbAlgorithmForDeploy('ip-hash')).toBe('round-robin')
+    expect(lbAlgorithmForDeploy('ip_hash')).toBe('ip_hash')
+    expect(lbAlgorithmForDeploy('ip-hash')).toBe('ip_hash')
+    expect(lbAlgorithmForDeploy('iphash')).toBe('ip_hash')
   })
 
   it('falls back unknown values to round-robin', () => {
@@ -20,11 +18,12 @@ describe('lbAlgorithmForDeploy', () => {
     expect(lbAlgorithmForDeploy('')).toBe('round-robin')
   })
 
-  it('exports exactly three live algorithms', () => {
+  it('exports four live algorithms', () => {
     expect([...LIVE_LB_ALGORITHMS]).toEqual([
       'round-robin',
       'least_conn',
       'random',
+      'ip_hash',
     ])
   })
 })
