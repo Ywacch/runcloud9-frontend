@@ -147,6 +147,7 @@ export function deployConfigForNode(
 
 export function snapshotToDeploymentDesign(
   snapshot: CanvasSnapshot,
+  opts?: { sessionMinutes?: number },
 ): DeploymentDesign {
   ensureLoadBalancerForReplicas()
   snapshot = useCanvasStore.getState().exportJSON()
@@ -173,13 +174,17 @@ export function snapshotToDeploymentDesign(
   if (!snapshot.templateId?.trim()) {
     throw new Error('no template selected')
   }
-  return {
+  const design: DeploymentDesign = {
     version: snapshot.version,
     template: snapshot.templateId,
     archetype: 'standard',
     nodes,
     connections,
   }
+  if (opts?.sessionMinutes != null) {
+    design.sessionMinutes = opts.sessionMinutes
+  }
+  return design
 }
 
 export function deploymentDesignToSnapshot(

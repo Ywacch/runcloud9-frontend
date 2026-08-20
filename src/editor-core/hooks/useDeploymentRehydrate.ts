@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { parseRunningAtMs } from '../../lib/sessionMinutes'
 import { getDeployment } from '../../lib/api'
 import {
   clearLiveSessionPersist,
@@ -51,6 +52,10 @@ export function useDeploymentRehydrate(): void {
           useCanvasStore.getState().setLiveSessionEndsAt(
             hasExpiresAt ? expiresMs : Date.now() + 9 * 60 * 1000,
           )
+          useCanvasStore.getState().setLiveSessionStartedAt(
+            parseRunningAtMs(row.metricsSummary as Record<string, unknown> | undefined) ??
+              Date.now(),
+          )
           spawnClientLoadgenNode()
           const fin = useCanvasStore.getState()
           fin.setMode('live')
@@ -61,6 +66,7 @@ export function useDeploymentRehydrate(): void {
         } else {
           useCanvasStore.getState().setAllEdgesAnimated(false)
           useCanvasStore.getState().setLiveSessionEndsAt(null)
+          useCanvasStore.getState().setLiveSessionStartedAt(null)
           const fin = useCanvasStore.getState()
           fin.setMode('design')
           fin.selectNode(null)

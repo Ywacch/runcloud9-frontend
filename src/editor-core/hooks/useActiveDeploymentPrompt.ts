@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { parseRunningAtMs } from '../../lib/sessionMinutes'
 import { getDeployment, listActiveDeployments, type ActiveDeploymentSummary } from '../../lib/api'
 import { deploymentDesignToSnapshot } from '../../lib/deployPayload'
 import { persistLiveSession, readLiveSessionPersist } from '../../lib/liveSessionStorage'
@@ -78,6 +79,14 @@ export function useActiveDeploymentPrompt(): {
       st.setLiveSessionEndsAt(
         Number.isFinite(expiresMs) ? expiresMs : Date.now() + 9 * 60 * 1000,
       )
+      if (row.status === 'running') {
+        st.setLiveSessionStartedAt(
+          parseRunningAtMs(row.metricsSummary as Record<string, unknown> | undefined) ??
+            Date.now(),
+        )
+      } else {
+        st.setLiveSessionStartedAt(null)
+      }
 
       const fin = useCanvasStore.getState()
       if (row.status === 'running') {
@@ -99,6 +108,7 @@ export function useActiveDeploymentPrompt(): {
         })
         fin.setMode('design')
         fin.setLiveSessionEndsAt(null)
+        fin.setLiveSessionStartedAt(null)
       } else {
         setPrompt(null)
         return

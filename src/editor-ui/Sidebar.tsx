@@ -45,6 +45,14 @@ import {
 } from '../lib/billingCopy'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
+  canPickSessionLength,
+  clampSessionMinutes,
+  readSessionMinutesPref,
+  resolveDeploySessionMinutes,
+  sessionLengthLimits,
+  writeSessionMinutesPref,
+} from '../lib/sessionMinutes'
+import {
   designExceedsResourceQuota,
   toResourceBudgetErrorResponse,
   type ResourceBudgetErrorResponse,
@@ -183,6 +191,13 @@ export function Sidebar() {
     string | null
   >(null)
   const [deployWarnings, setDeployWarnings] = useState<TopologyWarning[]>([])
+  const sessionLimits = currentUser?.limits
+  const { defaultMins: sessionDefaultMins, capMins: sessionCapMins } = useMemo(
+    () => sessionLengthLimits(sessionLimits),
+    [sessionLimits],
+  )
+  const sessionLengthConfigurable = canPickSessionLength(sessionLimits)
+  const [sessionMinutesChoice, setSessionMinutesChoice] = useState(sessionDefaultMins)
   const pendingDeployResultRef = useRef<DeploymentResult | null>(null)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [templateInfoById, setTemplateInfoById] = useState<
@@ -262,6 +277,7 @@ export function Sidebar() {
     st.setAllEdgesAnimated(false)
     st.setMode('design')
     st.setLiveSessionEndsAt(null)
+    st.setLiveSessionStartedAt(null)
     st.selectNode(null)
     st.setPendingSource(null)
     st.setPlacingNodeType(null)
@@ -278,6 +294,13 @@ export function Sidebar() {
     setDeployResourceBudget(null)
     setDeploying(false)
   }, [])
+
+  useEffect(() => {
+    const pref = readSessionMinutesPref()
+    setSessionMinutesChoice(
+      clampSessionMinutes(pref ?? sessionDefaultMins, sessionLimits),
+    )
+  }, [sessionDefaultMins, sessionCapMins, sessionLimits])
 
   useEffect(() => {
     if (!banner) return
@@ -483,9 +506,16 @@ export function Sidebar() {
     )
 
     try {
+      const me = useAuthStore.getState().currentUser
       const st = useCanvasStore.getState()
       st.setSessionSummary(null)
-      const design = snapshotToDeploymentDesign(st.exportJSON())
+      const wireMinutes = resolveDeploySessionMinutes(
+        sessionMinutesChoice,
+        me?.limits,
+      )
+      const design = snapshotToDeploymentDesign(st.exportJSON(), {
+        ...(wireMinutes != null ? { sessionMinutes: wireMinutes } : {}),
+      })
       const result = await createDeployment(design)
 
       if (result.status === 'simulation_recommended') {
@@ -551,7 +581,7 @@ export function Sidebar() {
       )
       setDeploying(false)
     }
-  }, [finishDeployCreate, isPremiumUser, setPendingDeployAfterAuth])
+  }, [finishDeployCreate, isPremiumUser, sessionMinutesChoice, setPendingDeployAfterAuth])
 
   const runDeploy = useCallback(async () => {
     if (live || deploying) return
@@ -696,6 +726,7 @@ export function Sidebar() {
       st.setMode('design')
       st.setDeploymentId(null)
       st.setLiveSessionEndsAt(null)
+    st.setLiveSessionStartedAt(null)
       st.setAllEdgesAnimated(false)
       discardWsEventsStorage(deploymentId)
       useMetricsStore.getState().clearMetrics()
@@ -931,6 +962,41 @@ export function Sidebar() {
           </>
         ) : (
           <>
+            {sessionLengthConfigurable ? (
+              <div className="space-y-1">
+                <label
+                  className="block text-[11px] font-medium text-[var(--c9-muted)]"
+                  htmlFor="session-length-mins"
+                >
+                  Session length (minutes)
+                </label>
+                <input
+                  id="session-length-mins"
+                  type="number"
+                  min={sessionDefaultMins}
+                  max={sessionCapMins}
+                  step={1}
+                  value={sessionMinutesChoice}
+                  disabled={deploying}
+                  onChange={(e) => {
+                    const next = clampSessionMinutes(
+                      Number(e.target.value),
+                      sessionLimits,
+                    )
+                    setSessionMinutesChoice(next)
+                    writeSessionMinutesPref(next)
+                  }}
+                  className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-sm text-[var(--c9-text)]"
+                />
+                <p className="text-[11px] leading-snug text-[var(--c9-muted)]">
+                  Live session runs this many minutes after the environment is ready.
+                </p>
+              </div>
+            ) : session ? (
+              <p className="text-[11px] leading-snug text-[var(--c9-muted)]">
+                Session length: {sessionDefaultMins} min
+              </p>
+            ) : null}
             <button
               type="button"
               disabled={deploying}

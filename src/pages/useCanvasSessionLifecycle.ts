@@ -29,6 +29,7 @@ import {
   exitLiveSessionDueToRemoteEnd,
   isTerminalDeploymentStatus,
 } from '../lib/sessionCapture'
+import { parseRunningAtMs } from '../lib/sessionMinutes'
 import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import { trackEvent } from '../lib/analytics'
 import {
@@ -309,6 +310,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
             })
           }
           const endsAt = toMs(dep.expiresAt) ?? Date.now() + 9 * 60 * 1000
+          const runningAt = parseRunningAtMs(dep.metricsSummary)
           const live = useCanvasStore.getState()
           Object.keys(live.nodes).forEach((nid) => {
             if (live.nodes[nid]?.type === 'client') return
@@ -316,6 +318,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           })
           live.setMode('live')
           live.setAllEdgesAnimated(true)
+          live.setLiveSessionStartedAt(runningAt ?? Date.now())
           live.setLiveSessionEndsAt(endsAt)
           // Keep the current selection when entering live so the inspector stays open
           // while metrics stream in (clearing here caused an empty sidebar race).
@@ -364,6 +367,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           const stTerminated = useCanvasStore.getState()
           stTerminated.setDeploymentId(null)
           stTerminated.setLiveSessionEndsAt(null)
+          stTerminated.setLiveSessionStartedAt(null)
           stTerminated.setMode('design')
           stTerminated.setAllEdgesAnimated(false)
           Object.keys(stTerminated.nodes).forEach((nid) => {
@@ -532,6 +536,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     const st = useCanvasStore.getState()
     st.setDeploymentId(null)
     st.setLiveSessionEndsAt(null)
+    st.setLiveSessionStartedAt(null)
     st.setMode('design')
     st.setAllEdgesAnimated(false)
     Object.keys(st.nodes).forEach((nid) => {

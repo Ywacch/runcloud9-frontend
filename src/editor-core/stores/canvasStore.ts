@@ -137,8 +137,10 @@ interface CanvasState {
    * Null for paid users or when no template is loaded.
    */
   templatePresetMode: 'full' | 'explorer' | null
-  /** Client-side session end (deploy + 9m) for countdown. */
+  /** Client-side session end (deploy + N minutes) for countdown. */
   liveSessionEndsAt: number | null
+  /** When the live session clock started (running_at or enter-live). */
+  liveSessionStartedAt: number | null
   sessionSummary: SessionSummary | null
   /** Canvas node ids to pulse (narrative card `related` components). */
   narrativeHighlightNodeIds: string[]
@@ -185,6 +187,7 @@ interface CanvasState {
   setSnapshotTemplateId: (id: string | null) => void
   setTemplatePresetMode: (mode: 'full' | 'explorer' | null) => void
   setLiveSessionEndsAt: (t: number | null) => void
+  setLiveSessionStartedAt: (t: number | null) => void
   setSessionSummary: (summary: SessionSummary | null) => void
   setNarrativeHighlightNodeIds: (ids: string[]) => void
   setWalkthroughHighlights: (payload: {
@@ -247,6 +250,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   snapshotTemplateId: null,
   templatePresetMode: null,
   liveSessionEndsAt: null,
+  liveSessionStartedAt: null,
   sessionSummary: null,
   narrativeHighlightNodeIds: [],
   walkthroughActiveNodeId: null,
@@ -510,6 +514,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setLiveSessionEndsAt: (liveSessionEndsAt) => set({ liveSessionEndsAt }),
 
+  setLiveSessionStartedAt: (liveSessionStartedAt) => set({ liveSessionStartedAt }),
+
   setSessionSummary: (sessionSummary) => set({ sessionSummary }),
 
   setNarrativeHighlightNodeIds: (narrativeHighlightNodeIds) =>
@@ -589,6 +595,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
       mode: 'design',
@@ -618,6 +625,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
       mode: targetMode,
@@ -647,6 +655,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
       mode: 'design',
@@ -677,6 +686,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       templatePresetMode: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
       narrativeHighlightNodeIds: [],

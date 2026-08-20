@@ -29,4 +29,6 @@ export interface DeploymentDesign {
   archetype: string
   nodes: DeploymentNode[]
   connections: DeploymentConn[]
+  /** Optional live session length (minutes). Honored for paid tiers only on the API. */
+  sessionMinutes?: number
 }

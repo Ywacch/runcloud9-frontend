@@ -12,6 +12,7 @@ import {
 } from '../editor-core/domain/sessionHistoryFromApi'
 import { fmtMemMB, fmtPct } from './format'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
+import { DEFAULT_SESSION_MINUTES } from './sessionMinutes'
 import { useCanvasStore, type SessionSummary } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
@@ -133,9 +134,11 @@ function buildSessionSummaryFromMetrics(): SessionSummary {
   const cacheHitRate = cacheTotal > 0 ? (totalHits / cacheTotal) * 100 : 0
 
   const sessionEnd = Date.now()
-  const sessionStart = st.liveSessionEndsAt
-    ? st.liveSessionEndsAt - 9 * 60 * 1000
-    : sessionEnd - 60_000
+  const sessionStart =
+    st.liveSessionStartedAt ??
+    (st.liveSessionEndsAt
+      ? st.liveSessionEndsAt - DEFAULT_SESSION_MINUTES * 60 * 1000
+      : sessionEnd - 60_000)
   const durationSec = Math.max(0, Math.round((sessionEnd - sessionStart) / 1000))
   const durationStr = `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
 
@@ -269,6 +272,7 @@ export function exitLiveSessionDueToRemoteEnd(): void {
     s.setMode('design')
     s.setDeploymentId(null)
     s.setLiveSessionEndsAt(null)
+    s.setLiveSessionStartedAt(null)
     s.setAllEdgesAnimated(false)
     useMetricsStore.getState().clearMetrics()
     useLogStore.getState().clearLogs()
