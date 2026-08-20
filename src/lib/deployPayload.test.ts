@@ -287,6 +287,39 @@ describe('deployConfigForNode', () => {
     )
     expect(app.purchaseMode).toBe('safe')
 
+    const optimistic = deployConfigForNode(
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App Server',
+        position: [0, 0, 0],
+        config: { purchaseMode: 'optimistic' },
+        status: 'idle',
+      },
+      'ticket-drop',
+    )
+    expect(optimistic.purchaseMode).toBe('optimistic')
+    expect(optimistic.seedEventName).toBe('Midnight Arena — Floor')
+    expect(optimistic.seedEventCapacity).toBe(100)
+
+    const seeded = deployConfigForNode(
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App Server',
+        position: [0, 0, 0],
+        config: {
+          purchaseMode: 'unsafe',
+          seedEventName: 'Floor Seats',
+          seedEventCapacity: 120,
+        },
+        status: 'idle',
+      },
+      'ticket-drop',
+    )
+    expect(seeded.seedEventName).toBe('Floor Seats')
+    expect(seeded.seedEventCapacity).toBe(120)
+
     const defaultUnsafe = deployConfigForNode(
       {
         id: 'app-1',
@@ -312,5 +345,7 @@ describe('deployConfigForNode', () => {
       'ecommerce',
     )
     expect(otherTemplate.purchaseMode).toBeUndefined()
+    expect(otherTemplate.seedEventName).toBeUndefined()
+    expect(otherTemplate.seedEventCapacity).toBeUndefined()
   })
 })

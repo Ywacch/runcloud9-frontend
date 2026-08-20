@@ -28,6 +28,11 @@ import {
   normalizePurchaseMode,
   purchaseModeFromConfig,
   PURCHASE_MODE_HELP,
+  purchasePathInfo,
+  seedEventCapacityFromConfig,
+  seedEventNameFromConfig,
+  SEED_EVENT_CAPACITY_MAX,
+  SEED_EVENT_CAPACITY_MIN,
   templateSupportsPurchaseMode,
 } from '../lib/purchaseMode'
 import {
@@ -1049,6 +1054,9 @@ function TypeFields({
       const replicasDisabled = readOnly || replicasLocked
       const purchaseMode = purchaseModeFromConfig(c)
       const showPurchaseMode = templateSupportsPurchaseMode(templateId)
+      const pathInfo = purchasePathInfo(purchaseMode)
+      const seedName = seedEventNameFromConfig(c)
+      const seedCapacity = seedEventCapacityFromConfig(c)
       return (
         <>
           <div>
@@ -1134,10 +1142,67 @@ function TypeFields({
                   })
                 }}
               >
-                <option value="unsafe">Unsafe (can oversell)</option>
-                <option value="safe">Safe (no oversell)</option>
+                <option value="unsafe">Unsafe (app read-then-write)</option>
+                <option value="safe">Row lock (FOR UPDATE)</option>
+                <option value="optimistic">Conditional UPDATE</option>
               </select>
+              <div className="mt-2 rounded-md border border-[var(--c9-border)]/80 bg-[var(--c9-bg)]/60 px-2.5 py-2">
+                <p className="text-[10px] font-medium text-[var(--c9-text)]">
+                  {pathInfo.layer}
+                </p>
+                <ul className="mt-1.5 space-y-1 font-mono text-[10px] leading-relaxed text-[var(--c9-muted)]">
+                  {pathInfo.sql.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[10px] leading-relaxed text-[var(--c9-muted)]">
+                  {pathInfo.underDrop}
+                </p>
+              </div>
             </div>
+          ) : null}
+          {showPurchaseMode ? (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="compute-seed-event-name">
+                  Event name
+                </label>
+                <input
+                  id="compute-seed-event-name"
+                  type="text"
+                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  value={seedName}
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    updateConfig({ seedEventName: e.target.value })
+                  }}
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="compute-seed-event-capacity">
+                  Ticket capacity
+                </label>
+                <input
+                  id="compute-seed-event-capacity"
+                  type="number"
+                  min={SEED_EVENT_CAPACITY_MIN}
+                  max={SEED_EVENT_CAPACITY_MAX}
+                  step={1}
+                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  value={seedCapacity}
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    const n = Number(e.target.value)
+                    if (!Number.isFinite(n)) return
+                    updateConfig({ seedEventCapacity: Math.floor(n) })
+                  }}
+                />
+              </div>
+            </>
           ) : null}
           {simulationMode ? (
             <div>
