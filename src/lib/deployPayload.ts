@@ -25,6 +25,8 @@ import {
 import {
   normalizePurchaseMode,
   templateSupportsPurchaseMode,
+  seedEventCapacityFromConfig,
+  seedEventNameFromConfig,
 } from './purchaseMode'
 import { deployCacheTtlSeconds } from './cacheTtl'
 
@@ -62,8 +64,12 @@ export function deployConfigForNode(
     config.replicas = clampAppServerReplicas(config.replicas ?? 1)
     if (templateSupportsPurchaseMode(templateId)) {
       config.purchaseMode = normalizePurchaseMode(config.purchaseMode)
+      config.seedEventName = seedEventNameFromConfig(config)
+      config.seedEventCapacity = seedEventCapacityFromConfig(config)
     } else {
       delete config.purchaseMode
+      delete config.seedEventName
+      delete config.seedEventCapacity
     }
   } else if (n.type === 'worker') {
     config.replicas = clampWorkerReplicas(config.replicas ?? 1)
