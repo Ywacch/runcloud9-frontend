@@ -4,7 +4,9 @@ import {
   WORKER_REPLICA_MIN,
   clampWorkerReplicas,
 } from '../lib/replicaConfig'
+import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { ResourceProfileFields } from './ResourceProfileFields'
+import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
 import { InfoTooltip } from './InfoTooltip'
 
 const fieldClass =
@@ -57,8 +59,12 @@ export function WorkerInspectorFields({
             if (readOnly) return
             const n = Number(e.target.value)
             if (!Number.isFinite(n)) return
+            const next = clampWorkerReplicas(n)
+            const sizes = normalizeInstanceSizes(config, next)
             updateConfig({
-              replicas: clampWorkerReplicas(n),
+              replicas: next,
+              instanceSizes: sizes,
+              instanceSize: sizes[0],
             })
           }}
         />
@@ -123,13 +129,30 @@ export function WorkerInspectorFields({
           }}
         />
       </div>
-      <ResourceProfileFields
-        idPrefix="worker"
-        nodeType="worker"
-        config={config}
-        updateConfig={updateConfig}
-        readOnly={readOnly}
-      />
+      {workerReplicas > 1 ? (
+        <InstanceSizeCopyFields
+          idPrefix="worker"
+          config={config}
+          replicaCount={workerReplicas}
+          updateConfig={updateConfig}
+          readOnly={readOnly}
+        />
+      ) : (
+        <ResourceProfileFields
+          idPrefix="worker"
+          nodeType="worker"
+          config={config}
+          updateConfig={(patch) => {
+            const size = String(patch.instanceSize ?? config.instanceSize ?? 'small')
+            updateConfig({
+              ...patch,
+              instanceSizes: [size],
+              instanceSize: size,
+            })
+          }}
+          readOnly={readOnly}
+        />
+      )}
       {simulationMode ? (
         <div>
           <label className={labelClass} htmlFor="worker-cap">

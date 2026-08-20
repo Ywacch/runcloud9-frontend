@@ -29,6 +29,7 @@ import {
   seedEventNameFromConfig,
 } from './purchaseMode'
 import { deployCacheTtlSeconds } from './cacheTtl'
+import { normalizeInstanceSizes } from './instanceSizes'
 
 /**
  * Backend topology validation and env derivation typically read `strategy` on cache
@@ -62,6 +63,9 @@ export function deployConfigForNode(
   }
   if (n.type === 'compute') {
     config.replicas = clampAppServerReplicas(config.replicas ?? 1)
+    const sizes = normalizeInstanceSizes(config, Number(config.replicas))
+    config.instanceSizes = sizes
+    config.instanceSize = sizes[0]
     if (templateSupportsPurchaseMode(templateId)) {
       config.purchaseMode = normalizePurchaseMode(config.purchaseMode)
       config.seedEventName = seedEventNameFromConfig(config)
@@ -73,6 +77,9 @@ export function deployConfigForNode(
     }
   } else if (n.type === 'worker') {
     config.replicas = clampWorkerReplicas(config.replicas ?? 1)
+    const sizes = normalizeInstanceSizes(config, Number(config.replicas))
+    config.instanceSizes = sizes
+    config.instanceSize = sizes[0]
   } else if (!backendSupportsReplicas(n.type)) {
     // Force single instance on the wire; SVG packing may still show multi-unit demos.
     delete config.replicas
@@ -82,6 +89,7 @@ export function deployConfigForNode(
     const algo = lbAlgorithmForDeploy(config.algorithm ?? config.lbAlgorithm)
     config.lbAlgorithm = algo
     config.algorithm = algo
+    config.weightByInstanceSize = Boolean(config.weightByInstanceSize)
   }
   if (n.type === 'cache') {
     const strat = String(

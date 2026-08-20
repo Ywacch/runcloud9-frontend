@@ -279,4 +279,39 @@ describe('sumDesignBudget', () => {
       got.breakdown.some((row) => row.label.includes('cache-proxy')),
     ).toBe(false)
   })
+
+  it('sums per-copy app sizes instead of replicas times one profile', () => {
+    const mixed: DeploymentDesign = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'url-shortener',
+      nodes: [
+        {
+          id: 'app-1',
+          type: 'app-server',
+          name: 'App Server',
+          config: {
+            replicas: 2,
+            instanceSize: 'large',
+            instanceSizes: ['large', 'small'],
+          },
+        },
+      ],
+      connections: [],
+    }
+    const uniformLarge: DeploymentDesign = {
+      ...mixed,
+      nodes: [
+        {
+          id: 'app-1',
+          type: 'app-server',
+          name: 'App Server',
+          config: { replicas: 2, instanceSize: 'large' },
+        },
+      ],
+    }
+    const mixedBudget = sumDesignBudget(mixed, 'explorer', catalog)
+    const twoLargeBudget = sumDesignBudget(uniformLarge, 'explorer', catalog)
+    expect(mixedBudget.cpuMilli).toBeLessThan(twoLargeBudget.cpuMilli)
+  })
 })
