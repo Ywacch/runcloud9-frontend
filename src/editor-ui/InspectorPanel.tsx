@@ -341,6 +341,7 @@ export function InspectorPanel() {
                   <DataBrowser
                     deploymentId={deploymentId}
                     component={canvasToBackend[node.type]}
+                    readReplicaCount={clampReadReplicas(node.config.readReplicas)}
                   />
                 ) : null}
                 {liveTab === 'data' && deploymentId && node.type === 'cache' ? (
