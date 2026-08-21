@@ -3,6 +3,18 @@ import { getAccessToken } from './auth'
 
 const API_BASE = DEPLOYMENTS_API_PREFIX
 
+export type IntrospectTarget = 'primary' | 'replica'
+
+/** Append `target=replica` only for replica reads; primary/default leaves the path unchanged. */
+export function withIntrospectTarget(
+  path: string,
+  target?: IntrospectTarget,
+): string {
+  if (target !== 'replica') return path
+  const sep = path.includes('?') ? '&' : '?'
+  return `${path}${sep}target=replica`
+}
+
 function authHeaders(): Record<string, string> {
   const token = getAccessToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -81,19 +93,28 @@ export function fetchCapabilities(deploymentId: string, component: string) {
   )
 }
 
-export function fetchTables(deploymentId: string, component: string) {
-  return introspectGet<TableInfo[]>(deploymentId, component, 'tables')
+export function fetchTables(
+  deploymentId: string,
+  component: string,
+  target?: IntrospectTarget,
+) {
+  return introspectGet<TableInfo[]>(
+    deploymentId,
+    component,
+    withIntrospectTarget('tables', target),
+  )
 }
 
 export function fetchSchema(
   deploymentId: string,
   component: string,
   table: string,
+  target?: IntrospectTarget,
 ) {
   return introspectGet<ColumnInfo[]>(
     deploymentId,
     component,
-    `schema/${encodeURIComponent(table)}`,
+    withIntrospectTarget(`schema/${encodeURIComponent(table)}`, target),
   )
 }
 
@@ -106,6 +127,7 @@ export function fetchRows(
     limit?: number
     sort?: string
     order?: string
+    target?: IntrospectTarget
   },
 ) {
   const params = new URLSearchParams()
@@ -114,15 +136,24 @@ export function fetchRows(
   if (opts?.sort) params.set('sort', opts.sort)
   if (opts?.order) params.set('order', opts.order)
   const qs = params.toString()
+  const path = `rows/${encodeURIComponent(table)}${qs ? `?${qs}` : ''}`
   return introspectGet<RowsResult>(
     deploymentId,
     component,
-    `rows/${encodeURIComponent(table)}${qs ? `?${qs}` : ''}`,
+    withIntrospectTarget(path, opts?.target),
   )
 }
 
-export function fetchIndexes(deploymentId: string, component: string) {
-  return introspectGet<IndexInfo[]>(deploymentId, component, 'indexes')
+export function fetchIndexes(
+  deploymentId: string,
+  component: string,
+  target?: IntrospectTarget,
+) {
+  return introspectGet<IndexInfo[]>(
+    deploymentId,
+    component,
+    withIntrospectTarget('indexes', target),
+  )
 }
 
 export function fetchKeys(

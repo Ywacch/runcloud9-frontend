@@ -6,6 +6,7 @@ import {
   fetchTables,
   type ColumnInfo,
   type IndexInfo,
+  type IntrospectTarget,
   type RowsResult,
   type TableInfo,
 } from '../lib/introspectApi'
@@ -163,9 +164,15 @@ function IndexesSection({
 interface DataBrowserProps {
   deploymentId: string
   component: string
+  readReplicaCount: number
 }
 
-export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
+export function DataBrowser({
+  deploymentId,
+  component,
+  readReplicaCount,
+}: DataBrowserProps) {
+  const [target, setTarget] = useState<IntrospectTarget>('primary')
   const [tables, setTables] = useState<TableInfo[]>([])
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [rows, setRows] = useState<RowsResult | null>(null)
@@ -175,13 +182,15 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const showReplicaToggle = readReplicaCount >= 1
+
   const loadTablesAndIndexes = useCallback(async () => {
     setError(null)
     setLoading(true)
     try {
       const [tList, idxList] = await Promise.all([
-        fetchTables(deploymentId, component),
-        fetchIndexes(deploymentId, component),
+        fetchTables(deploymentId, component, target),
+        fetchIndexes(deploymentId, component, target),
       ])
       setTables(tList)
       setIndexes(idxList)
@@ -200,7 +209,7 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
     } finally {
       setLoading(false)
     }
-  }, [deploymentId, component])
+  }, [deploymentId, component, target])
 
   useEffect(() => {
     void loadTablesAndIndexes()
@@ -216,8 +225,9 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
           fetchRows(deploymentId, component, table, {
             page: pageNum,
             limit: PAGE_LIMIT,
+            target,
           }),
-          fetchSchema(deploymentId, component, table),
+          fetchSchema(deploymentId, component, table, target),
         ])
         setRows(r)
         setSchema(s)
@@ -231,7 +241,7 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
         setLoading(false)
       }
     },
-    [deploymentId, component],
+    [deploymentId, component, target],
   )
 
   useEffect(() => {
@@ -270,6 +280,43 @@ export function DataBrowser({ deploymentId, component }: DataBrowserProps) {
 
   return (
     <div className="space-y-3">
+      {showReplicaToggle ? (
+        <div className="space-y-1.5">
+          <div
+            className="inline-flex rounded border border-[var(--c9-border)] p-0.5"
+            role="group"
+            aria-label="Database target"
+          >
+            {(['primary', 'replica'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  if (value === target) return
+                  setPage(1)
+                  setTarget(value)
+                }}
+                className={`rounded px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
+                  target === value
+                    ? 'bg-[var(--c9-accent)] text-white'
+                    : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+          {target === 'replica' ? (
+            <p className="text-[10px] leading-snug text-[var(--c9-muted)]">
+              Replica data can lag under async replication.
+              {readReplicaCount >= 2
+                ? ' With two replicas, reads are pooled across standbys.'
+                : null}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-1.5">
         {tables.map((t) => (
           <button
