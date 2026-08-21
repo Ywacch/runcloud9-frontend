@@ -200,4 +200,43 @@ describe('metricsUiContract', () => {
     expect(parseComponentLayers(undefined)).toEqual([])
     expect(parseComponentLayers([])).toEqual([])
   })
+
+  it('parseComponentLayers maps db primary and replica layers with replay lag', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'postgres-replica-roll',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0.02,
+        memoryUsage: 67108864,
+        replicationLagSeconds: 0.05,
+      },
+      {
+        id: 'postgres',
+        role: 'primary',
+        engine: 'postgresql',
+        cpuUsage: 0.08,
+        memoryUsage: 134217728,
+      },
+    ])
+    expect(layers).toHaveLength(2)
+    expect(layers[0].id).toBe('postgres')
+    expect(layers[0].role).toBe('primary')
+    expect(layers[1].id).toBe('postgres-replica-roll')
+    expect(layers[1].replicationLagSeconds).toBe(0.05)
+  })
+
+  it('parseComponentLayers preserves zero replication lag', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'postgres-replica-0',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0,
+        memoryUsage: 0,
+        replicationLagSeconds: 0,
+      },
+    ])
+    expect(layers[0]?.replicationLagSeconds).toBe(0)
+  })
 })
