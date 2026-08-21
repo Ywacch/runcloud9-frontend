@@ -29,6 +29,7 @@ export const LIVE_LB_ALGORITHMS = [
   'least_conn',
   'random',
   'ip_hash',
+  'least_time',
 ] as const
 
 export type LiveLBAlgorithm = (typeof LIVE_LB_ALGORITHMS)[number]
@@ -47,6 +48,9 @@ export function lbAlgorithmForDeploy(algorithm: unknown): LiveLBAlgorithm {
     'ip-hash': 'ip_hash',
     ip_hash: 'ip_hash',
     iphash: 'ip_hash',
+    least_time: 'least_time',
+    'least-time': 'least_time',
+    'least-response-time': 'least_time',
   }
   const mapped = map[a]
   if (mapped) return mapped
