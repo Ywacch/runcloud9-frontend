@@ -2,7 +2,7 @@
  * What the deployer can actually provision today. Visual code (SVG packing,
  * engine skins) may exceed this; user-facing controls and deploy payloads must not.
  * Mirrors ganymede: no `shards` handling, DB_ENGINE defaults postgresql, cache is redis.
- * Cache / DB replica topology stays visual-only until BE owns it end-to-end.
+ * Database read replicas are provisioned via readReplicas; cache stays single-instance.
  */
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 
@@ -55,4 +55,9 @@ export function backendEngineOrDefault(
 
 export function backendSupportsReplicas(type: CanvasNode['type']): boolean {
   return BACKEND_REPLICA_TYPES.has(type)
+}
+
+/** Postgres streaming read replicas (readReplicas knob, not config.replicas). */
+export function backendSupportsReadReplicas(type: CanvasNode['type']): boolean {
+  return type === 'database'
 }

@@ -5,6 +5,28 @@ export const APP_SERVER_REPLICA_MAX = 3
 export const WORKER_REPLICA_MIN = APP_SERVER_REPLICA_MIN
 export const WORKER_REPLICA_MAX = APP_SERVER_REPLICA_MAX
 
+export const DB_READ_REPLICA_MIN = 0
+export const DB_READ_REPLICA_MAX = 2
+
+export function clampReadReplicas(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n)) return DB_READ_REPLICA_MIN
+  return Math.min(
+    DB_READ_REPLICA_MAX,
+    Math.max(DB_READ_REPLICA_MIN, Math.floor(n)),
+  )
+}
+
+export function normalizeReplicationModeForDeploy(
+  raw: unknown,
+  readReplicas: number,
+): 'async' | 'sync' {
+  if (readReplicas <= 0) return 'async'
+  const mode = String(raw ?? 'async').trim().toLowerCase()
+  if (mode === 'sync' || mode === 'synchronous') return 'sync'
+  return 'async'
+}
+
 export function clampAppServerReplicas(
   raw: unknown,
   max: number = APP_SERVER_REPLICA_MAX,

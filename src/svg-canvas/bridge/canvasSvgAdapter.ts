@@ -121,6 +121,10 @@ export function configPatchForReplicas(
   type: CanvasNodeType,
   replicas: number,
 ): Record<string, unknown> {
+  if (type === 'database') {
+    const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
+    return { readReplicas: next - 1 }
+  }
   if (!backendSupportsReplicas(type)) return {}
   const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
   return { replicas: next }

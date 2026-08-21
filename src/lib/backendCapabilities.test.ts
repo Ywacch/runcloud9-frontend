@@ -3,6 +3,7 @@ import {
   BACKEND_SUPPORTS_SHARDING,
   backendEngineOrDefault,
   backendEnginesForType,
+  backendSupportsReadReplicas,
   backendSupportsReplicas,
   isBackendSupportedEngine,
 } from './backendCapabilities'
@@ -47,5 +48,11 @@ describe('backendCapabilities', () => {
     expect(backendSupportsReplicas('cache')).toBe(false)
     expect(backendSupportsReplicas('database')).toBe(false)
     expect(backendSupportsReplicas('message_queue')).toBe(false)
+  })
+
+  it('allows database read replicas via readReplicas knob', () => {
+    expect(backendSupportsReadReplicas('database')).toBe(true)
+    expect(backendSupportsReadReplicas('cache')).toBe(false)
+    expect(backendSupportsReadReplicas('compute')).toBe(false)
   })
 })
