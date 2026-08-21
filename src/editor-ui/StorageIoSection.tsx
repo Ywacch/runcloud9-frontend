@@ -315,6 +315,67 @@ export function DbClusterResourcesSection({
   )
 }
 
+function fmtReplicationLagSeconds(seconds: number | undefined): string {
+  if (seconds === undefined || !Number.isFinite(seconds)) return '—'
+  if (seconds < 0.01) return '0 s'
+  if (seconds < 10) return `${seconds.toFixed(2)} s`
+  return `${seconds.toFixed(1)} s`
+}
+
+/** Read-replica replay lag when db instance layers are present (Wave 3 PR4). */
+export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
+  const replicaLayers = m.layers.filter((layer) => layer.role === 'replica')
+  if (replicaLayers.length === 0) return null
+
+  const br = m.backendReplicas
+  const single = replicaLayers.length === 1 ? replicaLayers[0] : null
+  const maxLag = Math.max(...replicaLayers.map((layer) => layer.replicationLagSeconds ?? 0))
+
+  return (
+    <PedagogicalSection
+      title="Read replicas"
+      subtitle="Primary-side replay lag per streaming standby"
+    >
+      <StatRow
+        left={
+          br && br.desired > 0 ? (
+            <StatBlock
+              label="Replica rollout"
+              value={`${fmtInt(br.ready)} / ${fmtInt(br.desired)} ready`}
+            />
+          ) : (
+            <StatBlock label="Standby instances" value={fmtInt(replicaLayers.length)} />
+          )
+        }
+        right={
+          <StatBlock
+            label={single ? 'Replay lag' : 'Max replay lag'}
+            value={fmtReplicationLagSeconds(
+              single ? single.replicationLagSeconds : maxLag,
+            )}
+            help="Seconds between primary commit and replay on the standby (~0 when caught up)."
+          />
+        }
+      />
+      {replicaLayers.length > 1 ? (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            Per-replica lag
+          </p>
+          <ul className="space-y-1 font-mono text-[11px] text-gray-300">
+            {replicaLayers.map((layer) => (
+              <li key={layer.id} className="flex justify-between gap-2">
+                <span className="truncate">{layer.id}</span>
+                <span>{fmtReplicationLagSeconds(layer.replicationLagSeconds)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </PedagogicalSection>
+  )
+}
+
 export function DbDiagnosticsDisclosure({
   m,
   maxConnections,

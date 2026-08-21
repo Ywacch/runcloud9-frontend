@@ -51,6 +51,7 @@ import {
   DbClusterResourcesSection,
   DbDiagnosticsDisclosure,
   DbLoadSection,
+  DbReplicaLagSection,
   EngineHealthDisclosure,
 } from './StorageIoSection'
 import {
@@ -432,6 +433,7 @@ export function LiveMetricsTypeSection({
             view={view}
             history={history}
           />
+          <DbReplicaLagSection m={m} />
           <DbClusterResourcesSection
             nodeId={nodeId}
             m={m}

@@ -140,7 +140,7 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     lbBackends: Array.isArray(cm.lbBackends) ? [...cm.lbBackends] : [],
     podReplicas: [],
     backendPods: [],
-    backendReplicas: null,
+    backendReplicas: parseBackendReplicas(cm.backendReplicas),
     runtimeHealth: parseRuntimeHealth(cm.runtimeHealth),
     layers: parseComponentLayers(cm.layers),
     freshness: parseComponentFreshness(cm.freshness),

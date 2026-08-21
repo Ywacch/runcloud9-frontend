@@ -70,6 +70,33 @@ describe('componentToBucket resource sources', () => {
     expect(bucket.layers[1].expirationsPerSec).toBeUndefined()
   })
 
+  it('maps db replica layers with replicationLagSeconds from WS payload', () => {
+    const bucket = componentToBucket({
+      component: 'db',
+      backendReplicas: { desired: 1, ready: 1 },
+      layers: [
+        {
+          id: 'postgres',
+          role: 'primary',
+          engine: 'postgresql',
+          cpuUsage: 0.1,
+          memoryUsage: 134217728,
+        },
+        {
+          id: 'postgres-replica-abc',
+          role: 'replica',
+          engine: 'postgresql',
+          cpuUsage: 0.03,
+          memoryUsage: 67108864,
+          replicationLagSeconds: 0.42,
+        },
+      ],
+    })
+    expect(bucket.backendReplicas).toEqual({ desired: 1, ready: 1 })
+    expect(bucket.layers).toHaveLength(2)
+    expect(bucket.layers[1].replicationLagSeconds).toBe(0.42)
+  })
+
   it('maps component-level cache store lifecycle rates onto the bucket', () => {
     const bucket = componentToBucket({
       component: 'cache',

@@ -94,6 +94,8 @@ export interface ComponentLayerMetrics {
   evictionsPerSec?: number
   expirationsPerSec?: number
   restartCount?: number
+  /** Primary-side replay lag in seconds (Postgres replica layers only). */
+  replicationLagSeconds?: number
   /** Layer-local containerCpu / containerMem freshness when present. */
   freshness?: ComponentFreshness
 }
@@ -276,8 +278,10 @@ export function parseCrashContext(raw: unknown): CrashContext | null {
 }
 
 const LAYER_ROLE_ORDER: Record<string, number> = {
-  'backing-store': 0,
-  sidecar: 1,
+  primary: 0,
+  replica: 1,
+  'backing-store': 2,
+  sidecar: 3,
 }
 
 export function layerResourcePercents(layer: ComponentLayerMetrics): {
@@ -312,6 +316,7 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const redisRejected = num(r.redisRejectedRate)
     const evictions = num(r.evictionsPerSec)
     const expirations = num(r.expirationsPerSec)
+    const replicationLag = num(r.replicationLagSeconds)
     out.push({
       id,
       role: typeof r.role === 'string' ? r.role.trim() : '',
@@ -331,6 +336,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       evictionsPerSec: evictions > 0 ? evictions : undefined,
       expirationsPerSec: expirations > 0 ? expirations : undefined,
       restartCount: restartCount > 0 ? restartCount : undefined,
+      replicationLagSeconds:
+        replicationLag > 0 || r.replicationLagSeconds === 0 ? replicationLag : undefined,
       freshness: parseComponentFreshness(r.freshness),
     })
   }
