@@ -215,11 +215,12 @@ describe('deployConfigForNode', () => {
     expect(app.engine).toBeUndefined()
   })
 
-  it('strips cache, database, and worker replica counts from the deploy wire', () => {
+  it('strips cache replica counts but keeps database readReplicas on the deploy wire', () => {
     const cache = deployConfigForNode(
       cacheNode({ cacheStrategy: 'cache-aside', replicas: 3 }),
     )
     expect(cache.replicas).toBeUndefined()
+    expect(cache.readReplicas).toBeUndefined()
 
     const db = deployConfigForNode({
       id: 'db',
@@ -230,7 +231,23 @@ describe('deployConfigForNode', () => {
       status: 'idle',
     })
     expect(db.replicas).toBeUndefined()
-    expect(db.readReplicas).toBeUndefined()
+    expect(db.readReplicas).toBe(2)
+    expect(db.replicationMode).toBe('async')
+
+    const dbSync = deployConfigForNode({
+      id: 'db-sync',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: {
+        engine: 'postgresql',
+        readReplicas: 1,
+        replicationMode: 'sync',
+      },
+      status: 'idle',
+    })
+    expect(dbSync.readReplicas).toBe(1)
+    expect(dbSync.replicationMode).toBe('sync')
 
     const worker = deployConfigForNode({
       id: 'worker',

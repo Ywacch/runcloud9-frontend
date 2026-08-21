@@ -63,13 +63,13 @@ describe('canvasSvgAdapter config projection', () => {
     ).toBe('memcached')
   })
 
-  it('maps database readReplicas to visual replica count but refuses config patches', () => {
+  it('maps database readReplicas to visual replica count and patches readReplicas', () => {
     expect(
       replicasFromCanvasNode(
         node({ type: 'database', config: { readReplicas: 2 } }),
       ),
     ).toBe(3)
-    expect(configPatchForReplicas('database', 3)).toEqual({})
+    expect(configPatchForReplicas('database', 3)).toEqual({ readReplicas: 2 })
     expect(configPatchForReplicas('cache', 2)).toEqual({})
   })
 

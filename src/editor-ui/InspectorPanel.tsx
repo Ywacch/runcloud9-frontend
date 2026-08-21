@@ -52,6 +52,7 @@ import {
   APP_SERVER_REPLICA_MIN,
   LIVE_LB_ALGORITHMS,
   clampAppServerReplicas,
+  clampReadReplicas,
   lbAlgorithmForDeploy,
 } from '../lib/replicaConfig'
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
@@ -1329,6 +1330,60 @@ function TypeFields({
             updateConfig={updateConfig}
             readOnly={readOnly}
           />
+          <div>
+            <label className={labelClass} htmlFor="db-read-replicas">
+              Read replicas
+            </label>
+            <input
+              id="db-read-replicas"
+              type="number"
+              min={0}
+              max={2}
+              step={1}
+              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+              value={clampReadReplicas(c.readReplicas)}
+              readOnly={readOnly}
+              disabled={readOnly}
+              onChange={(e) => {
+                if (readOnly) return
+                const next = clampReadReplicas(Number(e.target.value))
+                updateConfig({
+                  readReplicas: next,
+                  replicationMode:
+                    next === 0
+                      ? 'async'
+                      : String(c.replicationMode ?? 'async'),
+                })
+              }}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="db-replication-mode">
+              Replication
+            </label>
+            <select
+              id="db-replication-mode"
+              className={`${fieldClass}${readOnly || clampReadReplicas(c.readReplicas) === 0 ? ' cursor-not-allowed opacity-60' : ''}`}
+              value={
+                clampReadReplicas(c.readReplicas) === 0
+                  ? 'async'
+                  : String(c.replicationMode ?? 'async') === 'sync'
+                    ? 'sync'
+                    : 'async'
+              }
+              disabled={readOnly || clampReadReplicas(c.readReplicas) === 0}
+              onChange={(e) => {
+                if (readOnly || clampReadReplicas(c.readReplicas) === 0) return
+                updateConfig({ replicationMode: e.target.value })
+              }}
+            >
+              <option value="async">Async</option>
+              <option value="sync">Sync</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Async: replica may lag. Sync: commits wait for standby.
+            </p>
+          </div>
           {simulationMode ? (
             <>
               <div>
