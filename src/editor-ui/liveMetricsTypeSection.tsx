@@ -30,6 +30,7 @@ import {
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
 import { getTopologyFlags } from '../lib/componentRole'
+import { lbAlgorithmForDeploy } from '../lib/replicaConfig'
 import { isMetricRelevant } from '../lib/templateKpis'
 import {
   distributionHasLatency,
@@ -566,8 +567,18 @@ export function LiveMetricsTypeSection({
             {skew.skewed ? (
               <InlineDisclosure label="Why distribution is uneven">
                 <PedagogicalHint>
-                  Uneven distribution? Switching to &apos;least-connections&apos; balances
-                  long-lived traffic more evenly.
+                  {lbAlgorithmForDeploy(algo) === 'ip_hash' ? (
+                    <>
+                      Nginx ip_hash sticks each IPv4 /24 (first three octets) to one
+                      backend. Uneven per-pod totals are expected: one hot replica per
+                      subnet, not one request per last octet.
+                    </>
+                  ) : (
+                    <>
+                      Uneven distribution? Switching to &apos;least-connections&apos;
+                      balances long-lived traffic more evenly.
+                    </>
+                  )}
                 </PedagogicalHint>
               </InlineDisclosure>
             ) : null}
