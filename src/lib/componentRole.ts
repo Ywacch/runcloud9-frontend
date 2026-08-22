@@ -1,4 +1,5 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { clampReadReplicas } from './replicaConfig'
 import { matchesWhen } from './storytellingEngine'
 import type { StorytellingSpec } from './storytellingTypes'
 import { canvasToBackend } from './typeMapping'
@@ -8,6 +9,9 @@ export interface TopologyFlags {
   hasWorker: boolean
   hasCache: boolean
   hasLB: boolean
+  hasDB: boolean
+  /** Max readReplicas across database nodes (0 when none). */
+  dbReadReplicas: number
   cacheStrategy: string
 }
 
@@ -33,11 +37,18 @@ export function getTopologyFlags(nodes: Record<string, CanvasNode>): TopologyFla
   const vals = Object.values(nodes)
   const types = new Set(vals.map((n) => n.type))
   const cacheNode = vals.find((n) => n.type === 'cache')
+  const dbNodes = vals.filter((n) => n.type === 'database')
+  const dbReadReplicas = dbNodes.reduce(
+    (max, node) => Math.max(max, clampReadReplicas(node.config.readReplicas)),
+    0,
+  )
   return {
     hasMQ: types.has('message_queue'),
     hasWorker: types.has('worker'),
     hasCache: types.has('cache'),
     hasLB: types.has('load_balancer'),
+    hasDB: types.has('database'),
+    dbReadReplicas,
     cacheStrategy: String(
       cacheNode?.config?.cacheStrategy ?? cacheNode?.config?.strategy ?? 'cache-aside',
     ),

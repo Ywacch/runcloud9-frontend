@@ -71,6 +71,8 @@ export interface WsComponentMetrics {
   layers?: unknown[]
   /** Per-signal-group freshness (throughput, containerCpu, …). */
   freshness?: unknown
+  /** Observer probe counters when read replicas are deployed. */
+  consistency?: unknown
 }
 
 export interface WsEventPayload {

@@ -322,6 +322,16 @@ function fmtReplicationLagSeconds(seconds: number | undefined): string {
   return `${seconds.toFixed(1)} s`
 }
 
+export function formatConsistencyViolation(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return 'OK'
+  return count === 1 ? '1 violation' : `${fmtInt(count)} violations`
+}
+
+function fmtStalenessVersions(versions: number): string {
+  if (!Number.isFinite(versions) || versions <= 0) return '0'
+  return fmtInt(versions)
+}
+
 /** Read-replica replay lag when db instance layers are present (Wave 3 PR4). */
 export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   const replicaLayers = m.layers.filter((layer) => layer.role === 'replica')
@@ -371,6 +381,57 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
             ))}
           </ul>
         </div>
+      ) : null}
+    </PedagogicalSection>
+  )
+}
+
+/** Observer RYW / monotonic status when backend ships `components.db.consistency`. */
+export function DbConsistencySection({ m }: { m: MetricsBucket }) {
+  const consistency = m.consistency
+  if (!consistency) return null
+
+  return (
+    <PedagogicalSection
+      title="Consistency probes"
+      subtitle="Platform observer writes a version on the primary and reads it on the replica"
+    >
+      <StatRow
+        left={
+          <StatBlock
+            label="Read-your-writes"
+            value={formatConsistencyViolation(consistency.rywViolations)}
+            help="Fires when the replica version lags the version just written on the primary."
+          />
+        }
+        right={
+          <StatBlock
+            label="Monotonic reads"
+            value={formatConsistencyViolation(consistency.monotonicViolations)}
+            help="Fires when a later replica read returns a lower version than an earlier one."
+          />
+        }
+      />
+      <StatRow
+        left={
+          <StatBlock
+            label="Cache vs database"
+            value={formatConsistencyViolation(consistency.cacheDbStale)}
+            help="Reserved for cache↔DB staleness checks (not wired yet)."
+          />
+        }
+        right={
+          <StatBlock
+            label="Replica staleness"
+            value={`${fmtStalenessVersions(consistency.replicaStalenessVersions)} versions`}
+            help="Logical versions the replica trails the latest primary write (0 when caught up)."
+          />
+        }
+      />
+      {consistency.lastProbeError ? (
+        <PedagogicalHint>
+          Probe error: {consistency.lastProbeError}
+        </PedagogicalHint>
       ) : null}
     </PedagogicalSection>
   )

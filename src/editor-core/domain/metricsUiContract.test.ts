@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseCrashContext,
   parseComponentLayers,
+  parseDbConsistency,
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRuntimeHealth,
@@ -238,5 +239,23 @@ describe('metricsUiContract', () => {
       },
     ])
     expect(layers[0]?.replicationLagSeconds).toBe(0)
+  })
+
+  it('parseDbConsistency maps observer status from WS payload', () => {
+    const status = parseDbConsistency({
+      rywViolations: 2,
+      monotonicViolations: 1,
+      cacheDbStale: 0,
+      replicaStalenessVersions: 3,
+      lastProbeError: 'dial primary: timeout',
+    })
+    expect(status).toEqual({
+      rywViolations: 2,
+      monotonicViolations: 1,
+      cacheDbStale: 0,
+      replicaStalenessVersions: 3,
+      lastProbeError: 'dial primary: timeout',
+    })
+    expect(parseDbConsistency(null)).toBeNull()
   })
 })

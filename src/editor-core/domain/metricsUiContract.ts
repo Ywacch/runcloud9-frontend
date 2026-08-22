@@ -100,6 +100,15 @@ export interface ComponentLayerMetrics {
   freshness?: ComponentFreshness
 }
 
+/** Observer probe status from WS `components.db.consistency` (Wave 3 Phase 2). */
+export interface DbConsistencyStatus {
+  rywViolations: number
+  monotonicViolations: number
+  cacheDbStale: number
+  replicaStalenessVersions: number
+  lastProbeError?: string
+}
+
 /** Engine-native store signals from WS `storageIo` (metrics-ui-contract). */
 export interface StorageIoMetrics {
   readRate: number
@@ -152,6 +161,18 @@ export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
     bytesLimit: num(r.bytesLimit),
     errorRate: num(r.errorRate),
     source: typeof r.source === 'string' ? r.source.trim() : '',
+  }
+}
+
+export function parseDbConsistency(raw: unknown): DbConsistencyStatus | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  return {
+    rywViolations: Math.round(num(r.rywViolations)),
+    monotonicViolations: Math.round(num(r.monotonicViolations)),
+    cacheDbStale: Math.round(num(r.cacheDbStale)),
+    replicaStalenessVersions: Math.round(num(r.replicaStalenessVersions)),
+    lastProbeError: str(r.lastProbeError),
   }
 }
 

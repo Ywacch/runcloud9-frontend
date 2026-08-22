@@ -12,6 +12,8 @@ const pullTopology: TopologyFlags = {
   hasWorker: false,
   hasCache: false,
   hasLB: true,
+  hasDB: true,
+  dbReadReplicas: 0,
   cacheStrategy: 'cache-aside',
 }
 
@@ -20,6 +22,8 @@ const pushTopology: TopologyFlags = {
   hasWorker: true,
   hasCache: true,
   hasLB: true,
+  hasDB: true,
+  dbReadReplicas: 0,
   cacheStrategy: 'push',
 }
 

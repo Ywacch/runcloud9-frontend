@@ -8,6 +8,8 @@ const baseTopology = (): TopologyFlags => ({
   hasWorker: true,
   hasCache: true,
   hasLB: true,
+  hasDB: true,
+  dbReadReplicas: 0,
   cacheStrategy: 'cache-aside',
 })
 

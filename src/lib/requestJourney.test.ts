@@ -9,6 +9,8 @@ const pullTopology: TopologyFlags = {
   hasWorker: false,
   hasCache: false,
   hasLB: true,
+  hasDB: true,
+  dbReadReplicas: 0,
   cacheStrategy: 'cache-aside',
 }
 

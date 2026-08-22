@@ -134,6 +134,8 @@ export interface MetricsBucket {
   layers: ComponentLayerMetrics[]
   /** Per-signal-group freshness from the metrics WS (optional). */
   freshness?: import('../../lib/metricsFreshness').ComponentFreshness
+  /** Observer probe status when read replicas are deployed (optional). */
+  consistency?: DbConsistencyStatus | null
 
   // Meta
   podCount: number
@@ -146,6 +148,7 @@ export interface MetricsBucket {
 import type {
   BackendReplicaStatus,
   ComponentLayerMetrics,
+  DbConsistencyStatus,
   LoadgenIntervalBucket,
   PodReplicaMetrics,
   RuntimeHealthSummary,
