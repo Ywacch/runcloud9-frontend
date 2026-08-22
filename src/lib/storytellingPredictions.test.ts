@@ -101,4 +101,17 @@ describe('storytellingPredictions', () => {
     })
     expect(cards.some((c) => c.id === 'cache_db_stale')).toBe(false)
   })
+
+  it('shows cache_db_stale with DB and cache but no read replicas', () => {
+    const cards = consistencyInvariantPredictions({
+      hasLB: false,
+      hasMQ: false,
+      hasWorker: false,
+      hasCache: true,
+      hasDB: true,
+      dbReadReplicas: 0,
+      cacheStrategy: 'cache-aside',
+    })
+    expect(cards.some((c) => c.id === 'cache_db_stale')).toBe(true)
+  })
 })

@@ -39,7 +39,7 @@ const NARRATIVE_REQUIRES: Record<string, (t: TopologyFlags) => boolean> = {
   cascade_mq_backpressure: (t) => t.hasMQ && t.hasWorker,
   ryw_violation: (t) => t.hasDB && t.dbReadReplicas > 0,
   monotonic_violation: (t) => t.hasDB && t.dbReadReplicas > 0,
-  cache_db_stale: (t) => t.hasDB && t.dbReadReplicas > 0 && t.hasCache,
+  cache_db_stale: (t) => t.hasDB && t.hasCache,
 }
 
 function humanizeRuleId(id: string): string {
