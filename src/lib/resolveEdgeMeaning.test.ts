@@ -12,6 +12,8 @@ const baseTopology: TopologyFlags = {
   hasWorker: true,
   hasCache: true,
   hasLB: false,
+  hasDB: true,
+  dbReadReplicas: 0,
   cacheStrategy: 'cache-aside',
 }
 

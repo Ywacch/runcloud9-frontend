@@ -1,0 +1,119 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it } from 'vitest'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import {
+  DbConsistencySection,
+  formatConsistencyViolation,
+} from './StorageIoSection'
+
+function dbBucket(consistency?: MetricsBucket['consistency']): MetricsBucket {
+  return {
+    cpuUsage: 0,
+    cpuPercent: 0,
+    memoryBytes: 0,
+    memPercent: 0,
+    cpuIsEstimated: false,
+    memIsEstimated: false,
+    cpuLimit: 0,
+    memoryLimit: 0,
+    requestRate: 0,
+    errorRate: 0,
+    totalRequests: 0,
+    totalErrors9m: 0,
+    p50Latency: 0,
+    p95Latency: 0,
+    p99Latency: 0,
+    p99Latency9m: 0,
+    avgLatency: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheHitsLast9m: 0,
+    cacheMissesLast9m: 0,
+    dbQueryRate: 0,
+    dbTotalQueries: 0,
+    dbQueryLatency: 0,
+    dbQuerySource: '',
+    dbActiveConnections: 0,
+    maxConnections: 0,
+    storageEngine: 'postgresql',
+    storageRole: 'primary',
+    storageIo: null,
+    activeConnections: 0,
+    lbConnectionLimit: 0,
+    queueDepth: 0,
+    produceRate: 0,
+    consumeRate: 0,
+    messagesReady: 0,
+    messagesUnacked: 0,
+    mqMemoryUsed: 0,
+    mqMemoryLimit: 0,
+    mqSaturationRatio: 0,
+    workerSaturation: 0,
+    redisMaxClients: 0,
+    perBackendRps: {},
+    lbAlgorithm: '',
+    lbBackends: [],
+    podReplicas: [],
+    backendPods: [],
+    backendReplicas: null,
+    runtimeHealth: null,
+    layers: [],
+    consistency,
+    podCount: 1,
+    lastUpdated: 0,
+    qps: 0,
+  }
+}
+
+describe('formatConsistencyViolation', () => {
+  it('formats OK and violation counts', () => {
+    expect(formatConsistencyViolation(0)).toBe('OK')
+    expect(formatConsistencyViolation(1)).toBe('1 violation')
+    expect(formatConsistencyViolation(3)).toBe('3 violations')
+  })
+})
+
+describe('DbConsistencySection', () => {
+  it('renders nothing when consistency is absent', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, { m: dbBucket(undefined) }),
+    )
+    expect(html).toBe('')
+  })
+
+  it('renders OK state and zero staleness', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+        }),
+      }),
+    )
+    expect(html).toContain('Consistency probes')
+    expect(html).toContain('Read-your-writes')
+    expect(html).toContain('OK')
+    expect(html).toContain('0 versions')
+  })
+
+  it('renders violation counts and probe error', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          rywViolations: 2,
+          monotonicViolations: 1,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 4,
+          lastProbeError: 'dial replica: connection refused',
+        }),
+      }),
+    )
+    expect(html).toContain('2 violations')
+    expect(html).toContain('1 violation')
+    expect(html).toContain('4 versions')
+    expect(html).toContain('dial replica: connection refused')
+  })
+})

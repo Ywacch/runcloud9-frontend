@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { getTopologyFlags } from '../../lib/componentRole'
 import {
   collectPredictions,
+  consistencyInvariantPredictions,
   eventMatchesPrediction,
   loadPersistedPredictedRules,
   persistPredictedRules,
@@ -34,7 +35,10 @@ export const useStorytellingStore = create<StorytellingState>((set, get) => ({
     const storytelling =
       useTemplateRegistryStore.getState().byId[templateId]?.storytelling
     const topology = getTopologyFlags(useCanvasStore.getState().nodes)
-    const cards = collectPredictions(storytelling, topology)
+    const cards = [
+      ...collectPredictions(storytelling, topology),
+      ...consistencyInvariantPredictions(topology),
+    ]
     const ids = predictionRuleIds(cards)
     persistPredictedRules(templateId, ids)
     set({ predictedRuleIds: ids })

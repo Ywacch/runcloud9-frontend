@@ -8,6 +8,7 @@ import {
   parseBackendReplicas,
   parseCrashContext,
   parseComponentLayers,
+  parseDbConsistency,
   parseLoadgenIntervals,
   parsePodReplicas,
   parseRecentLatenciesMs,
@@ -144,6 +145,7 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     runtimeHealth: parseRuntimeHealth(cm.runtimeHealth),
     layers: parseComponentLayers(cm.layers),
     freshness: parseComponentFreshness(cm.freshness),
+    consistency: parseDbConsistency(cm.consistency),
     podCount: 1,
     lastUpdated: Date.now(),
     qps: Math.round(requestRate),
@@ -215,7 +217,7 @@ function actualRpsFromLoadgen(lg: NonNullable<WsDeploymentMetrics['loadgen']>): 
   return Number(lg.currentRps ?? lg.targetRps ?? 0)
 }
 
-/** Map WS payload → per-canvas-node buckets (shared by live apply + interpolation). */
+/** Map WS payload ? per-canvas-node buckets (shared by live apply + interpolation). */
 export function nodeBucketsFromPayload(
   payload: WsDeploymentMetrics,
   nodes: Record<string, CanvasNode>,

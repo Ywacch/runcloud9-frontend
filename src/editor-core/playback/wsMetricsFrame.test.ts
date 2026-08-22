@@ -97,6 +97,25 @@ describe('componentToBucket resource sources', () => {
     expect(bucket.layers[1].replicationLagSeconds).toBe(0.42)
   })
 
+  it('maps db consistency status from WS payload', () => {
+    const bucket = componentToBucket({
+      component: 'db',
+      consistency: {
+        rywViolations: 1,
+        monotonicViolations: 0,
+        cacheDbStale: 0,
+        replicaStalenessVersions: 2,
+      },
+    })
+    expect(bucket.consistency).toEqual({
+      rywViolations: 1,
+      monotonicViolations: 0,
+      cacheDbStale: 0,
+      replicaStalenessVersions: 2,
+      lastProbeError: undefined,
+    })
+  })
+
   it('maps component-level cache store lifecycle rates onto the bucket', () => {
     const bucket = componentToBucket({
       component: 'cache',

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { getTopologyFlags } from '../lib/componentRole'
 import {
   collectPredictions,
+  consistencyInvariantPredictions,
   type PredictionCard,
 } from '../lib/storytellingPredictions'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -60,7 +61,10 @@ export function PredictionCards() {
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const cards = useMemo(
-    () => collectPredictions(storytelling, topology),
+    () => [
+      ...collectPredictions(storytelling, topology),
+      ...consistencyInvariantPredictions(topology),
+    ],
     [storytelling, topology],
   )
 

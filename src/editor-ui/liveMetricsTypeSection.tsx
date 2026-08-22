@@ -52,6 +52,7 @@ import {
   DbDiagnosticsDisclosure,
   DbLoadSection,
   DbReplicaLagSection,
+  DbConsistencySection,
   EngineHealthDisclosure,
 } from './StorageIoSection'
 import {
@@ -434,6 +435,7 @@ export function LiveMetricsTypeSection({
             history={history}
           />
           <DbReplicaLagSection m={m} />
+          <DbConsistencySection m={m} />
           <DbClusterResourcesSection
             nodeId={nodeId}
             m={m}
