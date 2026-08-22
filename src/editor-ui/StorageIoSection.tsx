@@ -417,7 +417,7 @@ export function DbConsistencySection({ m }: { m: MetricsBucket }) {
           <StatBlock
             label="Cache vs database"
             value={formatConsistencyViolation(consistency.cacheDbStale)}
-            help="Reserved for cache↔DB staleness checks (not wired yet)."
+            help="Fires when a cache hit returns a probe value older than the version just written on the primary."
           />
         }
         right={
