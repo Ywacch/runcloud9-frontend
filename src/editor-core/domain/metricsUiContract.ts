@@ -107,6 +107,10 @@ export interface DbConsistencyStatus {
   cacheDbStale: number
   replicaStalenessVersions: number
   lastProbeError?: string
+  lastCacheKey?: string
+  lastCacheServed?: string
+  lastCacheTruth?: string
+  lastCacheRequestID?: string
 }
 
 /** Engine-native store signals from WS `storageIo` (metrics-ui-contract). */
@@ -173,6 +177,10 @@ export function parseDbConsistency(raw: unknown): DbConsistencyStatus | null {
     cacheDbStale: Math.round(num(r.cacheDbStale)),
     replicaStalenessVersions: Math.round(num(r.replicaStalenessVersions)),
     lastProbeError: str(r.lastProbeError),
+    lastCacheKey: str(r.lastCacheKey),
+    lastCacheServed: str(r.lastCacheServed),
+    lastCacheTruth: str(r.lastCacheTruth),
+    lastCacheRequestID: str(r.lastCacheRequestId ?? r.lastCacheRequestID),
   }
 }
 

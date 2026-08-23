@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
 import { AsPredictedBadge } from './AsPredictedBadge'
+import { ViewTraceButton } from './ViewTraceButton'
 
 /** Brief banner when the latest batch included an `invariant` event. */
 export function InvariantToast() {
@@ -35,6 +36,11 @@ export function InvariantToast() {
           {toast.description ? (
             <div className="mt-1 text-xs leading-snug text-rose-100/90">
               {toast.description}
+            </div>
+          ) : null}
+          {toast.detail?.requestId ? (
+            <div className="mt-1.5">
+              <ViewTraceButton requestId={toast.detail.requestId} />
             </div>
           ) : null}
         </div>

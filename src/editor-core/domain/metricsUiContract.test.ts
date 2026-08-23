@@ -258,4 +258,27 @@ describe('metricsUiContract', () => {
     })
     expect(parseDbConsistency(null)).toBeNull()
   })
+
+  it('parseDbConsistency maps cache evidence fields', () => {
+    const status = parseDbConsistency({
+      cacheDbStale: 1,
+      rywViolations: 0,
+      monotonicViolations: 0,
+      replicaStalenessVersions: 0,
+      lastCacheKey: 'product:42',
+      lastCacheServed: '5',
+      lastCacheTruth: '2',
+      lastCacheRequestId: 'req-abc',
+    })
+    expect(status).toEqual({
+      rywViolations: 0,
+      monotonicViolations: 0,
+      cacheDbStale: 1,
+      replicaStalenessVersions: 0,
+      lastCacheKey: 'product:42',
+      lastCacheServed: '5',
+      lastCacheTruth: '2',
+      lastCacheRequestID: 'req-abc',
+    })
+  })
 })

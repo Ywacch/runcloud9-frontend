@@ -38,6 +38,7 @@ import {
 } from './inspectorPanelUi'
 import { InlineDisclosure } from './InlineDisclosure'
 import { useDbTierCWarmup } from './useDbTierCWarmup'
+import { ViewTraceButton } from './ViewTraceButton'
 
 /** RED — app SQL intent (app-server instrumentation). */
 export function DbActivitySection({
@@ -394,7 +395,7 @@ export function DbConsistencySection({ m }: { m: MetricsBucket }) {
   return (
     <PedagogicalSection
       title="Consistency probes"
-      subtitle="Observer canary for replica lag; cache vs database uses sampled student reads when available."
+      subtitle="Observer canary for replica lag; cache vs database uses sampled student reads."
     >
       <StatRow
         left={
@@ -428,6 +429,21 @@ export function DbConsistencySection({ m }: { m: MetricsBucket }) {
           />
         }
       />
+      {consistency.lastCacheKey ? (
+        <p className="text-[11px] leading-relaxed text-[var(--c9-muted)]">
+          <span className="font-mono text-[var(--c9-text)]">{consistency.lastCacheKey}</span>
+          {' served '}
+          {consistency.lastCacheServed ?? '—'}
+          {' · db '}
+          {consistency.lastCacheTruth ?? '—'}
+          {consistency.lastCacheRequestID ? (
+            <>
+              {' · '}
+              <ViewTraceButton requestId={consistency.lastCacheRequestID} />
+            </>
+          ) : null}
+        </p>
+      ) : null}
       {consistency.lastProbeError ? (
         <PedagogicalHint>
           Probe error: {consistency.lastProbeError}
