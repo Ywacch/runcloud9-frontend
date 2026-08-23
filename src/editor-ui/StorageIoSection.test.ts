@@ -94,6 +94,7 @@ describe('DbConsistencySection', () => {
       }),
     )
     expect(html).toContain('Consistency probes')
+    expect(html).toContain('Observer canary for replica lag')
     expect(html).toContain('Read-your-writes')
     expect(html).toContain('OK')
     expect(html).toContain('0 versions')

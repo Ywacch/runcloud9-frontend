@@ -394,7 +394,7 @@ export function DbConsistencySection({ m }: { m: MetricsBucket }) {
   return (
     <PedagogicalSection
       title="Consistency probes"
-      subtitle="Platform observer writes a version on the primary and reads it on the replica"
+      subtitle="Observer canary for replica lag; cache vs database uses sampled student reads when available."
     >
       <StatRow
         left={
@@ -417,7 +417,7 @@ export function DbConsistencySection({ m }: { m: MetricsBucket }) {
           <StatBlock
             label="Cache vs database"
             value={formatConsistencyViolation(consistency.cacheDbStale)}
-            help="Fires when a cache hit returns a probe value older than the version just written on the primary."
+            help="Fires when a sampled cache hit served a different value than the primary (not the platform probe key)."
           />
         }
         right={
