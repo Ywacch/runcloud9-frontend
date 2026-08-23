@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { canvasToBackend } from '../lib/typeMapping'
+import { openTrace } from '../lib/openTrace'
 
 const MAX_COMPONENT_LOGS = 300
 /** If the user is within this many px of the bottom, new lines keep the tail pinned. */
@@ -81,6 +82,24 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
         .slice(-MAX_COMPONENT_LOGS),
     [logs, component, searchQuery],
   )
+
+  const traceMatchCount = useMemo(() => {
+    if (!activeTraceId) return 0
+    return logs.filter((l) => l.fields?.request_id === activeTraceId).length
+  }, [logs, activeTraceId])
+
+  const traceMatchCountHere = useMemo(() => {
+    if (!activeTraceId) return 0
+    return logs.filter(
+      (l) => l.component === component && l.fields?.request_id === activeTraceId,
+    ).length
+  }, [logs, activeTraceId, component])
+
+  const traceSourceComponent = useMemo(() => {
+    if (!activeTraceId) return null
+    const hit = logs.find((l) => l.fields?.request_id === activeTraceId)
+    return hit?.component ?? null
+  }, [logs, activeTraceId])
 
   const syncDistanceFromBottom = () => {
     const el = listRef.current
@@ -196,7 +215,32 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
           <p className="px-1 py-2 text-[var(--c9-muted)]">
             {searchQuery
               ? `No ${component} logs match "${searchQuery}"`
-              : `Waiting for ${component} logs…`}
+              : activeTraceId
+                ? traceMatchCount === 0
+                  ? `No logs yet for trace ${activeTraceId.slice(0, 8)}…`
+                  : traceMatchCountHere === 0 && traceSourceComponent
+                    ? (
+                        <span>
+                          This trace is on{' '}
+                          <span className="font-mono text-[var(--c9-text)]">
+                            {traceSourceComponent}
+                          </span>
+                          , not {component}.{' '}
+                          <button
+                            type="button"
+                            className="text-sky-300 underline decoration-sky-500/50 underline-offset-2 hover:text-sky-200"
+                            onClick={() => {
+                              openTrace(activeTraceId, {
+                                logComponent: traceSourceComponent,
+                              })
+                            }}
+                          >
+                            Open {traceSourceComponent} logs
+                          </button>
+                        </span>
+                      )
+                    : `No ${component} lines for this trace.`
+                : `Waiting for ${component} logs…`}
           </p>
         ) : (
           filtered.map((line) => {

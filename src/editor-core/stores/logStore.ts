@@ -17,10 +17,14 @@ export type RawLogLine = Omit<LogLine, 'id'>
 interface LogState {
   logs: LogLine[]
   activeTraceId: string | null
+  pendingInspectorTab: 'logs' | null
+  inspectorTabNonce: number
   addLog: (line: RawLogLine) => void
   addBatch: (lines: RawLogLine[]) => void
   clearLogs: () => void
   setActiveTraceId: (id: string | null) => void
+  requestInspectorTab: (tab: 'logs') => void
+  takePendingInspectorTab: () => 'logs' | null
 }
 
 /**
@@ -37,9 +41,11 @@ function trimInPlace(arr: LogLine[]): void {
   if (overflow > 0) arr.splice(0, overflow)
 }
 
-export const useLogStore = create<LogState>((set) => ({
+export const useLogStore = create<LogState>((set, get) => ({
   logs: [],
   activeTraceId: null,
+  pendingInspectorTab: null,
+  inspectorTabNonce: 0,
   addLog: (line) =>
     set((s) => {
       const next = s.logs.concat({ ...line, id: _nextId++ })
@@ -56,4 +62,14 @@ export const useLogStore = create<LogState>((set) => ({
     }),
   clearLogs: () => set({ logs: [] }),
   setActiveTraceId: (id) => set({ activeTraceId: id }),
+  requestInspectorTab: (tab) =>
+    set((s) => ({
+      pendingInspectorTab: tab,
+      inspectorTabNonce: s.inspectorTabNonce + 1,
+    })),
+  takePendingInspectorTab: () => {
+    const tab = get().pendingInspectorTab
+    if (tab) set({ pendingInspectorTab: null })
+    return tab
+  },
 }))
