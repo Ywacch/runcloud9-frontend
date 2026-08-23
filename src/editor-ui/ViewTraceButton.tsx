@@ -1,4 +1,3 @@
-import { useLogStore } from '../editor-core/stores/logStore'
 import { CACHE_TRACE_LOG_COMPONENT, openTrace } from '../lib/openTrace'
 
 /** Highlights matching request_id lines and opens the right inspector log stream. */
