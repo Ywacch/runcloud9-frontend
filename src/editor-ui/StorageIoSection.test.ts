@@ -95,6 +95,8 @@ describe('DbConsistencySection', () => {
     )
     expect(html).toContain('Consistency probes')
     expect(html).toContain('Observer canary for replica lag')
+    expect(html).toContain('sampled student reads')
+    expect(html).not.toContain('when available')
     expect(html).toContain('Read-your-writes')
     expect(html).toContain('OK')
     expect(html).toContain('0 versions')
@@ -116,5 +118,41 @@ describe('DbConsistencySection', () => {
     expect(html).toContain('1 violation')
     expect(html).toContain('4 versions')
     expect(html).toContain('dial replica: connection refused')
+  })
+
+  it('renders cache evidence and view trace when present', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 1,
+          replicaStalenessVersions: 0,
+          lastCacheKey: 'product:7',
+          lastCacheServed: '5',
+          lastCacheTruth: '2',
+          lastCacheRequestID: 'req-stale-1',
+        }),
+      }),
+    )
+    expect(html).toContain('product:7')
+    expect(html).toContain('served 5')
+    expect(html).toContain('db 2')
+    expect(html).toContain('View trace')
+  })
+
+  it('hides cache evidence line when key is absent', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 1,
+          replicaStalenessVersions: 0,
+        }),
+      }),
+    )
+    expect(html).not.toContain('View trace')
+    expect(html).not.toContain('served ')
   })
 })
