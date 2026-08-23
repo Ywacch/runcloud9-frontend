@@ -72,6 +72,7 @@ import {
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { useLogStore } from '../editor-core/stores/logStore'
 import { isEngineerPreviewLocked } from '../lib/engineerLockedVisual'
 import { CacheBrowser } from './CacheBrowser'
 import { ComponentLogPanel } from './ComponentLogPanel'
@@ -165,6 +166,7 @@ export function InspectorPanel() {
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
+  const inspectorTabNonce = useLogStore((s) => s.inspectorTabNonce)
   const [dockWidth, setDockWidth] = useState(defaultInspectorWidth)
   const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
 
@@ -182,8 +184,9 @@ export function InspectorPanel() {
 
   useEffect(() => {
     if (!open) return
-    setLiveTab('metrics')
-  }, [open, selectedId])
+    const pending = useLogStore.getState().takePendingInspectorTab()
+    setLiveTab(pending ?? 'metrics')
+  }, [open, selectedId, inspectorTabNonce])
 
   useEffect(() => {
     const onResize = () => setDockWidth((w) => clampInspectorWidth(w))
