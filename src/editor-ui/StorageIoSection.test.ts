@@ -153,6 +153,6 @@ describe('DbConsistencySection', () => {
       }),
     )
     expect(html).not.toContain('View trace')
-    expect(html).not.toContain('served ')
+    expect(html).not.toContain('· db ')
   })
 })
