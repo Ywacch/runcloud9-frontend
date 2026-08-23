@@ -74,14 +74,15 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
   const distanceFromBottomRef = useRef(0)
   const component = canvasToBackend[node.type]
 
-  const filtered = useMemo(
-    () =>
-      logs
-        .filter((l) => l.component === component)
-        .filter((l) => matchesSearch(l.message, l.fields, searchQuery, l.pod))
-        .slice(-MAX_COMPONENT_LOGS),
-    [logs, component, searchQuery],
-  )
+  const displayed = useMemo(() => {
+    const base = logs
+      .filter((l) => l.component === component)
+      .filter((l) => matchesSearch(l.message, l.fields, searchQuery, l.pod))
+    if (activeTraceId) {
+      return base.filter((l) => l.fields?.request_id === activeTraceId)
+    }
+    return base.slice(-MAX_COMPONENT_LOGS)
+  }, [logs, component, searchQuery, activeTraceId])
 
   const traceMatchCount = useMemo(() => {
     if (!activeTraceId) return 0
@@ -107,26 +108,40 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
     distanceFromBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight
   }
 
+  const traceLineRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    if (!activeTraceId) return
+    setFollowTail(false)
+    setPinnedLineId(null)
+  }, [activeTraceId])
+
+  useLayoutEffect(() => {
+    if (!activeTraceId || followTail) return
+    traceLineRef.current?.scrollIntoView({ block: 'nearest' })
+    syncDistanceFromBottom()
+  }, [activeTraceId, displayed, followTail])
+
   /** New log lines do not emit `scroll`; measure pin using the last scroll position. */
   useLayoutEffect(() => {
-    if (!followTail) return
+    if (!followTail || activeTraceId) return
     const el = listRef.current
     if (!el) return
     if (distanceFromBottomRef.current <= PIN_THRESHOLD_PX) {
       el.scrollTop = el.scrollHeight
     }
     syncDistanceFromBottom()
-  }, [filtered, followTail])
+  }, [displayed, followTail, activeTraceId])
 
   /**
    * Keep the pinned line in view as new logs arrive below it. Runs after the
    * follow-tail effect so it overrides any auto-scroll done in this same frame.
    */
   useLayoutEffect(() => {
-    if (!pinnedLineId || followTail) return
+    if (!pinnedLineId || followTail || activeTraceId) return
     pinnedRef.current?.scrollIntoView({ block: 'nearest' })
     syncDistanceFromBottom()
-  }, [filtered, pinnedLineId, followTail])
+  }, [displayed, pinnedLineId, followTail, activeTraceId])
 
   const onScroll = () => {
     syncDistanceFromBottom()
@@ -159,7 +174,9 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
         <label className="flex items-center gap-1 text-[10px] text-[var(--c9-muted)]">
           <input
             type="checkbox"
-            checked={followTail}
+            checked={followTail && !activeTraceId}
+            disabled={Boolean(activeTraceId)}
+            title={activeTraceId ? 'Turn off trace view to follow the live tail' : undefined}
             onChange={(e) => {
               const on = e.target.checked
               setFollowTail(on)
@@ -181,7 +198,12 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
         <div className="flex flex-wrap items-center gap-3 text-[10px]">
           {searchQuery ? (
             <span className="text-[var(--c9-muted)]">
-              {filtered.length} match{filtered.length !== 1 ? 'es' : ''}
+              {displayed.length} match{displayed.length !== 1 ? 'es' : ''}
+            </span>
+          ) : null}
+          {activeTraceId && !searchQuery ? (
+            <span className="text-[var(--c9-muted)]">
+              {displayed.length} line{displayed.length !== 1 ? 's' : ''} for this trace
             </span>
           ) : null}
           {pinnedLineId ? (
@@ -196,7 +218,10 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
           {activeTraceId ? (
             <button
               type="button"
-              onClick={() => setActiveTraceId(null)}
+              onClick={() => {
+                setActiveTraceId(null)
+                setFollowTail(true)
+              }}
               className="flex items-center gap-1 text-cyan-400 hover:underline"
             >
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-400" />
@@ -211,7 +236,7 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
         onScroll={onScroll}
         className="max-h-72 overflow-y-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 p-2 font-mono text-[11px]"
       >
-        {filtered.length === 0 ? (
+        {displayed.length === 0 ? (
           <p className="px-1 py-2 text-[var(--c9-muted)]">
             {searchQuery
               ? `No ${component} logs match "${searchQuery}"`
@@ -243,7 +268,7 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
                 : `Waiting for ${component} logs…`}
           </p>
         ) : (
-          filtered.map((line) => {
+          displayed.map((line, index) => {
             const id = String(line.id)
             const hasFields = Boolean(line.fields && Object.keys(line.fields).length)
             const isPinned = pinnedLineId === id
@@ -257,7 +282,13 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
             return (
               <div
                 key={id}
-                ref={isPinned ? pinnedRef : undefined}
+                ref={
+                  isPinned
+                    ? pinnedRef
+                    : isTraced && index === 0
+                      ? traceLineRef
+                      : undefined
+                }
                 className={`border-b border-[var(--c9-border)]/50 py-1.5 transition-colors last:border-0 ${decorationClass}`}
               >
                 <button
