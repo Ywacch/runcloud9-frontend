@@ -23,6 +23,7 @@ import {
 import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
 import { TemplatePresetModeBanner } from '../editor-ui/TemplatePresetModeBanner'
 import { useDevDebugExtrasVisible } from '../lib/devCanvasTools'
+import { useDevInstanceScopePreview } from '../lib/devInstanceScopePreview'
 import { getTopologyFlags } from '../lib/componentRole'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
@@ -73,6 +74,7 @@ export default function SvgCanvasPage() {
   }>({ open: false, overview: false, id: null })
   const [helpOpen, setHelpOpen] = useState(false)
   const debugExtrasVisible = useDevDebugExtrasVisible()
+  useDevInstanceScopePreview(mode, nodes)
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
   const designJourneys = useMemo(

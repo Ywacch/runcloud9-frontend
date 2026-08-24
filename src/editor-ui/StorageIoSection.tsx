@@ -10,7 +10,7 @@ import {
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
 import { dbQueryHeadline, storageIoThroughputFields } from '../lib/metricTimeframe'
-import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
+import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import { rollup, samplesFromLayers } from '../lib/instanceRollup'
 import {
@@ -369,6 +369,63 @@ export function DbInstanceLayerSection({
           help="Seconds between primary commit and replay on this standby."
         />
       ) : null}
+    </PedagogicalSection>
+  )
+}
+
+/** Per-pod compute metrics for Cluster | pod inspector tabs. */
+export function ComputeInstanceSection({
+  pod,
+  m,
+}: {
+  pod: PodReplicaMetrics
+  m: MetricsBucket
+  view?: PanelViewState
+}) {
+  const cpuPct =
+    m.cpuLimit > 0
+      ? Math.min(100, (pod.cpuUsage / m.cpuLimit) * 100)
+      : Math.min(100, pod.cpuUsage * 100)
+  const memPct =
+    pod.memoryBytes > 0 && m.memoryLimit > 0
+      ? Math.min(100, (pod.memoryBytes / m.memoryLimit) * 100)
+      : 0
+
+  return (
+    <PedagogicalSection
+      title="Pod instance (USE + RED)"
+      subtitle="Traffic and resources for this app-server pod"
+    >
+      <StatRow
+        left={
+          <StatBlock
+            label="Request rate"
+            value={`${fmtRate(pod.requestRate)}/s`}
+            help="HTTP request rate for this pod only."
+          />
+        }
+        right={
+          <StatBlock
+            label="p99 latency"
+            value={pod.p99LatencyMs > 0 ? fmtMs(pod.p99LatencyMs) : '—'}
+            help="Tail latency for this pod only."
+          />
+        }
+      />
+      <StatRow
+        left={
+          <StatBlock
+            label="CPU utilization"
+            value={fmtPct(cpuPct)}
+          />
+        }
+        right={
+          <StatBlock
+            label="Memory usage"
+            value={memPct > 0 ? fmtPct(memPct) : '—'}
+          />
+        }
+      />
     </PedagogicalSection>
   )
 }

@@ -69,14 +69,8 @@ export function SpriteBackedGlyph({
     const n = Number(id.replace(/^u/, ''))
     return Number.isFinite(n) ? n : 0
   }
-  // Multi-unit in-plane nests use ZoneLayer â€” not per-unit boxes for selection.
-  // Health rims still paint per unit so stacks and fans both show FX.
-  const perUnitSelect =
-    selected &&
-    !(
-      (kind === 'message-queue' || kind === 'database') &&
-      ordered.length > 1
-    )
+  // Multi-unit nodes use SvgZone for group chrome — not per-unit selection boxes.
+  const perUnitSelect = selected && ordered.length <= 1
   const stroke = perUnitSelect ? '#3b82f6' : 'transparent'
   const strokeWidth = perUnitSelect ? 2.5 : 0
   const rimStyle = resolveRimStyle(healthVisual)

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { computeHealthState } from '../../editor-core/domain/healthThresholds'
 import {
-  isMetricsViewportMode,
   useCanvasStore,
 } from '../../editor-core/stores/canvasStore'
+import { isInstanceScopeViewportMode } from '../../lib/devInstanceScopePreview'
 import { useMetricsStore } from '../../editor-core/stores/metricsStore'
 import { NodeTooltip } from '../../editor-ui/NodeTooltip'
 import { HALF_H, HALF_W } from '../math/iso'
@@ -26,13 +26,13 @@ export function SvgNodeTooltipOverlay() {
   const [, refresh] = useState(0)
 
   useEffect(() => {
-    if (!isMetricsViewportMode(mode) || !hoveredNodeId) return
+    if (!isInstanceScopeViewportMode(mode) || !hoveredNodeId) return
     return subscribeSvgViewportScreenRefresh(() => {
       refresh((n) => n + 1)
     })
   }, [mode, hoveredNodeId])
 
-  if (!isMetricsViewportMode(mode) || !hoveredNodeId) return null
+  if (!isInstanceScopeViewportMode(mode) || !hoveredNodeId) return null
 
   const node = canvasNodes[hoveredNodeId]
   if (!node) return null

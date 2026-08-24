@@ -13,10 +13,13 @@ import {
   unregisterCanvasFitScheduler,
 } from '../canvas/utils/canvasFitBridge'
 import {
-  isMetricsViewportMode,
   useCanvasStore,
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
+import {
+  devInstanceScopePreviewEnabled,
+  isInstanceScopeViewportMode,
+} from '../lib/devInstanceScopePreview'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
 import {
@@ -25,8 +28,8 @@ import {
 } from '../lib/canvasContextMenuCatalog'
 import { placeFromPicker } from '../lib/pickerPlacement'
 import {
-  canvasUnitPickEnabled,
   instanceIdForUnitIndex,
+  unitPickEnabledForDisplay,
 } from '../lib/canvasInstanceScope'
 import {
   SPAWN_AT_SCREEN,
@@ -555,7 +558,7 @@ export default function SvgDesignCanvas({
       // Defer select until click: selecting on pointerdown opens the inspector
       // before the user has a chance to drag.
 
-      if (canvas.mode === 'live') {
+      if (canvas.mode === 'live' || devInstanceScopePreviewEnabled(canvas.mode)) {
         selectOnly(nodeId)
         return
       }
@@ -598,7 +601,7 @@ export default function SvgDesignCanvas({
 
   const onNodePointerEnter = useCallback((nodeId: string) => {
     const state = useCanvasStore.getState()
-    if (!isMetricsViewportMode(state.mode)) return
+    if (!isInstanceScopeViewportMode(state.mode)) return
     if (dragRef.current) return
     state.setHoveredNodeId(nodeId)
     state.setHoveredInstanceId(null)
@@ -623,8 +626,12 @@ export default function SvgDesignCanvas({
     (nodeId: string): boolean => {
       const canvasNode = useCanvasStore.getState().nodes[nodeId]
       if (!canvasNode) return false
+      const svgNode = useSvgCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+      if (!svgNode) return false
+      const displayExpanded = getExpanded(svgNode.id) ?? defaultExpanded(svgNode)
       const unitCount = unitCountForNode(nodeId)
-      return canvasUnitPickEnabled(
+      return unitPickEnabledForDisplay(
+        displayExpanded,
         canvasNode,
         useMetricsStore.getState().metrics[nodeId],
         unitCount,
@@ -670,7 +677,7 @@ export default function SvgDesignCanvas({
   const onUnitPointerEnter = useCallback(
     (nodeId: string, unitIndex: number) => {
       const state = useCanvasStore.getState()
-      if (!isMetricsViewportMode(state.mode)) return
+      if (!isInstanceScopeViewportMode(state.mode)) return
       if (dragRef.current) return
       if (!unitPickEnabled(nodeId)) return
       const canvasNode = state.nodes[nodeId]

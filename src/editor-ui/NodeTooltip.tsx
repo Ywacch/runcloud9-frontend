@@ -1,12 +1,11 @@
 import { useMemo } from 'react'
-import { clampPercent, fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { clampPercent, fmtMs, fmtRate } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   rollup,
   samplesFromCompute,
   samplesFromLayers,
-  splitByRole,
 } from '../lib/instanceRollup'
 import { syncDbTierCWarmup } from '../lib/tierCWarmupSession'
 import type { HealthState } from '../editor-core/domain/healthThresholds'
@@ -30,14 +29,6 @@ interface NodeTooltipProps {
 
 const DB_IDLE_RPS_FLOOR = 8
 
-type DbSplitDisplay = {
-  kind: 'db-split'
-  primary: ReturnType<typeof rollup>
-  replica: ReturnType<typeof rollup>
-  rps: number
-  idle: boolean
-}
-
 type SingleRollupDisplay = {
   kind: 'single'
   cpuPct: number
@@ -46,6 +37,7 @@ type SingleRollupDisplay = {
   p99Ms: number | null
   idle: boolean
   instanceLabel?: string
+  clusterScope?: boolean
 }
 
 function compactInstanceLabel(id: string): string {
@@ -57,7 +49,7 @@ function resolveGroupedDisplay(
   metrics: MetricsBucket | undefined,
   dbWarmingUp: boolean,
   instanceScopeId: string | null,
-): DbSplitDisplay | SingleRollupDisplay | null {
+): SingleRollupDisplay | null {
   if (!metrics) return null
 
   if (instanceScopeId) {
@@ -96,26 +88,23 @@ function resolveGroupedDisplay(
     const samples = samplesFromLayers(metrics)
     const hasReplicas = samples.some((sample) => sample.role === 'replica')
     if (hasReplicas && samples.length > 0) {
-      const byRole = splitByRole(samples)
-      const primaryRollup = rollup(byRole.get('primary') ?? [])
-      const replicaRollup = rollup(byRole.get('replica') ?? [])
-      const layerRps = primaryRollup.rps + replicaRollup.rps
+      const rolled = rollup(samples, { idleFloor: DB_IDLE_RPS_FLOOR })
+      const warmed =
+        dbWarmingUp ? { ...rolled, cpuPct: 0, memPct: 0 } : rolled
       const rps =
-        layerRps > 0
-          ? layerRps
+        warmed.rps > 0
+          ? warmed.rps
           : metrics.dbQueryRate > 0
             ? metrics.dbQueryRate
             : metrics.requestRate
       return {
-        kind: 'db-split',
-        primary: dbWarmingUp
-          ? { ...primaryRollup, cpuPct: 0, memPct: 0 }
-          : primaryRollup,
-        replica: dbWarmingUp
-          ? { ...replicaRollup, cpuPct: 0, memPct: 0 }
-          : replicaRollup,
+        kind: 'single',
+        cpuPct: warmed.cpuPct,
+        memPct: warmed.memPct,
         rps,
+        p99Ms: warmed.p99 != null && warmed.p99 > 0 ? warmed.p99 * 1000 : null,
         idle: rps < DB_IDLE_RPS_FLOOR,
+        clusterScope: true,
       }
     }
   }
@@ -129,6 +118,7 @@ function resolveGroupedDisplay(
       rps: rolled.rps,
       p99Ms: rolled.p99 != null && rolled.p99 > 0 ? rolled.p99 * 1000 : null,
       idle: false,
+      clusterScope: true,
     }
   }
 
@@ -142,8 +132,6 @@ export function NodeTooltip({
   align,
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
-  const selectedId = useCanvasStore((s) => s.selectedId)
-  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const hoveredInstanceId = useCanvasStore((s) => s.hoveredInstanceId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const storytelling = useTemplateRegistryStore((s) =>
@@ -160,16 +148,7 @@ export function NodeTooltip({
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
 
-  const instanceScopeId = useMemo(() => {
-    if (
-      selectedId === node.id &&
-      selectedInstanceId &&
-      selectedInstanceId !== 'cluster'
-    ) {
-      return selectedInstanceId
-    }
-    return hoveredInstanceId
-  }, [selectedId, node.id, selectedInstanceId, hoveredInstanceId])
+  const instanceScopeId = hoveredInstanceId
 
   const grouped = useMemo(
     () => resolveGroupedDisplay(node, metrics, dbWarmingUp, instanceScopeId),
@@ -201,22 +180,18 @@ export function NodeTooltip({
     memDisplay !== labels.mem && labels.mem !== '-' ? labels.mem : undefined
 
   const rps =
-    grouped?.kind === 'db-split'
+    grouped?.kind === 'single'
       ? grouped.rps
-      : grouped?.kind === 'single'
-        ? grouped.rps
-        : metrics?.requestRate ?? 0
-  const idleRps = grouped?.kind === 'db-split' ? grouped.idle : false
+      : metrics?.requestRate ?? 0
+  const idleRps = grouped?.kind === 'single' ? grouped.idle : false
   const p99Label =
     grouped?.kind === 'single'
       ? grouped.p99Ms != null
         ? fmtMs(grouped.p99Ms)
         : '—'
-      : grouped?.kind === 'db-split'
-        ? '—'
-        : metrics?.p99Latency != null && metrics.p99Latency > 0
-          ? fmtMs(metrics.p99Latency)
-          : '—'
+      : metrics?.p99Latency != null && metrics.p99Latency > 0
+        ? fmtMs(metrics.p99Latency)
+        : '—'
 
   const rpsClass = idleRps
     ? 'text-zinc-400'
@@ -225,6 +200,16 @@ export function NodeTooltip({
       : health === 'error'
         ? 'text-red-300'
         : 'text-cyan-300'
+
+  const clusterScope = grouped?.clusterScope === true
+  const subtitle =
+    grouped?.instanceLabel != null
+      ? `${roleLabel} · ${grouped.instanceLabel}`
+      : clusterScope
+        ? 'Cluster'
+        : roleLabel !== node.label
+          ? roleLabel
+          : null
 
   return (
     <div
@@ -235,83 +220,63 @@ export function NodeTooltip({
       <p className="truncate text-center text-[13px] font-semibold text-violet-300">
         {node.label}
       </p>
-      <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
-        {grouped?.kind === 'single' && grouped.instanceLabel
-          ? `${roleLabel} · ${grouped.instanceLabel}`
-          : roleLabel}
-      </p>
+      {subtitle ? (
+        <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
+          {subtitle}
+        </p>
+      ) : null}
       <div className="mt-1 border-t border-white/10 pt-1.5">
-        {grouped?.kind === 'db-split' ? (
-          <>
-            <div className="space-y-1">
-              {(
-                [
-                  { label: 'primary', roll: grouped.primary },
-                  { label: 'replicas', roll: grouped.replica },
-                ] as const
-              ).map(({ label, roll }) => (
-                <div key={label} className="flex items-baseline justify-between gap-1">
-                  <span className="font-mono text-[9px] lowercase text-zinc-500">{label}</span>
-                  <span className="font-mono text-[10px] text-zinc-200">
-                    cpu {fmtPct(roll.cpuPct)} · mem {fmtPct(roll.memPct)}
-                  </span>
-                </div>
-              ))}
+        <div className="grid grid-cols-3 gap-2">
+          <div title={resourceHelp}>
+            <p className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
+              cpu
+              {clusterScope ? <span className="text-zinc-600"> avg</span> : null}
+            </p>
+            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+              {labels.cpu}
+            </p>
+            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+              <div
+                className="h-full rounded bg-violet-400 transition-[width] duration-150"
+                style={{ width: `${cpuPct}%` }}
+              />
             </div>
-            <div className="mt-1.5 flex items-center justify-between border-t border-white/10 pt-1">
-              <span className="font-mono text-[10px] lowercase text-zinc-400">rps</span>
-              <span className={`font-mono text-[14px] font-semibold leading-[1] ${rpsClass}`}>
-                {fmtRate(rps)}
-              </span>
+          </div>
+          <div title={memTitle}>
+            <p className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
+              {clusterScope ? 'mem' : 'memory'}
+              {clusterScope ? <span className="text-zinc-600"> avg</span> : null}
+            </p>
+            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+              {memDisplay}
+            </p>
+            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+              <div
+                className="h-full rounded bg-sky-400 transition-[width] duration-150"
+                style={{ width: `${memPct}%` }}
+              />
             </div>
-            <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
-              <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
-              <span className="font-mono text-[11px] text-zinc-200">{p99Label}</span>
+          </div>
+          <div>
+            <p className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
+              rps
+              {clusterScope ? <span className="text-zinc-600"> sum</span> : null}
+            </p>
+            <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
+              {fmtRate(rps)}
+            </p>
+            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+              <div className="h-full w-full rounded bg-cyan-400/85" />
             </div>
-          </>
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-2">
-              <div title={resourceHelp}>
-                <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
-                <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-                  {labels.cpu}
-                </p>
-                <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-                  <div
-                    className="h-full rounded bg-violet-400 transition-[width] duration-150"
-                    style={{ width: `${cpuPct}%` }}
-                  />
-                </div>
-              </div>
-              <div title={memTitle}>
-                <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
-                <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-                  {memDisplay}
-                </p>
-                <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-                  <div
-                    className="h-full rounded bg-sky-400 transition-[width] duration-150"
-                    style={{ width: `${memPct}%` }}
-                  />
-                </div>
-              </div>
-              <div>
-                <p className="font-mono text-[10px] lowercase text-zinc-400">rps</p>
-                <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
-                  {fmtRate(rps)}
-                </p>
-                <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-                  <div className="h-full w-full rounded bg-cyan-400/85" />
-                </div>
-              </div>
-            </div>
-            <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
-              <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
-              <span className="font-mono text-[11px] text-zinc-200">{p99Label}</span>
-            </div>
-          </>
-        )}
+          </div>
+        </div>
+        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
+          <span className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
+            p99
+            {clusterScope ? <span className="text-zinc-600"> max</span> : null}
+          </span>
+          <span className="font-mono text-[11px] text-zinc-200">{p99Label}</span>
+        </div>
       </div>
     </div>
   )

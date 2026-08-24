@@ -75,8 +75,9 @@ import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistry
 import { DbInstanceTabBar } from './DbInstanceTabBar'
 import {
   dbHasReplicaLayers,
-  dbInstanceTabs,
+  instanceTabsForNode,
 } from '../lib/dbInstanceScope'
+import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { isEngineerPreviewLocked } from '../lib/engineerLockedVisual'
@@ -152,14 +153,15 @@ export function InspectorPanel() {
   const inspectorNodeId =
     selectedIds.length === 1 ? selectedIds[0] : selectedId
   const node = inspectorNodeId ? (nodes[inspectorNodeId] ?? null) : null
-  const dbMetrics = useMetricsStore((s) =>
-    node?.type === 'database' ? s.metrics[node.id] : undefined,
+  const nodeMetrics = useMetricsStore((s) =>
+    node ? s.metrics[node.id] : undefined,
   )
-  const dbInstanceTabList =
-    node?.type === 'database' && dbMetrics && dbHasReplicaLayers(dbMetrics.layers)
-      ? dbInstanceTabs(dbMetrics.layers)
-      : []
-  const showDbInstanceTabs = dbInstanceTabList.length > 0
+  const instanceTabs = instanceTabsForNode(node, nodeMetrics)
+  const showInstanceTabs = instanceTabs.length > 0
+  const showDbDataInstanceTabs =
+    node?.type === 'database' &&
+    nodeMetrics != null &&
+    dbHasReplicaLayers(nodeMetrics.layers)
   const roleLabel = useMemo(() => {
     if (!node) return ''
     return resolveRole(
@@ -172,6 +174,7 @@ export function InspectorPanel() {
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
+  const devInstanceScopePreview = devInstanceScopePreviewEnabled(mode)
   const engineerPreviewLocked =
     node != null &&
     isEngineerPreviewLocked({
@@ -331,10 +334,16 @@ export function InspectorPanel() {
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                {showDbInstanceTabs &&
-                (liveTab === 'metrics' || liveTab === 'data') ? (
+                {showInstanceTabs && liveTab === 'metrics' ? (
                   <DbInstanceTabBar
-                    tabs={dbInstanceTabList}
+                    tabs={instanceTabs}
+                    selectedId={selectedInstanceId}
+                    onSelect={setSelectedInstanceId}
+                  />
+                ) : null}
+                {showDbDataInstanceTabs && liveTab === 'data' ? (
+                  <DbInstanceTabBar
+                    tabs={instanceTabs}
                     selectedId={selectedInstanceId}
                     onSelect={setSelectedInstanceId}
                   />
@@ -369,8 +378,8 @@ export function InspectorPanel() {
                     deploymentId={deploymentId}
                     component={canvasToBackend[node.type]}
                     readReplicaCount={clampReadReplicas(node.config.readReplicas)}
-                    instanceId={showDbInstanceTabs ? selectedInstanceId : null}
-                    hideTargetToggle={showDbInstanceTabs}
+                    instanceId={showDbDataInstanceTabs ? selectedInstanceId : null}
+                    hideTargetToggle={showDbDataInstanceTabs}
                   />
                 ) : null}
                 {liveTab === 'data' && deploymentId && node.type === 'cache' ? (
@@ -408,6 +417,21 @@ export function InspectorPanel() {
                   templateId={snapshotTemplateId}
                 />
                 {simulationMode ? <LiveMetrics node={node} /> : null}
+                {devInstanceScopePreview ? (
+                  <div className="space-y-4 border-t border-[var(--c9-border)] pt-4">
+                    <p className="text-[10px] uppercase tracking-wide text-amber-400/90">
+                      DEV instance-scope preview
+                    </p>
+                    {showInstanceTabs ? (
+                      <DbInstanceTabBar
+                        tabs={instanceTabs}
+                        selectedId={selectedInstanceId}
+                        onSelect={setSelectedInstanceId}
+                      />
+                    ) : null}
+                    <LiveMetrics node={node} />
+                  </div>
+                ) : null}
               </div>
               <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
                 <button
