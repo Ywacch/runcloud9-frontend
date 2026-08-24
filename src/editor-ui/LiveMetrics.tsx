@@ -99,6 +99,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
   const edges = useCanvasStore((s) => s.edges)
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const loadgenActive = useMetricsStore((s) => Boolean(s.loadgen?.active))
   const simDetail = useSimulationStore((s) => s.lastInspector[nodeId])
@@ -174,6 +175,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
         loadgenActive={loadgenActive}
         view={panelView}
         replicaRows={node.type === 'compute' ? replicaRows : []}
+        selectedInstanceId={selectedInstanceId}
       />
       {simInspectorCallout ? (
         <div className="space-y-2 border-t border-violet-900/40 pt-4">

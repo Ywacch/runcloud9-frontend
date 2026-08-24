@@ -72,6 +72,12 @@ import {
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { DbInstanceTabBar } from './DbInstanceTabBar'
+import {
+  dbHasReplicaLayers,
+  dbInstanceTabs,
+} from '../lib/dbInstanceScope'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { isEngineerPreviewLocked } from '../lib/engineerLockedVisual'
 import { CacheBrowser } from './CacheBrowser'
@@ -134,6 +140,8 @@ export function InspectorPanel() {
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const templatePresetMode = useCanvasStore((s) => s.templatePresetMode)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
+  const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
   const isPremiumUser = useAuthStore((s) => s.isPremium)
   const templateInfo = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId] : undefined,
@@ -144,6 +152,14 @@ export function InspectorPanel() {
   const inspectorNodeId =
     selectedIds.length === 1 ? selectedIds[0] : selectedId
   const node = inspectorNodeId ? (nodes[inspectorNodeId] ?? null) : null
+  const dbMetrics = useMetricsStore((s) =>
+    node?.type === 'database' ? s.metrics[node.id] : undefined,
+  )
+  const dbInstanceTabList =
+    node?.type === 'database' && dbMetrics && dbHasReplicaLayers(dbMetrics.layers)
+      ? dbInstanceTabs(dbMetrics.layers)
+      : []
+  const showDbInstanceTabs = dbInstanceTabList.length > 0
   const roleLabel = useMemo(() => {
     if (!node) return ''
     return resolveRole(
@@ -315,6 +331,14 @@ export function InspectorPanel() {
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+                {showDbInstanceTabs &&
+                (liveTab === 'metrics' || liveTab === 'data') ? (
+                  <DbInstanceTabBar
+                    tabs={dbInstanceTabList}
+                    selectedId={selectedInstanceId}
+                    onSelect={setSelectedInstanceId}
+                  />
+                ) : null}
                 {liveTab === 'metrics' ? (
                   <>
                     <ChaosActions node={node} />
@@ -345,6 +369,8 @@ export function InspectorPanel() {
                     deploymentId={deploymentId}
                     component={canvasToBackend[node.type]}
                     readReplicaCount={clampReadReplicas(node.config.readReplicas)}
+                    instanceId={showDbInstanceTabs ? selectedInstanceId : null}
+                    hideTargetToggle={showDbInstanceTabs}
                   />
                 ) : null}
                 {liveTab === 'data' && deploymentId && node.type === 'cache' ? (

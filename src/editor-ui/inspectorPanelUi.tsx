@@ -309,6 +309,8 @@ export function RuntimeHealthSection({
 
 export function ReplicaFlatList({
   rows,
+  selectedName,
+  onSelectName,
 }: {
   rows: Array<{
     name: string
@@ -320,25 +322,52 @@ export function ReplicaFlatList({
     warn?: boolean
     hot?: boolean
   }>
+  selectedName?: string | null
+  onSelectName?: (name: string) => void
 }) {
   if (rows.length === 0) return null
   return (
     <ul className="min-w-0 space-y-2 font-mono text-[10px] text-gray-300">
-      {rows.map((row) => (
-        <li key={row.name} className="min-w-0 space-y-0.5">
-          <span className="block truncate text-gray-500" title={row.name}>
-            {compactPodName(row.name) || row.name}
-          </span>
-          <span className="block text-gray-400">
-            {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
-            {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
-            {' · '}
-            p99 {Math.round(row.p99Ms)}ms
-            {row.cpuPct != null ? ` · CPU ${Math.round(row.cpuPct)}%` : ''}
-            {row.memPct != null ? ` · Mem ${Math.round(row.memPct)}%` : ''}
-          </span>
-        </li>
-      ))}
+      {rows.map((row) => {
+        const selected = selectedName === row.name
+        const content = (
+          <>
+            <span className="block truncate text-gray-500" title={row.name}>
+              {compactPodName(row.name) || row.name}
+            </span>
+            <span className="block text-gray-400">
+              {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
+              {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
+              {' · '}
+              p99 {Math.round(row.p99Ms)}ms
+              {row.cpuPct != null ? ` · CPU ${Math.round(row.cpuPct)}%` : ''}
+              {row.memPct != null ? ` · Mem ${Math.round(row.memPct)}%` : ''}
+            </span>
+          </>
+        )
+        if (!onSelectName) {
+          return (
+            <li key={row.name} className="min-w-0 space-y-0.5">
+              {content}
+            </li>
+          )
+        }
+        return (
+          <li key={row.name} className="min-w-0">
+            <button
+              type="button"
+              onClick={() => onSelectName(row.name)}
+              className={`w-full rounded border px-2 py-1 text-left transition-colors ${
+                selected
+                  ? 'border-violet-500/60 bg-violet-950/40'
+                  : 'border-transparent hover:border-gray-700/60 hover:bg-gray-900/40'
+              }`}
+            >
+              {content}
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { fmtBytes, fmtInt, fmtMs, fmtRate } from '../lib/format'
+import { fmtBytes, fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import {
   fanoutScanModelEstimate,
   formatDbQueriesPerSec,
@@ -322,6 +322,52 @@ export function DbClusterResourcesSection({
         <InlineDisclosure label="About these metrics">
           <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
         </InlineDisclosure>
+      ) : null}
+    </PedagogicalSection>
+  )
+}
+
+/** Per-instance postgres layer metrics for Primary / Replica inspector tabs. */
+export function DbInstanceLayerSection({
+  layer,
+}: {
+  layer: ComponentLayerMetrics
+  view?: PanelViewState
+}) {
+  const { cpuPercent, memPercent } = layerResourcePercents(layer)
+  const roleLabel = layer.role === 'primary' ? 'Primary' : 'Replica'
+  const rps = layer.requestRate ?? 0
+
+  return (
+    <PedagogicalSection
+      title={`${roleLabel} instance (USE)`}
+      subtitle="Hardware utilization for this postgres instance"
+    >
+      <StatRow
+        left={
+          <StatBlock
+            label="CPU utilization"
+            value={layer.cpuIsEstimated ? '—' : fmtPct(cpuPercent)}
+          />
+        }
+        right={
+          <StatBlock
+            label="Memory usage"
+            value={layer.memIsEstimated ? '—' : fmtPct(memPercent)}
+          />
+        }
+      />
+      <StatBlock
+        label="Transaction rate"
+        value={`${fmtRate(rps)}/s`}
+        help="PostgreSQL transaction rate (commits + rollbacks) for this instance."
+      />
+      {layer.role === 'replica' ? (
+        <StatBlock
+          label="Replay lag"
+          value={fmtReplicationLagSeconds(layer.replicationLagSeconds)}
+          help="Seconds between primary commit and replay on this standby."
+        />
       ) : null}
     </PedagogicalSection>
   )

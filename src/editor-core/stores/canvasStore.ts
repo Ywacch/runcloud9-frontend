@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { applyCacheStrategyNormalizationToNodes } from '../../lib/cacheTopologyStrategy'
+import { defaultSelectedInstanceId } from '../../lib/dbInstanceScope'
 import { socialFeedCacheRemovalBanner } from '../../lib/socialFeedCacheRemoval'
 import { useAuthStore } from '../../product/stores/authStore'
 import {
@@ -122,6 +123,8 @@ interface CanvasState {
   selectedId: string | null
   /** Multi-select; single-click sets one id, Ctrl+A selects all. */
   selectedIds: string[]
+  /** Live inspector scope: cluster vs a concrete instance id (postgres layer or pod name). */
+  selectedInstanceId: string | 'cluster' | null
   pendingSourceId: string | null
   deploymentId: string | null
   /** Active tool in design mode (hotkeys S / C / E). */
@@ -177,6 +180,7 @@ interface CanvasState {
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
+  setSelectedInstanceId: (id: string | 'cluster' | null) => void
   /** Multi-select setter (SVG host / marquee). Clears selectedId unless exactly one id. */
   setSelectedIds: (ids: string[]) => void
   selectAllNodes: () => void
@@ -229,6 +233,7 @@ function restoreTopology(
       edges: snapshot.edges,
       selectedId: null,
       selectedIds: [],
+      selectedInstanceId: null,
       pendingSourceId: null,
       connectHoverTargetId: null,
     })
@@ -242,6 +247,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   movementLocked: false,
   selectedId: null,
   selectedIds: [],
+  selectedInstanceId: null,
   pendingSourceId: null,
   deploymentId: null,
   designTool: 'select',
@@ -393,6 +399,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         edges,
         selectedId: null,
         selectedIds: [],
+        selectedInstanceId: null,
         pendingSourceId:
           s.pendingSourceId && idSet.has(s.pendingSourceId)
             ? null
@@ -453,23 +460,33 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setMovementLocked: (movementLocked) => set({ movementLocked }),
 
   selectNode: (selectedId) =>
-    set({
-      selectedId,
-      selectedIds: selectedId ? [selectedId] : [],
+    set((s) => {
+      const node = selectedId ? s.nodes[selectedId] : null
+      return {
+        selectedId,
+        selectedIds: selectedId ? [selectedId] : [],
+        selectedInstanceId: defaultSelectedInstanceId(node),
+      }
     }),
 
+  setSelectedInstanceId: (selectedInstanceId) => set({ selectedInstanceId }),
+
   setSelectedIds: (selectedIds) =>
-    set({
+    set((s) => ({
       selectedIds,
       selectedId: selectedIds.length === 1 ? selectedIds[0] : null,
-    }),
+      selectedInstanceId:
+        selectedIds.length === 1
+          ? defaultSelectedInstanceId(s.nodes[selectedIds[0]!])
+          : null,
+    })),
 
   selectAllNodes: () =>
     set((s) => {
       if (!canMutateCanvasTopology(s)) return s
       const selectedIds = Object.keys(s.nodes)
       if (selectedIds.length === 0) return s
-      return { selectedIds, selectedId: null }
+      return { selectedIds, selectedId: null, selectedInstanceId: null }
     }),
 
   setMode: (next) =>
@@ -587,6 +604,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
       selectedId: null,
       selectedIds: [],
+      selectedInstanceId: null,
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,
@@ -617,6 +635,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
       selectedId: null,
       selectedIds: [],
+      selectedInstanceId: null,
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,
@@ -647,6 +666,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: {},
       selectedId: null,
       selectedIds: [],
+      selectedInstanceId: null,
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,
@@ -678,6 +698,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: {},
       selectedId: null,
       selectedIds: [],
+      selectedInstanceId: null,
       pendingSourceId: null,
       designTool: 'select',
       placingNodeType: null,

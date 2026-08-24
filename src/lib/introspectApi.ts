@@ -5,14 +5,27 @@ const API_BASE = DEPLOYMENTS_API_PREFIX
 
 export type IntrospectTarget = 'primary' | 'replica'
 
-/** Append `target=replica` only for replica reads; primary/default leaves the path unchanged. */
+export type IntrospectQueryOpts = {
+  target?: IntrospectTarget
+  layerId?: string
+}
+
+/** Append replica routing query params when needed. */
 export function withIntrospectTarget(
   path: string,
-  target?: IntrospectTarget,
+  targetOrOpts?: IntrospectTarget | IntrospectQueryOpts,
 ): string {
-  if (target !== 'replica') return path
-  const sep = path.includes('?') ? '&' : '?'
-  return `${path}${sep}target=replica`
+  const opts: IntrospectQueryOpts =
+    typeof targetOrOpts === 'string' || targetOrOpts == null
+      ? { target: targetOrOpts }
+      : targetOrOpts
+  if (opts.target !== 'replica' && !opts.layerId) return path
+  const params = new URLSearchParams()
+  if (opts.target === 'replica') params.set('target', 'replica')
+  if (opts.layerId) params.set('layerId', opts.layerId)
+  const qs = params.toString()
+  if (!qs) return path
+  return `${path}${path.includes('?') ? '&' : '?'}${qs}`
 }
 
 function authHeaders(): Record<string, string> {
@@ -96,12 +109,12 @@ export function fetchCapabilities(deploymentId: string, component: string) {
 export function fetchTables(
   deploymentId: string,
   component: string,
-  target?: IntrospectTarget,
+  targetOrOpts?: IntrospectTarget | IntrospectQueryOpts,
 ) {
   return introspectGet<TableInfo[]>(
     deploymentId,
     component,
-    withIntrospectTarget('tables', target),
+    withIntrospectTarget('tables', targetOrOpts),
   )
 }
 
@@ -109,12 +122,12 @@ export function fetchSchema(
   deploymentId: string,
   component: string,
   table: string,
-  target?: IntrospectTarget,
+  targetOrOpts?: IntrospectTarget | IntrospectQueryOpts,
 ) {
   return introspectGet<ColumnInfo[]>(
     deploymentId,
     component,
-    withIntrospectTarget(`schema/${encodeURIComponent(table)}`, target),
+    withIntrospectTarget(`schema/${encodeURIComponent(table)}`, targetOrOpts),
   )
 }
 
@@ -128,6 +141,7 @@ export function fetchRows(
     sort?: string
     order?: string
     target?: IntrospectTarget
+    layerId?: string
   },
 ) {
   const params = new URLSearchParams()
@@ -140,19 +154,19 @@ export function fetchRows(
   return introspectGet<RowsResult>(
     deploymentId,
     component,
-    withIntrospectTarget(path, opts?.target),
+    withIntrospectTarget(path, { target: opts?.target, layerId: opts?.layerId }),
   )
 }
 
 export function fetchIndexes(
   deploymentId: string,
   component: string,
-  target?: IntrospectTarget,
+  targetOrOpts?: IntrospectTarget | IntrospectQueryOpts,
 ) {
   return introspectGet<IndexInfo[]>(
     deploymentId,
     component,
-    withIntrospectTarget('indexes', target),
+    withIntrospectTarget('indexes', targetOrOpts),
   )
 }
 

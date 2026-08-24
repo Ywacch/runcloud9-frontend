@@ -11,6 +11,10 @@ import {
   type TableInfo,
 } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import {
+  introspectRoutingForInstance,
+  type SelectedInstanceId,
+} from '../lib/dbInstanceScope'
 import { trackEvent } from '../lib/analytics'
 
 const PAGE_LIMIT = 50
@@ -165,14 +169,28 @@ interface DataBrowserProps {
   deploymentId: string
   component: string
   readReplicaCount: number
+  /** When set, Data tab follows inspector instance tabs (Cluster / Primary / Replica). */
+  instanceId?: SelectedInstanceId | null
+  hideTargetToggle?: boolean
 }
 
 export function DataBrowser({
   deploymentId,
   component,
   readReplicaCount,
+  instanceId = null,
+  hideTargetToggle = false,
 }: DataBrowserProps) {
-  const [target, setTarget] = useState<IntrospectTarget>('primary')
+  const [legacyTarget, setLegacyTarget] = useState<IntrospectTarget>('primary')
+  const introspectOpts = useMemo(
+    () =>
+      hideTargetToggle
+        ? introspectRoutingForInstance(instanceId)
+        : legacyTarget === 'replica'
+          ? { target: 'replica' as const }
+          : { target: 'primary' as const },
+    [hideTargetToggle, instanceId, legacyTarget],
+  )
   const [tables, setTables] = useState<TableInfo[]>([])
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [rows, setRows] = useState<RowsResult | null>(null)
@@ -182,15 +200,15 @@ export function DataBrowser({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const showReplicaToggle = readReplicaCount >= 1
+  const showReplicaToggle = !hideTargetToggle && readReplicaCount >= 1
 
   const loadTablesAndIndexes = useCallback(async () => {
     setError(null)
     setLoading(true)
     try {
       const [tList, idxList] = await Promise.all([
-        fetchTables(deploymentId, component, target),
-        fetchIndexes(deploymentId, component, target),
+        fetchTables(deploymentId, component, introspectOpts),
+        fetchIndexes(deploymentId, component, introspectOpts),
       ])
       setTables(tList)
       setIndexes(idxList)
@@ -209,7 +227,11 @@ export function DataBrowser({
     } finally {
       setLoading(false)
     }
-  }, [deploymentId, component, target])
+  }, [deploymentId, component, introspectOpts])
+
+  useEffect(() => {
+    setPage(1)
+  }, [instanceId, legacyTarget, hideTargetToggle])
 
   useEffect(() => {
     void loadTablesAndIndexes()
@@ -225,9 +247,10 @@ export function DataBrowser({
           fetchRows(deploymentId, component, table, {
             page: pageNum,
             limit: PAGE_LIMIT,
-            target,
+            target: introspectOpts.target,
+            layerId: introspectOpts.layerId,
           }),
-          fetchSchema(deploymentId, component, table, target),
+          fetchSchema(deploymentId, component, table, introspectOpts),
         ])
         setRows(r)
         setSchema(s)
@@ -241,7 +264,7 @@ export function DataBrowser({
         setLoading(false)
       }
     },
-    [deploymentId, component, target],
+    [deploymentId, component, introspectOpts],
   )
 
   useEffect(() => {
@@ -292,12 +315,12 @@ export function DataBrowser({
                 key={value}
                 type="button"
                 onClick={() => {
-                  if (value === target) return
+                  if (value === legacyTarget) return
                   setPage(1)
-                  setTarget(value)
+                  setLegacyTarget(value)
                 }}
                 className={`rounded px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
-                  target === value
+                  legacyTarget === value
                     ? 'bg-[var(--c9-accent)] text-white'
                     : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
                 }`}
@@ -306,7 +329,7 @@ export function DataBrowser({
               </button>
             ))}
           </div>
-          {target === 'replica' ? (
+          {legacyTarget === 'replica' ? (
             <p className="text-[10px] leading-snug text-[var(--c9-muted)]">
               Replica data can lag under async replication.
               {readReplicaCount >= 2
