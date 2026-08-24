@@ -72,6 +72,7 @@ import {
   type PanelViewState,
 } from './inspectorPanelUi'
 import { InlineDisclosure } from './InlineDisclosure'
+import { rollup, samplesFromCompute } from '../lib/instanceRollup'
 
 function truncatePodName(name: string, max = 28): string {
   if (name.length <= max) return name
@@ -134,9 +135,19 @@ export function LiveMetricsTypeSection({
   const tmWorkerRedisWriteRate = templateMetrics['worker.redis_write_rate']
   const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
   const tmFeedPushRate = templateMetrics['feed.push_rate']
-  const resourceLabels = formatResourceLabels(m, cpuPercent, memPercent)
+  const computeRollup =
+    nodeType === 'compute' && m.podReplicas.length > 1
+      ? rollup(samplesFromCompute(m))
+      : null
+  const clusterCpuPercent = computeRollup?.cpuPct ?? cpuPercent
+  const clusterMemPercent = computeRollup?.memPct ?? memPercent
+  const clusterP99Latency =
+    computeRollup?.p99 != null && computeRollup.p99 > 0
+      ? computeRollup.p99 * 1000
+      : p99Latency
+  const resourceLabels = formatResourceLabels(m, clusterCpuPercent, clusterMemPercent)
   const resourceHelp = resourceUsageHelp(m)
-  const memHelp = memoryUsageHelp(m, memPercent)
+  const memHelp = memoryUsageHelp(m, clusterMemPercent)
   const panelPrefix =
     m.runtimeHealth && m.runtimeHealth.pods.length > 0 ? (
       <RuntimeHealthSection runtimeHealth={m.runtimeHealth} />
@@ -146,7 +157,7 @@ export function LiveMetricsTypeSection({
     case 'compute': {
       const red = redHeadlines(m, view.timeframe, fmtErrorRate)
       const sessionP99Ms =
-        view.timeframe === 'session' && m.p99Latency9m > 0 ? m.p99Latency9m : p99Latency
+        view.timeframe === 'session' && m.p99Latency9m > 0 ? m.p99Latency9m : clusterP99Latency
       const topology = getTopologyFlags(nodes)
       const perOpDistributions =
         snapshotTemplateId != null
@@ -160,6 +171,7 @@ export function LiveMetricsTypeSection({
           : []
       const rpsSeries = history.map((h) => h.requestRate)
       const latencySeries = history.map((h) => h.p99Latency)
+      const liveP99Ms = clusterP99Latency
       const errorSeries = history.map((h) => h.errorRate)
       const cpuSeries = history.map((h) => h.cpuPercent)
       const memSeries = history.map((h) => h.memPercent)
@@ -225,7 +237,7 @@ export function LiveMetricsTypeSection({
               <LatencyDistribution
                 p50Ms={p50Latency}
                 p95Ms={p95Latency}
-                p99Ms={p99Latency}
+                p99Ms={liveP99Ms}
                 label="Latency distribution (live)"
                 compact
               />

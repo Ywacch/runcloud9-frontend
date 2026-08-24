@@ -1,6 +1,12 @@
 import { useMemo } from 'react'
-import { clampPercent, fmtMs, fmtRate } from '../lib/format'
+import { clampPercent, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
+import {
+  rollup,
+  samplesFromCompute,
+  samplesFromLayers,
+  splitByRole,
+} from '../lib/instanceRollup'
 import { syncDbTierCWarmup } from '../lib/tierCWarmupSession'
 import type { HealthState } from '../editor-core/domain/healthThresholds'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
@@ -19,6 +25,75 @@ interface NodeTooltipProps {
   metrics?: MetricsBucket
   health: HealthState
   align: 'left' | 'right'
+}
+
+const DB_IDLE_RPS_FLOOR = 8
+
+type DbSplitDisplay = {
+  kind: 'db-split'
+  primary: ReturnType<typeof rollup>
+  replica: ReturnType<typeof rollup>
+  rps: number
+  idle: boolean
+}
+
+type SingleRollupDisplay = {
+  kind: 'single'
+  cpuPct: number
+  memPct: number
+  rps: number
+  p99Ms: number | null
+  idle: boolean
+}
+
+function resolveGroupedDisplay(
+  node: CanvasNode,
+  metrics: MetricsBucket | undefined,
+  dbWarmingUp: boolean,
+): DbSplitDisplay | SingleRollupDisplay | null {
+  if (!metrics) return null
+
+  if (node.type === 'database') {
+    const samples = samplesFromLayers(metrics)
+    const hasReplicas = samples.some((sample) => sample.role === 'replica')
+    if (hasReplicas && samples.length > 0) {
+      const byRole = splitByRole(samples)
+      const primaryRollup = rollup(byRole.get('primary') ?? [])
+      const replicaRollup = rollup(byRole.get('replica') ?? [])
+      const layerRps = primaryRollup.rps + replicaRollup.rps
+      const rps =
+        layerRps > 0
+          ? layerRps
+          : metrics.dbQueryRate > 0
+            ? metrics.dbQueryRate
+            : metrics.requestRate
+      return {
+        kind: 'db-split',
+        primary: dbWarmingUp
+          ? { ...primaryRollup, cpuPct: 0, memPct: 0 }
+          : primaryRollup,
+        replica: dbWarmingUp
+          ? { ...replicaRollup, cpuPct: 0, memPct: 0 }
+          : replicaRollup,
+        rps,
+        idle: rps < DB_IDLE_RPS_FLOOR,
+      }
+    }
+  }
+
+  if (node.type === 'compute' && metrics.podReplicas.length > 1) {
+    const rolled = rollup(samplesFromCompute(metrics))
+    return {
+      kind: 'single',
+      cpuPct: rolled.cpuPct,
+      memPct: rolled.memPct,
+      rps: rolled.rps,
+      p99Ms: rolled.p99 != null && rolled.p99 > 0 ? rolled.p99 * 1000 : null,
+      idle: false,
+    }
+  }
+
+  return null
 }
 
 export function NodeTooltip({
@@ -42,8 +117,24 @@ export function NodeTooltip({
     node.type === 'database' && metrics
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
-  const cpuPct = metrics?.cpuIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.cpuPercent)
-  const memPct = metrics?.memIsEstimated || dbWarmingUp ? 0 : clampPercent(metrics?.memPercent)
+
+  const grouped = useMemo(
+    () => resolveGroupedDisplay(node, metrics, dbWarmingUp),
+    [node, metrics, dbWarmingUp],
+  )
+
+  const cpuPct =
+    grouped?.kind === 'single'
+      ? grouped.cpuPct
+      : metrics?.cpuIsEstimated || dbWarmingUp
+        ? 0
+        : clampPercent(metrics?.cpuPercent)
+  const memPct =
+    grouped?.kind === 'single'
+      ? grouped.memPct
+      : metrics?.memIsEstimated || dbWarmingUp
+        ? 0
+        : clampPercent(metrics?.memPercent)
   const labels = metrics
     ? node.type === 'database'
       ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
@@ -55,8 +146,28 @@ export function NodeTooltip({
     : labels.mem
   const memTitle =
     memDisplay !== labels.mem && labels.mem !== '-' ? labels.mem : undefined
-  const rpsClass =
-    health === 'warning'
+
+  const rps =
+    grouped?.kind === 'db-split'
+      ? grouped.rps
+      : grouped?.kind === 'single'
+        ? grouped.rps
+        : metrics?.requestRate ?? 0
+  const idleRps = grouped?.kind === 'db-split' ? grouped.idle : false
+  const p99Label =
+    grouped?.kind === 'single'
+      ? grouped.p99Ms != null
+        ? fmtMs(grouped.p99Ms)
+        : '—'
+      : grouped?.kind === 'db-split'
+        ? '—'
+        : metrics?.p99Latency != null && metrics.p99Latency > 0
+          ? fmtMs(metrics.p99Latency)
+          : '—'
+
+  const rpsClass = idleRps
+    ? 'text-zinc-400'
+    : health === 'warning'
       ? 'text-amber-300'
       : health === 'error'
         ? 'text-red-300'
@@ -75,47 +186,77 @@ export function NodeTooltip({
         {roleLabel}
       </p>
       <div className="mt-1 border-t border-white/10 pt-1.5">
-        <div className="grid grid-cols-3 gap-2">
-          <div title={resourceHelp}>
-            <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
-            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-              {labels.cpu}
-            </p>
-            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-              <div
-                className="h-full rounded bg-violet-400 transition-[width] duration-150"
-                style={{ width: `${cpuPct}%` }}
-              />
+        {grouped?.kind === 'db-split' ? (
+          <>
+            <div className="space-y-1">
+              {(
+                [
+                  { label: 'primary', roll: grouped.primary },
+                  { label: 'replicas', roll: grouped.replica },
+                ] as const
+              ).map(({ label, roll }) => (
+                <div key={label} className="flex items-baseline justify-between gap-1">
+                  <span className="font-mono text-[9px] lowercase text-zinc-500">{label}</span>
+                  <span className="font-mono text-[10px] text-zinc-200">
+                    cpu {fmtPct(roll.cpuPct)} · mem {fmtPct(roll.memPct)}
+                  </span>
+                </div>
+              ))}
             </div>
-          </div>
-          <div title={memTitle}>
-            <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
-            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-              {memDisplay}
-            </p>
-            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-              <div
-                className="h-full rounded bg-sky-400 transition-[width] duration-150"
-                style={{ width: `${memPct}%` }}
-              />
+            <div className="mt-1.5 flex items-center justify-between border-t border-white/10 pt-1">
+              <span className="font-mono text-[10px] lowercase text-zinc-400">rps</span>
+              <span className={`font-mono text-[14px] font-semibold leading-[1] ${rpsClass}`}>
+                {fmtRate(rps)}
+              </span>
             </div>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] lowercase text-zinc-400">rps</p>
-            <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
-              {fmtRate(metrics?.requestRate ?? 0)}
-            </p>
-            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-              <div className="h-full w-full rounded bg-cyan-400/85" />
+            <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
+              <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
+              <span className="font-mono text-[11px] text-zinc-200">{p99Label}</span>
             </div>
-          </div>
-        </div>
-        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
-          <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
-          <span className="font-mono text-[11px] text-zinc-200">
-            {fmtMs(metrics?.p99Latency ?? 0)}
-          </span>
-        </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <div title={resourceHelp}>
+                <p className="font-mono text-[10px] lowercase text-zinc-400">cpu</p>
+                <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+                  {labels.cpu}
+                </p>
+                <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+                  <div
+                    className="h-full rounded bg-violet-400 transition-[width] duration-150"
+                    style={{ width: `${cpuPct}%` }}
+                  />
+                </div>
+              </div>
+              <div title={memTitle}>
+                <p className="font-mono text-[10px] lowercase text-zinc-400">memory</p>
+                <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
+                  {memDisplay}
+                </p>
+                <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+                  <div
+                    className="h-full rounded bg-sky-400 transition-[width] duration-150"
+                    style={{ width: `${memPct}%` }}
+                  />
+                </div>
+              </div>
+              <div>
+                <p className="font-mono text-[10px] lowercase text-zinc-400">rps</p>
+                <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
+                  {fmtRate(rps)}
+                </p>
+                <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
+                  <div className="h-full w-full rounded bg-cyan-400/85" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
+              <span className="font-mono text-[10px] lowercase text-zinc-400">p99</span>
+              <span className="font-mono text-[11px] text-zinc-200">{p99Label}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
