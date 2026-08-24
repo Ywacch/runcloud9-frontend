@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { withIntrospectTarget } from './introspectApi'
+
+vi.mock('./auth', () => ({
+  getAccessToken: vi.fn(),
+}))
 
 describe('withIntrospectTarget', () => {
   it('leaves path unchanged for primary or omitted target', () => {
