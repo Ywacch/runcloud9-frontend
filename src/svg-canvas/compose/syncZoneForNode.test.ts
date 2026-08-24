@@ -36,6 +36,21 @@ describe('syncZoneForNode', () => {
     expect(syncZoneForNode(node(3, 'stack'))).toBeNull()
   })
 
+  it('returns a zone for expanded stack override with multiple units', () => {
+    const z = syncZoneForNode(node(3, 'stack'), {
+      units: [
+        { dx: 0, dy: 0 },
+        { dx: 28, dy: -14 },
+        { dx: 56, dy: -28 },
+      ],
+      packing: 'stack',
+      brandBody: null,
+      tubeCount: 1,
+    })
+    expect(z).not.toBeNull()
+    expect(z!.label).toBe('×3')
+  })
+
   it('returns a zone when packing is fan and replicas > 1', () => {
     const z = syncZoneForNode(node(3, 'fan', 'redis'))
     expect(z).not.toBeNull()

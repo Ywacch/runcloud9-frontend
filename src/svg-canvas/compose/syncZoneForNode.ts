@@ -39,7 +39,8 @@ export function syncZoneForNode(
 ): SvgZone | null {
   const composed = override ?? composeGlyph(node)
   if (composed.units.length <= 1) return null
-  if (composed.packing !== 'fan') return null
+  // Fan packing, or expanded stack override with fan-out unit offsets (PR4).
+  if (composed.packing !== 'fan' && override == null) return null
 
   const tips = composed.units.map((u) =>
     screenToIso(node.x + u.dx, node.y + u.dy),

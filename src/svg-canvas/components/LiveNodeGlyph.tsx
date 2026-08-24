@@ -23,6 +23,9 @@ type LiveNodeGlyphProps = {
   onPointerDown: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter: () => void
   onPointerLeave: () => void
+  onUnitPointerDown?: (unitIndex: number, e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerEnter?: (unitIndex: number) => void
+  onUnitPointerLeave?: (unitIndex: number) => void
 }
 
 function liveKey(nodeId: string): string {
@@ -38,6 +41,9 @@ function LiveNodeGlyphInner({
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
+  onUnitPointerDown,
+  onUnitPointerEnter,
+  onUnitPointerLeave,
 }: LiveNodeGlyphProps) {
   const reducedMotion = useReducedMotion()
   const key = useSyncExternalStore(
@@ -87,6 +93,9 @@ function LiveNodeGlyphInner({
         onPointerDown={onPointerDown}
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
+        onUnitPointerDown={onUnitPointerDown}
+        onUnitPointerEnter={onUnitPointerEnter}
+        onUnitPointerLeave={onUnitPointerLeave}
       />
     </g>
   )
@@ -110,7 +119,10 @@ function propsEqual(a: LiveNodeGlyphProps, b: LiveNodeGlyphProps): boolean {
     a.appear === b.appear &&
     a.onPointerDown === b.onPointerDown &&
     a.onPointerEnter === b.onPointerEnter &&
-    a.onPointerLeave === b.onPointerLeave
+    a.onPointerLeave === b.onPointerLeave &&
+    a.onUnitPointerDown === b.onUnitPointerDown &&
+    a.onUnitPointerEnter === b.onUnitPointerEnter &&
+    a.onUnitPointerLeave === b.onUnitPointerLeave
   )
 }
 

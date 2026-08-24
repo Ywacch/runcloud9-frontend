@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { clampPercent, fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { compactPodName } from '../lib/replicaMetricsDisplay'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   rollup,
@@ -44,14 +45,52 @@ type SingleRollupDisplay = {
   rps: number
   p99Ms: number | null
   idle: boolean
+  instanceLabel?: string
+}
+
+function compactInstanceLabel(id: string): string {
+  return compactPodName(id) || id
 }
 
 function resolveGroupedDisplay(
   node: CanvasNode,
   metrics: MetricsBucket | undefined,
   dbWarmingUp: boolean,
+  instanceScopeId: string | null,
 ): DbSplitDisplay | SingleRollupDisplay | null {
   if (!metrics) return null
+
+  if (instanceScopeId) {
+    const sample =
+      node.type === 'compute'
+        ? samplesFromCompute(metrics).find((s) => s.id === instanceScopeId)
+        : node.type === 'database'
+          ? samplesFromLayers(metrics).find((s) => s.id === instanceScopeId)
+          : undefined
+    if (sample) {
+      const rolled = rollup([sample], {
+        idleFloor: node.type === 'database' ? DB_IDLE_RPS_FLOOR : undefined,
+      })
+      const warmed =
+        node.type === 'database' && dbWarmingUp
+          ? { ...rolled, cpuPct: 0, memPct: 0 }
+          : rolled
+      return {
+        kind: 'single',
+        cpuPct: warmed.cpuPct,
+        memPct: warmed.memPct,
+        rps: warmed.rps,
+        p99Ms: warmed.p99 != null && warmed.p99 > 0 ? warmed.p99 * 1000 : null,
+        idle: warmed.idle,
+        instanceLabel:
+          node.type === 'compute'
+            ? compactInstanceLabel(sample.id)
+            : sample.role === 'primary'
+              ? 'primary'
+              : compactInstanceLabel(sample.id),
+      }
+    }
+  }
 
   if (node.type === 'database') {
     const samples = samplesFromLayers(metrics)
@@ -103,6 +142,9 @@ export function NodeTooltip({
   align,
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
+  const selectedId = useCanvasStore((s) => s.selectedId)
+  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
+  const hoveredInstanceId = useCanvasStore((s) => s.hoveredInstanceId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
@@ -118,9 +160,20 @@ export function NodeTooltip({
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
 
+  const instanceScopeId = useMemo(() => {
+    if (
+      selectedId === node.id &&
+      selectedInstanceId &&
+      selectedInstanceId !== 'cluster'
+    ) {
+      return selectedInstanceId
+    }
+    return hoveredInstanceId
+  }, [selectedId, node.id, selectedInstanceId, hoveredInstanceId])
+
   const grouped = useMemo(
-    () => resolveGroupedDisplay(node, metrics, dbWarmingUp),
-    [node, metrics, dbWarmingUp],
+    () => resolveGroupedDisplay(node, metrics, dbWarmingUp, instanceScopeId),
+    [node, metrics, dbWarmingUp, instanceScopeId],
   )
 
   const cpuPct =
@@ -183,7 +236,9 @@ export function NodeTooltip({
         {node.label}
       </p>
       <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
-        {roleLabel}
+        {grouped?.kind === 'single' && grouped.instanceLabel
+          ? `${roleLabel} · ${grouped.instanceLabel}`
+          : roleLabel}
       </p>
       <div className="mt-1 border-t border-white/10 pt-1.5">
         {grouped?.kind === 'db-split' ? (

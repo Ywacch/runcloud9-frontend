@@ -157,6 +157,8 @@ interface CanvasState {
   walkthroughParticipatingNodeIds: string[]
   /** Live/sim: node under the pointer (metrics tooltip). */
   hoveredNodeId: string | null
+  /** Live/sim: concrete instance under the pointer for tooltip preview. */
+  hoveredInstanceId: string | null
   /** One-shot topology UX banner (e.g. social-feed cache removal). */
   topologyBanner: string | null
 
@@ -176,6 +178,7 @@ interface CanvasState {
   setPendingSource: (id: string | null) => void
   setConnectHoverTargetId: (id: string | null) => void
   setHoveredNodeId: (id: string | null) => void
+  setHoveredInstanceId: (id: string | null) => void
   setTopologyBanner: (message: string | null) => void
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
@@ -264,6 +267,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   walkthroughHighlightedEdgeIds: [],
   walkthroughParticipatingNodeIds: [],
   hoveredNodeId: null,
+  hoveredInstanceId: null,
   topologyBanner: null,
 
   addNode: (node) =>
@@ -446,7 +450,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setConnectHoverTargetId: (connectHoverTargetId) => set({ connectHoverTargetId }),
 
-  setHoveredNodeId: (hoveredNodeId) => set({ hoveredNodeId }),
+  setHoveredNodeId: (hoveredNodeId) =>
+    set((s) => ({
+      hoveredNodeId,
+      hoveredInstanceId:
+        hoveredNodeId == null || hoveredNodeId !== s.hoveredNodeId
+          ? null
+          : s.hoveredInstanceId,
+    })),
+
+  setHoveredInstanceId: (hoveredInstanceId) => set({ hoveredInstanceId }),
 
   setTopologyBanner: (topologyBanner) => set({ topologyBanner }),
 
@@ -466,6 +479,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         selectedId,
         selectedIds: selectedId ? [selectedId] : [],
         selectedInstanceId: defaultSelectedInstanceId(node),
+        hoveredInstanceId: null,
       }
     }),
 
@@ -493,6 +507,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       mode: next,
       hoveredNodeId: null,
+      hoveredInstanceId: null,
       ...(next === 'live' || next === 'simulate'
         ? {
             pendingSourceId: null,
