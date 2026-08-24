@@ -50,6 +50,7 @@ import {
   DbActivitySection,
   DbClusterResourcesSection,
   DbDiagnosticsDisclosure,
+  DbInstanceLayerSection,
   DbLoadSection,
   DbReplicaLagSection,
   DbConsistencySection,
@@ -73,6 +74,8 @@ import {
 } from './inspectorPanelUi'
 import { InlineDisclosure } from './InlineDisclosure'
 import { rollup, samplesFromCompute } from '../lib/instanceRollup'
+import { findDbLayer, type SelectedInstanceId } from '../lib/dbInstanceScope'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
 
 function truncatePodName(name: string, max = 28): string {
   if (name.length <= max) return name
@@ -103,6 +106,7 @@ export function LiveMetricsTypeSection({
   loadgenActive,
   view,
   replicaRows = [],
+  selectedInstanceId = null,
 }: {
   node: CanvasNode
   m: MetricsBucket
@@ -115,6 +119,7 @@ export function LiveMetricsTypeSection({
   loadgenActive: boolean
   view: PanelViewState
   replicaRows?: ReplicaInspectorRow[]
+  selectedInstanceId?: SelectedInstanceId
 }) {
   const nodeId = node.id
   const nodeType = node.type
@@ -148,6 +153,7 @@ export function LiveMetricsTypeSection({
   const resourceLabels = formatResourceLabels(m, clusterCpuPercent, clusterMemPercent)
   const resourceHelp = resourceUsageHelp(m)
   const memHelp = memoryUsageHelp(m, clusterMemPercent)
+  const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
   const panelPrefix =
     m.runtimeHealth && m.runtimeHealth.pods.length > 0 ? (
       <RuntimeHealthSection runtimeHealth={m.runtimeHealth} />
@@ -335,7 +341,15 @@ export function LiveMetricsTypeSection({
 
           {computeReplicaList.length > 0 ? (
             <InspectorDisclosure title="Per-replica breakdown">
-              <ReplicaFlatList rows={computeReplicaList} />
+              <ReplicaFlatList
+                rows={computeReplicaList}
+                selectedName={
+                  selectedInstanceId && selectedInstanceId !== 'cluster'
+                    ? selectedInstanceId
+                    : null
+                }
+                onSelectName={(name) => setSelectedInstanceId(name)}
+              />
             </InspectorDisclosure>
           ) : null}
         </div>
@@ -428,6 +442,18 @@ export function LiveMetricsTypeSection({
       const maxConnFallback = Number(node.config.maxConnections ?? 100)
       const maxConn = m.maxConnections > 0 ? m.maxConnections : maxConnFallback
       const bucket = { ...m, dbQueryRate, maxConnections: maxConn }
+      const scope = selectedInstanceId ?? 'cluster'
+      const instanceLayer =
+        scope !== 'cluster' ? findDbLayer(m.layers, scope) : undefined
+
+      if (instanceLayer && scope !== 'cluster') {
+        return (
+          <div className="space-y-5">
+            {panelPrefix}
+            <DbInstanceLayerSection layer={instanceLayer} view={view} />
+          </div>
+        )
+      }
 
       return (
         <div className="space-y-5">

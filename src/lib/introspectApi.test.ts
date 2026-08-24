@@ -28,4 +28,13 @@ describe('withIntrospectTarget', () => {
       'rows/foo?page=1&target=replica',
     )
   })
+
+  it('appends layerId for a specific replica instance', () => {
+    expect(
+      withIntrospectTarget('tables', {
+        target: 'replica',
+        layerId: 'postgres-replica-roll',
+      }),
+    ).toBe('tables?target=replica&layerId=postgres-replica-roll')
+  })
 })
