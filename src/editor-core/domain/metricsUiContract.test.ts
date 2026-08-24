@@ -218,11 +218,13 @@ describe('metricsUiContract', () => {
         engine: 'postgresql',
         cpuUsage: 0.08,
         memoryUsage: 134217728,
+        requestRate: 18,
       },
     ])
     expect(layers).toHaveLength(2)
     expect(layers[0].id).toBe('postgres')
     expect(layers[0].role).toBe('primary')
+    expect(layers[0].requestRate).toBe(18)
     expect(layers[1].id).toBe('postgres-replica-roll')
     expect(layers[1].replicationLagSeconds).toBe(0.05)
   })

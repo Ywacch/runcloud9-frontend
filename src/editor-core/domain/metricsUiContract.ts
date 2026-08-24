@@ -96,6 +96,8 @@ export interface ComponentLayerMetrics {
   restartCount?: number
   /** Primary-side replay lag in seconds (Postgres replica layers only). */
   replicationLagSeconds?: number
+  /** Per-layer PostgreSQL transaction throughput (xact/s) when present. */
+  requestRate?: number
   /** Layer-local containerCpu / containerMem freshness when present. */
   freshness?: ComponentFreshness
 }
@@ -346,6 +348,7 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const evictions = num(r.evictionsPerSec)
     const expirations = num(r.expirationsPerSec)
     const replicationLag = num(r.replicationLagSeconds)
+    const requestRate = num(r.requestRate)
     out.push({
       id,
       role: typeof r.role === 'string' ? r.role.trim() : '',
@@ -367,6 +370,7 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       restartCount: restartCount > 0 ? restartCount : undefined,
       replicationLagSeconds:
         replicationLag > 0 || r.replicationLagSeconds === 0 ? replicationLag : undefined,
+      requestRate: requestRate > 0 ? requestRate : undefined,
       freshness: parseComponentFreshness(r.freshness),
     })
   }
