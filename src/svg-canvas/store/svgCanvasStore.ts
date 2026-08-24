@@ -397,7 +397,7 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (!node || !canMutateCanvasTopology(canvas)) return
     if (!backendSupportsReplicas(node.type)) return
     const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
-    const patch = configPatchForReplicas(node.type, next)
+    const patch = configPatchForReplicas(node.type, next, node.config)
     if (Object.keys(patch).length === 0) return
     canvas.updateNodeConfig(id, patch)
   },
@@ -550,11 +550,11 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
         const type = archetypeToCanvasType(src.archetype)
         const position = svgWorldToCanvasPosition(src.x + ox, src.y + oy)
         const node = createCanvasNode(type, position, nodes)
+        const mergedConfig = { ...node.config, ...src.config }
         node.config = {
-          ...node.config,
-          ...src.config,
+          ...mergedConfig,
           ...configPatchForEngine(type, src.engine),
-          ...configPatchForReplicas(type, src.topology.replicas),
+          ...configPatchForReplicas(type, src.topology.replicas, mergedConfig),
           ...configPatchForShards(src.topology.shards),
         }
         useCanvasStore.getState().addNode(node)

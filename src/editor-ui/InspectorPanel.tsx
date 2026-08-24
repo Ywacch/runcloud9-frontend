@@ -334,7 +334,8 @@ export function InspectorPanel() {
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                {showInstanceTabs && liveTab === 'metrics' ? (
+                {showInstanceTabs &&
+                (liveTab === 'metrics' || liveTab === 'logs') ? (
                   <DbInstanceTabBar
                     tabs={instanceTabs}
                     selectedId={selectedInstanceId}
@@ -354,7 +355,13 @@ export function InspectorPanel() {
                     <LiveMetrics node={node} />
                   </>
                 ) : null}
-                {liveTab === 'logs' ? <ComponentLogPanel key={node.id} node={node} /> : null}
+                {liveTab === 'logs' ? (
+                  <ComponentLogPanel
+                    key={node.id}
+                    node={node}
+                    instanceId={selectedInstanceId}
+                  />
+                ) : null}
                 {liveTab === 'config' ? (
                   <div className="space-y-4">
                     <TypeFields
@@ -1369,6 +1376,8 @@ function TypeFields({
     }
 
     case 'database': {
+      const readReplicas = clampReadReplicas(c.readReplicas)
+      const dbInstanceCount = 1 + readReplicas
       return (
         <>
           <div>
@@ -1377,13 +1386,33 @@ function TypeFields({
               PostgreSQL
             </span>
           </div>
-          <ResourceProfileFields
-            idPrefix="database"
-            nodeType="database"
-            config={c}
-            updateConfig={updateConfig}
-            readOnly={readOnly}
-          />
+          {readReplicas >= 1 ? (
+            <InstanceSizeCopyFields
+              idPrefix="database"
+              config={c}
+              replicaCount={dbInstanceCount}
+              updateConfig={updateConfig}
+              readOnly={readOnly}
+              labelForIndex={(i) =>
+                i === 0 ? 'Primary size' : `Replica ${i} size`
+              }
+            />
+          ) : (
+            <ResourceProfileFields
+              idPrefix="database"
+              nodeType="database"
+              config={c}
+              updateConfig={(patch) => {
+                const size = String(patch.instanceSize ?? c.instanceSize ?? 'small')
+                updateConfig({
+                  ...patch,
+                  instanceSizes: [size],
+                  instanceSize: size,
+                })
+              }}
+              readOnly={readOnly}
+            />
+          )}
           <div>
             <label className={labelClass} htmlFor="db-read-replicas">
               Read replicas
@@ -1395,14 +1424,18 @@ function TypeFields({
               max={2}
               step={1}
               className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={clampReadReplicas(c.readReplicas)}
+              value={readReplicas}
               readOnly={readOnly}
               disabled={readOnly}
               onChange={(e) => {
                 if (readOnly) return
                 const next = clampReadReplicas(Number(e.target.value))
+                const sizeCount = 1 + next
+                const sizes = normalizeInstanceSizes(c, sizeCount)
                 updateConfig({
                   readReplicas: next,
+                  instanceSizes: sizes,
+                  instanceSize: sizes[0],
                   replicationMode:
                     next === 0
                       ? 'async'
@@ -1417,17 +1450,17 @@ function TypeFields({
             </label>
             <select
               id="db-replication-mode"
-              className={`${fieldClass}${readOnly || clampReadReplicas(c.readReplicas) === 0 ? ' cursor-not-allowed opacity-60' : ''}`}
+              className={`${fieldClass}${readOnly || readReplicas === 0 ? ' cursor-not-allowed opacity-60' : ''}`}
               value={
-                clampReadReplicas(c.readReplicas) === 0
+                readReplicas === 0
                   ? 'async'
                   : String(c.replicationMode ?? 'async') === 'sync'
                     ? 'sync'
                     : 'async'
               }
-              disabled={readOnly || clampReadReplicas(c.readReplicas) === 0}
+              disabled={readOnly || readReplicas === 0}
               onChange={(e) => {
-                if (readOnly || clampReadReplicas(c.readReplicas) === 0) return
+                if (readOnly || readReplicas === 0) return
                 updateConfig({ replicationMode: e.target.value })
               }}
             >
