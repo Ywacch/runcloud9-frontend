@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   DB_LAYER_ID_POSTGRES_PRIMARY,
   dbHasReplicaLayers,
   dbInstanceTabs,
+  instanceTabsForNode,
   introspectRoutingForInstance,
   nodeSupportsInstanceScope,
 } from './dbInstanceScope'
@@ -46,6 +48,25 @@ const replicaLayers: ComponentLayerMetrics[] = [
   },
 ]
 
+function computeNode(): CanvasNode {
+  return {
+    id: 'app1',
+    type: 'compute',
+    position: [0, 0, 0],
+    label: 'App',
+    config: { replicas: 2 },
+    status: 'healthy',
+  }
+}
+
+function metrics(overrides: Partial<MetricsBucket> = {}): MetricsBucket {
+  return {
+    podReplicas: [],
+    layers: [],
+    ...overrides,
+  } as MetricsBucket
+}
+
 describe('dbInstanceScope', () => {
   it('hides tabs when no replica layers exist', () => {
     expect(dbHasReplicaLayers([replicaLayers[0]!])).toBe(false)
@@ -74,5 +95,81 @@ describe('dbInstanceScope', () => {
   it('enables instance scope for database with read replicas configured', () => {
     expect(nodeSupportsInstanceScope(dbNode(2))).toBe(true)
     expect(nodeSupportsInstanceScope(dbNode(0))).toBe(false)
+  })
+
+  it('builds compute tabs when multiple pod replicas exist', () => {
+    const tabs = instanceTabsForNode(
+      computeNode(),
+      metrics({
+        podReplicas: [
+          {
+            name: 'app-server-roll-abc',
+            ready: true,
+            requestRate: 1,
+            p99LatencyMs: 10,
+            totalRequests: 1,
+            cpuUsage: 0.1,
+            errorRate: 0,
+            memoryBytes: 0,
+          },
+          {
+            name: 'app-server-roll-def',
+            ready: true,
+            requestRate: 2,
+            p99LatencyMs: 12,
+            totalRequests: 2,
+            cpuUsage: 0.2,
+            errorRate: 0,
+            memoryBytes: 0,
+          },
+        ],
+      }),
+    )
+    expect(tabs.map((tab) => tab.label)).toEqual([
+      'Cluster',
+      'roll-abc',
+      'roll-def',
+    ])
+  })
+
+  it('returns no tabs for single-pod compute or cache without replicas', () => {
+    expect(
+      instanceTabsForNode(
+        computeNode(),
+        metrics({
+          podReplicas: [
+            {
+              name: 'app-server-roll-only',
+              ready: true,
+              requestRate: 1,
+              p99LatencyMs: 10,
+              totalRequests: 1,
+              cpuUsage: 0.1,
+              errorRate: 0,
+              memoryBytes: 0,
+            },
+          ],
+        }),
+      ),
+    ).toEqual([])
+    expect(
+      instanceTabsForNode(
+        {
+          id: 'cache1',
+          type: 'cache',
+          position: [0, 0, 0],
+          label: 'Cache',
+          config: {},
+          status: 'healthy',
+        },
+        metrics(),
+      ),
+    ).toEqual([])
+  })
+
+  it('keeps database tabs unchanged when replica layers exist', () => {
+    expect(instanceTabsForNode(dbNode(2), metrics({ layers: replicaLayers }))).toEqual(
+      dbInstanceTabs(replicaLayers),
+    )
   })
 })

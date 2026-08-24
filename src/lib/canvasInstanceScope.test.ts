@@ -5,6 +5,7 @@ import {
   canvasUnitPickEnabled,
   instanceIdForUnitIndex,
   sortedCanvasInstanceIds,
+  unitPickEnabledForDisplay,
 } from './canvasInstanceScope'
 import { DB_LAYER_ID_POSTGRES_PRIMARY } from './dbInstanceScope'
 
@@ -113,5 +114,19 @@ describe('canvasUnitPickEnabled', () => {
     })
     expect(canvasUnitPickEnabled(node, bucket, 3)).toBe(true)
     expect(canvasUnitPickEnabled(node, bucket, 2)).toBe(false)
+  })
+})
+
+describe('unitPickEnabledForDisplay', () => {
+  it('requires expanded display before enabling unit pick', () => {
+    const node = computeNode()
+    const bucket = metrics({
+      podReplicas: [
+        { name: 'pod-a', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+        { name: 'pod-b', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+      ],
+    })
+    expect(unitPickEnabledForDisplay(false, node, bucket, 2)).toBe(false)
+    expect(unitPickEnabledForDisplay(true, node, bucket, 2)).toBe(true)
   })
 })

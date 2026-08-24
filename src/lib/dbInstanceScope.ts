@@ -1,5 +1,6 @@
 import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { clampReadReplicas } from './replicaConfig'
 import { compactPodName } from './replicaMetricsDisplay'
 
@@ -41,6 +42,31 @@ export function dbInstanceTabs(layers: ComponentLayerMetrics[]): DbInstanceTab[]
       label: compactPodName(layer.id) || layer.id,
     })),
   ]
+}
+
+function podReplicaTabs(metrics: MetricsBucket): DbInstanceTab[] {
+  if (metrics.podReplicas.length <= 1) return []
+  return [
+    { id: 'cluster', label: 'Cluster' },
+    ...metrics.podReplicas
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((pod) => ({
+        id: pod.name,
+        label: compactPodName(pod.name) || pod.name,
+      })),
+  ]
+}
+
+/** Inspector Cluster | instance tabs when per-pod/layer metrics exist. */
+export function instanceTabsForNode(
+  node: CanvasNode | null | undefined,
+  metrics: MetricsBucket | undefined,
+): DbInstanceTab[] {
+  if (!node || !metrics) return []
+  if (node.type === 'database') return dbInstanceTabs(metrics.layers)
+  if (metrics.podReplicas.length > 1) return podReplicaTabs(metrics)
+  return []
 }
 
 export function findDbLayer(

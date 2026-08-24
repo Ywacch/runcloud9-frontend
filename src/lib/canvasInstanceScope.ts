@@ -55,3 +55,13 @@ export function canvasUnitPickEnabled(
 ): boolean {
   return sortedCanvasInstanceIds(node, metrics, unitCount).length === unitCount
 }
+
+/** Unit hit-testing only when the glyph is fanned and metrics align with units. */
+export function unitPickEnabledForDisplay(
+  displayExpanded: boolean,
+  node: CanvasNode,
+  metrics: MetricsBucket | undefined,
+  unitCount: number,
+): boolean {
+  return displayExpanded && canvasUnitPickEnabled(node, metrics, unitCount)
+}

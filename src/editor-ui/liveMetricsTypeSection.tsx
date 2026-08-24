@@ -48,6 +48,7 @@ import {
 } from './cacheInspectorSections'
 import {
   DbActivitySection,
+  ComputeInstanceSection,
   DbClusterResourcesSection,
   DbDiagnosticsDisclosure,
   DbInstanceLayerSection,
@@ -156,11 +157,29 @@ export function LiveMetricsTypeSection({
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
   const panelPrefix =
     m.runtimeHealth && m.runtimeHealth.pods.length > 0 ? (
-      <RuntimeHealthSection runtimeHealth={m.runtimeHealth} />
+      <RuntimeHealthSection
+        runtimeHealth={m.runtimeHealth}
+        instanceId={selectedInstanceId}
+      />
     ) : null
 
   switch (nodeType) {
     case 'compute': {
+      const scope = selectedInstanceId ?? 'cluster'
+      const instancePod =
+        scope !== 'cluster'
+          ? m.podReplicas.find((pod) => pod.name === scope)
+          : undefined
+
+      if (instancePod && scope !== 'cluster') {
+        return (
+          <div className="space-y-5">
+            {panelPrefix}
+            <ComputeInstanceSection pod={instancePod} m={m} view={view} />
+          </div>
+        )
+      }
+
       const red = redHeadlines(m, view.timeframe, fmtErrorRate)
       const sessionP99Ms =
         view.timeframe === 'session' && m.p99Latency9m > 0 ? m.p99Latency9m : clusterP99Latency

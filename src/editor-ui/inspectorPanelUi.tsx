@@ -13,7 +13,8 @@ import {
 } from '../lib/metricHelp'
 import { containerFreshnessHint } from '../lib/metricsFreshness'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
-import type { RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
+import type { PodRuntimeHealth, RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
+import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import { MetricChart } from './MetricChart'
 import { MetricHelpIcon } from './MetricHelpIcon'
 import { InfoTooltip } from './InfoTooltip'
@@ -253,15 +254,30 @@ export function EngineDiagnosticsBlock({
   )
 }
 
+export function runtimeHealthPodsForScope(
+  pods: PodRuntimeHealth[],
+  instanceId?: SelectedInstanceId,
+): PodRuntimeHealth[] | null {
+  if (!instanceId || instanceId === 'cluster') return pods
+  const filtered = pods.filter(
+    (pod) => pod.name === instanceId || pod.name.includes(instanceId),
+  )
+  return filtered.length > 0 ? filtered : null
+}
+
 export function RuntimeHealthSection({
   runtimeHealth,
+  instanceId,
 }: {
   runtimeHealth: RuntimeHealthSummary
+  instanceId?: SelectedInstanceId
 }) {
-  const { pods, unreadyCount, restarting } = runtimeHealth
-  if (pods.length === 0) return null
+  const { restarting } = runtimeHealth
+  const pods = runtimeHealthPodsForScope(runtimeHealth.pods, instanceId)
+  if (!pods || pods.length === 0) return null
   const readyCount = pods.filter((p) => p.ready).length
-  const hasIssue = restarting || unreadyCount > 0
+  const scopedUnready = pods.filter((p) => !p.ready).length
+  const hasIssue = restarting || scopedUnready > 0
 
   return (
     <section className={`space-y-2 ${METRIC_CARD_SHELL}`}>
@@ -276,7 +292,7 @@ export function RuntimeHealthSection({
         <span className="font-mono text-[10px] text-[var(--c9-muted)]">
           Ready {readyCount}/{pods.length}
           {restarting ? ' · restarting' : ''}
-          {unreadyCount > 0 ? ` · ${unreadyCount} not ready` : ''}
+          {scopedUnready > 0 ? ` · ${scopedUnready} not ready` : ''}
         </span>
       </div>
       <ul className="min-w-0 space-y-1.5 font-mono text-[10px] text-[var(--c9-text)]">
