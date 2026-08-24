@@ -12,6 +12,7 @@ import {
 import { dbQueryHeadline, storageIoThroughputFields } from '../lib/metricTimeframe'
 import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
+import { rollup, samplesFromLayers } from '../lib/instanceRollup'
 import {
   cacheLayerSectionLabels,
   isBackingCacheLayer,
@@ -256,7 +257,17 @@ export function DbClusterResourcesSection({
 }) {
   const warmingUp = useDbTierCWarmup(nodeId, m)
 
-  const labels = formatDbClusterResourceLabels(m, cpuPercent, memPercent, warmingUp)
+  const hasReplicaLayers = m.layers.some((layer) => layer.role === 'replica')
+  const layerRollup = hasReplicaLayers ? rollup(samplesFromLayers(m)) : null
+  const clusterCpuPercent = layerRollup?.cpuPct ?? cpuPercent
+  const clusterMemPercent = layerRollup?.memPct ?? memPercent
+
+  const labels = formatDbClusterResourceLabels(
+    m,
+    clusterCpuPercent,
+    clusterMemPercent,
+    warmingUp,
+  )
   const showUtilizationCharts = shouldShowDbClusterUtilizationCharts(m, warmingUp)
   const cpuSeries = showUtilizationCharts ? history.map((h) => h.cpuPercent) : []
   const memSeries = showUtilizationCharts ? history.map((h) => h.memPercent) : []
@@ -306,7 +317,7 @@ export function DbClusterResourcesSection({
           />
         }
       />
-      {showUtilizationCharts ? <CapacityBar pct={cpuPercent} /> : null}
+      {showUtilizationCharts ? <CapacityBar pct={clusterCpuPercent} /> : null}
       {resourceHelp ? (
         <InlineDisclosure label="About these metrics">
           <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
