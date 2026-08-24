@@ -93,6 +93,7 @@ export function samplesFromLayers(m: MetricsBucket): InstanceSample[] {
       role: layer.role,
       cpuPct: cpuPercent,
       memPct: memPercent,
+      rps: layer.requestRate,
       lagSeconds: layer.replicationLagSeconds,
     }
   })
