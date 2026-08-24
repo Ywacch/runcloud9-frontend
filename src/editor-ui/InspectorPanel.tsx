@@ -55,6 +55,15 @@ import {
   clampReadReplicas,
   lbAlgorithmForDeploy,
 } from '../lib/replicaConfig'
+import {
+  READ_CONSISTENCY_CLAMP_HINT,
+  READ_CONSISTENCY_HELP,
+  READ_CONSISTENCY_LABEL,
+  READ_CONSISTENCY_POLICIES,
+  readConsistencyFromConfig,
+  readConsistencyOptionDisabled,
+  readConsistencyRequiresMultipleReplicas,
+} from '../lib/readConsistency'
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { maxAppServerReplicasForUser } from '../lib/userTier'
@@ -1378,6 +1387,10 @@ function TypeFields({
     case 'database': {
       const readReplicas = clampReadReplicas(c.readReplicas)
       const dbInstanceCount = 1 + readReplicas
+      const readConsistency = readConsistencyFromConfig(c.readConsistency)
+      const showReadConsistencyClampHint =
+        readConsistencyRequiresMultipleReplicas(readConsistency) &&
+        readReplicas < 2
       return (
         <>
           <div>
@@ -1443,6 +1456,56 @@ function TypeFields({
                 })
               }}
             />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="db-read-consistency">
+              <span className="inline-flex items-center gap-1">
+                Read consistency
+                <InfoTooltip text="How app reads are routed when read replicas are provisioned." />
+              </span>
+            </label>
+            <select
+              id="db-read-consistency"
+              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+              value={readConsistency}
+              disabled={readOnly}
+              onChange={(e) => {
+                if (readOnly) return
+                const prev = readConsistency
+                const next = readConsistencyFromConfig(e.target.value)
+                updateConfig({ readConsistency: next })
+                const template =
+                  useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+                trackEvent('design_option_changed', {
+                  template,
+                  optionName: 'read_consistency',
+                  previousCategory: prev,
+                  newCategory: next,
+                })
+              }}
+            >
+              {READ_CONSISTENCY_POLICIES.map((policy) => (
+                <option
+                  key={policy}
+                  value={policy}
+                  disabled={
+                    !readOnly &&
+                    readConsistencyOptionDisabled(policy, readReplicas)
+                  }
+                  title={READ_CONSISTENCY_HELP[policy]}
+                >
+                  {READ_CONSISTENCY_LABEL[policy]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              {READ_CONSISTENCY_HELP[readConsistency]}
+            </p>
+            {showReadConsistencyClampHint ? (
+              <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+                {READ_CONSISTENCY_CLAMP_HINT}
+              </p>
+            ) : null}
           </div>
           <div>
             <label className={labelClass} htmlFor="db-replication-mode">

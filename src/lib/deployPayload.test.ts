@@ -265,6 +265,45 @@ describe('deployConfigForNode', () => {
     expect(dbMixedSizes.instanceSizes).toEqual(['large', 'small'])
     expect(dbMixedSizes.instanceSize).toBe('large')
 
+    const dbReadConsistency = deployConfigForNode({
+      id: 'db-consistency',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: {
+        engine: 'postgresql',
+        readReplicas: 2,
+        readConsistency: 'monotonic',
+      },
+      status: 'idle',
+    })
+    expect(dbReadConsistency.readReplicas).toBe(2)
+    expect(dbReadConsistency.readConsistency).toBe('monotonic')
+
+    const dbClampedConsistency = deployConfigForNode({
+      id: 'db-clamped',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: {
+        engine: 'postgresql',
+        readReplicas: 1,
+        readConsistency: 'ryw+monotonic',
+      },
+      status: 'idle',
+    })
+    expect(dbClampedConsistency.readConsistency).toBe('ryw')
+
+    const dbDefaultConsistency = deployConfigForNode({
+      id: 'db-default',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: { engine: 'postgresql', readReplicas: 0 },
+      status: 'idle',
+    })
+    expect(dbDefaultConsistency.readConsistency).toBe('leader-only')
+
     const worker = deployConfigForNode({
       id: 'worker',
       type: 'worker',

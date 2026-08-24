@@ -8,6 +8,7 @@ import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stor
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { DeploymentDesign } from './api'
 import { ensureLoadBalancerForReplicas } from './ensureLoadBalancerForReplicas'
+import { normalizeReadConsistencyForDeploy } from './readConsistency'
 import {
   clampAppServerReplicas,
   clampReadReplicas,
@@ -95,6 +96,10 @@ export function deployConfigForNode(
     config.instanceSize = sizes[0]
     config.replicationMode = normalizeReplicationModeForDeploy(
       config.replicationMode,
+      readReplicas,
+    )
+    config.readConsistency = normalizeReadConsistencyForDeploy(
+      config.readConsistency,
       readReplicas,
     )
   } else if (!backendSupportsReplicas(n.type)) {
