@@ -28,6 +28,9 @@ type RedisBrandGlyphProps = {
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerDown?: (unitIndex: number, e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerEnter?: (unitIndex: number) => void
+  onUnitPointerLeave?: (unitIndex: number) => void
 }
 
 function RedisSlabs({
@@ -109,9 +112,17 @@ export function RedisBrandGlyph({
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
+  onUnitPointerDown,
+  onUnitPointerEnter,
+  onUnitPointerLeave,
 }: RedisBrandGlyphProps) {
-  // Multi-replica nest uses ZoneLayer for selection â€” not per-mark outlines.
+  // Multi-replica nest uses ZoneLayer for cluster selection; per-mark hits when wired.
   const multi = units.length > 1
+  const unitPick = multi && onUnitPointerDown != null
+  const unitIndexFromId = (id: string): number => {
+    const n = Number(id.replace(/^u/, ''))
+    return Number.isFinite(n) ? n : 0
+  }
   const stroke = selected && !multi ? '#3b82f6' : '#2b0908'
   const strokeWidth = selected && !multi ? 2 : 1
   const rimStyle = resolveRimStyle(healthVisual)
@@ -135,12 +146,28 @@ export function RedisBrandGlyph({
           pointerEvents: interactive ? 'auto' : 'none',
           cursor: interactive ? 'grab' : undefined,
         }}
-        onPointerDown={interactive ? onPointerDown : undefined}
-        onPointerEnter={interactive ? onPointerEnter : undefined}
-        onPointerLeave={interactive ? onPointerLeave : undefined}
+        onPointerDown={interactive && !unitPick ? onPointerDown : undefined}
+        onPointerEnter={interactive && !unitPick ? onPointerEnter : undefined}
+        onPointerLeave={interactive && !unitPick ? onPointerLeave : undefined}
       >
         {ordered.map((u) => (
           <g key={u.id} transform={`translate(${u.dx} ${u.dy}) scale(${u.scale})`} opacity={u.opacity}>
+            {unitPick ? (
+              <rect
+                x={-CC_HALF_W}
+                y={-CC_HALF_H * 3}
+                width={CC_HALF_W * 2}
+                height={CC_HALF_H * 3 + CC_REDIS_SIDE_H}
+                fill="transparent"
+                style={{ pointerEvents: 'fill' }}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onUnitPointerDown?.(unitIndexFromId(u.id), e)
+                }}
+                onPointerEnter={() => onUnitPointerEnter?.(unitIndexFromId(u.id))}
+                onPointerLeave={() => onUnitPointerLeave?.(unitIndexFromId(u.id))}
+              />
+            ) : null}
             <RedisMark
               stroke={stroke}
               strokeWidth={strokeWidth}

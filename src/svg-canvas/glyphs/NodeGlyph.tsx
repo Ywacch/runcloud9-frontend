@@ -35,6 +35,9 @@ type NodeGlyphProps = {
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerDown?: (unitIndex: number, e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerEnter?: (unitIndex: number) => void
+  onUnitPointerLeave?: (unitIndex: number) => void
 }
 
 function motionUnitsFromKey(key: string, fallback: MotionUnit[]): MotionUnit[] {
@@ -57,6 +60,9 @@ function NodeGlyphInner({
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
+  onUnitPointerDown,
+  onUnitPointerEnter,
+  onUnitPointerLeave,
 }: NodeGlyphProps) {
   const skin = resolveSkin(node.archetype, node.engine)
   const expanded = useExpanded(node)
@@ -126,6 +132,9 @@ function NodeGlyphInner({
     onPointerDown,
     onPointerEnter,
     onPointerLeave,
+    onUnitPointerDown,
+    onUnitPointerEnter,
+    onUnitPointerLeave,
   }
 
   let glyph: ReactElement
@@ -234,7 +243,10 @@ function nodeGlyphPropsEqual(a: NodeGlyphProps, b: NodeGlyphProps): boolean {
     a.node.topology.packing === b.node.topology.packing &&
     a.onPointerDown === b.onPointerDown &&
     a.onPointerEnter === b.onPointerEnter &&
-    a.onPointerLeave === b.onPointerLeave
+    a.onPointerLeave === b.onPointerLeave &&
+    a.onUnitPointerDown === b.onUnitPointerDown &&
+    a.onUnitPointerEnter === b.onUnitPointerEnter &&
+    a.onUnitPointerLeave === b.onUnitPointerLeave
   )
 }
 

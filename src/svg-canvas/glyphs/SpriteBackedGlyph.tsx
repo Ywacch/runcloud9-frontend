@@ -38,6 +38,9 @@ type SpriteBackedGlyphProps = {
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerDown?: (unitIndex: number, e: ReactPointerEvent<SVGGElement>) => void
+  onUnitPointerEnter?: (unitIndex: number) => void
+  onUnitPointerLeave?: (unitIndex: number) => void
 }
 
 /** Renders extracted greyscale unit SVGs from `src/assets/components`. */
@@ -55,9 +58,17 @@ export function SpriteBackedGlyph({
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
+  onUnitPointerDown,
+  onUnitPointerEnter,
+  onUnitPointerLeave,
 }: SpriteBackedGlyphProps) {
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
+  const unitPick = ordered.length > 1 && onUnitPointerDown != null
+  const unitIndexFromId = (id: string): number => {
+    const n = Number(id.replace(/^u/, ''))
+    return Number.isFinite(n) ? n : 0
+  }
   // Multi-unit in-plane nests use ZoneLayer â€” not per-unit boxes for selection.
   // Health rims still paint per unit so stacks and fans both show FX.
   const perUnitSelect =
@@ -98,9 +109,9 @@ export function SpriteBackedGlyph({
           pointerEvents: interactive ? 'auto' : 'none',
           cursor: interactive ? 'grab' : undefined,
         }}
-        onPointerDown={interactive ? onPointerDown : undefined}
-        onPointerEnter={interactive ? onPointerEnter : undefined}
-        onPointerLeave={interactive ? onPointerLeave : undefined}
+        onPointerDown={interactive && !unitPick ? onPointerDown : undefined}
+        onPointerEnter={interactive && !unitPick ? onPointerEnter : undefined}
+        onPointerLeave={interactive && !unitPick ? onPointerLeave : undefined}
       >
         {ordered.map((u) => (
           <g key={u.id} transform={`translate(${u.dx} ${u.dy}) scale(${u.scale})`} opacity={u.opacity}>
@@ -111,6 +122,24 @@ export function SpriteBackedGlyph({
               height={spec.h}
               fill="transparent"
               style={{ pointerEvents: interactive ? 'fill' : 'none' }}
+              onPointerDown={
+                interactive && unitPick
+                  ? (e) => {
+                      e.stopPropagation()
+                      onUnitPointerDown?.(unitIndexFromId(u.id), e)
+                    }
+                  : undefined
+              }
+              onPointerEnter={
+                interactive && unitPick
+                  ? () => onUnitPointerEnter?.(unitIndexFromId(u.id))
+                  : undefined
+              }
+              onPointerLeave={
+                interactive && unitPick
+                  ? () => onUnitPointerLeave?.(unitIndexFromId(u.id))
+                  : undefined
+              }
             />
             {/* Silhouette rim from dilated sprite alpha (shared feMorphology). */}
             {rimFilter ? (

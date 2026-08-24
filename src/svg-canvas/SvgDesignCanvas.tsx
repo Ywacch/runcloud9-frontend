@@ -17,12 +17,17 @@ import {
   useCanvasStore,
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
 import {
   canMoveOnCanvas,
   canPlaceOnCanvas,
 } from '../lib/canvasContextMenuCatalog'
 import { placeFromPicker } from '../lib/pickerPlacement'
+import {
+  canvasUnitPickEnabled,
+  instanceIdForUnitIndex,
+} from '../lib/canvasInstanceScope'
 import {
   SPAWN_AT_SCREEN,
   type SpawnAtScreenDetail,
@@ -80,6 +85,8 @@ import { useNodeOpacityById } from './hooks/useNodeOpacityById'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
+import { defaultExpanded, resolveDisplayUnits } from './compose/resolveDisplayUnits'
+import { getExpanded } from './store/expandStore'
 import { setDragLive } from './store/dragLiveStore'
 import {
   installCanvasSvgBridge,
@@ -594,23 +601,101 @@ export default function SvgDesignCanvas({
     if (!isMetricsViewportMode(state.mode)) return
     if (dragRef.current) return
     state.setHoveredNodeId(nodeId)
+    state.setHoveredInstanceId(null)
   }, [])
 
   const onNodePointerLeave = useCallback((nodeId: string) => {
     const state = useCanvasStore.getState()
     if (state.hoveredNodeId === nodeId) {
       state.setHoveredNodeId(null)
+      state.setHoveredInstanceId(null)
     }
   }, [])
+
+  const unitCountForNode = useCallback((nodeId: string): number => {
+    const svgNode = useSvgCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+    if (!svgNode) return 1
+    const expanded = getExpanded(svgNode.id) ?? defaultExpanded(svgNode)
+    return resolveDisplayUnits(svgNode, expanded).units.length
+  }, [])
+
+  const unitPickEnabled = useCallback(
+    (nodeId: string): boolean => {
+      const canvasNode = useCanvasStore.getState().nodes[nodeId]
+      if (!canvasNode) return false
+      const unitCount = unitCountForNode(nodeId)
+      return canvasUnitPickEnabled(
+        canvasNode,
+        useMetricsStore.getState().metrics[nodeId],
+        unitCount,
+      )
+    },
+    [unitCountForNode],
+  )
 
   const onZonePointerDown = useCallback(
     (ownerNodeId: string, e: ReactPointerEvent<SVGElement>) => {
       if (e.button !== 0 || spaceDown) return
       e.stopPropagation()
-      beginNodeDrag(ownerNodeId, e as unknown as ReactPointerEvent<SVGGElement>)
+      useCanvasStore.getState().setHoveredNodeId(null)
+      selectOnly(ownerNodeId)
+      useCanvasStore.getState().setSelectedInstanceId('cluster')
     },
-    [spaceDown, beginNodeDrag],
+    [spaceDown, selectOnly],
   )
+
+  const onUnitPointerDown = useCallback(
+    (nodeId: string, unitIndex: number, e: ReactPointerEvent<SVGGElement>) => {
+      if (e.button !== 0 || spaceDown) return
+      if (!unitPickEnabled(nodeId)) return
+      e.stopPropagation()
+      useCanvasStore.getState().setHoveredNodeId(null)
+      const canvas = useCanvasStore.getState()
+      const canvasNode = canvas.nodes[nodeId]
+      if (!canvasNode) return
+      const unitCount = unitCountForNode(nodeId)
+      const metrics = useMetricsStore.getState().metrics[nodeId]
+      const instanceId = instanceIdForUnitIndex(
+        canvasNode,
+        metrics,
+        unitIndex,
+        unitCount,
+      )
+      selectOnly(nodeId)
+      if (instanceId) canvas.setSelectedInstanceId(instanceId)
+    },
+    [spaceDown, selectOnly, unitCountForNode, unitPickEnabled],
+  )
+
+  const onUnitPointerEnter = useCallback(
+    (nodeId: string, unitIndex: number) => {
+      const state = useCanvasStore.getState()
+      if (!isMetricsViewportMode(state.mode)) return
+      if (dragRef.current) return
+      if (!unitPickEnabled(nodeId)) return
+      const canvasNode = state.nodes[nodeId]
+      if (!canvasNode) return
+      const unitCount = unitCountForNode(nodeId)
+      const metrics = useMetricsStore.getState().metrics[nodeId]
+      const instanceId = instanceIdForUnitIndex(
+        canvasNode,
+        metrics,
+        unitIndex,
+        unitCount,
+      )
+      if (!instanceId) return
+      state.setHoveredNodeId(nodeId)
+      state.setHoveredInstanceId(instanceId)
+    },
+    [unitCountForNode, unitPickEnabled],
+  )
+
+  const onUnitPointerLeave = useCallback((nodeId: string) => {
+    const state = useCanvasStore.getState()
+    if (state.hoveredNodeId === nodeId) {
+      state.setHoveredInstanceId(null)
+    }
+  }, [])
 
   const onEdgePointerDown = useCallback(
     (edgeId: string, e: ReactPointerEvent<SVGElement>) => {
@@ -1198,7 +1283,9 @@ export default function SvgDesignCanvas({
               style={{ pointerEvents: 'none' }}
             />
           ) : null}
-          {sortedNodes.map((node) => (
+          {sortedNodes.map((node) => {
+            const pickUnits = unitPickEnabled(node.id)
+            return (
             <LiveNodeGlyph
               key={node.id}
               node={node}
@@ -1211,8 +1298,22 @@ export default function SvgDesignCanvas({
               onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
               onPointerEnter={() => onNodePointerEnter(node.id)}
               onPointerLeave={() => onNodePointerLeave(node.id)}
+              onUnitPointerDown={
+                pickUnits
+                  ? (unitIndex, ev) => onUnitPointerDown(node.id, unitIndex, ev)
+                  : undefined
+              }
+              onUnitPointerEnter={
+                pickUnits
+                  ? (unitIndex) => onUnitPointerEnter(node.id, unitIndex)
+                  : undefined
+              }
+              onUnitPointerLeave={
+                pickUnits ? () => onUnitPointerLeave(node.id) : undefined
+              }
             />
-          ))}
+            )
+          })}
           <EdgeLayer
             edges={edges}
             selectedEdgeIds={selectedEdgeIds}
