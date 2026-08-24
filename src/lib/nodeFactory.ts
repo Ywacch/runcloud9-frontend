@@ -15,6 +15,7 @@ export function defaultConfigForType(
         storageGB: 10,
         maxConnections: 100,
         readReplicas: 0,
+        readConsistency: 'leader-only',
       }
     case 'cache':
       return {

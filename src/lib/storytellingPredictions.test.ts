@@ -29,6 +29,7 @@ describe('storytellingPredictions', () => {
       hasCache: true,
       hasDB: true,
       dbReadReplicas: 0,
+      readConsistency: 'leader-only',
       cacheStrategy: 'timeline-store',
     })
     expect(cards.some((c) => c.id === 'mq_backpressure')).toBe(false)
@@ -43,6 +44,7 @@ describe('storytellingPredictions', () => {
       hasCache: true,
       hasDB: true,
       dbReadReplicas: 0,
+      readConsistency: 'leader-only',
       cacheStrategy: 'timeline-store',
     })
     const mq = cards.find((c) => c.id === 'mq_backpressure')
@@ -59,6 +61,7 @@ describe('storytellingPredictions', () => {
         hasCache: true,
         hasDB: false,
         dbReadReplicas: 0,
+        readConsistency: 'leader-only',
         cacheStrategy: '',
       }),
     ).toBe(false)
@@ -81,6 +84,7 @@ describe('storytellingPredictions', () => {
       hasCache: false,
       hasDB: true,
       dbReadReplicas: 1,
+      readConsistency: 'leader-only',
       cacheStrategy: 'cache-aside',
     })
     expect(cards.map((c) => c.id)).toEqual([
@@ -97,6 +101,7 @@ describe('storytellingPredictions', () => {
       hasCache: false,
       hasDB: true,
       dbReadReplicas: 2,
+      readConsistency: 'leader-only',
       cacheStrategy: 'cache-aside',
     })
     expect(cards.some((c) => c.id === 'cache_db_stale')).toBe(false)
@@ -110,6 +115,7 @@ describe('storytellingPredictions', () => {
       hasCache: true,
       hasDB: true,
       dbReadReplicas: 0,
+      readConsistency: 'leader-only',
       cacheStrategy: 'cache-aside',
     })
     expect(cards.some((c) => c.id === 'cache_db_stale')).toBe(true)

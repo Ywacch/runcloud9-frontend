@@ -1,4 +1,5 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { readConsistencyFromConfig } from './readConsistency'
 import { clampReadReplicas } from './replicaConfig'
 import { matchesWhen } from './storytellingEngine'
 import type { StorytellingSpec } from './storytellingTypes'
@@ -12,6 +13,8 @@ export interface TopologyFlags {
   hasDB: boolean
   /** Max readReplicas across database nodes (0 when none). */
   dbReadReplicas: number
+  /** Read consistency policy on the first database node (leader-only when none). */
+  readConsistency: string
   cacheStrategy: string
 }
 
@@ -42,6 +45,9 @@ export function getTopologyFlags(nodes: Record<string, CanvasNode>): TopologyFla
     (max, node) => Math.max(max, clampReadReplicas(node.config.readReplicas)),
     0,
   )
+  const readConsistency = readConsistencyFromConfig(
+    dbNodes[0]?.config?.readConsistency,
+  )
   return {
     hasMQ: types.has('message_queue'),
     hasWorker: types.has('worker'),
@@ -49,6 +55,7 @@ export function getTopologyFlags(nodes: Record<string, CanvasNode>): TopologyFla
     hasLB: types.has('load_balancer'),
     hasDB: types.has('database'),
     dbReadReplicas,
+    readConsistency,
     cacheStrategy: String(
       cacheNode?.config?.cacheStrategy ?? cacheNode?.config?.strategy ?? 'cache-aside',
     ),

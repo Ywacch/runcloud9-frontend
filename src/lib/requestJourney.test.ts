@@ -11,6 +11,7 @@ const pullTopology: TopologyFlags = {
   hasLB: true,
   hasDB: true,
   dbReadReplicas: 0,
+  readConsistency: 'leader-only',
   cacheStrategy: 'cache-aside',
 }
 
