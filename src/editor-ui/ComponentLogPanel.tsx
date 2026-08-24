@@ -3,6 +3,10 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { canvasToBackend } from '../lib/typeMapping'
 import { openTrace } from '../lib/openTrace'
+import {
+  logLineMatchesInstance,
+  type SelectedInstanceId,
+} from '../lib/dbInstanceScope'
 
 const MAX_COMPONENT_LOGS = 300
 /** If the user is within this many px of the bottom, new lines keep the tail pinned. */
@@ -61,7 +65,13 @@ function matchesSearch(
   return false
 }
 
-export function ComponentLogPanel({ node }: { node: CanvasNode }) {
+export function ComponentLogPanel({
+  node,
+  instanceId = null,
+}: {
+  node: CanvasNode
+  instanceId?: SelectedInstanceId
+}) {
   const logs = useLogStore((s) => s.logs)
   const activeTraceId = useLogStore((s) => s.activeTraceId)
   const setActiveTraceId = useLogStore((s) => s.setActiveTraceId)
@@ -77,12 +87,13 @@ export function ComponentLogPanel({ node }: { node: CanvasNode }) {
   const displayed = useMemo(() => {
     const base = logs
       .filter((l) => l.component === component)
+      .filter((l) => logLineMatchesInstance(l.pod, instanceId))
       .filter((l) => matchesSearch(l.message, l.fields, searchQuery, l.pod))
     if (activeTraceId) {
       return base.filter((l) => l.fields?.request_id === activeTraceId)
     }
     return base.slice(-MAX_COMPONENT_LOGS)
-  }, [logs, component, searchQuery, activeTraceId])
+  }, [logs, component, searchQuery, activeTraceId, instanceId])
 
   const traceMatchCount = useMemo(() => {
     if (!activeTraceId) return 0

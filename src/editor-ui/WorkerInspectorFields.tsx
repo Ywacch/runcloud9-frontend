@@ -136,6 +136,7 @@ export function WorkerInspectorFields({
           replicaCount={workerReplicas}
           updateConfig={updateConfig}
           readOnly={readOnly}
+          labelForIndex={(i) => `Replica ${i + 1} size`}
         />
       ) : (
         <ResourceProfileFields

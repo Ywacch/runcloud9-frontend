@@ -96,3 +96,27 @@ export function introspectRoutingForInstance(
   }
   return { target: 'replica', layerId: instanceId }
 }
+
+const POSTGRES_REPLICA_POD_PREFIX = 'postgres-replica'
+
+/**
+ * True when a k8s pod name belongs to the inspector instance tab.
+ * Cluster / null matches everything. Primary (`postgres`) matches the
+ * primary Deployment pods, not `postgres-replica-*`.
+ */
+export function logLineMatchesInstance(
+  pod: string | undefined,
+  instanceId: SelectedInstanceId,
+): boolean {
+  if (!instanceId || instanceId === 'cluster') return true
+  if (!pod) return false
+  if (pod === instanceId) return true
+  if (instanceId === DB_LAYER_ID_POSTGRES_PRIMARY) {
+    return (
+      pod === DB_LAYER_ID_POSTGRES_PRIMARY ||
+      (pod.startsWith(`${DB_LAYER_ID_POSTGRES_PRIMARY}-`) &&
+        !pod.startsWith(POSTGRES_REPLICA_POD_PREFIX))
+    )
+  }
+  return pod.startsWith(`${instanceId}-`)
+}

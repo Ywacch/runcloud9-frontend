@@ -8,6 +8,7 @@ import {
   dbInstanceTabs,
   instanceTabsForNode,
   introspectRoutingForInstance,
+  logLineMatchesInstance,
   nodeSupportsInstanceScope,
 } from './dbInstanceScope'
 
@@ -171,5 +172,26 @@ describe('dbInstanceScope', () => {
     expect(instanceTabsForNode(dbNode(2), metrics({ layers: replicaLayers }))).toEqual(
       dbInstanceTabs(replicaLayers),
     )
+  })
+
+  it('matches log pods to the selected instance without mixing postgres roles', () => {
+    expect(logLineMatchesInstance('app-server-roll-abc', 'cluster')).toBe(true)
+    expect(logLineMatchesInstance('app-server-roll-abc', null)).toBe(true)
+    expect(
+      logLineMatchesInstance('app-server-roll-abc', 'app-server-roll-abc'),
+    ).toBe(true)
+    expect(
+      logLineMatchesInstance('app-server-roll-def', 'app-server-roll-abc'),
+    ).toBe(false)
+    expect(logLineMatchesInstance('postgres-abc123', DB_LAYER_ID_POSTGRES_PRIMARY)).toBe(
+      true,
+    )
+    expect(
+      logLineMatchesInstance('postgres-replica-xyz', DB_LAYER_ID_POSTGRES_PRIMARY),
+    ).toBe(false)
+    expect(
+      logLineMatchesInstance('postgres-replica-xyz', 'postgres-replica-xyz'),
+    ).toBe(true)
+    expect(logLineMatchesInstance(undefined, 'app-server-roll-abc')).toBe(false)
   })
 })

@@ -19,6 +19,7 @@ import {
 } from '../store/svgTypes'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
 import { backendSupportsReplicas } from '../../lib/backendCapabilities'
+import { normalizeInstanceSizes } from '../../lib/instanceSizes'
 import { clampShards } from '../compose/composeGlyph'
 
 export type CanvasNodeType = CanvasNode['type']
@@ -120,14 +121,22 @@ export function configPatchForEngine(
 export function configPatchForReplicas(
   type: CanvasNodeType,
   replicas: number,
+  config: Record<string, unknown> = {},
 ): Record<string, unknown> {
   if (type === 'database') {
     const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
-    return { readReplicas: next - 1 }
+    const readReplicas = next - 1
+    const sizes = normalizeInstanceSizes(config, next)
+    return {
+      readReplicas,
+      instanceSizes: sizes,
+      instanceSize: sizes[0],
+    }
   }
   if (!backendSupportsReplicas(type)) return {}
   const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
-  return { replicas: next }
+  const sizes = normalizeInstanceSizes(config, next)
+  return { replicas: next, instanceSizes: sizes, instanceSize: sizes[0] }
 }
 
 export function configPatchForShards(shards: number): Record<string, unknown> {

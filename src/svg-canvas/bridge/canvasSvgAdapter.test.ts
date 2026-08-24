@@ -69,19 +69,48 @@ describe('canvasSvgAdapter config projection', () => {
         node({ type: 'database', config: { readReplicas: 2 } }),
       ),
     ).toBe(3)
-    expect(configPatchForReplicas('database', 3)).toEqual({ readReplicas: 2 })
+    expect(configPatchForReplicas('database', 3)).toEqual({
+      readReplicas: 2,
+      instanceSizes: ['small', 'small', 'small'],
+      instanceSize: 'small',
+    })
     expect(configPatchForReplicas('cache', 2)).toEqual({})
+  })
+
+  it('pads instanceSizes when canvas stepper changes replicas', () => {
+    expect(
+      configPatchForReplicas('worker', 2, { instanceSize: 'large' }),
+    ).toEqual({
+      replicas: 2,
+      instanceSizes: ['large', 'large'],
+      instanceSize: 'large',
+    })
+    expect(
+      configPatchForReplicas('database', 2, { instanceSize: 'medium' }),
+    ).toEqual({
+      readReplicas: 1,
+      instanceSizes: ['medium', 'medium'],
+      instanceSize: 'medium',
+    })
   })
 
   it('maps compute and worker replicas both ways', () => {
     expect(
       replicasFromCanvasNode(node({ type: 'compute', config: { replicas: 3 } })),
     ).toBe(3)
-    expect(configPatchForReplicas('compute', 2)).toEqual({ replicas: 2 })
+    expect(configPatchForReplicas('compute', 2)).toEqual({
+      replicas: 2,
+      instanceSizes: ['small', 'small'],
+      instanceSize: 'small',
+    })
     expect(
       replicasFromCanvasNode(node({ type: 'worker', config: { replicas: 2 } })),
     ).toBe(2)
-    expect(configPatchForReplicas('worker', 2)).toEqual({ replicas: 2 })
+    expect(configPatchForReplicas('worker', 2)).toEqual({
+      replicas: 2,
+      instanceSizes: ['small', 'small'],
+      instanceSize: 'small',
+    })
   })
 
   it('reads shards from config for db/mq', () => {

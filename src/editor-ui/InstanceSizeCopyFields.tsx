@@ -14,12 +14,14 @@ export function InstanceSizeCopyFields({
   replicaCount,
   updateConfig,
   readOnly = false,
+  labelForIndex,
 }: {
   idPrefix: string
   config: Record<string, unknown>
   replicaCount: number
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   readOnly?: boolean
+  labelForIndex?: (index: number) => string
 }) {
   const sizes = normalizeInstanceSizes(config, replicaCount)
   return (
@@ -27,7 +29,7 @@ export function InstanceSizeCopyFields({
       {sizes.map((size, i) => (
         <div key={`${idPrefix}-copy-${i}`}>
           <label className={labelClass} htmlFor={`${idPrefix}-copy-${i}-size`}>
-            Copy {i + 1} size
+            {labelForIndex ? labelForIndex(i) : `Copy ${i + 1} size`}
           </label>
           <select
             id={`${idPrefix}-copy-${i}-size`}

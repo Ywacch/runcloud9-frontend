@@ -90,6 +90,9 @@ export function deployConfigForNode(
     delete config.replicas
     const readReplicas = clampReadReplicas(config.readReplicas)
     config.readReplicas = readReplicas
+    const sizes = normalizeInstanceSizes(config, 1 + readReplicas)
+    config.instanceSizes = sizes
+    config.instanceSize = sizes[0]
     config.replicationMode = normalizeReplicationModeForDeploy(
       config.replicationMode,
       readReplicas,

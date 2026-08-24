@@ -249,6 +249,22 @@ describe('deployConfigForNode', () => {
     expect(dbSync.readReplicas).toBe(1)
     expect(dbSync.replicationMode).toBe('sync')
 
+    const dbMixedSizes = deployConfigForNode({
+      id: 'db-mixed',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: {
+        engine: 'postgresql',
+        readReplicas: 1,
+        instanceSizes: ['large', 'small'],
+      },
+      status: 'idle',
+    })
+    expect(dbMixedSizes.readReplicas).toBe(1)
+    expect(dbMixedSizes.instanceSizes).toEqual(['large', 'small'])
+    expect(dbMixedSizes.instanceSize).toBe('large')
+
     const worker = deployConfigForNode({
       id: 'worker',
       type: 'worker',
