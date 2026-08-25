@@ -24,6 +24,7 @@ import {
   storageReadTileLabel,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
+import { SESSION_CACHE_TOTALS_HINT } from '../lib/metricHelp'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import {
   formatResourceLabels,
@@ -454,7 +455,7 @@ export function CacheSessionTotalsDisclosure({
         <PedagogicalHint tone="sky">
           {keyspaceDrift
             ? 'App hit rate and keyspace counters differ by more than 10%. Check pod aggregation scope.'
-            : 'Session totals use a rolling 9-minute window; live hit rate above uses a shorter window.'}
+            : SESSION_CACHE_TOTALS_HINT}
         </PedagogicalHint>
       </InlineDisclosure>
     </InspectorDisclosure>

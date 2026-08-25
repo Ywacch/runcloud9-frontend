@@ -1,6 +1,11 @@
 import type { PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { fmtInt, fmtPct } from './format'
+import {
+  SESSION_CACHE_HIT_RATE_LABEL,
+  SESSION_CACHE_QUERIES_LABEL,
+  SESSION_CACHE_THROUGHPUT_LABEL,
+} from './metricHelp'
 
 export type MetricsTimeframe = 'live' | 'session'
 
@@ -84,9 +89,9 @@ export function cacheHeadlines(
     const misses = m.cacheMissesLast9m
     const total = hits + misses
     return {
-      hitRateLabel: 'Hit rate (9m)',
+      hitRateLabel: SESSION_CACHE_HIT_RATE_LABEL,
       hitRatePct: total > 0 ? (hits / total) * 100 : null,
-      throughputLabel: 'Totals (9m)',
+      throughputLabel: SESSION_CACHE_THROUGHPUT_LABEL,
       throughputDisplay: `${fmtInt(hits)} hits · ${fmtInt(misses)} misses`,
     }
   }
@@ -129,7 +134,7 @@ export function feedPushHeadline(
 ): FeedPushHeadlineFields {
   if (timeframe === 'session') {
     return {
-      label: 'Cache queries (9m)',
+      label: SESSION_CACHE_QUERIES_LABEL,
       display: fmtInt(cacheQueryTotal9m(m)),
     }
   }

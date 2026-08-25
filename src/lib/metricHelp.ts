@@ -30,6 +30,15 @@ export const SESSION_TIMEFRAME_FOOTER =
 export const SESSION_REPLICA_BREAKDOWN_HINT =
   'Cluster totals above include every replica for this deployment. Rows here are per pod since it started and reset on kill.'
 
+export const SESSION_CACHE_HIT_RATE_LABEL = 'Hit rate'
+
+export const SESSION_CACHE_THROUGHPUT_LABEL = 'Session totals'
+
+export const SESSION_CACHE_QUERIES_LABEL = 'Cache queries'
+
+export const SESSION_CACHE_TOTALS_HINT =
+  'Session hit and miss totals cover this deployment from provision until now. Live hit rate above uses a shorter window. They reset if the metrics API restarts.'
+
 export const POD_RATE_DISCLAIMER =
   'RPS/QPS may be slightly off because Prometheus queries run against individual pods.'
 

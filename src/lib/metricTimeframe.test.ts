@@ -93,8 +93,12 @@ describe('redHeadlines', () => {
 })
 
 describe('cacheHeadlines', () => {
-  it('computes session hit rate from 9m totals', () => {
+  it('computes session hit rate from deployment totals', () => {
     const h = cacheHeadlines(bucket({}), 'session', (n) => String(n))
+    expect(h.hitRateLabel).toBe('Hit rate')
+    expect(h.hitRateLabel).not.toContain('(9m)')
+    expect(h.throughputLabel).toBe('Session totals')
+    expect(h.throughputLabel).not.toContain('(9m)')
     expect(cacheHitRateDisplay(h.hitRatePct)).toContain('%')
     expect(h.throughputDisplay).toContain('4,216')
   })
@@ -111,7 +115,8 @@ describe('dbQueryHeadline', () => {
 describe('feedPushHeadline', () => {
   it('shows cache query total in session mode', () => {
     const h = feedPushHeadline(bucket({}), 'session', 99, (n) => String(n))
-    expect(h.label).toBe('Cache queries (9m)')
+    expect(h.label).toBe('Cache queries')
+    expect(h.label).not.toContain('(9m)')
     expect(h.display).toBe('4,421')
   })
 
