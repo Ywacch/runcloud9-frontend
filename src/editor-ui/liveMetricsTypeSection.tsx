@@ -15,6 +15,7 @@ import type { TweenableMetricField } from '../editor-core/playback/tweenStore'
 import { useTweenedMetric } from '../editor-core/playback/useTweenedMetric'
 import {
   LATENCY_HELP,
+  SESSION_REPLICA_BREAKDOWN_HINT,
   THROUGHPUT_HELP,
   withPodRateDisclaimer,
 } from '../lib/metricHelp'
@@ -360,15 +361,20 @@ export function LiveMetricsTypeSection({
 
           {computeReplicaList.length > 0 ? (
             <InspectorDisclosure title="Per-replica breakdown">
-              <ReplicaFlatList
-                rows={computeReplicaList}
-                selectedName={
-                  selectedInstanceId && selectedInstanceId !== 'cluster'
-                    ? selectedInstanceId
-                    : null
-                }
-                onSelectName={(name) => setSelectedInstanceId(name)}
-              />
+              <div className="space-y-2">
+                {view.timeframe === 'session' ? (
+                  <PedagogicalHint tone="muted">{SESSION_REPLICA_BREAKDOWN_HINT}</PedagogicalHint>
+                ) : null}
+                <ReplicaFlatList
+                  rows={computeReplicaList}
+                  selectedName={
+                    selectedInstanceId && selectedInstanceId !== 'cluster'
+                      ? selectedInstanceId
+                      : null
+                  }
+                  onSelectName={(name) => setSelectedInstanceId(name)}
+                />
+              </div>
             </InspectorDisclosure>
           ) : null}
         </div>
@@ -622,6 +628,9 @@ export function LiveMetricsTypeSection({
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                   Per-pod distribution
                 </p>
+                {view.timeframe === 'session' ? (
+                  <PedagogicalHint tone="muted">{SESSION_REPLICA_BREAKDOWN_HINT}</PedagogicalHint>
+                ) : null}
                 <ReplicaFlatList rows={replicaListRows} />
               </div>
             ) : null}

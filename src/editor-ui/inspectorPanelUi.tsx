@@ -9,6 +9,8 @@ import { compactPodName } from '../lib/replicaMetricsDisplay'
 import {
   ALLOCATED_NOT_MEASURED_HELP,
   METRICS_API_FRESHNESS_HELP,
+  SESSION_TIMEFRAME_FOOTER,
+  SESSION_TIMEFRAME_LABEL,
   TIER_C_WARMUP_HELP,
 } from '../lib/metricHelp'
 import { containerFreshnessHint } from '../lib/metricsFreshness'
@@ -44,7 +46,7 @@ export function PanelViewControls({
       <TogglePill
         active={view.timeframe === 'session'}
         onClick={() => onChange({ timeframe: 'session' })}
-        label="Session (9m)"
+        label={SESSION_TIMEFRAME_LABEL}
       />
       <span className="ml-auto" />
       <TogglePill
@@ -53,8 +55,8 @@ export function PanelViewControls({
         label="Graphs"
       />
       <span className="w-full text-[9px] leading-snug text-gray-600">
-        Totals use a rolling 9-minute Prometheus window. Graphs use the same series with
-        freshness / playback hints when available.
+        {SESSION_TIMEFRAME_FOOTER} Graphs use the same series with freshness / playback
+        hints when available.
       </span>
     </div>
   )

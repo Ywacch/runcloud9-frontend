@@ -88,6 +88,7 @@ describe('redHeadlines', () => {
     expect(h.throughputDisplay).toContain('16,240')
     expect(h.errorDisplay).toBe('12')
     expect(h.latencyMs).toBe(55)
+    expect(h.latencyLabel).toBe('Latency p99 (9m)')
   })
 })
 
