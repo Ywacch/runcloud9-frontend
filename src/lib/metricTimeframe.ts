@@ -56,9 +56,9 @@ export function redHeadlines(
 ): RedHeadlineFields {
   if (timeframe === 'session') {
     return {
-      throughputLabel: 'Total requests (9m)',
+      throughputLabel: 'Total requests',
       throughputDisplay: fmtInt(m.totalRequests),
-      errorLabel: 'Errors (9m)',
+      errorLabel: 'Errors',
       errorDisplay: fmtInt(m.totalErrors9m),
       latencyLabel: 'Latency p99 (9m)',
       latencyMs: m.p99Latency9m > 0 ? m.p99Latency9m : m.p99Latency,

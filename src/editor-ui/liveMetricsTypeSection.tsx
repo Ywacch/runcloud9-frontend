@@ -557,7 +557,7 @@ export function LiveMetricsTypeSection({
                 <StatBlock
                   label={
                     view.timeframe === 'session'
-                      ? 'Total requests (9m)'
+                      ? 'Total requests'
                       : 'Requests routed'
                   }
                   value={red.throughputDisplay}
