@@ -81,9 +81,10 @@ describe('redHeadlines', () => {
     expect(h.errorLabel).toBe('Error rate')
   })
 
-  it('uses 9m totals in session mode', () => {
+  it('uses session totals', () => {
     const h = redHeadlines(bucket({}), 'session', fmtErrorRate)
-    expect(h.throughputLabel).toContain('9m')
+    expect(h.throughputLabel).toBe('Total requests')
+    expect(h.errorLabel).toBe('Errors')
     expect(h.throughputDisplay).toContain('16,240')
     expect(h.errorDisplay).toBe('12')
     expect(h.latencyMs).toBe(55)
