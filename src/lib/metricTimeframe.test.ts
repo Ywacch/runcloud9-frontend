@@ -101,6 +101,7 @@ describe('cacheHeadlines', () => {
 describe('dbQueryHeadline', () => {
   it('switches label by timeframe', () => {
     expect(dbQueryHeadline(bucket({}), 'live').label).toBe('Query rate')
+    expect(dbQueryHeadline(bucket({}), 'session').label).toBe('Total queries')
     expect(dbQueryHeadline(bucket({}), 'session').sessionTotal).toBe(9000)
   })
 })

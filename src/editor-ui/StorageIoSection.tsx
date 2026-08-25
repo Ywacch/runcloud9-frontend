@@ -90,7 +90,11 @@ export function DbActivitySection({
           <StatBlock
             label={dbHead.label}
           value={queriesDisplay}
-            help={`${dbRateHelp} SQL from app-server instrumentation only.`}
+            help={
+              view.timeframe === 'session'
+                ? `${dbRateHelp} Timed SQL ops on app-server since those pods started.`
+                : `${dbRateHelp} SQL from app-server instrumentation only.`
+            }
             graph={
               <MetricSeriesGraph
                 data={queryRateSeries}

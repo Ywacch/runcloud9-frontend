@@ -110,7 +110,7 @@ export function dbQueryHeadline(
   timeframe: MetricsTimeframe,
 ): DbQueryHeadlineFields {
   return {
-    label: timeframe === 'session' ? 'Total queries (9m)' : 'Query rate',
+    label: timeframe === 'session' ? 'Total queries' : 'Query rate',
     liveRate: m.dbQueryRate,
     sessionTotal: m.dbTotalQueries,
   }
