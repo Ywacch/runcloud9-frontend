@@ -397,7 +397,12 @@ export function LiveMetricsTypeSection({
         m.redisKeyspaceMisses ?? 0,
       )
       const cacheHead = buildCacheHeadlines(m, view.timeframe)
-      const hasTraffic = cacheHasAppTraffic(m, cacheHits, cacheMisses)
+      const hasTraffic = cacheHasAppTraffic(
+        m,
+        cacheHits,
+        cacheMisses,
+        view.timeframe,
+      )
       const showLegacyRedisOps =
         timelineMode &&
         !(m.storageIo?.readRate ?? 0) &&

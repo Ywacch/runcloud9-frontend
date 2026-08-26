@@ -154,6 +154,9 @@ describe('storageIoThroughputFields', () => {
     )
     expect(fields.readValue).toBe('5,940')
     expect(fields.writeValue).toBe('6,282,360')
+    expect(fields.readLabel).not.toContain('(9m)')
+    expect(fields.writeLabel).not.toContain('(9m)')
+    expect(fields.readLabel).toContain('ZREVRANGE')
   })
 })
 

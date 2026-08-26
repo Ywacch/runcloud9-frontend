@@ -39,6 +39,12 @@ export const SESSION_CACHE_QUERIES_LABEL = 'Cache queries'
 export const SESSION_CACHE_TOTALS_HINT =
   'Session hit and miss totals cover this deployment from provision until now. Live hit rate above uses a shorter window. They reset if the metrics API restarts.'
 
+export const SESSION_CACHE_TOTALS_DISCLOSURE_HINT =
+  'Deployment lifetime totals from provision until now; reset if the metrics API restarts.'
+
+export const SESSION_STORAGE_ENGINE_HINT =
+  'Redis or Postgres engine commands and rows from the exporter, including scrapes. Not app logical cache hits or playground GET counts.'
+
 export const POD_RATE_DISCLAIMER =
   'RPS/QPS may be slightly off because Prometheus queries run against individual pods.'
 

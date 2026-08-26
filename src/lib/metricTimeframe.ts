@@ -167,9 +167,9 @@ export function storageIoThroughputFields(
     const readTotal = io.readTotal9m ?? cacheQueryTotal9m(m)
     const writeTotal = io.writeTotal9m
     return {
-      readLabel: `${readLabel} (9m total)`,
+      readLabel,
       readValue: fmtInt(readTotal),
-      writeLabel: `${writeLabel} (9m total)`,
+      writeLabel,
       writeValue: writeTotal != null && writeTotal > 0 ? fmtInt(writeTotal) : '—',
     }
   }

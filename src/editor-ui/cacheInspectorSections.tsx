@@ -24,7 +24,12 @@ import {
   storageReadTileLabel,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
-import { SESSION_CACHE_TOTALS_HINT } from '../lib/metricHelp'
+import {
+  SESSION_CACHE_THROUGHPUT_LABEL,
+  SESSION_CACHE_TOTALS_DISCLOSURE_HINT,
+  SESSION_CACHE_TOTALS_HINT,
+  SESSION_STORAGE_ENGINE_HINT,
+} from '../lib/metricHelp'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import {
   formatResourceLabels,
@@ -240,6 +245,9 @@ function CacheProcessCard({
               <StatBlock label={commandTiles.readLabel} value={commandTiles.readValue} />
               <StatBlock label={commandTiles.writeLabel} value={commandTiles.writeValue} />
             </div>
+            <p className="text-[10px] leading-snug text-gray-500">
+              {SESSION_STORAGE_ENGINE_HINT}
+            </p>
           </div>
         ) : null}
         {lifecycleTiles ? (
@@ -426,7 +434,10 @@ export function CacheSessionTotalsDisclosure({
   showKeyspaceRates: boolean
 }) {
   return (
-    <InspectorDisclosure title="Session totals (9 min)" hint="Rolling Prometheus window">
+    <InspectorDisclosure
+      title={SESSION_CACHE_THROUGHPUT_LABEL}
+      hint={SESSION_CACHE_TOTALS_DISCLOSURE_HINT}
+    >
       <div className="font-mono text-[11px] text-gray-300">
         Hits {fmtInt(m.cacheHitsLast9m)} · Misses {fmtInt(m.cacheMissesLast9m)}
       </div>
