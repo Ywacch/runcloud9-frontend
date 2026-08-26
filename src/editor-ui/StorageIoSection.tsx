@@ -5,6 +5,7 @@ import {
   formatDbQueriesPerSec,
   hasStorageMetrics,
   shouldShowHighScanRatioHint,
+  storageIoSessionLabel,
   storageReadTileLabel,
   storageScopeLine,
   storageWriteTileLabel,
@@ -166,8 +167,16 @@ export function DbLoadSection({
   const engine = (m.storageEngine ?? 'postgresql').trim()
   const io = m.storageIo
   const readRate = io.readRate
-  const readLabel = storageReadTileLabel(io, engine)
-  const writeLabel = storageWriteTileLabel(io, engine)
+  const isSession = view.timeframe === 'session'
+  const readLabelRaw = storageReadTileLabel(io, engine)
+  const writeLabelRaw = storageWriteTileLabel(io, engine)
+  const ioTiles = storageIoThroughputFields(
+    m,
+    view.timeframe,
+    isSession ? storageIoSessionLabel(readLabelRaw) : readLabelRaw,
+    isSession ? storageIoSessionLabel(writeLabelRaw) : writeLabelRaw,
+    fmtRate,
+  )
   const readSeries = history.map((h) => h.storageIo?.readRate ?? 0)
   const writeSeries = history.map((h) => h.storageIo?.writeRate ?? 0)
   const modelEstimate = fanoutScanModelEstimate(templateMetrics)
@@ -187,43 +196,47 @@ export function DbLoadSection({
       <StatRow
         left={
           <StatBlock
-            label={readLabel}
-            value={`${fmtRate(readRate)}/s`}
+            label={ioTiles.readLabel}
+            value={ioTiles.readValue}
             graph={
-              <MetricSeriesGraph
-                data={readSeries}
-                color="#22d3ee"
-                title="Rows scanned"
-                unit="10s · /s"
-                view={view}
-                showPlaybackDelay={showPlaybackDelay}
-              />
+              isSession ? undefined : (
+                <MetricSeriesGraph
+                  data={readSeries}
+                  color="#22d3ee"
+                  title="Rows scanned"
+                  unit="10s · /s"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              )
             }
           />
         }
         right={
           <StatBlock
-            label={writeLabel}
-            value={`${fmtRate(io.writeRate)}/s`}
+            label={ioTiles.writeLabel}
+            value={ioTiles.writeValue}
             graph={
-              <MetricSeriesGraph
-                data={writeSeries}
-                color="#a78bfa"
-                title="Rows written"
-                unit="10s · /s"
-                view={view}
-                showPlaybackDelay={showPlaybackDelay}
-              />
+              isSession ? undefined : (
+                <MetricSeriesGraph
+                  data={writeSeries}
+                  color="#a78bfa"
+                  title="Rows written"
+                  unit="10s · /s"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              )
             }
           />
         }
       />
-      {modelEstimate != null && modelEstimate > 0 ? (
+      {modelEstimate != null && modelEstimate > 0 && !isSession ? (
         <p className="font-mono text-[10px] text-violet-300/90">
           Model (est.): ~{fmtRate(modelEstimate)}/s row scans from fanout formula
         </p>
       ) : null}
-      {!hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
+      {!isSession && !hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
         <InlineDisclosure label="Why reads look high">
           <PedagogicalHint>
             Inefficient access pattern: {fmtRate(dbQueryRate)} logical queries are causing{' '}

@@ -6,6 +6,7 @@ import {
   shouldShowHighScanRatioHint,
   shouldShowKeyspaceDriftHint,
   storageEngineLabel,
+  storageIoSessionLabel,
   storageReadTileLabel,
   storageScopeLine,
   storageUtilBarClass,
@@ -58,6 +59,13 @@ describe('storageIoDisplay', () => {
   it('defaults postgres tile labels', () => {
     expect(storageReadTileLabel(baseIo, 'postgresql')).toBe('Rows scanned/s')
     expect(storageWriteTileLabel(baseIo, 'postgresql')).toBe('Rows written/s')
+  })
+
+  it('storageIoSessionLabel drops a trailing /s', () => {
+    expect(storageIoSessionLabel('Rows scanned/s')).toBe('Rows scanned')
+    expect(storageIoSessionLabel('Rows written/s')).toBe('Rows written')
+    expect(storageIoSessionLabel('GET commands/s')).toBe('GET commands')
+    expect(storageIoSessionLabel('Rows scanned')).toBe('Rows scanned')
   })
 
   it('defaults redis tile labels', () => {

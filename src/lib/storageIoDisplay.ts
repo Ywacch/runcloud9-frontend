@@ -71,6 +71,11 @@ export function storageWriteTileLabel(
   return `Write (${unit})`
 }
 
+/** Session totals are counts, not rates — drop a trailing `/s` from engine tile labels. */
+export function storageIoSessionLabel(label: string): string {
+  return label.replace(/\/s\s*$/i, '').trim()
+}
+
 export function dbLoadSectionTitle(engine: string): string {
   const label = storageEngineLabel(engine)
   return `DB Load · ${label}`
