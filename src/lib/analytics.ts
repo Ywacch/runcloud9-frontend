@@ -118,6 +118,7 @@ export type DeployBlockedReason =
   | 'no_template'
   | 'template_loading'
   | 'template_not_deployable'
+  | 'template_not_available'
   | 'resource_quota_exceeded'
   | 'topology_violation'
   | 'monthly_session_limit'

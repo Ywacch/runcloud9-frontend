@@ -181,6 +181,13 @@ export function mapDeployRequestError(
           body: scrubEmDashCopy(raw),
         }
       }
+      if (normalized.includes('not yet available')) {
+        return {
+          title: 'Template not available',
+          body: 'This template is not offered for live deploy yet. Simulate it if the template supports simulation.',
+          technicalDetails: technicalDetailsFrom(raw),
+        }
+      }
       return {
         title: 'Deployment request was not accepted',
         body: 'We could not start this deployment. Please review your design and try again.',

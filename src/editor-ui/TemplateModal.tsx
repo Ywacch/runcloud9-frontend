@@ -14,6 +14,13 @@ import { hasPaidTier, canAccessPremiumTemplates, type UserRecord } from '../lib/
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
 import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview'
+import {
+  TEMPLATE_COMING_SOON_HINT,
+  TEMPLATE_LIVE_NOT_OFFERED_HINT,
+  templateCanLoadInPicker,
+  templateOfferBadge,
+  type TemplateAvailabilityFlags,
+} from '../lib/templateAvailability'
 
 /** Display names when the API has not been fetched yet (Sidebar label). */
 const TEMPLATE_TITLE_FALLBACK: Record<string, string> = {
@@ -176,6 +183,62 @@ function PremiumUpgradeButton({ onDone }: { onDone?: () => void }) {
   )
 }
 
+function TemplateOfferBadgeChip({ row }: { row: TemplateAvailabilityFlags }) {
+  const badge = templateOfferBadge(row)
+  if (badge === 'ready') {
+    return (
+      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+        Ready
+      </span>
+    )
+  }
+  if (badge === 'simulation-only') {
+    return (
+      <span className="rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+        Simulation only
+      </span>
+    )
+  }
+  return (
+    <span className="rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+      Coming soon
+    </span>
+  )
+}
+
+function TemplateLoadButtons({
+  onPreset,
+  onScratch,
+  presetDisabled,
+  presetTitle,
+}: {
+  onPreset: () => void
+  onScratch: () => void
+  presetDisabled?: boolean
+  presetTitle?: string
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        disabled={presetDisabled}
+        title={presetTitle}
+        onClick={onPreset}
+        className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Use preset
+      </button>
+      <button
+        type="button"
+        onClick={onScratch}
+        className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
+      >
+        Start from scratch
+      </button>
+    </>
+  )
+}
+
 const LockIconLarge = (
   <svg
     className="mx-auto h-14 w-14 text-gray-500"
@@ -242,18 +305,8 @@ function TemplatePickerCard({
               <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                 Premium
               </span>
-            ) : row.deployable ? (
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                {row.available ? 'Ready' : 'Unavailable'}
-              </span>
-            ) : row.simulatable ? (
-              <span className="rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
-                Simulation only
-              </span>
             ) : (
-              <span className="rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-                Coming soon
-              </span>
+              <TemplateOfferBadgeChip row={row} />
             )}
           </div>
         </div>
@@ -265,31 +318,30 @@ function TemplatePickerCard({
         <div className="mt-4 space-y-2">
           {premiumLocked ? (
             <PremiumUpgradeButton onDone={onClose} />
-          ) : (
+          ) : templateCanLoadInPicker(row) ? (
             <>
-              <button
-                type="button"
-                onClick={() => {
+              <TemplateLoadButtons
+                onPreset={() => {
                   onSelect({
                     kind: 'preset',
                     id: row.id,
                     preset: () => snapshot,
                   })
                 }}
-                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-              >
-                Use preset
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                onScratch={() => {
                   onSelect({ kind: 'scratch', id: row.id })
                 }}
-                className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
-              >
-                Start from scratch
-              </button>
+              />
+              {!row.available ? (
+                <p className="text-[10px] leading-snug text-gray-500">
+                  {TEMPLATE_LIVE_NOT_OFFERED_HINT}
+                </p>
+              ) : null}
             </>
+          ) : (
+            <p className="text-[10px] leading-snug text-gray-500">
+              {TEMPLATE_COMING_SOON_HINT}
+            </p>
           )}
         </div>
       </div>
@@ -364,29 +416,35 @@ function SocialFeedVariantCard({
         <p className="mt-1.5 text-xs text-gray-400">
           {copy?.description ?? row.description}
         </p>
+        <div className="mt-2">
+          <TemplateOfferBadgeChip row={row} />
+        </div>
         <div className="mt-4 space-y-2">
-          <button
-            type="button"
-            onClick={() => {
-              onSelect({
-                kind: 'preset',
-                id: row.id,
-                preset: () => snapshot,
-              })
-            }}
-            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            Use preset
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onSelect({ kind: 'scratch', id: row.id })
-            }}
-            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
-          >
-            Start from scratch
-          </button>
+          {templateCanLoadInPicker(row) ? (
+            <>
+              <TemplateLoadButtons
+                onPreset={() => {
+                  onSelect({
+                    kind: 'preset',
+                    id: row.id,
+                    preset: () => snapshot,
+                  })
+                }}
+                onScratch={() => {
+                  onSelect({ kind: 'scratch', id: row.id })
+                }}
+              />
+              {!row.available ? (
+                <p className="text-[10px] leading-snug text-gray-500">
+                  {TEMPLATE_LIVE_NOT_OFFERED_HINT}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-[10px] leading-snug text-gray-500">
+              {TEMPLATE_COMING_SOON_HINT}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -437,18 +495,8 @@ function RemoteTemplateCard({
               <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                 Premium
               </span>
-            ) : row.deployable ? (
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                {row.available ? 'Ready' : 'Unavailable'}
-              </span>
-            ) : row.simulatable ? (
-              <span className="rounded-full bg-purple-900/50 px-2 py-0.5 text-[10px] font-medium text-purple-300">
-                Simulation only
-              </span>
             ) : (
-              <span className="rounded-full bg-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-                Coming soon
-              </span>
+              <TemplateOfferBadgeChip row={row} />
             )}
           </div>
         </div>
@@ -460,27 +508,27 @@ function RemoteTemplateCard({
         <div className="mt-4 space-y-2">
           {premiumLocked ? (
             <PremiumUpgradeButton onDone={onClose} />
-          ) : row.deployable ? (
+          ) : templateCanLoadInPicker(row) ? (
             <>
-              <button
-                type="button"
-                disabled
-                title={remotePresetTitle}
-                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Use preset
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+              <TemplateLoadButtons
+                presetDisabled
+                presetTitle={remotePresetTitle}
+                onPreset={() => undefined}
+                onScratch={() => {
                   onSelect({ kind: 'scratch', id: row.id })
                 }}
-                className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
-              >
-                Start from scratch
-              </button>
+              />
+              {!row.available ? (
+                <p className="text-[10px] leading-snug text-gray-500">
+                  {TEMPLATE_LIVE_NOT_OFFERED_HINT}
+                </p>
+              ) : null}
             </>
-          ) : null}
+          ) : (
+            <p className="text-[10px] leading-snug text-gray-500">
+              {TEMPLATE_COMING_SOON_HINT}
+            </p>
+          )}
         </div>
       </div>
     </div>
