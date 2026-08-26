@@ -4,10 +4,14 @@ import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   DbConsistencySection,
+  DbLoadSection,
   formatConsistencyViolation,
 } from './StorageIoSection'
 
-function dbBucket(consistency?: MetricsBucket['consistency']): MetricsBucket {
+function dbBucket(
+  consistency?: MetricsBucket['consistency'],
+  extras: Partial<MetricsBucket> = {},
+): MetricsBucket {
   return {
     cpuUsage: 0,
     cpuPercent: 0,
@@ -63,6 +67,7 @@ function dbBucket(consistency?: MetricsBucket['consistency']): MetricsBucket {
     podCount: 1,
     lastUpdated: 0,
     qps: 0,
+    ...extras,
   }
 }
 
@@ -154,5 +159,61 @@ describe('DbConsistencySection', () => {
     )
     expect(html).not.toContain('View trace')
     expect(html).not.toContain('· db ')
+  })
+})
+
+const postgresIo = {
+  readRate: 27216,
+  writeRate: 8,
+  readTotal9m: 1_264_086,
+  writeTotal9m: 3576,
+  unit: 'rows/s',
+  readLabel: 'Rows scanned/s',
+  writeLabel: 'Rows written/s',
+  readLatency: 0,
+  writeLatency: 0,
+  bytesUsed: 0,
+  bytesLimit: 0,
+  errorRate: 0,
+  source: 'postgres_exporter',
+}
+
+describe('DbLoadSection', () => {
+  const liveView = { timeframe: 'live' as const, showGraphs: true }
+  const sessionView = { timeframe: 'session' as const, showGraphs: true }
+
+  it('shows live rates with /s labels', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbLoadSection, {
+        m: dbBucket(undefined, { storageIo: postgresIo, dbQueryRate: 50 }),
+        dbQueryRate: 50,
+        templateMetrics: {},
+        view: liveView,
+      }),
+    )
+    expect(html).toContain('Rows scanned/s')
+    expect(html).toContain('Rows written/s')
+    expect(html).toMatch(/27[,.]?216\/s/)
+    expect(html).toContain('/s')
+  })
+
+  it('shows session totals without /s labels or 10s graphs', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbLoadSection, {
+        m: dbBucket(undefined, { storageIo: postgresIo, dbQueryRate: 50 }),
+        dbQueryRate: 50,
+        templateMetrics: {},
+        view: sessionView,
+      }),
+    )
+    expect(html).toContain('Rows scanned')
+    expect(html).not.toContain('Rows scanned/s')
+    expect(html).toContain('Rows written')
+    expect(html).not.toContain('Rows written/s')
+    expect(html).toContain('1,264,086')
+    expect(html).toContain('3,576')
+    expect(html).not.toContain('27,216/s')
+    expect(html).not.toContain('10s · /s')
+    expect(html).not.toContain('Why reads look high')
   })
 })
