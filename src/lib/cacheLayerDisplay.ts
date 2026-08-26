@@ -4,6 +4,7 @@ import type {
   RuntimeHealthSummary,
 } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import type { MetricsTimeframe } from './metricTimeframe'
 import { compactPodName } from './replicaMetricsDisplay'
 
 export type CacheInspectorMode = 'layered' | 'timeline' | 'single'
@@ -178,9 +179,16 @@ export function cacheHasAppTraffic(
   m: MetricsBucket,
   cacheHits: number,
   cacheMisses: number,
+  timeframe?: MetricsTimeframe,
 ): boolean {
   if ((m.requestRate ?? 0) > 0) return true
   if (cacheHits + cacheMisses > 0) return true
+  if (
+    timeframe === 'session' &&
+    (m.cacheHitsLast9m + m.cacheMissesLast9m) > 0
+  ) {
+    return true
+  }
   return false
 }
 

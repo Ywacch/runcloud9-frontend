@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   cacheInspectorLayerIds,
+  cacheHasAppTraffic,
   cacheLayerCardTitle,
   cacheStrategyBanner,
   isLayeredCache,
@@ -223,5 +224,17 @@ describe('cacheLayerDisplay', () => {
     expect(cacheStrategyBanner('read-through').title).toContain('Write-through')
     expect(cacheStrategyBanner('read-through').subtitle).toBe(wt.subtitle)
     expect(cacheStrategyBanner('timeline-store').title).toContain('Timeline')
+  })
+
+  it('treats session last9m totals as traffic when live rates are zero', () => {
+    const m = cacheBucket({
+      requestRate: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      cacheHitsLast9m: 8,
+      cacheMissesLast9m: 1,
+    })
+    expect(cacheHasAppTraffic(m, 0, 0, 'live')).toBe(false)
+    expect(cacheHasAppTraffic(m, 0, 0, 'session')).toBe(true)
   })
 })
