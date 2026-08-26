@@ -170,6 +170,14 @@ describe('mapDeployRequestError', () => {
     expect(msg.title).toBe('Design exceeds your resource quota')
   })
 
+  it('maps template not yet available 400 to clear title', () => {
+    const err = new ApiError(400, 'template "ticket-drop" is not yet available')
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Template not available')
+    expect(msg.body).toContain('not offered for live deploy')
+    expect(msg.technicalDetails).toContain('ticket-drop')
+  })
+
   it('maps missing app-server 400 to clear title', () => {
     const err = new ApiError(
       400,

@@ -23,6 +23,10 @@ import {
   templateHasExplorerRunnable,
 } from '../lib/templatePresetMode'
 import { switchTemplatePresetMode } from '../lib/switchTemplatePresetMode'
+import {
+  TEMPLATE_LIVE_NOT_OFFERED_HINT,
+  templateOffersLiveDeploy,
+} from '../lib/templateAvailability'
 import { BILLING_ENABLED } from '../lib/featureFlags'
 import {
   startEngineerCheckout,
@@ -356,6 +360,8 @@ export function Sidebar() {
     ? 'Choose a template from the Templates section first'
     : !selectedTemplate
       ? 'Loading template capabilities...'
+      : !selectedTemplate.available
+      ? `The "${selectedTemplate.name}" template is not available to deploy yet.`
       : !selectedTemplate.deployable
       ? `The "${selectedTemplate.name}" template is simulation-only right now.`
       : !session
@@ -423,7 +429,11 @@ export function Sidebar() {
     if (nodeCount === 0) return 'empty_canvas'
     if (!snapshotTemplateId) return 'no_template'
     if (!selectedTemplate) return 'template_loading'
-    if (!selectedTemplate.deployable) return 'template_not_deployable'
+    if (!templateOffersLiveDeploy(selectedTemplate)) {
+      return selectedTemplate.available
+        ? 'template_not_deployable'
+        : 'template_not_available'
+    }
     if (quotaPreview) return 'resource_quota_exceeded'
     if (topologyViolations.length > 0) return 'topology_violation'
     return null
@@ -595,6 +605,20 @@ export function Sidebar() {
     if (!stCheck.snapshotTemplateId) {
       trackDeployBlocked('no_template')
       setBanner('Select a template before deploying.')
+      return
+    }
+    if (selectedTemplate && !templateOffersLiveDeploy(selectedTemplate)) {
+      trackDeployBlocked(
+        selectedTemplate.available
+          ? 'template_not_deployable'
+          : 'template_not_available',
+        stCheck.snapshotTemplateId,
+      )
+      setBanner(
+        selectedTemplate.available
+          ? `The "${selectedTemplate.name}" template is simulation-only right now.`
+          : `The "${selectedTemplate.name}" template is not available to deploy yet.`,
+      )
       return
     }
 
@@ -1024,6 +1048,13 @@ export function Sidebar() {
                 This design exceeds the {quotaPreview.tier} quota ({quotaPreview.requested.cpu} /{' '}
                 {quotaPreview.requested.memory} vs cap {quotaPreview.cap.cpu} /{' '}
                 {quotaPreview.cap.memory}). Downsize nodes or replicas to deploy.
+              </p>
+            ) : null}
+            {selectedTemplate && !templateOffersLiveDeploy(selectedTemplate) ? (
+              <p className="text-[11px] leading-snug text-amber-300/90">
+                {selectedTemplate.available
+                  ? `The "${selectedTemplate.name}" template is simulation-only right now.`
+                  : TEMPLATE_LIVE_NOT_OFFERED_HINT}
               </p>
             ) : null}
             {nodeCount > 0 && snapshotTemplateId ? (
