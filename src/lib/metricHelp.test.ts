@@ -3,6 +3,7 @@ import {
   SESSION_CACHE_THROUGHPUT_LABEL,
   SESSION_CACHE_TOTALS_DISCLOSURE_HINT,
   SESSION_CACHE_TOTALS_HINT,
+  SESSION_LATENCY_P99_HELP,
   SESSION_REPLICA_BREAKDOWN_HINT,
   SESSION_STORAGE_ENGINE_HINT,
   SESSION_TIMEFRAME_FOOTER,
@@ -15,6 +16,14 @@ describe('session timeframe copy', () => {
     expect(SESSION_TIMEFRAME_LABEL).not.toContain('(9m)')
     expect(SESSION_TIMEFRAME_FOOTER).not.toContain('9-minute')
     expect(SESSION_TIMEFRAME_FOOTER).not.toContain('rolling 9')
+    expect(SESSION_TIMEFRAME_FOOTER).not.toContain('shorter windows')
+  })
+
+  it('describes session p99 latency without a fixed 9m window', () => {
+    expect(SESSION_LATENCY_P99_HELP).toContain('since session start')
+    expect(SESSION_LATENCY_P99_HELP).toContain('live pods')
+    expect(SESSION_LATENCY_P99_HELP).not.toContain('9-minute')
+    expect(SESSION_LATENCY_P99_HELP).not.toContain('(9m)')
   })
 
   it('explains cluster vs per-replica session totals', () => {
