@@ -15,6 +15,7 @@ import type { TweenableMetricField } from '../editor-core/playback/tweenStore'
 import { useTweenedMetric } from '../editor-core/playback/useTweenedMetric'
 import {
   LATENCY_HELP,
+  SESSION_LATENCY_P99_HELP,
   SESSION_REPLICA_BREAKDOWN_HINT,
   THROUGHPUT_HELP,
   withPodRateDisclaimer,
@@ -246,7 +247,11 @@ export function LiveMetricsTypeSection({
                 <StatBlock
                   label={red.latencyLabel}
                   value={fmtMs(red.latencyMs)}
-                  help={LATENCY_HELP}
+                  help={
+                    view.timeframe === 'session'
+                      ? SESSION_LATENCY_P99_HELP
+                      : LATENCY_HELP
+                  }
                   graph={
                     <MetricSeriesGraph
                       data={latencySeries}
@@ -589,7 +594,7 @@ export function LiveMetricsTypeSection({
                   <StatBlock
                     label={red.latencyLabel}
                     value={fmtMs(red.latencyMs)}
-                    help={LATENCY_HELP}
+                    help={SESSION_LATENCY_P99_HELP}
                   />
                 ) : (
                   <StatBlock label="Algorithm" value={algo} />

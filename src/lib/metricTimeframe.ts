@@ -65,7 +65,7 @@ export function redHeadlines(
       throughputDisplay: fmtInt(m.totalRequests),
       errorLabel: 'Errors',
       errorDisplay: fmtInt(m.totalErrors9m),
-      latencyLabel: 'Latency p99 (9m)',
+      latencyLabel: 'Latency p99',
       latencyMs: m.p99Latency9m > 0 ? m.p99Latency9m : m.p99Latency,
     }
   }

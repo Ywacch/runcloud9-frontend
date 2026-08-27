@@ -25,7 +25,10 @@ export const LATENCY_P99_SPARK_HELP =
 export const SESSION_TIMEFRAME_LABEL = 'Session'
 
 export const SESSION_TIMEFRAME_FOOTER =
-  'Cluster totals cover this deployment from provision until now, including loadgen. They reset if the metrics API restarts. Per-replica rows count since that pod started and reset on kill. Cache, storage, and p99 still use shorter windows.'
+  'Cluster totals cover this deployment from provision until now, including loadgen. They reset if the metrics API restarts. Per-replica rows count since that pod started and reset on kill. Session p99 latency grows with elapsed deployment time; after a pod restart, only live pods contribute.'
+
+export const SESSION_LATENCY_P99_HELP =
+  'p99 latency since session start (from the metrics stream). After an app-server pod restart, only live pods contribute.'
 
 export const SESSION_REPLICA_BREAKDOWN_HINT =
   'Cluster totals above include every replica for this deployment. Rows here are per pod since it started and reset on kill.'
