@@ -1,8 +1,10 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import type { PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
+  ComputeInstanceSection,
   DbConsistencySection,
   DbLoadSection,
   formatConsistencyViolation,
@@ -159,6 +161,51 @@ describe('DbConsistencySection', () => {
     )
     expect(html).not.toContain('View trace')
     expect(html).not.toContain('· db ')
+  })
+})
+
+const instancePod: PodReplicaMetrics = {
+  name: 'app-server-roll-a',
+  ready: true,
+  requestRate: 25,
+  p99LatencyMs: 42,
+  p50LatencyMs: 10,
+  p95LatencyMs: 30,
+  p99Latency9mMs: 55,
+  totalRequests: 9000,
+  totalErrors9m: 12,
+  cpuUsage: 0.2,
+  errorRate: 0.5,
+  memoryBytes: 128 * 1024 * 1024,
+}
+
+describe('ComputeInstanceSection timeframe', () => {
+  it('shows live request rate and error rate', () => {
+    const html = renderToStaticMarkup(
+      createElement(ComputeInstanceSection, {
+        pod: instancePod,
+        m: dbBucket(),
+        view: { timeframe: 'live', showGraphs: true },
+      }),
+    )
+    expect(html).toContain('Request rate')
+    expect(html).toContain('Error rate')
+    expect(html).toContain('25')
+  })
+
+  it('shows session totals and errors in session mode', () => {
+    const html = renderToStaticMarkup(
+      createElement(ComputeInstanceSection, {
+        pod: instancePod,
+        m: dbBucket(),
+        view: { timeframe: 'session', showGraphs: true },
+      }),
+    )
+    expect(html).toContain('Total requests')
+    expect(html).toContain('9,000')
+    expect(html).toContain('Errors')
+    expect(html).toContain('12')
+    expect(html).toContain('Latency p99')
   })
 })
 

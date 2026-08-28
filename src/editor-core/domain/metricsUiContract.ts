@@ -26,8 +26,14 @@ export interface PodReplicaMetrics {
   requestRate: number
   /** Milliseconds (WS sends seconds). */
   p99LatencyMs: number
+  p50LatencyMs?: number
+  p95LatencyMs?: number
+  p50Latency9mMs?: number
+  p95Latency9mMs?: number
+  p99Latency9mMs?: number
   /** Rolling 9m request count (Prometheus window). */
   totalRequests: number
+  totalErrors9m?: number
   /** CPU cores in use. */
   cpuUsage: number
   errorRate: number
@@ -98,6 +104,12 @@ export interface ComponentLayerMetrics {
   replicationLagSeconds?: number
   /** Per-layer PostgreSQL transaction throughput (xact/s) when present. */
   requestRate?: number
+  /** Session sum of pg xact commit+rollback for this layer. */
+  totalRequests?: number
+  /** Active postgres backends on this layer's pod(s). */
+  dbActiveConnections?: number
+  /** Primary: cluster read+write I/O. Replica: read scans only. */
+  storageIo?: StorageIoMetrics | null
   /** Layer-local containerCpu / containerMem freshness when present. */
   freshness?: ComponentFreshness
 }
@@ -245,12 +257,24 @@ export function parsePodReplicas(raw: unknown): PodReplicaMetrics[] {
     const r = row as Record<string, unknown>
     const name = typeof r.name === 'string' ? r.name.trim() : ''
     if (!name) continue
+    const p50Ms = num(r.p50Latency) * 1000
+    const p95Ms = num(r.p95Latency) * 1000
+    const p50SessionMs = num(r.p50Latency9m) * 1000
+    const p95SessionMs = num(r.p95Latency9m) * 1000
+    const p99SessionMs = num(r.p99Latency9m) * 1000
+    const totalErrors = Math.round(num(r.totalErrors9m))
     out.push({
       name,
       ready: Boolean(r.ready),
       requestRate: num(r.requestRate),
       p99LatencyMs: num(r.p99Latency) * 1000,
+      p50LatencyMs: p50Ms > 0 ? p50Ms : undefined,
+      p95LatencyMs: p95Ms > 0 ? p95Ms : undefined,
+      p50Latency9mMs: p50SessionMs > 0 ? p50SessionMs : undefined,
+      p95Latency9mMs: p95SessionMs > 0 ? p95SessionMs : undefined,
+      p99Latency9mMs: p99SessionMs > 0 ? p99SessionMs : undefined,
       totalRequests: Math.round(num(r.totalRequests)),
+      totalErrors9m: totalErrors > 0 ? totalErrors : undefined,
       cpuUsage: num(r.cpuUsage),
       errorRate: num(r.errorRate),
       memoryBytes: num(r.memoryBytes ?? r.memoryUsage),
@@ -349,6 +373,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const expirations = num(r.expirationsPerSec)
     const replicationLag = num(r.replicationLagSeconds)
     const requestRate = num(r.requestRate)
+    const totalRequests = Math.round(num(r.totalRequests))
+    const dbActiveConnections = Math.round(num(r.dbActiveConnections))
     out.push({
       id,
       role: typeof r.role === 'string' ? r.role.trim() : '',
@@ -371,6 +397,9 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       replicationLagSeconds:
         replicationLag > 0 || r.replicationLagSeconds === 0 ? replicationLag : undefined,
       requestRate: requestRate > 0 ? requestRate : undefined,
+      totalRequests: totalRequests > 0 ? totalRequests : undefined,
+      dbActiveConnections: dbActiveConnections > 0 ? dbActiveConnections : undefined,
+      storageIo: parseStorageIo(r.storageIo),
       freshness: parseComponentFreshness(r.freshness),
     })
   }

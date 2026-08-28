@@ -5,8 +5,10 @@ import {
   cacheHeadlines,
   cacheHitRateDisplay,
   dbQueryHeadline,
+  dbLayerXactHeadline,
   feedPushHeadline,
   podCpuPercent,
+  podHistorySeries,
   podMemPercent,
   redHeadlines,
   replicaListRows,
@@ -71,6 +73,62 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     ...partial,
   }
 }
+
+describe('podHistorySeries', () => {
+  it('extracts per-pod request rate from history buckets', () => {
+    const history = [
+      bucket({
+        podReplicas: [
+          {
+            name: 'app-a',
+            ready: true,
+            requestRate: 10,
+            p99LatencyMs: 20,
+            totalRequests: 100,
+            cpuUsage: 0.1,
+            errorRate: 0,
+            memoryBytes: 0,
+          },
+        ],
+      }),
+      bucket({
+        podReplicas: [
+          {
+            name: 'app-a',
+            ready: true,
+            requestRate: 20,
+            p99LatencyMs: 25,
+            totalRequests: 150,
+            cpuUsage: 0.1,
+            errorRate: 0,
+            memoryBytes: 0,
+          },
+        ],
+      }),
+    ]
+    expect(podHistorySeries(history, 'app-a', (p) => p.requestRate)).toEqual([10, 20])
+  })
+})
+
+describe('dbLayerXactHeadline', () => {
+  it('switches xact label between live rate and session total', () => {
+    const layer = {
+      id: 'postgres-replica-x',
+      role: 'replica',
+      engine: 'postgresql',
+      cpuUsage: 0,
+      memoryBytes: 0,
+      cpuLimit: 1,
+      memoryLimit: 1,
+      cpuIsEstimated: false,
+      memIsEstimated: false,
+      requestRate: 12,
+      totalRequests: 5000,
+    }
+    expect(dbLayerXactHeadline(layer, 'live').label).toBe('Transaction rate')
+    expect(dbLayerXactHeadline(layer, 'session').sessionTotal).toBe(5000)
+  })
+})
 
 describe('redHeadlines', () => {
   it('uses live rates in live mode', () => {

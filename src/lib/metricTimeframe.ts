@@ -1,4 +1,4 @@
-import type { PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
+import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { fmtInt, fmtPct } from './format'
 import {
@@ -119,6 +119,48 @@ export function dbQueryHeadline(
     liveRate: m.dbQueryRate,
     sessionTotal: m.dbTotalQueries,
   }
+}
+
+export interface DbLayerXactHeadlineFields {
+  label: string
+  liveRate: number
+  sessionTotal: number
+}
+
+/** Postgres layer xact rate vs session total (engine RED). */
+export function dbLayerXactHeadline(
+  layer: ComponentLayerMetrics,
+  timeframe: MetricsTimeframe,
+): DbLayerXactHeadlineFields {
+  return {
+    label: timeframe === 'session' ? 'Total transactions' : 'Transaction rate',
+    liveRate: layer.requestRate ?? 0,
+    sessionTotal: layer.totalRequests ?? 0,
+  }
+}
+
+/** Per-pod metric series from inspector history for instance graphs. */
+export function podHistorySeries(
+  history: MetricsBucket[],
+  podName: string,
+  pick: (pod: PodReplicaMetrics) => number,
+): number[] {
+  return history.map((h) => {
+    const pod = h.podReplicas.find((p) => p.name === podName)
+    return pod ? pick(pod) : 0
+  })
+}
+
+/** Per-layer metric series from inspector history for DB instance graphs. */
+export function dbLayerHistorySeries(
+  history: MetricsBucket[],
+  layerId: string,
+  pick: (layer: ComponentLayerMetrics) => number,
+): number[] {
+  return history.map((h) => {
+    const layer = h.layers.find((l) => l.id === layerId)
+    return layer ? pick(layer) : 0
+  })
 }
 
 /** App-level cache query totals for timeline / push feed inspector (session). */
