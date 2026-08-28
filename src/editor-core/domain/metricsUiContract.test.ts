@@ -47,12 +47,24 @@ describe('metricsUiContract', () => {
         ready: true,
         requestRate: 12.5,
         p99Latency: 0.02,
+        p50Latency: 0.01,
+        p95Latency: 0.015,
+        p50Latency9m: 0.011,
+        p95Latency9m: 0.014,
+        p99Latency9m: 0.019,
+        totalRequests: 500,
+        totalErrors9m: 3,
         cpuUsage: 0.05,
         errorRate: 0.01,
       },
     ])
     expect(pods).toHaveLength(1)
     expect(pods[0].p99LatencyMs).toBeCloseTo(20)
+    expect(pods[0].p50LatencyMs).toBeCloseTo(10)
+    expect(pods[0].p95LatencyMs).toBeCloseTo(15)
+    expect(pods[0].p99Latency9mMs).toBeCloseTo(19)
+    expect(pods[0].totalRequests).toBe(500)
+    expect(pods[0].totalErrors9m).toBe(3)
     expect(pods[0].requestRate).toBe(12.5)
     expect(pods[0].memoryBytes).toBe(0)
   })
@@ -241,6 +253,32 @@ describe('metricsUiContract', () => {
       },
     ])
     expect(layers[0]?.replicationLagSeconds).toBe(0)
+  })
+
+  it('parseComponentLayers maps db layer engine totals and storageIo', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'postgres-replica-scan',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0.03,
+        memoryUsage: 67108864,
+        requestRate: 12.5,
+        totalRequests: 4200,
+        dbActiveConnections: 1,
+        storageIo: {
+          readRate: 18,
+          writeRate: 0,
+          readTotal9m: 900,
+          unit: 'rows/s',
+          source: 'postgres_exporter',
+        },
+      },
+    ])
+    expect(layers[0]?.totalRequests).toBe(4200)
+    expect(layers[0]?.dbActiveConnections).toBe(1)
+    expect(layers[0]?.storageIo?.readTotal9m).toBe(900)
+    expect(layers[0]?.storageIo?.writeRate).toBe(0)
   })
 
   it('parseDbConsistency maps observer status from WS payload', () => {

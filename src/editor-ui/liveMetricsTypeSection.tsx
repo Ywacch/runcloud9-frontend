@@ -177,7 +177,12 @@ export function LiveMetricsTypeSection({
         return (
           <div className="space-y-5">
             {panelPrefix}
-            <ComputeInstanceSection pod={instancePod} m={m} view={view} />
+            <ComputeInstanceSection
+              pod={instancePod}
+              m={m}
+              view={view}
+              history={history}
+            />
           </div>
         )
       }
@@ -485,7 +490,11 @@ export function LiveMetricsTypeSection({
         return (
           <div className="space-y-5">
             {panelPrefix}
-            <DbInstanceLayerSection layer={instanceLayer} view={view} />
+            <DbInstanceLayerSection
+              layer={instanceLayer}
+              view={view}
+              history={history}
+            />
           </div>
         )
       }
@@ -804,14 +813,54 @@ export function LiveMetricsTypeSection({
 
     case 'worker': {
       const workerRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'worker')
+      const scope = selectedInstanceId ?? 'cluster'
+      const instancePod =
+        scope !== 'cluster'
+          ? m.podReplicas.find((pod) => pod.name === scope)
+          : undefined
+
+      if (instancePod && scope !== 'cluster') {
+        return (
+          <div className="space-y-5">
+            {panelPrefix}
+            <ComputeInstanceSection
+              pod={instancePod}
+              m={m}
+              view={view}
+              history={history}
+              subtitle="Job throughput and resources for this worker pod"
+            />
+          </div>
+        )
+      }
+
       const wSat = Number.isFinite(m.workerSaturation) ? m.workerSaturation : 0
       const ws = Math.min(100, wSat * 100)
-      const consumeRate =
+      const processRate =
         isSocialFeed && Number.isFinite(tmWorkerConsumeRate)
           ? tmWorkerConsumeRate
-          : m.consumeRate
-      const consSeries = history.map((h) => h.consumeRate)
+          : m.requestRate
+      const workerRollup =
+        m.podReplicas.length > 1 ? rollup(samplesFromCompute(m)) : null
+      const workerRed = redHeadlines(m, view.timeframe, fmtErrorRate)
+      const sessionP99Ms =
+        view.timeframe === 'session' && m.p99Latency9m > 0
+          ? m.p99Latency9m
+          : workerRollup?.p99 != null && workerRollup.p99 > 0
+            ? workerRollup.p99 * 1000
+            : m.p99Latency
+      const processSeries = history.map((h) => h.requestRate)
+      const latencySeries = history.map((h) => h.p99Latency)
+      const errorSeries = history.map((h) => h.errorRate)
       const cpuSeries = history.map((h) => h.cpuPercent)
+      const workerReplicaList =
+        m.podReplicas.length > 0
+          ? buildReplicaListRows(m.podReplicas, view.timeframe, {
+              clusterRps: processRate,
+              cpuLimitCores: m.cpuLimit,
+              memoryLimitBytes: m.memoryLimit,
+            })
+          : []
 
       return (
         <div className="space-y-5">
@@ -823,14 +872,22 @@ export function LiveMetricsTypeSection({
             <StatRow
               left={
                 <StatBlock
-                  label="Process rate"
-                  value={`${fmtRate(consumeRate)}/s`}
+                  label={
+                    view.timeframe === 'session'
+                      ? workerRed.throughputLabel
+                      : 'Process rate'
+                  }
+                  value={
+                    view.timeframe === 'session'
+                      ? workerRed.throughputDisplay
+                      : `${fmtRate(processRate)}/s`
+                  }
                   help={workerRateHelp}
                   graph={
                     <MetricSeriesGraph
-                      data={consSeries}
+                      data={processSeries}
                       color="#2dd4bf"
-                      title="Consume"
+                      title="Process rate"
                       unit="10s · /s"
                       view={view}
                     />
@@ -838,7 +895,46 @@ export function LiveMetricsTypeSection({
                 />
               }
               right={
-                <StatBlock label="Error rate" value={`${fmtRate(m.errorRate)}/s`} />
+                <StatBlock
+                  label={workerRed.latencyLabel}
+                  value={fmtMs(workerRed.latencyMs > 0 ? workerRed.latencyMs : sessionP99Ms)}
+                  help={
+                    view.timeframe === 'session'
+                      ? SESSION_LATENCY_P99_HELP
+                      : LATENCY_HELP
+                  }
+                  graph={
+                    <MetricSeriesGraph
+                      data={latencySeries}
+                      color="var(--c9-error)"
+                      title="p99 latency"
+                      unit="10s · ms"
+                      view={view}
+                    />
+                  }
+                />
+              }
+            />
+            {view.timeframe === 'live' ? (
+              <LatencyDistribution
+                p50Ms={p50Latency}
+                p95Ms={p95Latency}
+                p99Ms={m.p99Latency}
+                label="Latency distribution (live)"
+                compact
+              />
+            ) : null}
+            <StatBlock
+              label={workerRed.errorLabel}
+              value={workerRed.errorDisplay}
+              graph={
+                <MetricSeriesGraph
+                  data={errorSeries}
+                  color="var(--c9-warning)"
+                  title="Errors"
+                  unit="10s"
+                  view={view}
+                />
               }
             />
             {Number.isFinite(tmWorkerRedisWriteRate) ? (
@@ -891,7 +987,7 @@ export function LiveMetricsTypeSection({
               <InlineDisclosure label="Why processing is slow">
                 <PedagogicalHint>
                   Compute bound: Workers are heavily saturating CPU ({fmtPct(cpuPercent)}),
-                  capping the process rate at {fmtRate(consumeRate)}/s. Scale up worker replicas
+                  capping the process rate at {fmtRate(processRate)}/s. Scale up worker replicas
                   to process the message queue backlog in parallel.
                 </PedagogicalHint>
               </InlineDisclosure>
@@ -902,6 +998,25 @@ export function LiveMetricsTypeSection({
               </InlineDisclosure>
             ) : null}
           </PedagogicalSection>
+
+          {workerReplicaList.length > 0 ? (
+            <InspectorDisclosure title="Per-replica breakdown">
+              <div className="space-y-2">
+                {view.timeframe === 'session' ? (
+                  <PedagogicalHint tone="muted">{SESSION_REPLICA_BREAKDOWN_HINT}</PedagogicalHint>
+                ) : null}
+                <ReplicaFlatList
+                  rows={workerReplicaList}
+                  selectedName={
+                    selectedInstanceId && selectedInstanceId !== 'cluster'
+                      ? selectedInstanceId
+                      : null
+                  }
+                  onSelectName={(name) => setSelectedInstanceId(name)}
+                />
+              </div>
+            </InspectorDisclosure>
+          ) : null}
 
           <EngineHealthDisclosure m={m} cpuPercent={cpuPercent} memPercent={memPercent} />
         </div>

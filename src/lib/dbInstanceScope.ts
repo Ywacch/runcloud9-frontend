@@ -15,7 +15,7 @@ export function dbHasReplicaLayers(layers: ComponentLayerMetrics[]): boolean {
 
 export function nodeSupportsInstanceScope(node: CanvasNode | null | undefined): boolean {
   if (!node) return false
-  if (node.type === 'compute') return true
+  if (node.type === 'compute' || node.type === 'worker') return true
   if (node.type === 'database') return clampReadReplicas(node.config.readReplicas) >= 1
   return false
 }

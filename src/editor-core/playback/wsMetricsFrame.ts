@@ -230,7 +230,7 @@ export function nodeBucketsFromPayload(
     const ids = nodeIdsForBackendKey(nodes, backendKey)
     let bucket = componentToBucket(cm)
 
-    if (backendKey === 'app-server') {
+    if (backendKey === 'app-server' || backendKey === 'worker') {
       const pods = parsePodReplicas(cm.replicas)
       if (pods.length > 0) {
         bucket = { ...bucket, podReplicas: pods, podCount: pods.length }

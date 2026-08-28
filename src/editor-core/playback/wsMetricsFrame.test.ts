@@ -4,6 +4,7 @@ import {
   applyWsFrameToStore,
   componentToBucket,
   normalizeWsEvents,
+  nodeBucketsFromPayload,
 } from './wsMetricsFrame'
 import type { WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
 import { useCanvasStore } from '../stores/canvasStore'
@@ -373,5 +374,55 @@ describe('applyWsFrameToStore chart history', () => {
     )
     expect(useMetricsStore.getState().history['n-app']).toBeUndefined()
     expect(useMetricsStore.getState().metrics['n-app']?.requestRate).toBe(10)
+  })
+})
+
+describe('nodeBucketsFromPayload worker replicas', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      nodes: {
+        'n-worker': {
+          id: 'n-worker',
+          type: 'worker',
+          position: [0, 0, 0],
+          label: 'Worker',
+          config: {},
+          status: 'healthy',
+        },
+      },
+    })
+  })
+
+  it('maps worker replicas into podReplicas on the worker bucket', () => {
+    const buckets = nodeBucketsFromPayload(
+      {
+        components: {
+          worker: {
+            requestRate: 8,
+            replicas: [
+              {
+                name: 'worker-roll-a',
+                ready: true,
+                requestRate: 3,
+                p99Latency: 0.04,
+                totalRequests: 100,
+              },
+              {
+                name: 'worker-roll-b',
+                ready: true,
+                requestRate: 5,
+                p99Latency: 0.05,
+                totalRequests: 120,
+              },
+            ],
+          },
+        },
+      },
+      useCanvasStore.getState().nodes,
+    )
+    const bucket = buckets['n-worker']
+    expect(bucket?.podReplicas).toHaveLength(2)
+    expect(bucket?.podReplicas[0]?.name).toBe('worker-roll-a')
+    expect(bucket?.requestRate).toBe(8)
   })
 })

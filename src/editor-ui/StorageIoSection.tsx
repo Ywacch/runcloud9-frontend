@@ -10,7 +10,7 @@ import {
   storageScopeLine,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
-import { dbQueryHeadline, storageIoThroughputFields } from '../lib/metricTimeframe'
+import { dbQueryHeadline, dbLayerHistorySeries, dbLayerXactHeadline, podHistorySeries, storageIoThroughputFields } from '../lib/metricTimeframe'
 import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import { rollup, samplesFromLayers } from '../lib/instanceRollup'
@@ -38,6 +38,12 @@ import {
   shouldShowDbClusterUtilizationCharts,
   type PanelViewState,
 } from './inspectorPanelUi'
+import { LatencyDistribution } from './LatencyDistribution'
+import {
+  LATENCY_HELP,
+  SESSION_LATENCY_P99_HELP,
+  THROUGHPUT_HELP,
+} from '../lib/metricHelp'
 import { InlineDisclosure } from './InlineDisclosure'
 import { useDbTierCWarmup } from './useDbTierCWarmup'
 import { ViewTraceButton } from './ViewTraceButton'
@@ -347,19 +353,115 @@ export function DbClusterResourcesSection({
 /** Per-instance postgres layer metrics for Primary / Replica inspector tabs. */
 export function DbInstanceLayerSection({
   layer,
+  view,
+  history = [],
+  showPlaybackDelay = false,
 }: {
   layer: ComponentLayerMetrics
-  view?: PanelViewState
+  view: PanelViewState
+  history?: MetricsBucket[]
+  showPlaybackDelay?: boolean
 }) {
   const { cpuPercent, memPercent } = layerResourcePercents(layer)
   const roleLabel = layer.role === 'primary' ? 'Primary' : 'Replica'
-  const rps = layer.requestRate ?? 0
+  const tf = view.timeframe
+  const xact = dbLayerXactHeadline(layer, tf)
+  const xactValue =
+    tf === 'session' ? fmtInt(xact.sessionTotal) : `${fmtRate(xact.liveRate)}/s`
+  const xactSeries = dbLayerHistorySeries(
+    history,
+    layer.id,
+    (l) => (tf === 'session' ? l.totalRequests ?? 0 : l.requestRate ?? 0),
+  )
+  const engine = (layer.engine || 'postgresql').trim()
+  const io = layer.storageIo
+  const readLabel = io ? storageReadTileLabel(io, engine) : 'Rows scanned/s'
+  const writeLabel = io ? storageWriteTileLabel(io, engine) : 'Rows written/s'
+  const layerIoBucket: MetricsBucket = {
+    storageEngine: engine,
+    storageIo: io ?? null,
+  } as MetricsBucket
+  const ioTiles =
+    io != null
+      ? storageIoThroughputFields(layerIoBucket, tf, readLabel, writeLabel, fmtRate)
+      : null
+  const readSeries = dbLayerHistorySeries(history, layer.id, (l) => l.storageIo?.readRate ?? 0)
+  const writeSeries = dbLayerHistorySeries(history, layer.id, (l) => l.storageIo?.writeRate ?? 0)
+  const isReplica = layer.role === 'replica'
 
   return (
     <PedagogicalSection
-      title={`${roleLabel} instance (USE)`}
-      subtitle="Hardware utilization for this postgres instance"
+      title={`${roleLabel} instance (USE + engine)`}
+      subtitle="Engine xact, connections, and row I/O for this postgres instance"
     >
+      <StatRow
+        left={
+          <StatBlock
+            label={xact.label}
+            value={xactValue}
+            help="PostgreSQL transaction commits + rollbacks for this instance (exporter xact counters)."
+            graph={
+              <MetricSeriesGraph
+                data={xactSeries}
+                color="#6366f1"
+                title={xact.label}
+                unit={tf === 'session' ? 'session total' : '10s · /s'}
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+        right={
+          <StatBlock
+            label="Active connections"
+            value={
+              layer.dbActiveConnections != null && layer.dbActiveConnections > 0
+                ? fmtInt(layer.dbActiveConnections)
+                : '—'
+            }
+            help="Backends in active state on this instance's postgres pod."
+          />
+        }
+      />
+      {ioTiles ? (
+        <StatRow
+          left={
+            <StatBlock
+              label={ioTiles.readLabel}
+              value={ioTiles.readValue}
+              graph={
+                <MetricSeriesGraph
+                  data={readSeries}
+                  color="#22d3ee"
+                  title="Rows scanned"
+                  unit="10s · /s"
+                  view={view}
+                  showPlaybackDelay={showPlaybackDelay}
+                />
+              }
+            />
+          }
+          right={
+            !isReplica ? (
+              <StatBlock
+                label={ioTiles.writeLabel}
+                value={ioTiles.writeValue}
+                graph={
+                  <MetricSeriesGraph
+                    data={writeSeries}
+                    color="#a78bfa"
+                    title="Rows written"
+                    unit="10s · /s"
+                    view={view}
+                    showPlaybackDelay={showPlaybackDelay}
+                  />
+                }
+              />
+            ) : null
+          }
+        />
+      ) : null}
       <StatRow
         left={
           <StatBlock
@@ -374,17 +476,20 @@ export function DbInstanceLayerSection({
           />
         }
       />
-      <StatBlock
-        label="Transaction rate"
-        value={`${fmtRate(rps)}/s`}
-        help="PostgreSQL transaction rate (commits + rollbacks) for this instance."
-      />
       {layer.role === 'replica' ? (
         <StatBlock
           label="Replay lag"
           value={fmtReplicationLagSeconds(layer.replicationLagSeconds)}
           help="Seconds between primary commit and replay on this standby."
         />
+      ) : null}
+      {isReplica ? (
+        <InlineDisclosure label="About replica engine metrics">
+          <PedagogicalHint tone="muted">
+            App SQL by target is not shown on Replica tabs yet. Row scans here may include
+            WAL apply until read-split templates are deployed on this topology.
+          </PedagogicalHint>
+        </InlineDisclosure>
       ) : null}
     </PedagogicalSection>
   )
@@ -394,11 +499,19 @@ export function DbInstanceLayerSection({
 export function ComputeInstanceSection({
   pod,
   m,
+  view,
+  history = [],
+  showPlaybackDelay = false,
+  subtitle = 'Traffic and resources for this app-server pod',
 }: {
   pod: PodReplicaMetrics
   m: MetricsBucket
-  view?: PanelViewState
+  view: PanelViewState
+  history?: MetricsBucket[]
+  showPlaybackDelay?: boolean
+  subtitle?: string
 }) {
+  const tf = view.timeframe
   const cpuPct =
     m.cpuLimit > 0
       ? Math.min(100, (pod.cpuUsage / m.cpuLimit) * 100)
@@ -407,41 +520,101 @@ export function ComputeInstanceSection({
     pod.memoryBytes > 0 && m.memoryLimit > 0
       ? Math.min(100, (pod.memoryBytes / m.memoryLimit) * 100)
       : 0
+  const throughputLabel = tf === 'session' ? 'Total requests' : 'Request rate'
+  const throughputValue =
+    tf === 'session' ? fmtInt(pod.totalRequests ?? 0) : `${fmtRate(pod.requestRate)}/s`
+  const errorLabel = tf === 'session' ? 'Errors' : 'Error rate'
+  const errorValue =
+    tf === 'session'
+      ? fmtInt(pod.totalErrors9m ?? 0)
+      : `${fmtRate(pod.errorRate)}/s`
+  const latencyMs =
+    tf === 'session'
+      ? pod.p99Latency9mMs ?? pod.p99LatencyMs
+      : pod.p99LatencyMs
+  const latencyLabel = tf === 'session' ? 'Latency p99' : 'Latency (p99)'
+  const rpsSeries = podHistorySeries(history, pod.name, (p) => p.requestRate)
+  const latencySeries = podHistorySeries(history, pod.name, (p) => p.p99LatencyMs)
+  const errorSeries = podHistorySeries(
+    history,
+    pod.name,
+    (p) => (tf === 'session' ? p.totalErrors9m ?? 0 : p.errorRate),
+  )
 
   return (
-    <PedagogicalSection
-      title="Pod instance (USE + RED)"
-      subtitle="Traffic and resources for this app-server pod"
-    >
+    <PedagogicalSection title="Pod instance (USE + RED)" subtitle={subtitle}>
       <StatRow
         left={
           <StatBlock
-            label="Request rate"
-            value={`${fmtRate(pod.requestRate)}/s`}
-            help="HTTP request rate for this pod only."
+            label={throughputLabel}
+            value={throughputValue}
+            help={THROUGHPUT_HELP}
+            graph={
+              <MetricSeriesGraph
+                data={rpsSeries}
+                color="#6366f1"
+                title="Throughput"
+                unit={tf === 'session' ? 'session total' : '10s · RPS'}
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
           />
         }
         right={
           <StatBlock
-            label="p99 latency"
-            value={pod.p99LatencyMs > 0 ? fmtMs(pod.p99LatencyMs) : '—'}
-            help="Tail latency for this pod only."
+            label={latencyLabel}
+            value={latencyMs > 0 ? fmtMs(latencyMs) : '—'}
+            help={tf === 'session' ? SESSION_LATENCY_P99_HELP : LATENCY_HELP}
+            graph={
+              <MetricSeriesGraph
+                data={latencySeries}
+                color="var(--c9-error)"
+                title="p99 latency"
+                unit="10s · ms"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
           />
         }
       />
+      {tf === 'live' &&
+      ((pod.p50LatencyMs ?? 0) > 0 ||
+        (pod.p95LatencyMs ?? 0) > 0 ||
+        pod.p99LatencyMs > 0) ? (
+        <LatencyDistribution
+          p50Ms={pod.p50LatencyMs ?? 0}
+          p95Ms={pod.p95LatencyMs ?? 0}
+          p99Ms={pod.p99LatencyMs}
+          label="Latency distribution (live)"
+          compact
+        />
+      ) : null}
       <StatRow
         left={
           <StatBlock
-            label="CPU utilization"
-            value={fmtPct(cpuPct)}
+            label={errorLabel}
+            value={errorValue}
+            graph={
+              <MetricSeriesGraph
+                data={errorSeries}
+                color="var(--c9-warning)"
+                title="Errors"
+                unit={tf === 'session' ? 'session total' : '10s · /s'}
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
           />
         }
         right={
-          <StatBlock
-            label="Memory usage"
-            value={memPct > 0 ? fmtPct(memPct) : '—'}
-          />
+          <StatBlock label="CPU utilization" value={fmtPct(cpuPct)} />
         }
+      />
+      <StatBlock
+        label="Memory usage"
+        value={memPct > 0 ? fmtPct(memPct) : '—'}
       />
     </PedagogicalSection>
   )

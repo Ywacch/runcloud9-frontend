@@ -98,6 +98,57 @@ describe('dbInstanceScope', () => {
     expect(nodeSupportsInstanceScope(dbNode(0))).toBe(false)
   })
 
+  it('enables instance scope for worker nodes', () => {
+    expect(
+      nodeSupportsInstanceScope({
+        id: 'worker1',
+        type: 'worker',
+        position: [0, 0, 0],
+        label: 'Worker',
+        config: { replicas: 2 },
+        status: 'healthy',
+      }),
+    ).toBe(true)
+  })
+
+  it('builds worker tabs when multiple pod replicas exist', () => {
+    const tabs = instanceTabsForNode(
+      {
+        id: 'worker1',
+        type: 'worker',
+        position: [0, 0, 0],
+        label: 'Worker',
+        config: { replicas: 2 },
+        status: 'healthy',
+      },
+      metrics({
+        podReplicas: [
+          {
+            name: 'worker-roll-a',
+            ready: true,
+            requestRate: 3,
+            p99LatencyMs: 40,
+            totalRequests: 100,
+            cpuUsage: 0.1,
+            errorRate: 0,
+            memoryBytes: 0,
+          },
+          {
+            name: 'worker-roll-b',
+            ready: true,
+            requestRate: 4,
+            p99LatencyMs: 35,
+            totalRequests: 120,
+            cpuUsage: 0.12,
+            errorRate: 0,
+            memoryBytes: 0,
+          },
+        ],
+      }),
+    )
+    expect(tabs.map((tab) => tab.label)).toEqual(['Cluster', 'roll-a', 'roll-b'])
+  })
+
   it('builds compute tabs when multiple pod replicas exist', () => {
     const tabs = instanceTabsForNode(
       computeNode(),
