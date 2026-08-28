@@ -139,6 +139,18 @@ export function dbLayerXactHeadline(
   }
 }
 
+/** App SQL query rate vs session total for a DB instance layer (histogram target). */
+export function dbLayerAppSqlHeadline(
+  layer: ComponentLayerMetrics,
+  timeframe: MetricsTimeframe,
+): DbQueryHeadlineFields {
+  return {
+    label: timeframe === 'session' ? 'Total queries' : 'Query rate',
+    liveRate: layer.dbQueryRate ?? 0,
+    sessionTotal: layer.dbTotalQueries ?? 0,
+  }
+}
+
 /** Per-pod metric series from inspector history for instance graphs. */
 export function podHistorySeries(
   history: MetricsBucket[],

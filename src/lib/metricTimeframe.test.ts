@@ -5,6 +5,7 @@ import {
   cacheHeadlines,
   cacheHitRateDisplay,
   dbQueryHeadline,
+  dbLayerAppSqlHeadline,
   dbLayerXactHeadline,
   feedPushHeadline,
   podCpuPercent,
@@ -127,6 +128,28 @@ describe('dbLayerXactHeadline', () => {
     }
     expect(dbLayerXactHeadline(layer, 'live').label).toBe('Transaction rate')
     expect(dbLayerXactHeadline(layer, 'session').sessionTotal).toBe(5000)
+  })
+})
+
+describe('dbLayerAppSqlHeadline', () => {
+  it('switches app SQL label between live rate and session total', () => {
+    const layer = {
+      id: 'postgres-replica-0',
+      role: 'replica',
+      engine: 'postgresql',
+      cpuUsage: 0,
+      memoryBytes: 0,
+      cpuLimit: 1,
+      memoryLimit: 1,
+      cpuIsEstimated: false,
+      memIsEstimated: false,
+      dbQueryRate: 3.9,
+      dbTotalQueries: 673,
+    }
+    expect(dbLayerAppSqlHeadline(layer, 'live').label).toBe('Query rate')
+    expect(dbLayerAppSqlHeadline(layer, 'live').liveRate).toBe(3.9)
+    expect(dbLayerAppSqlHeadline(layer, 'session').label).toBe('Total queries')
+    expect(dbLayerAppSqlHeadline(layer, 'session').sessionTotal).toBe(673)
   })
 })
 

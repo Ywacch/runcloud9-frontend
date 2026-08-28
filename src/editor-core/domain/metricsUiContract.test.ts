@@ -281,6 +281,42 @@ describe('metricsUiContract', () => {
     expect(layers[0]?.storageIo?.writeRate).toBe(0)
   })
 
+  it('parseComponentLayers maps db layer app SQL fields', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'postgres',
+        role: 'primary',
+        engine: 'postgresql',
+        cpuUsage: 0.08,
+        memoryUsage: 134217728,
+        dbQueryRate: 5.8,
+        dbTotalQueries: 993,
+        p50Latency: 0.05,
+        p95Latency: 0.12,
+        p99Latency: 0.834,
+        p50Latency9m: 0.04,
+        p95Latency9m: 0.1,
+        p99Latency9m: 0.7,
+      },
+      {
+        id: 'postgres-replica-0',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0.02,
+        memoryUsage: 67108864,
+        dbQueryRate: 3.9,
+        dbTotalQueries: 673,
+        p99Latency: 0.223,
+      },
+    ])
+    expect(layers[0]?.dbQueryRate).toBe(5.8)
+    expect(layers[0]?.dbTotalQueries).toBe(993)
+    expect(layers[0]?.p99LatencyMs).toBeCloseTo(834)
+    expect(layers[0]?.p50Latency9mMs).toBeCloseTo(40)
+    expect(layers[1]?.dbQueryRate).toBe(3.9)
+    expect(layers[1]?.p99LatencyMs).toBeCloseTo(223)
+  })
+
   it('parseDbConsistency maps observer status from WS payload', () => {
     const status = parseDbConsistency({
       rywViolations: 2,
