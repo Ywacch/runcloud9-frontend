@@ -1,11 +1,12 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
+import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   ComputeInstanceSection,
   DbConsistencySection,
+  DbInstanceLayerSection,
   DbLoadSection,
   formatConsistencyViolation,
 } from './StorageIoSection'
@@ -206,6 +207,69 @@ describe('ComputeInstanceSection timeframe', () => {
     expect(html).toContain('Errors')
     expect(html).toContain('12')
     expect(html).toContain('Latency p99')
+  })
+})
+
+const dbReplicaLayer: ComponentLayerMetrics = {
+  id: 'postgres-replica-0',
+  role: 'replica',
+  engine: 'postgresql',
+  cpuUsage: 0.04,
+  memoryBytes: 64 * 1024 * 1024,
+  cpuLimit: 1,
+  memoryLimit: 512 * 1024 * 1024,
+  cpuIsEstimated: false,
+  memIsEstimated: false,
+  dbQueryRate: 3.9,
+  dbTotalQueries: 672,
+  p99LatencyMs: 1382,
+  p99Latency9mMs: 1200,
+  requestRate: 8,
+  totalRequests: 1200,
+  replicationLagSeconds: 0.1,
+}
+
+describe('DbInstanceLayerSection timeframe', () => {
+  it('shows live app SQL rate and p99 latency', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbInstanceLayerSection, {
+        layer: dbReplicaLayer,
+        view: { timeframe: 'live', showGraphs: true },
+      }),
+    )
+    expect(html).toContain('Query rate')
+    expect(html).toContain('4/s')
+    expect(html).toContain('Latency (p99)')
+    expect(html).not.toContain('not shown on Replica tabs yet')
+  })
+
+  it('shows session app SQL totals in session mode', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbInstanceLayerSection, {
+        layer: dbReplicaLayer,
+        view: { timeframe: 'session', showGraphs: true },
+      }),
+    )
+    expect(html).toContain('Total queries')
+    expect(html).toContain('672')
+    expect(html).toContain('Latency p99')
+  })
+
+  it('shows dashes when layer app SQL fields are absent', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbInstanceLayerSection, {
+        layer: {
+          ...dbReplicaLayer,
+          dbQueryRate: undefined,
+          dbTotalQueries: undefined,
+          p99LatencyMs: undefined,
+          p99Latency9mMs: undefined,
+        },
+        view: { timeframe: 'live', showGraphs: true },
+      }),
+    )
+    expect(html).toContain('Query rate')
+    expect(html).toMatch(/>—</)
   })
 })
 

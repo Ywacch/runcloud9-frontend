@@ -10,7 +10,14 @@ import {
   storageScopeLine,
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
-import { dbQueryHeadline, dbLayerHistorySeries, dbLayerXactHeadline, podHistorySeries, storageIoThroughputFields } from '../lib/metricTimeframe'
+import {
+  dbLayerAppSqlHeadline,
+  dbQueryHeadline,
+  dbLayerHistorySeries,
+  dbLayerXactHeadline,
+  podHistorySeries,
+  storageIoThroughputFields,
+} from '../lib/metricTimeframe'
 import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import { rollup, samplesFromLayers } from '../lib/instanceRollup'
@@ -365,6 +372,28 @@ export function DbInstanceLayerSection({
   const { cpuPercent, memPercent } = layerResourcePercents(layer)
   const roleLabel = layer.role === 'primary' ? 'Primary' : 'Replica'
   const tf = view.timeframe
+  const appSql = dbLayerAppSqlHeadline(layer, tf)
+  const appSqlValue =
+    tf === 'session'
+      ? fmtInt(appSql.sessionTotal)
+      : appSql.liveRate > 0
+        ? `${fmtRate(appSql.liveRate)}/s`
+        : '—'
+  const appSqlLatencyMs =
+    tf === 'session'
+      ? layer.p99Latency9mMs ?? layer.p99LatencyMs ?? 0
+      : layer.p99LatencyMs ?? 0
+  const appSqlLatencyLabel = tf === 'session' ? 'Latency p99' : 'Latency (p99)'
+  const appSqlRateSeries = dbLayerHistorySeries(
+    history,
+    layer.id,
+    (l) => (tf === 'session' ? l.dbTotalQueries ?? 0 : l.dbQueryRate ?? 0),
+  )
+  const appSqlLatencySeries = dbLayerHistorySeries(
+    history,
+    layer.id,
+    (l) => l.p99LatencyMs ?? 0,
+  )
   const xact = dbLayerXactHeadline(layer, tf)
   const xactValue =
     tf === 'session' ? fmtInt(xact.sessionTotal) : `${fmtRate(xact.liveRate)}/s`
@@ -391,9 +420,49 @@ export function DbInstanceLayerSection({
 
   return (
     <PedagogicalSection
-      title={`${roleLabel} instance (USE + engine)`}
-      subtitle="Engine xact, connections, and row I/O for this postgres instance"
+      title={`${roleLabel} instance (RED + USE + engine)`}
+      subtitle="App SQL by target, engine xact, connections, and row I/O for this postgres instance"
     >
+      <StatRow
+        left={
+          <StatBlock
+            label={appSql.label}
+            value={appSqlValue}
+            help={
+              tf === 'session'
+                ? 'Timed SQL ops on this histogram target since app-server pods started.'
+                : 'App SQL throughput for this histogram target (db_query_duration_seconds).'
+            }
+            graph={
+              <MetricSeriesGraph
+                data={appSqlRateSeries}
+                color="#6366f1"
+                title={appSql.label}
+                unit={tf === 'session' ? 'session total' : '10s · /s'}
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+        right={
+          <StatBlock
+            label={appSqlLatencyLabel}
+            value={appSqlLatencyMs > 0 ? fmtMs(appSqlLatencyMs) : '—'}
+            help={tf === 'session' ? SESSION_LATENCY_P99_HELP : LATENCY_HELP}
+            graph={
+              <MetricSeriesGraph
+                data={appSqlLatencySeries}
+                color="var(--c9-error)"
+                title="p99 latency"
+                unit="10s · ms"
+                view={view}
+                showPlaybackDelay={showPlaybackDelay}
+              />
+            }
+          />
+        }
+      />
       <StatRow
         left={
           <StatBlock
@@ -484,10 +553,10 @@ export function DbInstanceLayerSection({
         />
       ) : null}
       {isReplica ? (
-        <InlineDisclosure label="About replica engine metrics">
+        <InlineDisclosure label="About replica metrics">
           <PedagogicalHint tone="muted">
-            App SQL by target is not shown on Replica tabs yet. Row scans here may include
-            WAL apply until read-split templates are deployed on this topology.
+            App SQL counts queries routed to this replica target. Row scans may still include
+            some WAL apply overhead; after read-split, student SELECTs appear in both tiles.
           </PedagogicalHint>
         </InlineDisclosure>
       ) : null}

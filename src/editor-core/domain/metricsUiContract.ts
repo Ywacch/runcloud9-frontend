@@ -108,6 +108,17 @@ export interface ComponentLayerMetrics {
   totalRequests?: number
   /** Active postgres backends on this layer's pod(s). */
   dbActiveConnections?: number
+  /** App SQL query rate for this layer's histogram target (queries/s). */
+  dbQueryRate?: number
+  /** Session sum of db_query_duration_seconds_count for this target. */
+  dbTotalQueries?: number
+  /** App SQL latency percentiles for this target (milliseconds). */
+  p50LatencyMs?: number
+  p95LatencyMs?: number
+  p99LatencyMs?: number
+  p50Latency9mMs?: number
+  p95Latency9mMs?: number
+  p99Latency9mMs?: number
   /** Primary: cluster read+write I/O. Replica: read scans only. */
   storageIo?: StorageIoMetrics | null
   /** Layer-local containerCpu / containerMem freshness when present. */
@@ -375,6 +386,14 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const requestRate = num(r.requestRate)
     const totalRequests = Math.round(num(r.totalRequests))
     const dbActiveConnections = Math.round(num(r.dbActiveConnections))
+    const dbQueryRate = num(r.dbQueryRate)
+    const dbTotalQueries = Math.round(num(r.dbTotalQueries))
+    const p50Ms = num(r.p50Latency) * 1000
+    const p95Ms = num(r.p95Latency) * 1000
+    const p99Ms = num(r.p99Latency) * 1000
+    const p50SessionMs = num(r.p50Latency9m) * 1000
+    const p95SessionMs = num(r.p95Latency9m) * 1000
+    const p99SessionMs = num(r.p99Latency9m) * 1000
     out.push({
       id,
       role: typeof r.role === 'string' ? r.role.trim() : '',
@@ -399,6 +418,14 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       requestRate: requestRate > 0 ? requestRate : undefined,
       totalRequests: totalRequests > 0 ? totalRequests : undefined,
       dbActiveConnections: dbActiveConnections > 0 ? dbActiveConnections : undefined,
+      dbQueryRate: dbQueryRate > 0 ? dbQueryRate : undefined,
+      dbTotalQueries: dbTotalQueries > 0 ? dbTotalQueries : undefined,
+      p50LatencyMs: p50Ms > 0 ? p50Ms : undefined,
+      p95LatencyMs: p95Ms > 0 ? p95Ms : undefined,
+      p99LatencyMs: p99Ms > 0 ? p99Ms : undefined,
+      p50Latency9mMs: p50SessionMs > 0 ? p50SessionMs : undefined,
+      p95Latency9mMs: p95SessionMs > 0 ? p95SessionMs : undefined,
+      p99Latency9mMs: p99SessionMs > 0 ? p99SessionMs : undefined,
       storageIo: parseStorageIo(r.storageIo),
       freshness: parseComponentFreshness(r.freshness),
     })

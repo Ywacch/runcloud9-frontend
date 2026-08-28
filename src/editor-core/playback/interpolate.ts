@@ -148,6 +148,14 @@ function lerpComponentLayers(
         memIsEstimated: snapBool(la.memIsEstimated, lb.memIsEstimated, t),
         requestRate: lerpNum(la.requestRate ?? 0, lb.requestRate ?? 0, t) || undefined,
         totalRequests: lerpRound(la.totalRequests ?? 0, lb.totalRequests ?? 0, t) || undefined,
+        dbQueryRate: lerpNum(la.dbQueryRate ?? 0, lb.dbQueryRate ?? 0, t) || undefined,
+        dbTotalQueries: lerpRound(la.dbTotalQueries ?? 0, lb.dbTotalQueries ?? 0, t) || undefined,
+        p50LatencyMs: lerpNum(la.p50LatencyMs ?? 0, lb.p50LatencyMs ?? 0, t) || undefined,
+        p95LatencyMs: lerpNum(la.p95LatencyMs ?? 0, lb.p95LatencyMs ?? 0, t) || undefined,
+        p99LatencyMs: lerpNum(la.p99LatencyMs ?? 0, lb.p99LatencyMs ?? 0, t) || undefined,
+        p50Latency9mMs: lerpNum(la.p50Latency9mMs ?? 0, lb.p50Latency9mMs ?? 0, t) || undefined,
+        p95Latency9mMs: lerpNum(la.p95Latency9mMs ?? 0, lb.p95Latency9mMs ?? 0, t) || undefined,
+        p99Latency9mMs: lerpNum(la.p99Latency9mMs ?? 0, lb.p99Latency9mMs ?? 0, t) || undefined,
         dbActiveConnections:
           lerpRound(la.dbActiveConnections ?? 0, lb.dbActiveConnections ?? 0, t) || undefined,
         replicationLagSeconds:
