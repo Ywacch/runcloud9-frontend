@@ -11,6 +11,7 @@ import {
   DEMO_DATA_ROW_TITLE,
   LOADGEN_ROW_TITLE,
   VALIDATE_STEP_SUBTITLE,
+  buildSeedWaitContext,
   componentStatusToUserLine,
   instanceLabelForNode,
   loadgenStatusToUserLine,
@@ -293,7 +294,11 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
   )
   const seeding: NormalizedSeedingState = parsed.seedingStatus ?? 'pending'
   const loadgen: NormalizedLoadgenState = parsed.loadgenStatus ?? 'pending'
-  const seedingLine = seedingStatusToUserLine(seeding)
+  const seedCtx = useMemo(
+    () => buildSeedWaitContext(nodes, parsed.replicaStatus),
+    [nodes, parsed.replicaStatus],
+  )
+  const seedingLine = seedingStatusToUserLine(seeding, seedCtx)
   const loadgenLine = loadgenStatusToUserLine(loadgen)
 
   const seedingRow = (() => {
@@ -446,6 +451,13 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
     () => parseProvisionMetrics(metricsSummary),
     [metricsSummary],
   )
+  const seedCtx = useMemo(
+    () =>
+      parsed
+        ? buildSeedWaitContext(nodes, parsed.replicaStatus)
+        : undefined,
+    [nodes, parsed],
+  )
   const legacyPulse = shouldUseLegacyProvisioningPulse(metricsSummary)
   const isDoorwayWait =
     !isQueued && isWaitingForProvisionSlot(parsed?.provisionPhase)
@@ -473,8 +485,12 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
       ? roomDetail
       : isDoorwayWait
         ? doorwayDetail
-        : parsed?.provisionDetailCode
-          ? provisionDetailCodeToSubtitle(parsed.provisionDetailCode)
+        : parsed?.provisionDetailCode || parsed?.seedingStatus
+          ? provisionDetailCodeToSubtitle(
+              parsed.provisionDetailCode,
+              parsed.seedingStatus,
+              seedCtx,
+            )
           : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
             ? parsed.provisionPhase.replace(/-/g, ' ')
             : 'Starting your system…'

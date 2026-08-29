@@ -4,6 +4,8 @@ import type {
   NormalizedSeedingState,
   ReplicaWaitRow,
 } from './provisionMetrics'
+import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { clampReadReplicas } from './replicaConfig'
 
 export type UserLine = {
   status: string
@@ -51,8 +53,87 @@ export function waitCodeToUserLine(code: string | undefined | null): UserLine {
   }
 }
 
-export function provisionDetailCodeToSubtitle(code: string | undefined | null): string {
-  switch (String(code ?? '').trim().toLowerCase()) {
+export type SeedReplicationMode = 'async' | 'semi-sync' | 'sync'
+
+export type SeedWaitContext = {
+  mode: SeedReplicationMode
+  replicaCount: number
+  replicaRows?: ReplicaWaitRow[]
+}
+
+/** How many standbys must be Ready before restore (mirrors ganymede helper). */
+export function seedReplicaReadyBeforeRestore(
+  mode: SeedReplicationMode,
+  replicaCount: number,
+): number {
+  if (replicaCount <= 0) return 0
+  if (mode === 'async') return 0
+  if (mode === 'semi-sync') return 1
+  return replicaCount
+}
+
+export function parseSeedReplicationMode(
+  raw: unknown,
+  replicaCount: number,
+): SeedReplicationMode {
+  if (replicaCount <= 0) return 'async'
+  const mode = String(raw ?? 'async').trim().toLowerCase()
+  if (mode === 'semi-sync' || mode === 'semisync' || mode === 'semi_sync') {
+    return 'semi-sync'
+  }
+  if (mode === 'sync' || mode === 'synchronous') return 'sync'
+  return 'async'
+}
+
+export function buildSeedWaitContext(
+  nodes: Record<string, CanvasNode>,
+  replicaStatus: Record<string, ReplicaWaitRow[]>,
+): SeedWaitContext | undefined {
+  const db = Object.values(nodes).find((n) => n.type === 'database')
+  if (!db) return undefined
+  const replicaCount = clampReadReplicas(db.config?.readReplicas)
+  return {
+    mode: parseSeedReplicationMode(db.config?.replicationMode, replicaCount),
+    replicaCount,
+    replicaRows: replicaStatus[db.id],
+  }
+}
+
+function primaryReady(rows: ReplicaWaitRow[] | undefined): boolean {
+  if (!rows?.length) return false
+  const primary = rows.find((row) => row.ordinal === 1) ?? rows[0]
+  return Boolean(primary.ready)
+}
+
+function standbyReadyCount(rows: ReplicaWaitRow[] | undefined): number {
+  if (!rows?.length) return 0
+  return rows.filter((row) => row.ordinal > 1 && row.ready).length
+}
+
+export function provisionDetailCodeToSubtitle(
+  code: string | undefined | null,
+  seeding?: NormalizedSeedingState,
+  ctx?: SeedWaitContext,
+): string {
+  const normalized = String(code ?? '').trim().toLowerCase()
+  if (seeding === 'seeding') return 'Loading demo data…'
+  const generic =
+    normalized === '' ||
+    normalized === 'layer_deploying' ||
+    normalized === 'starting your system…'
+  if (seeding === 'pending' && ctx && generic) {
+    const pending = seedingStatusToUserLine('pending', ctx)
+    if (pending.detail?.includes('every replica') || pending.detail?.includes('a replica first')) {
+      return 'Waiting for replicas before demo data…'
+    }
+    if (
+      pending.detail === 'Starts after the primary is ready.' ||
+      pending.detail === 'Starts after the database is ready.'
+    ) {
+      return 'Waiting for the primary…'
+    }
+  }
+  switch (normalized) {
     case 'layer_deploying':
       return 'Starting your system…'
     case 'pulling_image':
@@ -105,15 +186,62 @@ export function componentStatusToUserLine(
   }
 }
 
-export function seedingStatusToUserLine(state: NormalizedSeedingState): UserLine {
+export function seedingStatusToUserLine(
+  state: NormalizedSeedingState,
+  ctx?: SeedWaitContext,
+): UserLine {
   switch (state) {
-    case 'pending':
-      return { status: 'Waiting…' }
-    case 'seeding':
+    case 'pending': {
+      if (!ctx) return { status: 'Waiting…' }
+      const minReady = seedReplicaReadyBeforeRestore(ctx.mode, ctx.replicaCount)
+      if (minReady === 0) {
+        if (!primaryReady(ctx.replicaRows)) {
+          return {
+            status: 'Waiting…',
+            detail:
+              ctx.replicaCount > 0
+                ? 'Starts after the primary is ready.'
+                : 'Starts after the database is ready.',
+          }
+        }
+        return {
+          status: 'Waiting…',
+          detail: 'Starting on the primary.',
+        }
+      }
+      if (standbyReadyCount(ctx.replicaRows) < minReady) {
+        if (ctx.mode === 'semi-sync') {
+          return {
+            status: 'Waiting…',
+            detail: 'Waiting for a replica first.',
+          }
+        }
+        return {
+          status: 'Waiting…',
+          detail: 'Waiting for every replica. Sync commits need a standby.',
+        }
+      }
+      return { status: 'Waiting…', detail: 'Starting soon.' }
+    }
+    case 'seeding': {
+      const replicasStillStarting =
+        (ctx?.replicaCount ?? 0) > 0 &&
+        Boolean(ctx?.replicaRows?.some((row) => !row.ready))
+      if (
+        ctx &&
+        seedReplicaReadyBeforeRestore(ctx.mode, ctx.replicaCount) === 0 &&
+        replicasStillStarting
+      ) {
+        return {
+          status: 'Loading demo data…',
+          detail: 'Loading into the primary. Replicas copy that data next.',
+        }
+      }
       return {
         status: 'Loading demo data…',
         detail: 'Adding example records to your database.',
       }
+    }
     case 'done':
       return { status: 'Loaded' }
     case 'failed':
