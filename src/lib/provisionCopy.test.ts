@@ -4,9 +4,19 @@ import {
   DEMO_DATA_ROW_TITLE,
   instanceLabelForNode,
   provisionDetailCodeToSubtitle,
+  seedReplicaReadyBeforeRestore,
   seedingStatusToUserLine,
   waitCodeToUserLine,
 } from './provisionCopy'
+
+describe('seedReplicaReadyBeforeRestore', () => {
+  it('matches ganymede async / semi-sync / sync gates', () => {
+    expect(seedReplicaReadyBeforeRestore('async', 2)).toBe(0)
+    expect(seedReplicaReadyBeforeRestore('semi-sync', 2)).toBe(1)
+    expect(seedReplicaReadyBeforeRestore('sync', 2)).toBe(2)
+    expect(seedReplicaReadyBeforeRestore('sync', 0)).toBe(0)
+  })
+})
 
 describe('waitCodeToUserLine', () => {
   it('maps pulling_image to Preparing without kube jargon', () => {
@@ -31,6 +41,60 @@ describe('seedingStatusToUserLine', () => {
     expect(line.status).toBe('Loading demo data…')
     expect(line.status).not.toMatch(/Not started|Seeding/i)
   })
+
+  it('explains async wait until the primary is ready', () => {
+    const line = seedingStatusToUserLine('pending', {
+      mode: 'async',
+      replicaCount: 2,
+      replicaRows: [
+        { ordinal: 1, ready: false, waitCode: 'starting' },
+        { ordinal: 2, ready: false, waitCode: 'pending' },
+      ],
+    })
+    expect(line.status).toBe('Waiting…')
+    expect(line.detail).toBe('Starts after the primary is ready.')
+  })
+
+  it('explains async restore into the primary while replicas clone', () => {
+    const line = seedingStatusToUserLine('seeding', {
+      mode: 'async',
+      replicaCount: 2,
+      replicaRows: [
+        { ordinal: 1, ready: true, waitCode: 'ready' },
+        { ordinal: 2, ready: false, waitCode: 'starting' },
+      ],
+    })
+    expect(line.detail).toBe(
+      'Loading into the primary. Replicas copy that data next.',
+    )
+  })
+
+  it('explains sync wait until every replica is ready', () => {
+    const line = seedingStatusToUserLine('pending', {
+      mode: 'sync',
+      replicaCount: 2,
+      replicaRows: [
+        { ordinal: 1, ready: true, waitCode: 'ready' },
+        { ordinal: 2, ready: false, waitCode: 'starting' },
+        { ordinal: 3, ready: false, waitCode: 'pending' },
+      ],
+    })
+    expect(line.detail).toBe(
+      'Waiting for every replica. Sync commits need a standby.',
+    )
+  })
+
+  it('explains semi-sync wait for any one replica', () => {
+    const line = seedingStatusToUserLine('pending', {
+      mode: 'semi-sync',
+      replicaCount: 2,
+      replicaRows: [
+        { ordinal: 1, ready: true, waitCode: 'ready' },
+        { ordinal: 2, ready: false, waitCode: 'starting' },
+      ],
+    })
+    expect(line.detail).toBe('Waiting for a replica first.')
+  })
 })
 
 describe('provisionDetailCodeToSubtitle', () => {
@@ -38,6 +102,19 @@ describe('provisionDetailCodeToSubtitle', () => {
     expect(provisionDetailCodeToSubtitle('loading_sample_data')).toBe(
       'Loading demo data…',
     )
+  })
+
+  it('overrides generic deploying copy while sync waits for replicas', () => {
+    expect(
+      provisionDetailCodeToSubtitle('layer_deploying', 'pending', {
+        mode: 'sync',
+        replicaCount: 2,
+        replicaRows: [
+          { ordinal: 1, ready: true, waitCode: 'ready' },
+          { ordinal: 2, ready: false, waitCode: 'starting' },
+        ],
+      }),
+    ).toBe('Waiting for replicas before demo data…')
   })
 })
 

@@ -160,4 +160,70 @@ describe('ProvisioningOverlay', () => {
     expect(html).not.toContain('3 of 3 instances ready')
     expect(html).toContain('text-emerald-400')
   })
+
+  it('explains sync demo-data wait until replicas are ready', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 5,
+        metricsSummary: {
+          provision_phase: 'deploying',
+          provision_detail_code: 'layer_deploying',
+          component_status: { 'db-1': 'deploying' },
+          seeding_status: 'pending',
+          loadgen_status: 'pending',
+          replica_status: {
+            'db-1': [
+              { ordinal: 1, ready: true, wait_code: 'ready' },
+              { ordinal: 2, ready: false, wait_code: 'starting' },
+            ],
+          },
+        },
+        nodes: {
+          'db-1': {
+            id: 'db-1',
+            type: 'database',
+            position: [0, 0, 0],
+            label: 'PostgreSQL',
+            config: { readReplicas: 1, replicationMode: 'sync' },
+            status: 'provisioning',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('Waiting for every replica. Sync commits need a standby.')
+    expect(html).toContain('Waiting for replicas before demo data…')
+  })
+
+  it('explains async demo-data load while replicas are still cloning', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 8,
+        metricsSummary: {
+          provision_phase: 'deploying',
+          provision_detail_code: 'loading_sample_data',
+          component_status: { 'db-1': 'deploying' },
+          seeding_status: 'seeding',
+          loadgen_status: 'pending',
+          replica_status: {
+            'db-1': [
+              { ordinal: 1, ready: true, wait_code: 'ready' },
+              { ordinal: 2, ready: false, wait_code: 'starting' },
+            ],
+          },
+        },
+        nodes: {
+          'db-1': {
+            id: 'db-1',
+            type: 'database',
+            position: [0, 0, 0],
+            label: 'PostgreSQL',
+            config: { readReplicas: 1, replicationMode: 'async' },
+            status: 'provisioning',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('Loading into the primary. Replicas copy that data next.')
+    expect(html).toContain('Loading demo data…')
+  })
 })
