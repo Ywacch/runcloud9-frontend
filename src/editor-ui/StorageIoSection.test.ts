@@ -213,6 +213,37 @@ describe('ComputeInstanceSection timeframe', () => {
   })
 })
 
+describe('ComputeInstanceSection worker labels', () => {
+  it('uses process rate and total jobs labels when overridden', () => {
+    const html = renderToStaticMarkup(
+      createElement(ComputeInstanceSection, {
+        pod: instancePod,
+        m: dbBucket(),
+        view: { timeframe: 'live', showGraphs: true, latencyQuantile: 'p99' },
+        liveThroughputLabel: 'Process rate',
+        sessionThroughputLabel: 'Total jobs',
+      }),
+    )
+    expect(html).toContain('Process rate')
+    expect(html).not.toContain('Request rate')
+  })
+
+  it('shows total jobs in session mode when overridden', () => {
+    const html = renderToStaticMarkup(
+      createElement(ComputeInstanceSection, {
+        pod: instancePod,
+        m: dbBucket(),
+        view: { timeframe: 'session', showGraphs: true, latencyQuantile: 'p99' },
+        liveThroughputLabel: 'Process rate',
+        sessionThroughputLabel: 'Total jobs',
+      }),
+    )
+    expect(html).toContain('Total jobs')
+    expect(html).not.toContain('Total requests')
+    expect(html).toContain('9,000')
+  })
+})
+
 const dbReplicaLayer: ComponentLayerMetrics = {
   id: 'postgres-replica-0',
   role: 'replica',
