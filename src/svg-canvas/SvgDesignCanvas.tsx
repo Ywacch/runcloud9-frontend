@@ -612,8 +612,8 @@ export default function SvgDesignCanvas({
     const state = useCanvasStore.getState()
     if (!isInstanceScopeViewportMode(state.mode)) return
     if (dragRef.current) return
-    state.setHoveredNodeId(nodeId)
-    state.setHoveredInstanceId(null)
+      state.setHoveredNodeId(nodeId)
+      state.setHoveredInstanceId('cluster')
   }, [])
 
   const onNodePointerLeave = useCallback((nodeId: string) => {
@@ -653,9 +653,11 @@ export default function SvgDesignCanvas({
     (ownerNodeId: string, e: ReactPointerEvent<SVGElement>) => {
       if (e.button !== 0 || spaceDown) return
       e.stopPropagation()
-      useCanvasStore.getState().setHoveredNodeId(null)
       selectOnly(ownerNodeId)
-      useCanvasStore.getState().setSelectedInstanceId('cluster')
+      const canvas = useCanvasStore.getState()
+      canvas.setSelectedInstanceId('cluster')
+      canvas.setHoveredNodeId(ownerNodeId)
+      canvas.setHoveredInstanceId('cluster')
     },
     [spaceDown, selectOnly],
   )
@@ -665,7 +667,6 @@ export default function SvgDesignCanvas({
       if (e.button !== 0 || spaceDown) return
       if (!unitPickEnabled(nodeId)) return
       e.stopPropagation()
-      useCanvasStore.getState().setHoveredNodeId(null)
       const canvas = useCanvasStore.getState()
       const canvasNode = canvas.nodes[nodeId]
       if (!canvasNode) return
@@ -678,7 +679,10 @@ export default function SvgDesignCanvas({
         unitCount,
       )
       selectOnly(nodeId)
-      if (instanceId) canvas.setSelectedInstanceId(instanceId)
+      const after = useCanvasStore.getState()
+      if (instanceId) after.setSelectedInstanceId(instanceId)
+      after.setHoveredNodeId(nodeId)
+      after.setHoveredInstanceId(instanceId)
     },
     [spaceDown, selectOnly, unitCountForNode, unitPickEnabled],
   )
@@ -1337,6 +1341,8 @@ export default function SvgDesignCanvas({
             selectedIds={selectedIds}
             ownerOpacityById={walkthroughOpacityById ?? undefined}
             onClusterPointerDown={onZonePointerDown}
+            onClusterPointerEnter={onNodePointerEnter}
+            onClusterPointerLeave={onNodePointerLeave}
           />
           <EdgeLayer
             edges={edges}

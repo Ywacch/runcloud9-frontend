@@ -3,6 +3,7 @@ import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   DB_LAYER_ID_POSTGRES_PRIMARY,
   nodeSupportsInstanceScope,
+  usesPodReplicaScope,
 } from './dbInstanceScope'
 
 /** Stable instance ids aligned with canvas unit paint order (index i → ids[i]). */
@@ -13,7 +14,7 @@ export function sortedCanvasInstanceIds(
 ): string[] {
   if (!metrics || unitCount <= 1 || !nodeSupportsInstanceScope(node)) return []
 
-  if (node.type === 'compute' || node.type === 'worker') {
+  if (usesPodReplicaScope(node)) {
     const ids = [...metrics.podReplicas]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((pod) => pod.name)
