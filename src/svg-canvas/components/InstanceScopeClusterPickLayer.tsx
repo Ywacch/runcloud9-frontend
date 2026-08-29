@@ -24,6 +24,8 @@ type InstanceScopeClusterPickLayerProps = {
     ownerNodeId: string,
     e: ReactPointerEvent<SVGElement>,
   ) => void
+  onClusterPointerEnter?: (ownerNodeId: string) => void
+  onClusterPointerLeave?: (ownerNodeId: string) => void
 }
 
 export function InstanceScopeClusterPickLayer({
@@ -33,6 +35,8 @@ export function InstanceScopeClusterPickLayer({
   selectedIds,
   ownerOpacityById,
   onClusterPointerDown,
+  onClusterPointerEnter,
+  onClusterPointerLeave,
 }: InstanceScopeClusterPickLayerProps) {
   useDragLiveEpoch()
   const expandEpoch = useSyncExternalStore(subscribeExpand, getExpandEpoch, () => 0)
@@ -90,6 +94,8 @@ export function InstanceScopeClusterPickLayer({
               fill="transparent"
               style={{ pointerEvents: 'fill', cursor: 'pointer' }}
               onPointerDown={(e) => onClusterPointerDown(zone.ownerNodeId, e)}
+              onPointerEnter={() => onClusterPointerEnter?.(zone.ownerNodeId)}
+              onPointerLeave={() => onClusterPointerLeave?.(zone.ownerNodeId)}
             />
           </g>
         )

@@ -186,7 +186,9 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
         loadgenActive={loadgenActive}
         view={panelView}
         onPanelViewChange={patchPanelView}
-        replicaRows={node.type === 'compute' ? replicaRows : []}
+        replicaRows={
+          node.type === 'compute' || node.type === 'worker' ? replicaRows : []
+        }
         selectedInstanceId={selectedInstanceId}
       />
       {simInspectorCallout ? (

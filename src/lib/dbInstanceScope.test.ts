@@ -10,6 +10,7 @@ import {
   introspectRoutingForInstance,
   logLineMatchesInstance,
   nodeSupportsInstanceScope,
+  usesPodReplicaScope,
 } from './dbInstanceScope'
 
 function dbNode(readReplicas: number): CanvasNode {
@@ -101,6 +102,16 @@ describe('dbInstanceScope', () => {
   it('enables instance scope for worker nodes', () => {
     expect(
       nodeSupportsInstanceScope({
+        id: 'worker1',
+        type: 'worker',
+        position: [0, 0, 0],
+        label: 'Worker',
+        config: { replicas: 2 },
+        status: 'healthy',
+      }),
+    ).toBe(true)
+    expect(
+      usesPodReplicaScope({
         id: 'worker1',
         type: 'worker',
         position: [0, 0, 0],

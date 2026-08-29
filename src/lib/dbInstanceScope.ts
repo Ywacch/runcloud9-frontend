@@ -13,9 +13,14 @@ export function dbHasReplicaLayers(layers: ComponentLayerMetrics[]): boolean {
   return layers.some((layer) => layer.role === 'replica')
 }
 
+/** App-server and worker share podReplica instance ids (not DB layers). */
+export function usesPodReplicaScope(node: CanvasNode | null | undefined): boolean {
+  return node?.type === 'compute' || node?.type === 'worker'
+}
+
 export function nodeSupportsInstanceScope(node: CanvasNode | null | undefined): boolean {
   if (!node) return false
-  if (node.type === 'compute' || node.type === 'worker') return true
+  if (usesPodReplicaScope(node)) return true
   if (node.type === 'database') return clampReadReplicas(node.config.readReplicas) >= 1
   return false
 }

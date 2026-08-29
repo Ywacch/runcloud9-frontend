@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { clampPercent, fmtMs, fmtRate } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
+import { usesPodReplicaScope } from '../lib/dbInstanceScope'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   rollup,
@@ -44,7 +45,7 @@ function compactInstanceLabel(id: string): string {
   return compactPodName(id) || id
 }
 
-function resolveGroupedDisplay(
+export function resolveGroupedDisplay(
   node: CanvasNode,
   metrics: MetricsBucket | undefined,
   dbWarmingUp: boolean,
@@ -52,9 +53,9 @@ function resolveGroupedDisplay(
 ): SingleRollupDisplay | null {
   if (!metrics) return null
 
-  if (instanceScopeId) {
+  if (instanceScopeId && instanceScopeId !== 'cluster') {
     const sample =
-      node.type === 'compute'
+      usesPodReplicaScope(node)
         ? samplesFromCompute(metrics).find((s) => s.id === instanceScopeId)
         : node.type === 'database'
           ? samplesFromLayers(metrics).find((s) => s.id === instanceScopeId)
@@ -75,7 +76,7 @@ function resolveGroupedDisplay(
         p99Ms: warmed.p99 != null && warmed.p99 > 0 ? warmed.p99 * 1000 : null,
         idle: warmed.idle,
         instanceLabel:
-          node.type === 'compute'
+          usesPodReplicaScope(node)
             ? compactInstanceLabel(sample.id)
             : sample.role === 'primary'
               ? 'primary'
@@ -109,7 +110,7 @@ function resolveGroupedDisplay(
     }
   }
 
-  if (node.type === 'compute' && metrics.podReplicas.length > 1) {
+  if (usesPodReplicaScope(node) && metrics.podReplicas.length > 1) {
     const rolled = rollup(samplesFromCompute(metrics))
     return {
       kind: 'single',
@@ -133,6 +134,8 @@ export function NodeTooltip({
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const hoveredInstanceId = useCanvasStore((s) => s.hoveredInstanceId)
+  const selectedId = useCanvasStore((s) => s.selectedId)
+  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
@@ -148,7 +151,9 @@ export function NodeTooltip({
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
 
-  const instanceScopeId = hoveredInstanceId
+  const instanceScopeId =
+    hoveredInstanceId ??
+    (selectedId === node.id ? selectedInstanceId : null)
 
   const grouped = useMemo(
     () => resolveGroupedDisplay(node, metrics, dbWarmingUp, instanceScopeId),
