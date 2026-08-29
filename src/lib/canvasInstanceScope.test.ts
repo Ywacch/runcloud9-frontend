@@ -20,6 +20,17 @@ function computeNode(): CanvasNode {
   }
 }
 
+function workerNode(): CanvasNode {
+  return {
+    id: 'worker',
+    type: 'worker',
+    label: 'Worker',
+    position: [0, 0, 0],
+    status: 'healthy',
+    config: { replicas: 3 },
+  }
+}
+
 function dbNode(): CanvasNode {
   return {
     id: 'db',
@@ -53,6 +64,21 @@ describe('sortedCanvasInstanceIds', () => {
       3,
     )
     expect(ids).toEqual(['pod-a', 'pod-b', 'pod-c'])
+  })
+
+  it('sorts worker pod replicas by name and requires count match', () => {
+    const ids = sortedCanvasInstanceIds(
+      workerNode(),
+      metrics({
+        podReplicas: [
+          { name: 'worker-b', cpuUsage: 0, memoryBytes: 0, requestRate: 1, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+          { name: 'worker-a', cpuUsage: 0, memoryBytes: 0, requestRate: 1, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+          { name: 'worker-c', cpuUsage: 0, memoryBytes: 0, requestRate: 1, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+        ],
+      }),
+      3,
+    )
+    expect(ids).toEqual(['worker-a', 'worker-b', 'worker-c'])
   })
 
   it('returns empty when pod count does not match unit count', () => {

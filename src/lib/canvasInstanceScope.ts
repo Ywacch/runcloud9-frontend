@@ -13,7 +13,7 @@ export function sortedCanvasInstanceIds(
 ): string[] {
   if (!metrics || unitCount <= 1 || !nodeSupportsInstanceScope(node)) return []
 
-  if (node.type === 'compute') {
+  if (node.type === 'compute' || node.type === 'worker') {
     const ids = [...metrics.podReplicas]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((pod) => pod.name)

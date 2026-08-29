@@ -18,6 +18,7 @@ import {
   SESSION_LATENCY_P99_HELP,
   SESSION_REPLICA_BREAKDOWN_HINT,
   THROUGHPUT_HELP,
+  WORKER_THROUGHPUT_HELP,
   withPodRateDisclaimer,
 } from '../lib/metricHelp'
 import type { ReplicaInspectorRow } from '../lib/replicaMetricsDisplay'
@@ -149,6 +150,7 @@ export function LiveMetricsTypeSection({
   const tmMqQueueDepth = templateMetrics['mq.queue_depth']
   const tmWorkerConsumeRate = templateMetrics['worker.consume_rate']
   const tmWorkerRedisWriteRate = templateMetrics['worker.redis_write_rate']
+  const tmWorkerRedisWrites = templateMetrics['worker.writes.redis']
   const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
   const tmFeedPushRate = templateMetrics['feed.push_rate']
   const computeRollup =
@@ -846,7 +848,7 @@ export function LiveMetricsTypeSection({
     }
 
     case 'worker': {
-      const workerRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'worker')
+      const workerRateHelp = withPodRateDisclaimer(WORKER_THROUGHPUT_HELP, 'worker')
       const scope = selectedInstanceId ?? 'cluster'
       const instancePod =
         scope !== 'cluster'
@@ -864,6 +866,11 @@ export function LiveMetricsTypeSection({
               history={history}
               subtitle="Job throughput and resources for this worker pod"
               onPanelViewChange={onPanelViewChange}
+              liveThroughputLabel="Process rate"
+              sessionThroughputLabel="Total jobs"
+              liveErrorLabel="Error rate"
+              sessionErrorLabel="Errors"
+              throughputHelp={workerRateHelp}
             />
           </div>
         )
@@ -901,13 +908,11 @@ export function LiveMetricsTypeSection({
               left={
                 <StatBlock
                   label={
-                    view.timeframe === 'session'
-                      ? workerRed.throughputLabel
-                      : 'Process rate'
+                    view.timeframe === 'session' ? 'Total jobs' : 'Process rate'
                   }
                   value={
                     view.timeframe === 'session'
-                      ? workerRed.throughputDisplay
+                      ? fmtInt(m.totalRequests)
                       : `${fmtRate(processRate)}/s`
                   }
                   help={workerRateHelp}
@@ -977,12 +982,18 @@ export function LiveMetricsTypeSection({
                 />
               }
             />
-            {Number.isFinite(tmWorkerRedisWriteRate) ? (
+            {view.timeframe === 'live' &&
+            Number.isFinite(tmWorkerRedisWriteRate) ? (
               <p className="font-mono text-[10px] text-gray-400">
                 Redis writes · {fmtRate(tmWorkerRedisWriteRate)}/s
                 {Number.isFinite(tmWorkerRedisErrors)
                   ? ` · errors ${fmtRate(tmWorkerRedisErrors)}/s`
                   : ''}
+              </p>
+            ) : view.timeframe === 'session' &&
+              Number.isFinite(tmWorkerRedisWrites) ? (
+              <p className="font-mono text-[10px] text-gray-400">
+                Redis writes · {fmtInt(tmWorkerRedisWrites)}
               </p>
             ) : null}
           </PedagogicalSection>

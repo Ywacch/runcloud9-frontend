@@ -17,6 +17,8 @@ export const TIER_C_WARMUP_HELP =
 
 export const THROUGHPUT_HELP =
   'Request throughput through this component (rolling view from the metrics stream).'
+export const WORKER_THROUGHPUT_HELP =
+  'Jobs consumed from the message queue (worker processed counter), not HTTP request throughput.'
 export const LATENCY_HELP =
   'Latency percentiles for this hop (from the metrics stream).'
 export const LATENCY_P99_SPARK_HELP =

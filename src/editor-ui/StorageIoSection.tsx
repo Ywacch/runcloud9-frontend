@@ -585,6 +585,11 @@ export function ComputeInstanceSection({
   showPlaybackDelay = false,
   subtitle = 'Traffic and resources for this app-server pod',
   onPanelViewChange,
+  liveThroughputLabel = 'Request rate',
+  sessionThroughputLabel = 'Total requests',
+  liveErrorLabel = 'Error rate',
+  sessionErrorLabel = 'Errors',
+  throughputHelp = THROUGHPUT_HELP,
 }: {
   pod: PodReplicaMetrics
   m: MetricsBucket
@@ -593,6 +598,11 @@ export function ComputeInstanceSection({
   showPlaybackDelay?: boolean
   subtitle?: string
   onPanelViewChange?: (patch: Partial<PanelViewState>) => void
+  liveThroughputLabel?: string
+  sessionThroughputLabel?: string
+  liveErrorLabel?: string
+  sessionErrorLabel?: string
+  throughputHelp?: string
 }) {
   const tf = view.timeframe
   const quantile = view.latencyQuantile
@@ -604,10 +614,10 @@ export function ComputeInstanceSection({
     pod.memoryBytes > 0 && m.memoryLimit > 0
       ? Math.min(100, (pod.memoryBytes / m.memoryLimit) * 100)
       : 0
-  const throughputLabel = tf === 'session' ? 'Total requests' : 'Request rate'
+  const throughputLabel = tf === 'session' ? sessionThroughputLabel : liveThroughputLabel
   const throughputValue =
     tf === 'session' ? fmtInt(pod.totalRequests ?? 0) : `${fmtRate(pod.requestRate)}/s`
-  const errorLabel = tf === 'session' ? 'Errors' : 'Error rate'
+  const errorLabel = tf === 'session' ? sessionErrorLabel : liveErrorLabel
   const errorValue =
     tf === 'session'
       ? fmtInt(pod.totalErrors9m ?? 0)
@@ -630,7 +640,7 @@ export function ComputeInstanceSection({
           <StatBlock
             label={throughputLabel}
             value={throughputValue}
-            help={THROUGHPUT_HELP}
+            help={throughputHelp}
             graph={
               <MetricSeriesGraph
                 data={rpsSeries}
