@@ -125,4 +125,39 @@ describe('ProvisioningOverlay', () => {
     expect(html).not.toMatch(/ImagePull|BackOff/i)
     expect(html).toContain('aria-expanded')
   })
+
+  it('shows parent Ready when all replica rows are ready but component_status is still deploying', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 6,
+        metricsSummary: {
+          provision_phase: 'deploying',
+          component_status: { 'db-1': 'deploying' },
+          seeding_status: 'done',
+          loadgen_status: 'pending',
+          replica_status: {
+            'db-1': [
+              { ordinal: 1, ready: true, wait_code: 'ready' },
+              { ordinal: 2, ready: true, wait_code: 'ready' },
+              { ordinal: 3, ready: true, wait_code: 'ready' },
+            ],
+          },
+        },
+        nodes: {
+          'db-1': {
+            id: 'db-1',
+            type: 'database',
+            position: [0, 0, 0],
+            label: 'PostgreSQL',
+            config: { readReplicas: 2 },
+            status: 'provisioning',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('PostgreSQL')
+    expect(html).toMatch(/>Ready</)
+    expect(html).not.toContain('3 of 3 instances ready')
+    expect(html).toContain('text-emerald-400')
+  })
 })

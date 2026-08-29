@@ -212,15 +212,15 @@ const ComponentProvisionRow = memo(function ComponentProvisionRow({
     shouldDefaultExpanded(replicaRows ?? []),
   )
   const userLine = componentStatusToUserLine(row.state, replicaRows)
+  const visuallyReady = userLine.status === 'Ready'
   let tone: CheckRowTone = 'neutral'
-  if (row.state === 'deploying') tone = 'active'
-  else if (row.state === 'ready') tone = 'ready'
+  if (visuallyReady) tone = 'ready'
+  else if (row.state === 'deploying') tone = 'active'
   else if (row.state === 'pending' || row.state === 'unknown') tone = 'dim'
 
-  const leftIcon =
-    row.state === 'ready' ? (
-      <IconCheckCircle className="h-4 w-4 text-emerald-400" />
-    ) : row.state === 'deploying' ? (
+  const leftIcon = visuallyReady ? (
+    <IconCheckCircle className="h-4 w-4 text-emerald-400" />
+  ) : row.state === 'deploying' ? (
       <IconSync className="h-4 w-4 animate-spin text-[var(--c9-accent)]" />
     ) : row.state === 'failed' ? (
       <IconError className="h-4 w-4 text-red-400" />

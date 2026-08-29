@@ -79,8 +79,12 @@ export function componentStatusToUserLine(
     case 'pending':
       return { status: 'Waiting…' }
     case 'deploying': {
-      const readyCount = replicaRows?.filter((row) => row.ready).length ?? 0
-      const total = replicaRows?.length ?? 0
+      const rows = replicaRows ?? []
+      if (rows.length > 0 && rows.every((row) => row.ready)) {
+        return { status: 'Ready' }
+      }
+      const readyCount = rows.filter((row) => row.ready).length
+      const total = rows.length
       if (total > 1) {
         return {
           status: 'Starting…',

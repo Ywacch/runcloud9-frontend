@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  componentStatusToUserLine,
   DEMO_DATA_ROW_TITLE,
   instanceLabelForNode,
   provisionDetailCodeToSubtitle,
@@ -45,6 +46,33 @@ describe('instanceLabelForNode', () => {
     expect(instanceLabelForNode('db', 1)).toBe('Primary')
     expect(instanceLabelForNode('db', 2)).toBe('Read replica 1')
     expect(instanceLabelForNode('app-server', 2)).toBe('Instance 2')
+  })
+})
+
+describe('componentStatusToUserLine', () => {
+  it('shows Ready when deploying but every replica row is ready', () => {
+    const line = componentStatusToUserLine('deploying', [
+      { ordinal: 1, ready: true, waitCode: 'ready' },
+      { ordinal: 2, ready: true, waitCode: 'ready' },
+      { ordinal: 3, ready: true, waitCode: 'ready' },
+    ])
+    expect(line.status).toBe('Ready')
+    expect(line.detail).toBeUndefined()
+  })
+
+  it('keeps instance progress while any replica is not ready', () => {
+    const line = componentStatusToUserLine('deploying', [
+      { ordinal: 1, ready: true, waitCode: 'ready' },
+      { ordinal: 2, ready: false, waitCode: 'starting' },
+    ])
+    expect(line.status).toBe('Starting…')
+    expect(line.detail).toBe('1 of 2 instances ready')
+  })
+
+  it('shows Starting when deploying without replica rows', () => {
+    expect(componentStatusToUserLine('deploying', undefined).status).toBe(
+      'Starting…',
+    )
   })
 })
 
