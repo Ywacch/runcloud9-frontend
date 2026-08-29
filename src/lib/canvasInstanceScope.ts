@@ -65,3 +65,19 @@ export function unitPickEnabledForDisplay(
 ): boolean {
   return displayExpanded && canvasUnitPickEnabled(node, metrics, unitCount)
 }
+
+/** Stable key for canvas unit-pick reactivity when pod/layer counts change. */
+export function metricsInstancePickKey(
+  metrics: Record<string, MetricsBucket | undefined>,
+  nodes: Record<string, CanvasNode>,
+): string {
+  const parts: string[] = []
+  for (const node of Object.values(nodes)) {
+    if (!nodeSupportsInstanceScope(node)) continue
+    const m = metrics[node.id]
+    parts.push(
+      `${node.id}:${m?.podReplicas?.length ?? 0}:${m?.layers?.length ?? 0}`,
+    )
+  }
+  return parts.sort().join('|')
+}

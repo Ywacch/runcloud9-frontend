@@ -4,6 +4,7 @@ import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
   canvasUnitPickEnabled,
   instanceIdForUnitIndex,
+  metricsInstancePickKey,
   sortedCanvasInstanceIds,
   unitPickEnabledForDisplay,
 } from './canvasInstanceScope'
@@ -140,6 +141,33 @@ describe('canvasUnitPickEnabled', () => {
     })
     expect(canvasUnitPickEnabled(node, bucket, 3)).toBe(true)
     expect(canvasUnitPickEnabled(node, bucket, 2)).toBe(false)
+  })
+})
+
+describe('metricsInstancePickKey', () => {
+  it('changes when pod replica counts change for scoped nodes', () => {
+    const nodes = { app: computeNode(), worker: workerNode() }
+    const empty = metricsInstancePickKey({}, nodes)
+    const withPods = metricsInstancePickKey(
+      {
+        app: metrics({
+          podReplicas: [
+            { name: 'pod-a', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+            { name: 'pod-b', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+          ],
+        }),
+        worker: metrics({
+          podReplicas: [
+            { name: 'worker-a', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+            { name: 'worker-b', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+            { name: 'worker-c', cpuUsage: 0, memoryBytes: 0, requestRate: 0, p99LatencyMs: 0, ready: true, totalRequests: 0, errorRate: 0 },
+          ],
+        }),
+      },
+      nodes,
+    )
+    expect(empty).not.toBe(withPods)
+    expect(withPods).toContain('worker:3:0')
   })
 })
 
