@@ -202,6 +202,8 @@ export function lerpMetricsBucket(
     p50Latency: lerpNum(a.p50Latency, b.p50Latency, t),
     p95Latency: lerpNum(a.p95Latency, b.p95Latency, t),
     p99Latency: lerpNum(a.p99Latency, b.p99Latency, t),
+    p50Latency9m: lerpNum(a.p50Latency9m, b.p50Latency9m, t),
+    p95Latency9m: lerpNum(a.p95Latency9m, b.p95Latency9m, t),
     p99Latency9m: lerpNum(a.p99Latency9m, b.p99Latency9m, t),
     avgLatency: lerpNum(a.avgLatency, b.avgLatency, t),
     cacheStrategy: snapStr(a.cacheStrategy ?? '', b.cacheStrategy ?? '', t),

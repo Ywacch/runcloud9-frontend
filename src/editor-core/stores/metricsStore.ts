@@ -65,7 +65,9 @@ export interface MetricsBucket {
   p50Latency: number
   p95Latency: number
   p99Latency: number
-  /** Rolling 9m p99 in milliseconds (WS sends seconds). */
+  /** Session quantiles in milliseconds (WS sends seconds). */
+  p50Latency9m: number
+  p95Latency9m: number
   p99Latency9m: number
   avgLatency: number
 

@@ -17,6 +17,7 @@ import { containerFreshnessHint } from '../lib/metricsFreshness'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
 import type { PodRuntimeHealth, RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
+import type { LatencyQuantile } from '../lib/latencyQuantile'
 import { MetricChart } from './MetricChart'
 import { MetricHelpIcon } from './MetricHelpIcon'
 import { InfoTooltip } from './InfoTooltip'
@@ -26,6 +27,7 @@ export type MetricsTimeframe = 'live' | 'session'
 export interface PanelViewState {
   timeframe: MetricsTimeframe
   showGraphs: boolean
+  latencyQuantile: LatencyQuantile
 }
 
 export function PanelViewControls({
@@ -130,11 +132,13 @@ export function PedagogicalCaption({ children }: { children: ReactNode }) {
 
 export function StatBlock({
   label,
+  labelNode,
   value,
   help,
   graph,
 }: {
-  label: string
+  label?: string
+  labelNode?: ReactNode
   value: string
   help?: string
   graph?: ReactNode
@@ -142,7 +146,7 @@ export function StatBlock({
   return (
     <div className="min-w-0 space-y-1">
       <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-        <span>{label}</span>
+        {labelNode ?? <span>{label}</span>}
         {help ? <MetricHelpIcon title={help} /> : null}
       </div>
       <div className="font-mono text-sm font-semibold tabular-nums text-white">{value}</div>
@@ -334,7 +338,10 @@ export function ReplicaFlatList({
     name: string
     primaryText?: string
     rps?: number
-    p99Ms: number
+    latencyMs: number
+    latencyQuantile?: LatencyQuantile
+    /** @deprecated use latencyMs */
+    p99Ms?: number
     cpuPct?: number
     memPct?: number
     warn?: boolean
@@ -357,7 +364,7 @@ export function ReplicaFlatList({
               {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
               {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
               {' · '}
-              p99 {Math.round(row.p99Ms)}ms
+              {row.latencyQuantile ?? 'p99'} {Math.round(row.latencyMs ?? row.p99Ms ?? 0)}ms
               {row.cpuPct != null ? ` · CPU ${Math.round(row.cpuPct)}%` : ''}
               {row.memPct != null ? ` · Mem ${Math.round(row.memPct)}%` : ''}
             </span>

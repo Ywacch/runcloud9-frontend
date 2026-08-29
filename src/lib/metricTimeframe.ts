@@ -1,5 +1,6 @@
 import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import { bucketLatencyField, podLatencyMs, type LatencyQuantile } from './latencyQuantile'
 import { fmtInt, fmtPct } from './format'
 import {
   SESSION_CACHE_HIT_RATE_LABEL,
@@ -35,7 +36,8 @@ export interface DbQueryHeadlineFields {
 export interface ReplicaListRow {
   name: string
   primaryText: string
-  p99Ms: number
+  latencyMs: number
+  latencyQuantile: LatencyQuantile
   cpuPct?: number
   memPct?: number
   warn?: boolean
@@ -58,6 +60,7 @@ export function redHeadlines(
   m: MetricsBucket,
   timeframe: MetricsTimeframe,
   formatErrorRate: (n: number) => string,
+  quantile: LatencyQuantile = 'p99',
 ): RedHeadlineFields {
   if (timeframe === 'session') {
     return {
@@ -65,8 +68,8 @@ export function redHeadlines(
       throughputDisplay: fmtInt(m.totalRequests),
       errorLabel: 'Errors',
       errorDisplay: fmtInt(m.totalErrors9m),
-      latencyLabel: 'Latency p99',
-      latencyMs: m.p99Latency9m > 0 ? m.p99Latency9m : m.p99Latency,
+      latencyLabel: `Latency ${quantile}`,
+      latencyMs: bucketLatencyField(m, quantile, timeframe),
     }
   }
   return {
@@ -74,8 +77,8 @@ export function redHeadlines(
     throughputDisplay: `${fmtInt(m.requestRate)} rps`,
     errorLabel: 'Error rate',
     errorDisplay: formatErrorRate(m.errorRate),
-    latencyLabel: 'Latency (p99)',
-    latencyMs: m.p99Latency,
+    latencyLabel: `Latency (${quantile})`,
+    latencyMs: bucketLatencyField(m, quantile, timeframe),
   }
 }
 
@@ -265,19 +268,21 @@ export function replicaListRows(
     clusterRps?: number
     maxRate?: number
     skewed?: boolean
+    quantile?: LatencyQuantile
     /** Parent component CPU limit (cores) for per-pod CPU %. */
     cpuLimitCores?: number
     /** Parent component memory limit (bytes) for per-pod memory %. */
     memoryLimitBytes?: number
   } = {},
 ): ReplicaListRow[] {
+  const quantile = options.quantile ?? 'p99'
   const sumTotals = pods.reduce((s, p) => s + (p.totalRequests ?? 0), 0)
   const maxRate = options.maxRate ?? Math.max(0, ...pods.map((p) => p.requestRate))
   const cpuLimit = options.cpuLimitCores ?? 0
   const memLimit = options.memoryLimitBytes ?? 0
 
   return pods.map((pod) => {
-    const p99Ms = pod.p99LatencyMs
+    const latencyMs = podLatencyMs(pod, quantile, timeframe)
     const cpuPct = podCpuPercent(pod.cpuUsage, cpuLimit)
     const memPct = podMemPercent(pod.memoryBytes, memLimit)
     if (timeframe === 'session') {
@@ -290,7 +295,8 @@ export function replicaListRows(
       return {
         name: pod.name,
         primaryText,
-        p99Ms,
+        latencyMs,
+        latencyQuantile: quantile,
         cpuPct,
         memPct,
         warn: options.skewed && total < sumTotals * 0.15,
@@ -303,7 +309,8 @@ export function replicaListRows(
     return {
       name: pod.name,
       primaryText: `${Math.round(rps)} rps`,
-      p99Ms,
+      latencyMs,
+      latencyQuantile: quantile,
       cpuPct,
       memPct,
       warn: options.skewed && rps < maxRate * 0.5,

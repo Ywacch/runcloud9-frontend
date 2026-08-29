@@ -18,6 +18,13 @@ import {
   podHistorySeries,
   storageIoThroughputFields,
 } from '../lib/metricTimeframe'
+import {
+  latencyGraphTitle,
+  layerLatencyMs,
+  layerSessionQuantileAvailable,
+  podLatencyMs,
+  podSessionQuantileAvailable,
+} from '../lib/latencyQuantile'
 import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import { rollup, samplesFromLayers } from '../lib/instanceRollup'
@@ -46,6 +53,7 @@ import {
   type PanelViewState,
 } from './inspectorPanelUi'
 import { LatencyDistribution } from './LatencyDistribution'
+import { LatencyQuantileLabel } from './LatencyQuantileLabel'
 import {
   LATENCY_HELP,
   SESSION_LATENCY_P99_HELP,
@@ -363,15 +371,18 @@ export function DbInstanceLayerSection({
   view,
   history = [],
   showPlaybackDelay = false,
+  onPanelViewChange,
 }: {
   layer: ComponentLayerMetrics
   view: PanelViewState
   history?: MetricsBucket[]
   showPlaybackDelay?: boolean
+  onPanelViewChange?: (patch: Partial<PanelViewState>) => void
 }) {
   const { cpuPercent, memPercent } = layerResourcePercents(layer)
   const roleLabel = layer.role === 'primary' ? 'Primary' : 'Replica'
   const tf = view.timeframe
+  const quantile = view.latencyQuantile
   const appSql = dbLayerAppSqlHeadline(layer, tf)
   const appSqlValue =
     tf === 'session'
@@ -379,20 +390,14 @@ export function DbInstanceLayerSection({
       : appSql.liveRate > 0
         ? `${fmtRate(appSql.liveRate)}/s`
         : '—'
-  const appSqlLatencyMs =
-    tf === 'session'
-      ? layer.p99Latency9mMs ?? layer.p99LatencyMs ?? 0
-      : layer.p99LatencyMs ?? 0
-  const appSqlLatencyLabel = tf === 'session' ? 'Latency p99' : 'Latency (p99)'
+  const appSqlLatencyMs = layerLatencyMs(layer, quantile, tf)
   const appSqlRateSeries = dbLayerHistorySeries(
     history,
     layer.id,
     (l) => (tf === 'session' ? l.dbTotalQueries ?? 0 : l.dbQueryRate ?? 0),
   )
-  const appSqlLatencySeries = dbLayerHistorySeries(
-    history,
-    layer.id,
-    (l) => l.p99LatencyMs ?? 0,
+  const appSqlLatencySeries = dbLayerHistorySeries(history, layer.id, (l) =>
+    layerLatencyMs(l, quantile, 'live'),
   )
   const xact = dbLayerXactHeadline(layer, tf)
   const xactValue =
@@ -447,14 +452,21 @@ export function DbInstanceLayerSection({
         }
         right={
           <StatBlock
-            label={appSqlLatencyLabel}
+            labelNode={
+              <LatencyQuantileLabel
+                quantile={quantile}
+                timeframe={tf}
+                sessionAvailable={(q) => layerSessionQuantileAvailable(layer, q)}
+                onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
+              />
+            }
             value={appSqlLatencyMs > 0 ? fmtMs(appSqlLatencyMs) : '—'}
             help={tf === 'session' ? SESSION_LATENCY_P99_HELP : LATENCY_HELP}
             graph={
               <MetricSeriesGraph
                 data={appSqlLatencySeries}
                 color="var(--c9-error)"
-                title="p99 latency"
+                title={latencyGraphTitle(quantile)}
                 unit="10s · ms"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
@@ -572,6 +584,7 @@ export function ComputeInstanceSection({
   history = [],
   showPlaybackDelay = false,
   subtitle = 'Traffic and resources for this app-server pod',
+  onPanelViewChange,
 }: {
   pod: PodReplicaMetrics
   m: MetricsBucket
@@ -579,8 +592,10 @@ export function ComputeInstanceSection({
   history?: MetricsBucket[]
   showPlaybackDelay?: boolean
   subtitle?: string
+  onPanelViewChange?: (patch: Partial<PanelViewState>) => void
 }) {
   const tf = view.timeframe
+  const quantile = view.latencyQuantile
   const cpuPct =
     m.cpuLimit > 0
       ? Math.min(100, (pod.cpuUsage / m.cpuLimit) * 100)
@@ -597,13 +612,11 @@ export function ComputeInstanceSection({
     tf === 'session'
       ? fmtInt(pod.totalErrors9m ?? 0)
       : `${fmtRate(pod.errorRate)}/s`
-  const latencyMs =
-    tf === 'session'
-      ? pod.p99Latency9mMs ?? pod.p99LatencyMs
-      : pod.p99LatencyMs
-  const latencyLabel = tf === 'session' ? 'Latency p99' : 'Latency (p99)'
+  const latencyMs = podLatencyMs(pod, quantile, tf)
   const rpsSeries = podHistorySeries(history, pod.name, (p) => p.requestRate)
-  const latencySeries = podHistorySeries(history, pod.name, (p) => p.p99LatencyMs)
+  const latencySeries = podHistorySeries(history, pod.name, (p) =>
+    podLatencyMs(p, quantile, 'live'),
+  )
   const errorSeries = podHistorySeries(
     history,
     pod.name,
@@ -632,14 +645,21 @@ export function ComputeInstanceSection({
         }
         right={
           <StatBlock
-            label={latencyLabel}
+            labelNode={
+              <LatencyQuantileLabel
+                quantile={quantile}
+                timeframe={tf}
+                sessionAvailable={(q) => podSessionQuantileAvailable(pod, q)}
+                onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
+              />
+            }
             value={latencyMs > 0 ? fmtMs(latencyMs) : '—'}
             help={tf === 'session' ? SESSION_LATENCY_P99_HELP : LATENCY_HELP}
             graph={
               <MetricSeriesGraph
                 data={latencySeries}
                 color="var(--c9-error)"
-                title="p99 latency"
+                title={latencyGraphTitle(quantile)}
                 unit="10s · ms"
                 view={view}
                 showPlaybackDelay={showPlaybackDelay}
@@ -658,6 +678,8 @@ export function ComputeInstanceSection({
           p99Ms={pod.p99LatencyMs}
           label="Latency distribution (live)"
           compact
+          selectedQuantile={quantile}
+          onSelectQuantile={(q) => onPanelViewChange?.({ latencyQuantile: q })}
         />
       ) : null}
       <StatRow

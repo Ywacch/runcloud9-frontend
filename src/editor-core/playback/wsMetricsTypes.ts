@@ -28,6 +28,8 @@ export interface WsComponentMetrics {
   p50Latency?: number
   p95Latency?: number
   p99Latency?: number
+  p50Latency9m?: number
+  p95Latency9m?: number
   p99Latency9m?: number
   avgLatency?: number
   cacheHits?: number

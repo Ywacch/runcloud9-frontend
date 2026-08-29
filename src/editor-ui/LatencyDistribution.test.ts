@@ -32,4 +32,17 @@ describe('LatencyDistribution', () => {
     )
     expect(html).toBe('')
   })
+
+  it('marks the selected quantile when provided', () => {
+    const html = renderToStaticMarkup(
+      createElement(LatencyDistribution, {
+        p50Ms: 10,
+        p95Ms: 50,
+        p99Ms: 80,
+        selectedQuantile: 'p95',
+      }),
+    )
+    expect(html).toContain('text-violet-200')
+    expect(html).toContain('p95')
+  })
 })

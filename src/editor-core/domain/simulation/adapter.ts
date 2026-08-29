@@ -43,6 +43,8 @@ export function simulationStateToMetricsBucket(
     p50Latency: lat * 0.7,
     p95Latency: lat * 1.3,
     p99Latency: lat * 1.8,
+    p50Latency9m: lat * 0.7,
+    p95Latency9m: lat * 1.3,
     p99Latency9m: lat * 1.8,
     avgLatency: lat,
     cacheStrategy: '',

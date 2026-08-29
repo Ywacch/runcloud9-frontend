@@ -33,6 +33,8 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     p50Latency: 0,
     p95Latency: 0,
     p99Latency: 42,
+    p50Latency9m: 0,
+    p95Latency9m: 0,
     p99Latency9m: 55,
     avgLatency: 0,
     cacheHits: 45,
@@ -172,6 +174,13 @@ describe('redHeadlines', () => {
     expect(h.latencyLabel).toBe('Latency p99')
     expect(h.latencyLabel).not.toContain('(9m)')
   })
+
+  it('honors selected quantile for live and session latency', () => {
+    const m = bucket({ p50Latency: 10, p95Latency: 20, p99Latency: 42, p50Latency9m: 11, p95Latency9m: 22, p99Latency9m: 55 })
+    expect(redHeadlines(m, 'live', fmtErrorRate, 'p50').latencyMs).toBe(10)
+    expect(redHeadlines(m, 'live', fmtErrorRate, 'p95').latencyLabel).toBe('Latency (p95)')
+    expect(redHeadlines(m, 'session', fmtErrorRate, 'p95').latencyMs).toBe(22)
+  })
 })
 
 describe('cacheHeadlines', () => {
@@ -294,6 +303,8 @@ describe('replicaListRows', () => {
           name: 'app-server-abc',
           ready: true,
           requestRate: 77,
+          p50LatencyMs: 100,
+          p95LatencyMs: 500,
           p99LatencyMs: 2500,
           totalRequests: 0,
           cpuUsage: 0.1025,
@@ -302,9 +313,11 @@ describe('replicaListRows', () => {
         },
       ],
       'live',
-      { cpuLimitCores: 0.125, memoryLimitBytes: 268_435_456 },
+      { cpuLimitCores: 0.125, memoryLimitBytes: 268_435_456, quantile: 'p95' },
     )
     expect(rows[0]?.cpuPct).toBe(82)
     expect(rows[0]?.memPct).toBe(50)
+    expect(rows[0]?.latencyMs).toBe(500)
+    expect(rows[0]?.latencyQuantile).toBe('p95')
   })
 })

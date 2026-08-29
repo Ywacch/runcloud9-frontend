@@ -6,6 +6,7 @@ import {
   replicaRowFromSimulation,
   type ReplicaInspectorRow,
 } from '../lib/replicaMetricsDisplay'
+import { readLatencyQuantile, writeLatencyQuantile } from '../lib/latencyQuantile'
 import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
@@ -115,10 +116,20 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
     mode === 'simulate' && simReplicaBreakdown.length > 0
       ? simReplicaBreakdown.map(replicaRowFromSimulation)
       : liveReplicaRows
-  const [panelView, setPanelView] = useState<PanelViewState>({
+  const [panelView, setPanelView] = useState<PanelViewState>(() => ({
     timeframe: 'live',
     showGraphs: true,
-  })
+    latencyQuantile: readLatencyQuantile(),
+  }))
+  const patchPanelView = (patch: Partial<PanelViewState>) => {
+    setPanelView((v) => {
+      const next = { ...v, ...patch }
+      if (patch.latencyQuantile) {
+        writeLatencyQuantile(patch.latencyQuantile)
+      }
+      return next
+    })
+  }
 
   const simInspectorCallout = useMemo(() => {
     if (mode !== 'simulate') return null
@@ -160,7 +171,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
       {node.type !== 'client' ? (
         <PanelViewControls
           view={panelView}
-          onChange={(patch) => setPanelView((v) => ({ ...v, ...patch }))}
+          onChange={patchPanelView}
         />
       ) : null}
       <LiveMetricsTypeSection
@@ -174,6 +185,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
         templateMetrics={templateMetrics}
         loadgenActive={loadgenActive}
         view={panelView}
+        onPanelViewChange={patchPanelView}
         replicaRows={node.type === 'compute' ? replicaRows : []}
         selectedInstanceId={selectedInstanceId}
       />

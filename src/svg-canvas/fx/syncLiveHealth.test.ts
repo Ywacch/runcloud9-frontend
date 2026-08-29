@@ -32,6 +32,8 @@ function metrics(partial: Partial<MetricsBucket>): MetricsBucket {
     p50Latency: 0,
     p95Latency: 0,
     p99Latency: 0,
+    p50Latency9m: 0,
+    p95Latency9m: 0,
     p99Latency9m: 0,
     avgLatency: 0,
     cacheHits: 0,

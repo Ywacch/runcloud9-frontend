@@ -94,6 +94,8 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     p50Latency: cm.p50Latency ?? 0,
     p95Latency: cm.p95Latency ?? 0,
     p99Latency: p99Sec * 1000,
+    p50Latency9m: (cm.p50Latency9m ?? 0) * 1000,
+    p95Latency9m: (cm.p95Latency9m ?? 0) * 1000,
     p99Latency9m: (cm.p99Latency9m ?? 0) * 1000,
     avgLatency,
     cacheStrategy: cm.cacheStrategy ?? '',

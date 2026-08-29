@@ -28,6 +28,11 @@ import {
   resolveCacheInspectorMode,
 } from '../lib/cacheLayerDisplay'
 import {
+  bucketLatencyHistorySeries,
+  bucketSessionQuantileAvailable,
+  latencyGraphTitle,
+} from '../lib/latencyQuantile'
+import {
   redHeadlines,
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
@@ -39,6 +44,7 @@ import {
   groupTemplateMetricDistributions,
 } from '../lib/templateMetricDistributions'
 import { LatencyDistribution } from './LatencyDistribution'
+import { LatencyQuantileLabel } from './LatencyQuantileLabel'
 import {
   buildCacheHeadlines,
   CacheCanvasFootnote,
@@ -108,6 +114,7 @@ export function LiveMetricsTypeSection({
   templateMetrics,
   loadgenActive,
   view,
+  onPanelViewChange,
   replicaRows = [],
   selectedInstanceId = null,
 }: {
@@ -121,6 +128,7 @@ export function LiveMetricsTypeSection({
   templateMetrics: Record<string, number>
   loadgenActive: boolean
   view: PanelViewState
+  onPanelViewChange?: (patch: Partial<PanelViewState>) => void
   replicaRows?: ReplicaInspectorRow[]
   selectedInstanceId?: SelectedInstanceId
 }) {
@@ -182,14 +190,13 @@ export function LiveMetricsTypeSection({
               m={m}
               view={view}
               history={history}
+              onPanelViewChange={onPanelViewChange}
             />
           </div>
         )
       }
 
-      const red = redHeadlines(m, view.timeframe, fmtErrorRate)
-      const sessionP99Ms =
-        view.timeframe === 'session' && m.p99Latency9m > 0 ? m.p99Latency9m : clusterP99Latency
+      const red = redHeadlines(m, view.timeframe, fmtErrorRate, view.latencyQuantile)
       const topology = getTopologyFlags(nodes)
       const perOpDistributions =
         snapshotTemplateId != null
@@ -202,8 +209,7 @@ export function LiveMetricsTypeSection({
             )
           : []
       const rpsSeries = history.map((h) => h.requestRate)
-      const latencySeries = history.map((h) => h.p99Latency)
-      const liveP99Ms = clusterP99Latency
+      const latencySeries = bucketLatencyHistorySeries(history, view.latencyQuantile)
       const errorSeries = history.map((h) => h.errorRate)
       const cpuSeries = history.map((h) => h.cpuPercent)
       const memSeries = history.map((h) => h.memPercent)
@@ -213,11 +219,13 @@ export function LiveMetricsTypeSection({
               clusterRps: requestRate,
               cpuLimitCores: m.cpuLimit,
               memoryLimitBytes: m.memoryLimit,
+              quantile: view.latencyQuantile,
             })
           : replicaRows.map((r) => ({
               name: truncatePodName(r.podName || r.label, 22),
               primaryText: `${Math.round(r.qps)} rps`,
-              p99Ms: r.latencyMs,
+              latencyMs: r.latencyMs,
+              latencyQuantile: view.latencyQuantile,
               cpuPct: r.cpuPercent,
               memPct: r.memPercent > 0 ? r.memPercent : undefined,
               warn: r.latencyMs > 500 || r.qps < requestRate * 0.1,
@@ -250,8 +258,15 @@ export function LiveMetricsTypeSection({
               }
               right={
                 <StatBlock
-                  label={red.latencyLabel}
-                  value={fmtMs(red.latencyMs)}
+                  labelNode={
+                    <LatencyQuantileLabel
+                      quantile={view.latencyQuantile}
+                      timeframe={view.timeframe}
+                      sessionAvailable={(q) => bucketSessionQuantileAvailable(m, q)}
+                      onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
+                    />
+                  }
+                  value={red.latencyMs > 0 ? fmtMs(red.latencyMs) : '—'}
                   help={
                     view.timeframe === 'session'
                       ? SESSION_LATENCY_P99_HELP
@@ -261,7 +276,7 @@ export function LiveMetricsTypeSection({
                     <MetricSeriesGraph
                       data={latencySeries}
                       color="var(--c9-error)"
-                      title="p99 latency"
+                      title={latencyGraphTitle(view.latencyQuantile)}
                       unit="10s · ms"
                       view={view}
                     />
@@ -273,17 +288,26 @@ export function LiveMetricsTypeSection({
               <LatencyDistribution
                 p50Ms={p50Latency}
                 p95Ms={p95Latency}
-                p99Ms={liveP99Ms}
+                p99Ms={clusterP99Latency}
                 label="Latency distribution (live)"
                 compact
+                selectedQuantile={view.latencyQuantile}
+                onSelectQuantile={(q) => onPanelViewChange?.({ latencyQuantile: q })}
               />
             ) : (
               <LatencyDistribution
-                p99Ms={sessionP99Ms}
+                p50Ms={m.p50Latency9m > 0 ? m.p50Latency9m : undefined}
+                p95Ms={m.p95Latency9m > 0 ? m.p95Latency9m : undefined}
+                p99Ms={m.p99Latency9m > 0 ? m.p99Latency9m : clusterP99Latency}
                 label="Latency distribution (session)"
                 compact
+                selectedQuantile={view.latencyQuantile}
+                onSelectQuantile={(q) => onPanelViewChange?.({ latencyQuantile: q })}
               />
             )}
+            <PedagogicalCaption>
+              Canvas and the live session bar always show p99.
+            </PedagogicalCaption>
             <StatBlock
               label={red.errorLabel}
               value={red.errorDisplay}
@@ -494,6 +518,7 @@ export function LiveMetricsTypeSection({
               layer={instanceLayer}
               view={view}
               history={history}
+              onPanelViewChange={onPanelViewChange}
             />
           </div>
         )
@@ -533,7 +558,7 @@ export function LiveMetricsTypeSection({
 
     case 'load_balancer': {
       const lbRateHelp = withPodRateDisclaimer(THROUGHPUT_HELP, 'load_balancer')
-      const red = redHeadlines(m, view.timeframe, fmtErrorRate)
+      const red = redHeadlines(m, view.timeframe, fmtErrorRate, view.latencyQuantile)
       const lbRpsSeries = history.map((h) => h.requestRate)
       const backends = Object.values(edges)
         .filter((e) => e.sourceId === nodeId)
@@ -561,11 +586,13 @@ export function LiveMetricsTypeSection({
               skewed: skew.skewed,
               cpuLimitCores: m.cpuLimit,
               memoryLimitBytes: m.memoryLimit,
+              quantile: view.latencyQuantile,
             })
           : perBe.map(([name, rps]) => ({
               name: truncatePodName(name),
               primaryText: `${Math.round(rps)} rps`,
-              p99Ms: 0,
+              latencyMs: 0,
+              latencyQuantile: view.latencyQuantile,
               warn: skew.skewed && rps < maxRate * 0.5,
               hot: skew.skewed && rps >= maxRate * 0.9,
             }))
@@ -601,8 +628,15 @@ export function LiveMetricsTypeSection({
               right={
                 view.timeframe === 'session' ? (
                   <StatBlock
-                    label={red.latencyLabel}
-                    value={fmtMs(red.latencyMs)}
+                    labelNode={
+                      <LatencyQuantileLabel
+                        quantile={view.latencyQuantile}
+                        timeframe={view.timeframe}
+                        sessionAvailable={(q) => bucketSessionQuantileAvailable(m, q)}
+                        onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
+                      />
+                    }
+                    value={red.latencyMs > 0 ? fmtMs(red.latencyMs) : '—'}
                     help={SESSION_LATENCY_P99_HELP}
                   />
                 ) : (
@@ -829,6 +863,7 @@ export function LiveMetricsTypeSection({
               view={view}
               history={history}
               subtitle="Job throughput and resources for this worker pod"
+              onPanelViewChange={onPanelViewChange}
             />
           </div>
         )
@@ -840,17 +875,9 @@ export function LiveMetricsTypeSection({
         isSocialFeed && Number.isFinite(tmWorkerConsumeRate)
           ? tmWorkerConsumeRate
           : m.requestRate
-      const workerRollup =
-        m.podReplicas.length > 1 ? rollup(samplesFromCompute(m)) : null
-      const workerRed = redHeadlines(m, view.timeframe, fmtErrorRate)
-      const sessionP99Ms =
-        view.timeframe === 'session' && m.p99Latency9m > 0
-          ? m.p99Latency9m
-          : workerRollup?.p99 != null && workerRollup.p99 > 0
-            ? workerRollup.p99 * 1000
-            : m.p99Latency
+      const workerRed = redHeadlines(m, view.timeframe, fmtErrorRate, view.latencyQuantile)
       const processSeries = history.map((h) => h.requestRate)
-      const latencySeries = history.map((h) => h.p99Latency)
+      const latencySeries = bucketLatencyHistorySeries(history, view.latencyQuantile)
       const errorSeries = history.map((h) => h.errorRate)
       const cpuSeries = history.map((h) => h.cpuPercent)
       const workerReplicaList =
@@ -859,6 +886,7 @@ export function LiveMetricsTypeSection({
               clusterRps: processRate,
               cpuLimitCores: m.cpuLimit,
               memoryLimitBytes: m.memoryLimit,
+              quantile: view.latencyQuantile,
             })
           : []
 
@@ -896,8 +924,15 @@ export function LiveMetricsTypeSection({
               }
               right={
                 <StatBlock
-                  label={workerRed.latencyLabel}
-                  value={fmtMs(workerRed.latencyMs > 0 ? workerRed.latencyMs : sessionP99Ms)}
+                  labelNode={
+                    <LatencyQuantileLabel
+                      quantile={view.latencyQuantile}
+                      timeframe={view.timeframe}
+                      sessionAvailable={(q) => bucketSessionQuantileAvailable(m, q)}
+                      onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
+                    />
+                  }
+                  value={workerRed.latencyMs > 0 ? fmtMs(workerRed.latencyMs) : '—'}
                   help={
                     view.timeframe === 'session'
                       ? SESSION_LATENCY_P99_HELP
@@ -907,7 +942,7 @@ export function LiveMetricsTypeSection({
                     <MetricSeriesGraph
                       data={latencySeries}
                       color="var(--c9-error)"
-                      title="p99 latency"
+                      title={latencyGraphTitle(view.latencyQuantile)}
                       unit="10s · ms"
                       view={view}
                     />
@@ -922,8 +957,13 @@ export function LiveMetricsTypeSection({
                 p99Ms={m.p99Latency}
                 label="Latency distribution (live)"
                 compact
+                selectedQuantile={view.latencyQuantile}
+                onSelectQuantile={(q) => onPanelViewChange?.({ latencyQuantile: q })}
               />
             ) : null}
+            <PedagogicalCaption>
+              Canvas and the live session bar always show p99.
+            </PedagogicalCaption>
             <StatBlock
               label={workerRed.errorLabel}
               value={workerRed.errorDisplay}

@@ -31,6 +31,8 @@ function dbBucket(
     p50Latency: 0,
     p95Latency: 0,
     p99Latency: 0,
+    p50Latency9m: 0,
+    p95Latency9m: 0,
     p99Latency9m: 0,
     avgLatency: 0,
     cacheHits: 0,
@@ -186,7 +188,7 @@ describe('ComputeInstanceSection timeframe', () => {
       createElement(ComputeInstanceSection, {
         pod: instancePod,
         m: dbBucket(),
-        view: { timeframe: 'live', showGraphs: true },
+        view: { timeframe: 'live', showGraphs: true, latencyQuantile: 'p99' },
       }),
     )
     expect(html).toContain('Request rate')
@@ -199,14 +201,15 @@ describe('ComputeInstanceSection timeframe', () => {
       createElement(ComputeInstanceSection, {
         pod: instancePod,
         m: dbBucket(),
-        view: { timeframe: 'session', showGraphs: true },
+        view: { timeframe: 'session', showGraphs: true, latencyQuantile: 'p99' },
       }),
     )
     expect(html).toContain('Total requests')
     expect(html).toContain('9,000')
     expect(html).toContain('Errors')
     expect(html).toContain('12')
-    expect(html).toContain('Latency p99')
+    expect(html).toContain('Latency ')
+    expect(html).toContain('>p99<')
   })
 })
 
@@ -234,12 +237,13 @@ describe('DbInstanceLayerSection timeframe', () => {
     const html = renderToStaticMarkup(
       createElement(DbInstanceLayerSection, {
         layer: dbReplicaLayer,
-        view: { timeframe: 'live', showGraphs: true },
+        view: { timeframe: 'live', showGraphs: true, latencyQuantile: 'p99' },
       }),
     )
     expect(html).toContain('Query rate')
     expect(html).toContain('4/s')
-    expect(html).toContain('Latency (p99)')
+    expect(html).toContain('Latency (')
+    expect(html).toContain('>p99<')
     expect(html).not.toContain('not shown on Replica tabs yet')
   })
 
@@ -247,12 +251,13 @@ describe('DbInstanceLayerSection timeframe', () => {
     const html = renderToStaticMarkup(
       createElement(DbInstanceLayerSection, {
         layer: dbReplicaLayer,
-        view: { timeframe: 'session', showGraphs: true },
+        view: { timeframe: 'session', showGraphs: true, latencyQuantile: 'p99' },
       }),
     )
     expect(html).toContain('Total queries')
     expect(html).toContain('672')
-    expect(html).toContain('Latency p99')
+    expect(html).toContain('Latency ')
+    expect(html).toContain('>p99<')
   })
 
   it('shows dashes when layer app SQL fields are absent', () => {
@@ -265,7 +270,7 @@ describe('DbInstanceLayerSection timeframe', () => {
           p99LatencyMs: undefined,
           p99Latency9mMs: undefined,
         },
-        view: { timeframe: 'live', showGraphs: true },
+        view: { timeframe: 'live', showGraphs: true, latencyQuantile: 'p99' },
       }),
     )
     expect(html).toContain('Query rate')
@@ -290,8 +295,8 @@ const postgresIo = {
 }
 
 describe('DbLoadSection', () => {
-  const liveView = { timeframe: 'live' as const, showGraphs: true }
-  const sessionView = { timeframe: 'session' as const, showGraphs: true }
+  const liveView = { timeframe: 'live' as const, showGraphs: true, latencyQuantile: 'p99' as const }
+  const sessionView = { timeframe: 'session' as const, showGraphs: true, latencyQuantile: 'p99' as const }
 
   it('shows live rates with /s labels', () => {
     const html = renderToStaticMarkup(
