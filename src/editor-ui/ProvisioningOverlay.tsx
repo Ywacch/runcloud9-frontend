@@ -1,4 +1,4 @@
-import { memo, useMemo, type ReactNode } from 'react'
+import { memo, useMemo, useState, type ReactNode } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import {
   DOOR_WAIT_TITLE,
@@ -8,14 +8,28 @@ import {
   hasQueueWaitFields,
 } from '../lib/deployQueue'
 import {
+  DEMO_DATA_ROW_TITLE,
+  LOADGEN_ROW_TITLE,
+  VALIDATE_STEP_SUBTITLE,
+  componentStatusToUserLine,
+  instanceLabelForNode,
+  loadgenStatusToUserLine,
+  provisionDetailCodeToSubtitle,
+  seedingStatusToUserLine,
+  shouldDefaultExpanded,
+  waitCodeToUserLine,
+} from '../lib/provisionCopy'
+import {
   buildOrderedComponentRows,
+  canvasInstanceCount,
   isWaitingForProvisionSlot,
   parseProvisionMetrics,
+  shouldShowReplicaChildren,
   shouldUseLegacyProvisioningPulse,
-  type NormalizedComponentProvisionState,
   type NormalizedLoadgenState,
   type NormalizedSeedingState,
   type ParsedProvisionMetrics,
+  type ReplicaWaitRow,
 } from '../lib/provisionMetrics'
 
 function IconCheckSm({ className }: { className?: string }) {
@@ -81,53 +95,6 @@ function formatElapsedHMS(sec: number): string {
   return [h, m, s].map((n) => n.toString().padStart(2, '0')).join(':')
 }
 
-function componentStatusLabel(state: NormalizedComponentProvisionState): string {
-  switch (state) {
-    case 'ready':
-      return 'Ready'
-    case 'deploying':
-      return 'Deploying...'
-    case 'pending':
-      return 'Pending'
-    case 'failed':
-      return 'Failed'
-    default:
-      return 'Unknown'
-  }
-}
-
-function seedingStatusLabel(state: NormalizedSeedingState): string {
-  switch (state) {
-    case 'pending':
-      return 'Not started'
-    case 'seeding':
-      return 'Seeding...'
-    case 'done':
-      return 'Ready'
-    case 'failed':
-      return 'Warning'
-    case 'skipped':
-      return 'Skipped'
-    default:
-      return 'Unknown'
-  }
-}
-
-function loadgenStatusLabel(state: NormalizedLoadgenState): string {
-  switch (state) {
-    case 'pending':
-      return 'Pending'
-    case 'ready':
-      return 'Ready'
-    case 'failed':
-      return 'Failed'
-    case 'skipped':
-      return 'Skipped'
-    default:
-      return 'Unknown'
-  }
-}
-
 type CheckRowTone = 'active' | 'ready' | 'neutral' | 'dim' | 'warn' | 'error'
 
 function InfrastructureChecklistRow({
@@ -135,11 +102,17 @@ function InfrastructureChecklistRow({
   statusLabel,
   tone,
   leftIcon,
+  detail,
+  onToggle,
+  expanded,
 }: {
   name: string
   statusLabel: string
   tone: CheckRowTone
   leftIcon: ReactNode
+  detail?: string
+  onToggle?: () => void
+  expanded?: boolean
 }) {
   const isActive = tone === 'active'
   const isDim = tone === 'dim'
@@ -156,23 +129,48 @@ function InfrastructureChecklistRow({
       ].join(' ')}
     >
       <div className="flex min-w-0 items-center gap-2">
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="inline-flex shrink-0 rounded p-0.5 text-[var(--c9-muted)] transition-colors hover:text-[var(--c9-text)]"
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse instances' : 'Expand instances'}
+          >
+            <svg
+              className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z" />
+            </svg>
+          </button>
+        ) : null}
         <span className="inline-flex shrink-0">{leftIcon}</span>
-        <span
-          className={`min-w-0 truncate font-medium ${
-            isActive
-              ? 'text-[var(--c9-accent)]'
-              : isDim
-                ? 'text-[var(--c9-muted)]'
-                : isError
-                  ? 'text-red-400'
-                  : tone === 'warn'
-                    ? 'text-amber-400'
-                    : 'text-[var(--c9-text)]'
-          }`}
-          title={name}
-        >
-          {name}
-        </span>
+        <div className="min-w-0">
+          <span
+            className={`block truncate font-medium ${
+              isActive
+                ? 'text-[var(--c9-accent)]'
+                : isDim
+                  ? 'text-[var(--c9-muted)]'
+                  : isError
+                    ? 'text-red-400'
+                    : tone === 'warn'
+                      ? 'text-amber-400'
+                      : 'text-[var(--c9-text)]'
+            }`}
+            title={name}
+          >
+            {name}
+          </span>
+          {detail ? (
+            <span className="mt-0.5 block truncate text-[10px] leading-snug text-[var(--c9-muted)]">
+              {detail}
+            </span>
+          ) : null}
+        </div>
       </div>
       <span
         className={[
@@ -196,6 +194,92 @@ function InfrastructureChecklistRow({
   )
 }
 
+const ComponentProvisionRow = memo(function ComponentProvisionRow({
+  row,
+  replicaRows,
+  expectedCount,
+}: {
+  row: ReturnType<typeof buildOrderedComponentRows>[number]
+  replicaRows: ReplicaWaitRow[] | undefined
+  expectedCount: number
+}) {
+  const showChildren = shouldShowReplicaChildren(
+    replicaRows,
+    expectedCount,
+    row.state,
+  )
+  const [expanded, setExpanded] = useState(() =>
+    shouldDefaultExpanded(replicaRows ?? []),
+  )
+  const userLine = componentStatusToUserLine(row.state, replicaRows)
+  let tone: CheckRowTone = 'neutral'
+  if (row.state === 'deploying') tone = 'active'
+  else if (row.state === 'ready') tone = 'ready'
+  else if (row.state === 'pending' || row.state === 'unknown') tone = 'dim'
+
+  const leftIcon =
+    row.state === 'ready' ? (
+      <IconCheckCircle className="h-4 w-4 text-emerald-400" />
+    ) : row.state === 'deploying' ? (
+      <IconSync className="h-4 w-4 animate-spin text-[var(--c9-accent)]" />
+    ) : row.state === 'failed' ? (
+      <IconError className="h-4 w-4 text-red-400" />
+    ) : (
+      <IconRadioEmpty className="h-4 w-4 text-[var(--c9-muted)]" />
+    )
+
+  const childRows =
+    replicaRows && replicaRows.length > 0
+      ? replicaRows
+      : Array.from({ length: expectedCount }, (_, index) => ({
+          ordinal: index + 1,
+          ready: false,
+          waitCode: 'pending',
+        }))
+
+  return (
+    <div className="space-y-1">
+      <InfrastructureChecklistRow
+        name={row.label}
+        statusLabel={userLine.status}
+        detail={userLine.detail}
+        tone={row.state === 'failed' ? 'error' : tone}
+        leftIcon={leftIcon}
+        onToggle={showChildren ? () => setExpanded((open) => !open) : undefined}
+        expanded={expanded}
+      />
+      {showChildren && expanded
+        ? childRows.map((child) => {
+            const childLine = waitCodeToUserLine(child.waitCode)
+            const childTone: CheckRowTone = child.ready
+              ? 'ready'
+              : child.waitCode === 'pending'
+                ? 'dim'
+                : 'active'
+            const childIcon = child.ready ? (
+              <IconCheckCircle className="h-4 w-4 text-emerald-400" />
+            ) : child.waitCode === 'pending' ? (
+              <IconRadioEmpty className="h-4 w-4 text-[var(--c9-muted)]" />
+            ) : (
+              <IconSync className="h-4 w-4 animate-spin text-[var(--c9-accent)]" />
+            )
+            return (
+              <div key={`${row.id}-${child.ordinal}`} className="pl-5">
+                <InfrastructureChecklistRow
+                  name={instanceLabelForNode(row.backendKind, child.ordinal)}
+                  statusLabel={childLine.status}
+                  detail={childLine.detail}
+                  tone={childTone}
+                  leftIcon={childIcon}
+                />
+              </div>
+            )
+          })
+        : null}
+    </div>
+  )
+})
+
 const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
   parsed,
   nodes,
@@ -209,9 +293,10 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
   )
   const seeding: NormalizedSeedingState = parsed.seedingStatus ?? 'pending'
   const loadgen: NormalizedLoadgenState = parsed.loadgenStatus ?? 'pending'
+  const seedingLine = seedingStatusToUserLine(seeding)
+  const loadgenLine = loadgenStatusToUserLine(loadgen)
 
   const seedingRow = (() => {
-    const sl = seedingStatusLabel(seeding)
     let tone: CheckRowTone =
       seeding === 'seeding' ? 'active' : seeding === 'done' ? 'ready' : 'dim'
     if (seeding === 'failed') tone = 'warn'
@@ -233,8 +318,9 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
 
     return (
       <InfrastructureChecklistRow
-        name="Data seeding"
-        statusLabel={sl}
+        name={DEMO_DATA_ROW_TITLE}
+        statusLabel={seedingLine.status}
+        detail={seedingLine.detail}
         tone={seeding === 'failed' ? 'warn' : tone}
         leftIcon={leftIcon}
       />
@@ -242,7 +328,6 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
   })()
 
   const loadgenRow = (() => {
-    const sl = loadgenStatusLabel(loadgen)
     let tone: CheckRowTone =
       loadgen === 'pending' ? 'dim' : loadgen === 'ready' ? 'ready' : 'dim'
     if (loadgen === 'failed') tone = 'warn'
@@ -264,8 +349,9 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
 
     return (
       <InfrastructureChecklistRow
-        name="Load generator"
-        statusLabel={sl}
+        name={LOADGEN_ROW_TITLE}
+        statusLabel={loadgenLine.status}
+        detail={loadgenLine.detail}
         tone={loadgen === 'failed' ? 'warn' : tone}
         leftIcon={leftIcon}
       />
@@ -275,30 +361,16 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
   return (
     <div className="max-h-[min(17rem,calc(100vh-10rem))] space-y-1 overflow-y-auto pr-0.5">
       {rows.map((row) => {
-        const label = componentStatusLabel(row.state)
-        let tone: CheckRowTone = 'neutral'
-        if (row.state === 'deploying') tone = 'active'
-        else if (row.state === 'ready') tone = 'ready'
-        else if (row.state === 'pending' || row.state === 'unknown') tone = 'dim'
-
-        const leftIcon =
-          row.state === 'ready' ? (
-            <IconCheckCircle className="h-4 w-4 text-emerald-400" />
-          ) : row.state === 'deploying' ? (
-            <IconSync className="h-4 w-4 animate-spin text-[var(--c9-accent)]" />
-          ) : row.state === 'failed' ? (
-            <IconError className="h-4 w-4 text-red-400" />
-          ) : (
-            <IconRadioEmpty className="h-4 w-4 text-[var(--c9-muted)]" />
-          )
-
+        const node = nodes[row.id]
+        const expectedCount = node
+          ? canvasInstanceCount(node, row.backendKind)
+          : (parsed.replicaStatus[row.id]?.length ?? 1)
         return (
-          <InfrastructureChecklistRow
+          <ComponentProvisionRow
             key={row.id}
-            name={row.label}
-            statusLabel={label}
-            tone={row.state === 'failed' ? 'error' : tone}
-            leftIcon={leftIcon}
+            row={row}
+            replicaRows={parsed.replicaStatus[row.id]}
+            expectedCount={expectedCount}
           />
         )
       })}
@@ -322,7 +394,7 @@ function VerticalProvisionerStepper({
         </div>
         <div className="min-w-0 leading-snug">
           <h3 className="text-sm font-semibold text-[var(--c9-text)]">Validate</h3>
-          <p className="text-[11px] text-[var(--c9-muted)]">Configuration verified</p>
+          <p className="text-[11px] text-[var(--c9-muted)]">{VALIDATE_STEP_SUBTITLE}</p>
         </div>
       </div>
       <div className="relative mb-3.5 flex items-start gap-2.5">
@@ -401,9 +473,11 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
       ? roomDetail
       : isDoorwayWait
         ? doorwayDetail
-        : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
-          ? parsed.provisionPhase.replace(/-/g, ' ')
-          : 'Deploying infrastructure…'
+        : parsed?.provisionDetailCode
+          ? provisionDetailCodeToSubtitle(parsed.provisionDetailCode)
+          : parsed?.provisionPhase !== undefined && parsed.provisionPhase !== ''
+            ? parsed.provisionPhase.replace(/-/g, ' ')
+            : 'Starting your system…'
 
   const showChecklist =
     !isQueued && !isDoorwayWait && parsed !== null && !legacyPulse

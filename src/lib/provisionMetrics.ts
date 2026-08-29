@@ -23,11 +23,19 @@ export type NormalizedLoadgenState =
   | 'skipped'
   | 'unknown'
 
+export type ReplicaWaitRow = {
+  ordinal: number
+  ready: boolean
+  waitCode: string
+}
+
 export type ParsedProvisionMetrics = {
   provisionPhase?: string
   componentStatus: Record<string, string>
   seedingStatus?: NormalizedSeedingState
   loadgenStatus?: NormalizedLoadgenState
+  replicaStatus: Record<string, ReplicaWaitRow[]>
+  provisionDetailCode?: string
 }
 
 /** Backend doorway semaphore wait (MAX_CONCURRENT_PROVISIONS). Distinct from status=queued. */
@@ -66,6 +74,57 @@ function pickNestedObject(
   return null
 }
 
+function pickBool(obj: Record<string, unknown>, keys: readonly string[]): boolean {
+  for (const k of keys) {
+    const v = obj[k]
+    if (typeof v === 'boolean') return v
+  }
+  return false
+}
+
+function pickNumber(obj: Record<string, unknown>, keys: readonly string[]): number {
+  for (const k of keys) {
+    const v = obj[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+  }
+  return 0
+}
+
+function parseReplicaWaitRow(raw: unknown): ReplicaWaitRow | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const row = raw as Record<string, unknown>
+  const waitCode = pickStr(row, ['wait_code', 'waitCode'])
+  const ordinal = pickNumber(row, ['ordinal'])
+  if (!waitCode || ordinal <= 0) return null
+  return {
+    ordinal,
+    ready: pickBool(row, ['ready']),
+    waitCode: waitCode.trim().toLowerCase(),
+  }
+}
+
+function parseReplicaStatus(
+  metricsSummary: Record<string, unknown>,
+): Record<string, ReplicaWaitRow[]> {
+  const raw = pickNestedObject(metricsSummary, ['replica_status', 'replicaStatus'])
+  if (!raw) return {}
+
+  const out: Record<string, ReplicaWaitRow[]> = {}
+  for (const [nodeId, value] of Object.entries(raw)) {
+    if (!Array.isArray(value)) continue
+    const rows: ReplicaWaitRow[] = []
+    for (const item of value) {
+      const parsed = parseReplicaWaitRow(item)
+      if (parsed) rows.push(parsed)
+    }
+    if (rows.length > 0) {
+      rows.sort((a, b) => a.ordinal - b.ordinal)
+      out[nodeId] = rows
+    }
+  }
+  return out
+}
+
 /** Normalize API casing (camelCase JSON vs snake_case in DB payloads). */
 export function parseProvisionMetrics(
   metricsSummary: Record<string, unknown> | undefined | null,
@@ -87,6 +146,10 @@ export function parseProvisionMetrics(
   const rawLoadgen = pickStr(metricsSummary as Record<string, unknown>, [
     'loadgen_status',
     'loadgenStatus',
+  ])
+  const rawDetail = pickStr(metricsSummary as Record<string, unknown>, [
+    'provision_detail_code',
+    'provisionDetailCode',
   ])
 
   const componentStatus: Record<string, string> = {}
@@ -129,7 +192,59 @@ export function parseProvisionMetrics(
     componentStatus,
     seedingStatus,
     loadgenStatus,
+    replicaStatus: parseReplicaStatus(metricsSummary as Record<string, unknown>),
+    provisionDetailCode: rawDetail?.trim().toLowerCase(),
   }
+}
+
+export function isTerminalSeedingStatus(
+  state: NormalizedSeedingState | undefined,
+): boolean {
+  return state === 'done' || state === 'failed' || state === 'skipped'
+}
+
+export function isTerminalLoadgenStatus(
+  state: NormalizedLoadgenState | undefined,
+): boolean {
+  return state === 'ready' || state === 'failed' || state === 'skipped'
+}
+
+/** Keep the checklist visible briefly after running when seed/loadgen rows are meaningful. */
+export function shouldLingerProvisionOverlay(
+  parsed: ParsedProvisionMetrics | null,
+): boolean {
+  if (!parsed) return false
+  const seed = parsed.seedingStatus ?? 'pending'
+  const loadgen = parsed.loadgenStatus ?? 'pending'
+  if (seed === 'skipped' && loadgen === 'skipped') return false
+  return isTerminalSeedingStatus(parsed.seedingStatus) &&
+    isTerminalLoadgenStatus(parsed.loadgenStatus)
+}
+
+export function canvasInstanceCount(
+  node: CanvasNode,
+  backendKind: string,
+): number {
+  if (backendKind === 'db') {
+    const readReplicas =
+      typeof node.config?.readReplicas === 'number' ? node.config.readReplicas : 0
+    return 1 + Math.max(0, readReplicas)
+  }
+  const replicas = node.config?.replicas
+  if (typeof replicas === 'number' && replicas > 0) return replicas
+  return 1
+}
+
+export function shouldShowReplicaChildren(
+  replicaRows: ReplicaWaitRow[] | undefined,
+  expectedCount: number,
+  state: NormalizedComponentProvisionState,
+): boolean {
+  if ((replicaRows?.length ?? 0) > 1) return true
+  if (expectedCount > 1 && (state === 'deploying' || state === 'pending')) {
+    return true
+  }
+  return false
 }
 
 /** Per contract §Backward Compatibility: legacy pulse unless all contract keys exist on metricsSummary. */
