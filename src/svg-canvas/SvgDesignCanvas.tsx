@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
@@ -29,6 +30,7 @@ import {
 import { placeFromPicker } from '../lib/pickerPlacement'
 import {
   instanceIdForUnitIndex,
+  metricsInstancePickKey,
   unitPickEnabledForDisplay,
 } from '../lib/canvasInstanceScope'
 import {
@@ -72,6 +74,7 @@ import { GridModeToggle } from './components/GridModeToggle'
 import { GridPatterns } from './components/GridPatterns'
 import { HealthRimFilters } from './fx/HealthRimFilters'
 import { LiveNodeGlyph } from './components/LiveNodeGlyph'
+import { InstanceScopeClusterPickLayer } from './components/InstanceScopeClusterPickLayer'
 import { LiveZoneLayer } from './components/LiveZoneLayer'
 import { MiniPalette } from './components/MiniPalette'
 import { ReplicasStepper } from './components/ReplicasStepper'
@@ -89,7 +92,7 @@ import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
 import { attachPoint } from './routing/attach'
 import { defaultExpanded, resolveDisplayUnits } from './compose/resolveDisplayUnits'
-import { getExpanded } from './store/expandStore'
+import { getExpanded, getExpandEpoch, subscribeExpand } from './store/expandStore'
 import { setDragLive } from './store/dragLiveStore'
 import {
   installCanvasSvgBridge,
@@ -316,6 +319,12 @@ export default function SvgDesignCanvas({
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const expandEpoch = useSyncExternalStore(subscribeExpand, getExpandEpoch, () => 0)
+  const metricsPickKey = useMetricsStore((s) =>
+    isInstanceScopeViewportMode(canvasMode)
+      ? metricsInstancePickKey(s.metrics, canvasNodes)
+      : '',
+  )
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
   )
@@ -637,7 +646,7 @@ export default function SvgDesignCanvas({
         unitCount,
       )
     },
-    [unitCountForNode],
+    [unitCountForNode, metricsPickKey, expandEpoch],
   )
 
   const onZonePointerDown = useCallback(
@@ -1321,6 +1330,14 @@ export default function SvgDesignCanvas({
             />
             )
           })}
+          <InstanceScopeClusterPickLayer
+            canvasMode={canvasMode}
+            canvasNodes={canvasNodes}
+            nodes={sortedNodes}
+            selectedIds={selectedIds}
+            ownerOpacityById={walkthroughOpacityById ?? undefined}
+            onClusterPointerDown={onZonePointerDown}
+          />
           <EdgeLayer
             edges={edges}
             selectedEdgeIds={selectedEdgeIds}

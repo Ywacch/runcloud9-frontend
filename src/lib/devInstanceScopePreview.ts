@@ -89,7 +89,7 @@ function visualReplicaCount(node: CanvasNode, svgNode: SvgNode | undefined): num
   if (svgNode?.topology.replicas != null && svgNode.topology.replicas > 1) {
     return svgNode.topology.replicas
   }
-  if (node.type === 'compute') {
+  if (node.type === 'compute' || node.type === 'worker') {
     return clampAppServerReplicas(node.config.replicas)
   }
   if (node.type === 'database') {
@@ -148,7 +148,7 @@ export function buildDevInstanceScopeMetrics(
     })
   }
 
-  if (node.type !== 'compute') return null
+  if (node.type !== 'compute' && node.type !== 'worker') return null
 
   const podReplicas = Array.from({ length: replicaCount }, (_, index) => {
     const name = `${node.id}-roll-${String.fromCharCode(97 + index)}`

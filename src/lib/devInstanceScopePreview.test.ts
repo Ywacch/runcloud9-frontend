@@ -44,4 +44,27 @@ describe('devInstanceScopePreview', () => {
     expect(metrics?.podReplicas).toHaveLength(2)
     expect(metrics?.runtimeHealth?.pods).toHaveLength(2)
   })
+
+  it('builds worker pod fixtures aligned with canvas unit count', () => {
+    const node: CanvasNode = {
+      id: 'worker1',
+      type: 'worker',
+      label: 'Worker',
+      position: [0, 0, 0],
+      status: 'healthy',
+      config: { replicas: 3 },
+    }
+    const metrics = buildDevInstanceScopeMetrics(node, {
+      id: 'worker1',
+      archetype: 'worker',
+      engine: 'generic',
+      x: 0,
+      y: 0,
+      label: 'Worker',
+      config: {},
+      topology: { replicas: 3, shards: 1, packing: 'stack' },
+    })
+    expect(metrics?.podReplicas).toHaveLength(3)
+    expect(metrics?.podReplicas[0]?.name).toBe('worker1-roll-a')
+  })
 })
