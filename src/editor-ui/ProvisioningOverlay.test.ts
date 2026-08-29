@@ -87,4 +87,42 @@ describe('ProvisioningOverlay', () => {
     expect(html).not.toContain('absolute inset-0')
     expect(html).not.toContain('Minimize')
   })
+
+  it('renders demo data copy and collapsible replica rows', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 4,
+        metricsSummary: {
+          provision_phase: 'deploying',
+          component_status: { 'app-1': 'deploying' },
+          seeding_status: 'seeding',
+          loadgen_status: 'pending',
+          provision_detail_code: 'loading_sample_data',
+          replica_status: {
+            'app-1': [
+              { ordinal: 1, ready: true, wait_code: 'ready' },
+              { ordinal: 2, ready: false, wait_code: 'pulling_image' },
+            ],
+          },
+        },
+        nodes: {
+          'app-1': {
+            id: 'app-1',
+            type: 'compute',
+            position: [0, 0, 0],
+            label: 'App server',
+            config: { replicas: 2 },
+            status: 'provisioning',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('Demo data')
+    expect(html).toContain('Loading demo data…')
+    expect(html).toContain('Instance 1')
+    expect(html).toContain('Instance 2')
+    expect(html).toContain('Preparing…')
+    expect(html).not.toMatch(/ImagePull|BackOff/i)
+    expect(html).toContain('aria-expanded')
+  })
 })

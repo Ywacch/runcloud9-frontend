@@ -3,6 +3,7 @@ import {
   isWaitingForProvisionSlot,
   metricsSummaryHasContractFields,
   parseProvisionMetrics,
+  shouldLingerProvisionOverlay,
   shouldUseLegacyProvisioningPulse,
 } from './provisionMetrics'
 
@@ -95,5 +96,60 @@ describe('shouldUseLegacyProvisioningPulse', () => {
       }),
     ).toBe(true)
     expect(shouldUseLegacyProvisioningPulse(fullContract)).toBe(false)
+  })
+})
+
+describe('parseProvisionMetrics replica_status and detail code', () => {
+  it('parses snake_case replica rows and provision_detail_code', () => {
+    const parsed = parseProvisionMetrics({
+      ...fullContract,
+      provision_detail_code: 'pulling_image',
+      replica_status: {
+        'app-1': [
+          { ordinal: 1, ready: true, wait_code: 'ready' },
+          { ordinal: 2, ready: false, wait_code: 'pulling_image' },
+        ],
+      },
+    })
+    expect(parsed?.provisionDetailCode).toBe('pulling_image')
+    expect(parsed?.replicaStatus['app-1']).toEqual([
+      { ordinal: 1, ready: true, waitCode: 'ready' },
+      { ordinal: 2, ready: false, waitCode: 'pulling_image' },
+    ])
+  })
+
+  it('accepts camelCase replicaStatus and provisionDetailCode', () => {
+    const parsed = parseProvisionMetrics({
+      provisionPhase: 'deploying',
+      componentStatus: { 'app-1': 'deploying' },
+      seedingStatus: 'seeding',
+      loadgenStatus: 'pending',
+      provisionDetailCode: 'loading_sample_data',
+      replicaStatus: {
+        'app-1': [{ ordinal: 1, ready: false, waitCode: 'starting' }],
+      },
+    })
+    expect(parsed?.provisionDetailCode).toBe('loading_sample_data')
+    expect(parsed?.replicaStatus['app-1']?.[0]?.waitCode).toBe('starting')
+  })
+})
+
+describe('shouldLingerProvisionOverlay', () => {
+  it('returns false when both seed and loadgen are skipped', () => {
+    expect(
+      shouldLingerProvisionOverlay(
+        parseProvisionMetrics({
+          ...fullContract,
+          seeding_status: 'skipped',
+          loadgen_status: 'skipped',
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('returns true when seed and loadgen are terminal', () => {
+    expect(shouldLingerProvisionOverlay(parseProvisionMetrics(fullContract))).toBe(
+      true,
+    )
   })
 })

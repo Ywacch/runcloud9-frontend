@@ -10,6 +10,7 @@ import {
   RejoinBanner,
   SimulationOverlay,
 } from '../editor-ui'
+import { PROVISION_FAILED_HEADLINE } from '../lib/provisionCopy'
 import type { CanvasSessionLifecycle } from './useCanvasSessionLifecycle'
 
 export type CanvasSessionOverlaysProps = {
@@ -91,7 +92,7 @@ export function CanvasSessionOverlays({
       {showProvisioningError ? (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-red-800 bg-[var(--c9-surface)]/95 p-5 text-[var(--c9-text)] shadow-xl">
-            <h3 className="text-lg font-semibold text-red-300">Provisioning Failed</h3>
+            <h3 className="text-lg font-semibold text-red-300">{PROVISION_FAILED_HEADLINE}</h3>
             <p className="mt-2 text-sm text-[var(--c9-muted)]">{provisioningError}</p>
             <button
               type="button"

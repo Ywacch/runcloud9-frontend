@@ -16,6 +16,7 @@ import {
   isWaitingForProvisionSlot,
   normalizeComponentProvisionState,
   parseProvisionMetrics,
+  shouldLingerProvisionOverlay,
 } from '../lib/provisionMetrics'
 import {
   deriveDeployWaitKind,
@@ -59,6 +60,7 @@ export type CanvasSessionLifecycle = {
   isTerminating: boolean
   terminationMessage: string | null
   overlayMinimized: boolean
+  provisionLingerActive: boolean
   showProvisioningOverlay: boolean
   showProvisioningError: boolean
   isQueued: boolean
@@ -105,6 +107,9 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   const [isTerminating, setIsTerminating] = useState(false)
   const [terminationMessage, setTerminationMessage] = useState<string | null>(null)
   const [overlayMinimized, setOverlayMinimized] = useState(false)
+  const [provisionLingerActive, setProvisionLingerActive] = useState(false)
+  const provisionLingerActiveRef = useRef(false)
+  const provisionLingerTimerRef = useRef<number | null>(null)
   const provisionStartRef = useRef<number>(Date.now())
   const deploymentRunningTrackedRef = useRef<string | null>(null)
   const statusBeforeCancelRef = useRef<string | null>(null)
@@ -125,7 +130,25 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   useLogSync(realtimeDeploymentId)
 
   useEffect(() => {
-    if (!deploymentId || mode === 'live') {
+    if (!deploymentId) {
+      if (provisionLingerTimerRef.current !== null) {
+        window.clearTimeout(provisionLingerTimerRef.current)
+        provisionLingerTimerRef.current = null
+      }
+      provisionLingerActiveRef.current = false
+      setProvisionLingerActive(false)
+      setDeployStatus(null)
+      setProvisioningError(null)
+      setProvisioningElapsed(0)
+      setProvisionMetricsSummary(null)
+      setQueuePosition(null)
+      setEstimatedWaitSeconds(null)
+      setIsTerminating(false)
+      return
+    }
+
+    if (mode === 'live') {
+      if (provisionLingerActiveRef.current) return
       setDeployStatus(null)
       setProvisioningError(null)
       setProvisioningElapsed(0)
@@ -316,6 +339,24 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
             if (live.nodes[nid]?.type === 'client') return
             live.updateNodeStatus(nid, 'healthy')
           })
+          const linger = shouldLingerProvisionOverlay(polled)
+          if (linger) {
+            provisionLingerActiveRef.current = true
+            setProvisionLingerActive(true)
+            if (provisionLingerTimerRef.current !== null) {
+              window.clearTimeout(provisionLingerTimerRef.current)
+            }
+            provisionLingerTimerRef.current = window.setTimeout(() => {
+              provisionLingerActiveRef.current = false
+              setProvisionLingerActive(false)
+              setDeployStatus(null)
+              setProvisionMetricsSummary(null)
+              provisionLingerTimerRef.current = null
+            }, 1000)
+          } else {
+            setDeployStatus(null)
+            setProvisionMetricsSummary(null)
+          }
           live.setMode('live')
           live.setAllEdgesAnimated(true)
           live.setLiveSessionStartedAt(runningAt ?? Date.now())
@@ -407,6 +448,10 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     return () => {
       cancelled = true
       stopPolling()
+      if (provisionLingerTimerRef.current !== null) {
+        window.clearTimeout(provisionLingerTimerRef.current)
+        provisionLingerTimerRef.current = null
+      }
     }
   }, [deploymentId, mode])
 
@@ -472,11 +517,13 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   }, [mode, simRunning, nodeTopologyKey, edgeTopologyKey])
 
   const showProvisioningOverlay =
-    mode !== 'live' &&
     !!deploymentId &&
-    (deployStatus === 'queued' ||
-      deployStatus === 'provisioning' ||
-      isTerminating)
+    !provisioningError &&
+    (provisionLingerActive ||
+      (mode !== 'live' &&
+        (deployStatus === 'queued' ||
+          deployStatus === 'provisioning' ||
+          isTerminating)))
   const showProvisioningError = mode !== 'live' && !!deploymentId && !!provisioningError
   const isQueued = deployStatus === 'queued'
   const provisionPhase = useMemo(
@@ -581,6 +628,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     isTerminating,
     terminationMessage,
     overlayMinimized,
+    provisionLingerActive,
     showProvisioningOverlay,
     showProvisioningError,
     isQueued,
