@@ -2,51 +2,152 @@
   "terms": {
     "title": "Terms of Service",
     "lastUpdated": "30 August 2026",
-    "intro": "By creating an account, signing in (email and password, Google, GitHub, or another method we offer), or using RunCloud9, you agree to these terms and our Privacy Policy. If you do not agree, do not use the service.",
+    "intro": "RunCloud9 is provided by its operator (\"we\", \"us\", \"our\"). By creating an account, signing in (email and password, Google, GitHub, or another method we offer), or using RunCloud9, you agree to these terms and our Privacy Policy. If you do not agree, do not use the service.",
     "sections": [
       {
-        "heading": "Accounts",
+        "heading": "Eligibility",
         "paragraphs": [
-          "One person may hold one account. Do not share credentials, create extra accounts to multiply free sessions or limits, or automate signups. We may require a verified email before you can deploy labs. We may suspend or close accounts that farm free capacity, evade limits, or otherwise abuse the service."
+          "You must be at least 13 years old, or the minimum age required to use online services in your country, whichever is higher. If you use RunCloud9 on behalf of an organization, you confirm you have authority to bind that organization to these terms."
         ]
       },
       {
-        "heading": "Service",
+        "heading": "Accounts",
         "paragraphs": [
-          "RunCloud9 provisions short-lived lab environments on shared infrastructure. Features, limits, and availability may change. There is no service-level agreement. Sessions may fail, queue, or be terminated for capacity, maintenance, or abuse."
+          "Do not share credentials or create extra accounts to evade usage limits, multiply free sessions, or automate signups. We may require a verified email before you deploy labs.",
+          "You are responsible for activity under your account and for keeping your password secure. Tell us promptly through the contact method in the Contact section if you believe your account was accessed without permission.",
+          "We may suspend or close accounts that farm free capacity, evade limits, threaten cluster stability, or otherwise abuse the service."
+        ]
+      },
+      {
+        "heading": "The service",
+        "paragraphs": [
+          "RunCloud9 is an educational and experimental platform for learning distributed systems. We provision short-lived lab environments on shared cloud infrastructure. Features, limits, and availability may change without notice.",
+          "There is no service-level agreement. Sessions may fail, queue, or end early for capacity, maintenance, abuse, or technical problems.",
+          "RunCloud9 is not a general-purpose hosting provider. Do not rely on it for production, mission-critical, safety-critical, financial, healthcare, emergency-response, or other high-consequence workloads."
+        ]
+      },
+      {
+        "heading": "Your workloads",
+        "paragraphs": [
+          "You are solely responsible for the designs, code, configurations, credentials, data, requests, network traffic, and other materials you introduce into or cause to be processed through the service.",
+          "We do not guarantee that your workloads will be secure, correct, available, durable, or fit for any particular purpose. You are responsible for reviewing what you deploy and for any outcomes in your lab sessions."
         ]
       },
       {
         "heading": "Acceptable use",
         "paragraphs": [
-          "Use the platform for lawful learning and architecture experimentation. Do not disrupt shared infrastructure, probe other users' sessions, upload malware, or run sustained attacks outside the provided load tools. Do not use labs as general-purpose hosting or to attack systems you do not own. We may suspend accounts that threaten cluster stability or violate these rules."
+          "Use RunCloud9 only for lawful learning and architecture experimentation. You must not use the service to:"
+        ],
+        "listItems": [
+          {
+            "label": "Attack or probe",
+            "text": "disrupt shared infrastructure, probe other users' sessions, scan or attack systems you do not own or control, or run denial-of-service attacks outside provided load tools."
+          },
+          {
+            "label": "Malware and abuse",
+            "text": "upload or run malware, ransomware, credential harvesters, phishing pages, botnets, spam infrastructure, or tools intended to evade security controls."
+          },
+          {
+            "label": "Resource abuse",
+            "text": "mine cryptocurrency, run persistent hosting, consume disproportionate resources, or use labs as a proxy or anonymization service."
+          },
+          {
+            "label": "Illegal or harmful content",
+            "text": "store or distribute illegal content, infringe others' intellectual property, or process regulated data (such as health or payment card data) unless you have a lawful basis and we have agreed in writing."
+          },
+          {
+            "label": "Limit evasion",
+            "text": "circumvent quotas, billing, access controls, or technical restrictions."
+          }
+        ]
+      },
+      {
+        "heading": "Secrets and credentials",
+        "paragraphs": [
+          "Do not place production secrets, live API keys, or credentials you are not authorized to use into lab workloads unless you accept the risk that they may be exposed in a shared learning environment.",
+          "You are responsible for rotating or revoking any credentials you expose. We do not guarantee confidentiality of secrets you choose to store in session configurations or designs."
         ]
       },
       {
         "heading": "Your content",
         "paragraphs": [
-          "You retain rights to designs you create. You grant us a limited license to store, transmit, and display them as needed to operate sessions (deploy, metrics, teardown). Template presets and platform software remain our property or our licensors'."
+          "You retain ownership of designs you create. You grant us a non-exclusive, worldwide license to host, store, transmit, display, and process your designs only as needed to operate, secure, and support the service. This license ends when we no longer need it to operate the service, subject to backup and legal retention requirements.",
+          "Template presets, platform software, and our branding remain our property or our licensors'. You may not copy, reverse engineer, or resell the service except as these terms allow."
+        ]
+      },
+      {
+        "heading": "Intellectual property complaints",
+        "paragraphs": [
+          "If you believe content on RunCloud9 infringes your rights, contact us using the method in the Contact section with enough detail for us to locate the material and verify your claim. We may remove content or suspend accounts that repeatedly infringe others' rights."
+        ]
+      },
+      {
+        "heading": "Third-party services",
+        "paragraphs": [
+          "RunCloud9 depends on third-party infrastructure and services (including cloud providers, authentication, payments, analytics, and error monitoring). Those providers have their own terms and may experience outages or policy changes outside our control. We are not responsible for failures attributable solely to third parties."
         ]
       },
       {
         "heading": "Billing",
         "paragraphs": [
-          "Paid subscriptions are charged through Stripe at the price shown at checkout. You manage billing from your profile. Session and concurrent limits are those stated in the product at purchase.",
-          { "lead": "Stop subscription", "text": " ends renewal. You keep paid access until the current billing period ends. We do not refund that period." },
+          "Paid subscriptions are billed through Stripe at the price and interval shown at checkout. By subscribing, you authorize recurring charges until you cancel. Taxes may apply where required by law.",
+          "You manage billing from your profile. Session and concurrent limits are those stated in the product at purchase. Failed payments may suspend paid features.",
+          { "lead": "Stop subscription", "text": " ends renewal at the end of the current billing period. You keep paid access until that period ends. We do not refund time already paid for when you stop renewal." },
           { "lead": "Cancel & refund", "text": " ends paid access immediately and refunds the current period only if you have not used paid features in that Stripe billing period (no live sessions after the period started). If you have used them, Cancel & refund is unavailable; use Stop instead." },
-          "Unused time later in a period you already paid for does not entitle you to a refund. Where law requires a refund, that law controls."
+          "Unused time in a period you already paid for does not entitle you to a refund. We may correct billing errors or issue refunds for duplicate or unauthorized charges. Where law requires a refund, that law controls."
         ]
       },
       {
-        "heading": "Disclaimer",
+        "heading": "Suspension and termination",
         "paragraphs": [
-          "THE SERVICE IS PROVIDED \"AS IS\" WITHOUT WARRANTIES OF ANY KIND. METRICS AND SIMULATIONS ARE DIRECTIONAL, NOT CERTIFICATION-GRADE. WE ARE NOT LIABLE FOR INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING FROM USE OF THE SERVICE, TO THE MAXIMUM EXTENT PERMITTED BY LAW."
+          "We may suspend or terminate your access immediately if you violate these terms, create a security risk, engage in fraud or illegal activity, fail to pay, receive a valid legal request, or if we must protect the service or other users.",
+          "When a session ends, live cluster resources are destroyed. When an account is closed, we may retain account and deployment history for a period described in our Privacy Policy, then delete or anonymize it subject to legal obligations."
+        ]
+      },
+      {
+        "heading": "Disclaimers",
+        "paragraphs": [
+          "THE SERVICE IS PROVIDED \"AS IS\" AND \"AS AVAILABLE\" WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.",
+          "METRICS, SIMULATIONS, AND LAB BEHAVIOR ARE DIRECTIONAL AND FOR LEARNING ONLY. THEY ARE NOT CERTIFICATION-GRADE OR SUITABLE FOR PRODUCTION DECISIONS."
+        ]
+      },
+      {
+        "heading": "Limitation of liability",
+        "paragraphs": [
+          "TO THE MAXIMUM EXTENT PERMITTED BY LAW, WE WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR LOST PROFITS, DATA, OR GOODWILL, ARISING FROM YOUR USE OF THE SERVICE.",
+          "OUR TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATING TO THE SERVICE OR THESE TERMS IS LIMITED TO THE GREATER OF (A) THE AMOUNTS YOU PAID US FOR THE SERVICE IN THE TWELVE MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM, OR (B) ONE HUNDRED US DOLLARS (US$100).",
+          "Some jurisdictions do not allow certain limitations. In those cases, our liability is limited to the fullest extent permitted by applicable law."
+        ]
+      },
+      {
+        "heading": "Indemnification",
+        "paragraphs": [
+          "You will defend, indemnify, and hold harmless the operator of RunCloud9 from claims, damages, losses, and expenses (including reasonable legal fees) arising from your content, your workloads, your use of the service, or your violation of these terms or applicable law."
+        ]
+      },
+      {
+        "heading": "Governing law",
+        "paragraphs": [
+          "These terms are governed by the laws applicable to the operator of RunCloud9, without regard to conflict-of-law rules. Courts with appropriate jurisdiction may hear disputes arising from these terms, except where mandatory law in your country requires otherwise."
         ]
       },
       {
         "heading": "Changes",
         "paragraphs": [
-          "We may update these terms. Continued use after changes constitutes acceptance. Material updates will be reflected on this page with a revised date."
+          "We may update these terms. We will post the revised version on this page and update the \"Last updated\" date. For material changes, we may also notify you by email or in-product notice before the effective date. Continued use after changes take effect constitutes acceptance."
+        ]
+      },
+      {
+        "heading": "General",
+        "paragraphs": [
+          "These terms and our Privacy Policy are the entire agreement between you and us regarding the service. If any provision is unenforceable, the rest remains in effect. Our failure to enforce a provision is not a waiver. You may not transfer your account without our consent. We may assign these terms in connection with a merger, acquisition, or sale of assets.",
+          "Nothing in these terms creates a partnership, agency, or employment relationship."
+        ]
+      },
+      {
+        "heading": "Contact",
+        "paragraphs": [
+          "For questions about these terms, privacy requests, account deletion, or intellectual property complaints, contact us through the Discord server linked in the website footer. Include the email address on your RunCloud9 account so we can verify your request."
         ]
       }
     ]
@@ -54,22 +155,26 @@
   "privacy": {
     "title": "Privacy Policy",
     "lastUpdated": "30 August 2026",
-    "intro": "This policy describes how RunCloud9 handles your information when you use the service.",
+    "intro": "This policy describes how the operator of RunCloud9 (\"we\", \"us\", \"our\") handles information when you use the service at www.runcloud9.io. The operator is the data controller for personal information described here.",
     "sections": [
       {
         "heading": "What we collect",
         "listItems": [
           {
             "label": "Account data",
-            "text": "email address and authentication identifiers via Supabase (sign-in, password reset, and OAuth when enabled)."
+            "text": "email address, authentication identifiers, and profile information via Supabase (sign-in, password reset, and OAuth when enabled)."
           },
           {
             "label": "Session data",
             "text": "deployment designs, namespace metadata, session duration, and summarized metrics stored with your account."
           },
           {
+            "label": "Device and log data",
+            "text": "IP address, browser type, and basic request metadata needed to secure and operate the service."
+          },
+          {
             "label": "Usage analytics",
-            "text": "product events (e.g. canvas opened, deploy requested) via PostHog, with coarse error categories, not raw backend error text."
+            "text": "product events (for example canvas opened, deploy requested) via PostHog, with coarse error categories, not raw backend error text."
           },
           {
             "label": "Diagnostics",
@@ -77,26 +182,102 @@
           },
           {
             "label": "Billing",
-            "text": "if you upgrade, payment processing is handled by Stripe; we receive subscription status, not full card numbers."
+            "text": "if you upgrade, Stripe processes payment; we receive subscription status and customer identifiers, not full card numbers."
+          },
+          {
+            "label": "Support messages",
+            "text": "information you send when you contact us (for example through Discord), including your account email when you provide it for verification."
           }
         ]
       },
       {
         "heading": "How we use it",
         "paragraphs": [
-          "To operate the service (provision sessions, enforce quotas, authenticate users), improve reliability and UX, and process Engineer subscriptions. We do not sell your personal data."
+          "We use personal information to provide and secure the service, provision lab sessions, enforce quotas, authenticate users, process Engineer subscriptions, respond to support requests, improve reliability and UX, and comply with law. We do not sell your personal information."
+        ]
+      },
+      {
+        "heading": "Legal bases",
+        "paragraphs": [
+          "Where required by law, we rely on: performance of our contract with you (providing the service); legitimate interests (security, abuse prevention, product improvement); compliance with legal obligations; and your consent where we ask for it explicitly (for example optional analytics where applicable)."
+        ]
+      },
+      {
+        "heading": "Processors and sharing",
+        "paragraphs": [
+          "We use service providers that process data on our instructions:"
+        ],
+        "listItems": [
+          {
+            "label": "Supabase",
+            "text": "authentication and application data."
+          },
+          {
+            "label": "Google Cloud",
+            "text": "Kubernetes workloads for lab sessions."
+          },
+          {
+            "label": "Stripe",
+            "text": "subscription billing."
+          },
+          {
+            "label": "PostHog",
+            "text": "product analytics."
+          },
+          {
+            "label": "Sentry",
+            "text": "error monitoring when enabled."
+          }
+        ]
+      },
+      {
+        "heading": "International transfers",
+        "paragraphs": [
+          "We and our processors may store or process information in countries other than yours, including the United States. We use providers that maintain appropriate safeguards for cross-border transfers as required by their terms and applicable law."
         ]
       },
       {
         "heading": "Retention",
         "paragraphs": [
-          "Live cluster resources are torn down when sessions end. Account and deployment history are kept to support dashboards and support requests. Analytics and error data follow each provider's retention settings (PostHog, Sentry). We may delete inactive accounts after reasonable notice."
+          "Live cluster resources are torn down when sessions end. Account and deployment history are kept to operate dashboards and respond to support requests, typically until you delete your account or until we remove inactive accounts after at least twelve months of no sign-in, with notice when practical.",
+          "Analytics and error data follow each provider's retention settings. We may retain limited records longer where required for security, fraud prevention, billing disputes, or legal obligations."
         ]
       },
       {
-        "heading": "Processors",
+        "heading": "Your rights",
         "paragraphs": [
-          "We rely on Supabase (auth and app data), Google Cloud (Kubernetes workloads), Stripe (billing), PostHog (analytics), and Sentry (error monitoring). Each processes data under their own terms and our instructions for providing the product."
+          "Depending on where you live, you may have rights to access, correct, delete, or export your personal information, or to object to or restrict certain processing. To exercise these rights, contact us through the Discord link in the website footer and include your RunCloud9 account email. We may need to verify your identity before fulfilling a request.",
+          "If you are not satisfied with our response, you may have the right to complain to a data protection authority in your country."
+        ]
+      },
+      {
+        "heading": "Cookies and analytics",
+        "paragraphs": [
+          "We use cookies and similar technologies needed for sign-in and security. PostHog may set analytics cookies or use similar technologies to understand product usage. You can limit cookies through your browser settings; some features may not work without essential cookies."
+        ]
+      },
+      {
+        "heading": "Children",
+        "paragraphs": [
+          "RunCloud9 is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child provided us information, contact us and we will delete it."
+        ]
+      },
+      {
+        "heading": "Security",
+        "paragraphs": [
+          "We use reasonable technical and organizational measures to protect personal information. No method of transmission or storage is completely secure. Report suspected security issues through the Discord contact method in the footer."
+        ]
+      },
+      {
+        "heading": "Changes",
+        "paragraphs": [
+          "We may update this policy. We will post the revised version on this page and update the \"Last updated\" date. Material changes may be communicated by email or in-product notice where appropriate."
+        ]
+      },
+      {
+        "heading": "Contact",
+        "paragraphs": [
+          "Data controller: the operator of RunCloud9. For privacy requests or account deletion, contact us through the Discord server linked in the website footer. Include your RunCloud9 account email so we can verify your request."
         ]
       }
     ]

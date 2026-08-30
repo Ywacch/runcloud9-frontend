@@ -41,15 +41,6 @@ export function renderLegalDocumentHtml(doc: LegalDocumentData): string {
 
   for (const section of doc.sections) {
     parts.push(`<h2>${escapeHtml(section.heading)}</h2>`)
-    if (section.listItems) {
-      parts.push('<ul>')
-      for (const item of section.listItems) {
-        parts.push(
-          `<li><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.text)}</li>`,
-        )
-      }
-      parts.push('</ul>')
-    }
     for (const block of section.paragraphs ?? []) {
       if (typeof block === 'string') {
         parts.push(`<p>${escapeHtml(block)}</p>`)
@@ -58,6 +49,15 @@ export function renderLegalDocumentHtml(doc: LegalDocumentData): string {
           `<p><strong>${escapeHtml(block.lead)}</strong>${escapeHtml(block.text)}</p>`,
         )
       }
+    }
+    if (section.listItems) {
+      parts.push('<ul>')
+      for (const item of section.listItems) {
+        parts.push(
+          `<li><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.text)}</li>`,
+        )
+      }
+      parts.push('</ul>')
     }
   }
 
