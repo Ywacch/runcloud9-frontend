@@ -1,0 +1,104 @@
+{
+  "terms": {
+    "title": "Terms of Service",
+    "lastUpdated": "30 August 2026",
+    "intro": "By creating an account, signing in (email and password, Google, GitHub, or another method we offer), or using RunCloud9, you agree to these terms and our Privacy Policy. If you do not agree, do not use the service.",
+    "sections": [
+      {
+        "heading": "Accounts",
+        "paragraphs": [
+          "One person may hold one account. Do not share credentials, create extra accounts to multiply free sessions or limits, or automate signups. We may require a verified email before you can deploy labs. We may suspend or close accounts that farm free capacity, evade limits, or otherwise abuse the service."
+        ]
+      },
+      {
+        "heading": "Service",
+        "paragraphs": [
+          "RunCloud9 provisions short-lived lab environments on shared infrastructure. Features, limits, and availability may change. There is no service-level agreement. Sessions may fail, queue, or be terminated for capacity, maintenance, or abuse."
+        ]
+      },
+      {
+        "heading": "Acceptable use",
+        "paragraphs": [
+          "Use the platform for lawful learning and architecture experimentation. Do not disrupt shared infrastructure, probe other users' sessions, upload malware, or run sustained attacks outside the provided load tools. Do not use labs as general-purpose hosting or to attack systems you do not own. We may suspend accounts that threaten cluster stability or violate these rules."
+        ]
+      },
+      {
+        "heading": "Your content",
+        "paragraphs": [
+          "You retain rights to designs you create. You grant us a limited license to store, transmit, and display them as needed to operate sessions (deploy, metrics, teardown). Template presets and platform software remain our property or our licensors'."
+        ]
+      },
+      {
+        "heading": "Billing",
+        "paragraphs": [
+          "Paid subscriptions are charged through Stripe at the price shown at checkout. You manage billing from your profile. Session and concurrent limits are those stated in the product at purchase.",
+          { "lead": "Stop subscription", "text": " ends renewal. You keep paid access until the current billing period ends. We do not refund that period." },
+          { "lead": "Cancel & refund", "text": " ends paid access immediately and refunds the current period only if you have not used paid features in that Stripe billing period (no live sessions after the period started). If you have used them, Cancel & refund is unavailable; use Stop instead." },
+          "Unused time later in a period you already paid for does not entitle you to a refund. Where law requires a refund, that law controls."
+        ]
+      },
+      {
+        "heading": "Disclaimer",
+        "paragraphs": [
+          "THE SERVICE IS PROVIDED \"AS IS\" WITHOUT WARRANTIES OF ANY KIND. METRICS AND SIMULATIONS ARE DIRECTIONAL, NOT CERTIFICATION-GRADE. WE ARE NOT LIABLE FOR INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING FROM USE OF THE SERVICE, TO THE MAXIMUM EXTENT PERMITTED BY LAW."
+        ]
+      },
+      {
+        "heading": "Changes",
+        "paragraphs": [
+          "We may update these terms. Continued use after changes constitutes acceptance. Material updates will be reflected on this page with a revised date."
+        ]
+      }
+    ]
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "30 August 2026",
+    "intro": "This policy describes how RunCloud9 handles your information when you use the service.",
+    "sections": [
+      {
+        "heading": "What we collect",
+        "listItems": [
+          {
+            "label": "Account data",
+            "text": "email address and authentication identifiers via Supabase (sign-in, password reset, and OAuth when enabled)."
+          },
+          {
+            "label": "Session data",
+            "text": "deployment designs, namespace metadata, session duration, and summarized metrics stored with your account."
+          },
+          {
+            "label": "Usage analytics",
+            "text": "product events (e.g. canvas opened, deploy requested) via PostHog, with coarse error categories, not raw backend error text."
+          },
+          {
+            "label": "Diagnostics",
+            "text": "client errors and performance signals via Sentry when enabled."
+          },
+          {
+            "label": "Billing",
+            "text": "if you upgrade, payment processing is handled by Stripe; we receive subscription status, not full card numbers."
+          }
+        ]
+      },
+      {
+        "heading": "How we use it",
+        "paragraphs": [
+          "To operate the service (provision sessions, enforce quotas, authenticate users), improve reliability and UX, and process Engineer subscriptions. We do not sell your personal data."
+        ]
+      },
+      {
+        "heading": "Retention",
+        "paragraphs": [
+          "Live cluster resources are torn down when sessions end. Account and deployment history are kept to support dashboards and support requests. Analytics and error data follow each provider's retention settings (PostHog, Sentry). We may delete inactive accounts after reasonable notice."
+        ]
+      },
+      {
+        "heading": "Processors",
+        "paragraphs": [
+          "We rely on Supabase (auth and app data), Google Cloud (Kubernetes workloads), Stripe (billing), PostHog (analytics), and Sentry (error monitoring). Each processes data under their own terms and our instructions for providing the product."
+        ]
+      }
+    ]
+  }
+}

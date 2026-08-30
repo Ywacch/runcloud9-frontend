@@ -113,8 +113,8 @@ export function DeployModal({
 
         {showAuthRequired ? (
           <p className="mt-2 text-sm leading-relaxed text-[var(--c9-muted)]">
-            Your canvas design stays here. Sign in with your invited alpha account, then we
-            will start provisioning automatically.
+            Your canvas design stays here. Sign in to your RunCloud9 account, then we will start
+            provisioning automatically.
           </p>
         ) : null}
 
