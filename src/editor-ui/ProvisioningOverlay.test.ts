@@ -161,6 +161,37 @@ describe('ProvisioningOverlay', () => {
     expect(html).toContain('text-emerald-400')
   })
 
+  it('shows planned postgres read replicas while only primary is in replica_status', () => {
+    const html = renderToStaticMarkup(
+      createElement(ProvisioningOverlay, {
+        elapsedSeconds: 3,
+        metricsSummary: {
+          provision_phase: 'deploying',
+          component_status: { 'db-1': 'deploying' },
+          seeding_status: 'pending',
+          loadgen_status: 'pending',
+          replica_status: {
+            'db-1': [{ ordinal: 1, ready: false, wait_code: 'pending' }],
+          },
+        },
+        nodes: {
+          'db-1': {
+            id: 'db-1',
+            type: 'database',
+            position: [0, 0, 0],
+            label: 'PostgreSQL',
+            config: { readReplicas: 2 },
+            status: 'provisioning',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('Primary')
+    expect(html).toContain('Read replica 1')
+    expect(html).toContain('Read replica 2')
+    expect(html).toContain('Waiting for its turn to start.')
+  })
+
   it('explains sync demo-data wait until replicas are ready', () => {
     const html = renderToStaticMarkup(
       createElement(ProvisioningOverlay, {

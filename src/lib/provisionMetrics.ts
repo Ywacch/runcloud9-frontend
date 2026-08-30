@@ -235,6 +235,28 @@ export function canvasInstanceCount(
   return 1
 }
 
+/** Pad replica_status to canvas expectedCount with pending placeholders. Live rows win. */
+export function padReplicaWaitRows(
+  rows: ReplicaWaitRow[] | undefined,
+  expectedCount: number,
+): ReplicaWaitRow[] {
+  if (expectedCount <= 0) return rows ?? []
+  const byOrdinal = new Map<number, ReplicaWaitRow>()
+  for (const row of rows ?? []) {
+    byOrdinal.set(row.ordinal, row)
+  }
+  const out: ReplicaWaitRow[] = []
+  for (let ordinal = 1; ordinal <= expectedCount; ordinal++) {
+    const live = byOrdinal.get(ordinal)
+    if (live) {
+      out.push(live)
+    } else {
+      out.push({ ordinal, ready: false, waitCode: 'pending' })
+    }
+  }
+  return out
+}
+
 export function shouldShowReplicaChildren(
   replicaRows: ReplicaWaitRow[] | undefined,
   expectedCount: number,
