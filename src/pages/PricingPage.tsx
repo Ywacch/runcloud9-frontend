@@ -71,8 +71,7 @@ export default function PricingPage() {
             </h1>
             <p className="mt-3 text-base leading-relaxed text-[var(--c9-muted)]">
               Design on a canvas, deploy to real Kubernetes, and watch the system under load.
-              Invite-only alpha. Start on Free tier; Engineer unlocks the full template shape and
-              higher limits.
+              Start on Free tier; Engineer unlocks the full template shape and higher limits.
             </p>
           </header>
 

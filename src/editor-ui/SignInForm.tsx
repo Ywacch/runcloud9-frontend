@@ -37,7 +37,7 @@ export function SignInForm({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!normalizedEmail) {
-      setError('Enter your invited email address.')
+      setError('Enter your email address.')
       return
     }
     if (!password) {
@@ -67,13 +67,13 @@ export function SignInForm({
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       {showHelper ? (
         <p className="text-sm leading-relaxed text-[var(--c9-muted)]">
-          Access is invite-only. Use the email provisioned for alpha testing.
+          Sign in with the email and password for your RunCloud9 account.
         </p>
       ) : null}
 
       <div className="flex flex-col gap-2">
         <label className={labelClass} htmlFor={emailId}>
-          Invited email
+          Email
         </label>
         <input
           id={emailId}

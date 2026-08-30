@@ -92,7 +92,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-7xl gap-12 px-6 py-18 lg:grid-cols-[1fr_1.1fr] lg:items-center">
           <div>
             <p className="mb-4 inline-flex rounded-full border border-cyan-700/60 bg-cyan-950/40 px-3 py-1 text-xs font-medium tracking-[0.12em] text-cyan-300">
-              Invite-only alpha
+              Live Kubernetes labs
             </p>
             <h1 className="max-w-xl font-serif text-4xl font-semibold leading-[1.08] tracking-tight text-zinc-100 md:text-6xl">
               Don&apos;t just design your architecture. Deploy it.

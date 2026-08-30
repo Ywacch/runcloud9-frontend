@@ -28,11 +28,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <C9Card className="p-6">
           <h1 className="text-xl font-semibold tracking-tight text-[var(--c9-text)]">
-            Sign in to RunCloud9 Alpha
+            Sign in to RunCloud9
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--c9-muted)]">
-            Access is invite-only. Use the email address provisioned in Supabase for alpha
-            testing.
+            Use the email and password for your account, or sign in with Google or GitHub if you
+            connected them.
           </p>
           <div className="mt-5">
             <SignInForm

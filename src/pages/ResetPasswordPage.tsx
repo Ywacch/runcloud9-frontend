@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
   const onSendReset = async (e: FormEvent) => {
     e.preventDefault()
     if (!normalizedEmail) {
-      setError('Enter your invited email address.')
+      setError('Enter your email address.')
       return
     }
     setSubmitting(true)
@@ -44,11 +44,11 @@ export default function ResetPasswordPage() {
         <C9Card className="p-6">
           <C9SectionTitle
             title="Reset your password"
-            description="We will send a secure reset link to your invited email."
+            description="We will send a secure reset link to your email."
           />
 
           <label className="mt-5 block text-sm text-[var(--c9-text)]" htmlFor="reset-email">
-            Invited email
+            Email
           </label>
           <input
             id="reset-email"

@@ -62,7 +62,7 @@ export function Footer() {
           ) : null}
         </nav>
         <p className="text-xs text-c9-text-muted">
-          © {new Date().getFullYear()} RunCloud9. Invite-only alpha.
+          © {new Date().getFullYear()} RunCloud9
         </p>
       </div>
     </footer>

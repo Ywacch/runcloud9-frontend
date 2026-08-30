@@ -5,7 +5,7 @@
   "home": {
     "path": "/",
     "title": "runcloud9 | Design and deploy live architecture",
-    "description": "Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Invite-only alpha."
+    "description": "Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Free tier included."
   },
   "pages": [
     {
@@ -21,12 +21,12 @@
     {
       "path": "/privacy",
       "title": "Privacy Policy | runcloud9",
-      "description": "How RunCloud9 handles account, session, analytics, and billing data during the invite alpha."
+      "description": "How RunCloud9 handles account, session, analytics, and billing data."
     },
     {
       "path": "/terms",
       "title": "Terms of Service | runcloud9",
-      "description": "Terms for using RunCloud9 during the invite alpha, including acceptable use, billing, and disclaimers."
+      "description": "Terms for using RunCloud9, including acceptable use, billing, and disclaimers."
     }
   ]
 }

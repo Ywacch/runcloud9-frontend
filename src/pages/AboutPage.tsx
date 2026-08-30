@@ -15,15 +15,14 @@ export default function AboutPage() {
         strategy, fan-out, and scale. Use simulation when a design is not ready to deploy.
       </p>
       <p>
-        Invite-only alpha. If you have access,{' '}
+        <Link to="/canvas" className="text-[var(--c9-accent)] hover:underline">
+          Open the canvas
+        </Link>{' '}
+        or{' '}
         <Link to="/login" className="text-[var(--c9-accent)] hover:underline">
           sign in
         </Link>{' '}
-        or open your{' '}
-        <Link to="/dashboard" className="text-[var(--c9-accent)] hover:underline">
-          dashboard
-        </Link>
-        .
+        to deploy your first architecture.
       </p>
     </LegalPageLayout>
   )
