@@ -57,7 +57,9 @@ import {
   writeSessionMinutesPref,
 } from '../lib/sessionMinutes'
 import {
+  canvasQuotaForDisplay,
   designExceedsResourceQuota,
+  displayQuotaTierLabel,
   toResourceBudgetErrorResponse,
   type ResourceBudgetErrorResponse,
 } from '../lib/sumDesignBudget'
@@ -339,6 +341,12 @@ export function Sidebar() {
     }
   }, [live, simulate, snapshotTemplateId, nodeCount, nodes, edges, quotaTier])
 
+  const quotaDisplay = useMemo(
+    () =>
+      quotaPreview ? canvasQuotaForDisplay(quotaPreview, quotaTier) : null,
+    [quotaPreview, quotaTier],
+  )
+
   const topologyViolations = useMemo(() => {
     if (live || simulate || isPremiumUser) return []
     // DEV: allow placing Engineer-only nodes without the free-tier banner.
@@ -368,8 +376,8 @@ export function Sidebar() {
         ? 'Sign in to deploy infrastructure.'
         : topologyViolations.length > 0
           ? topologyViolations[0].message
-        : quotaPreview
-          ? `Needs ${quotaPreview.requested.cpu} CPU / ${quotaPreview.requested.memory} RAM (plan cap ${quotaPreview.cap.cpu} / ${quotaPreview.cap.memory})`
+        : quotaDisplay
+          ? `Needs ${quotaDisplay.requested.cpu} CPU / ${quotaDisplay.requested.memory} RAM (${displayQuotaTierLabel(quotaTier)} canvas cap ${quotaDisplay.cap.cpu} / ${quotaDisplay.cap.memory})`
           : undefined
 
   const togglePlace = (type: CanvasNode['type']) => {
@@ -563,6 +571,7 @@ export function Sidebar() {
     } catch (e) {
       const friendly = mapDeployRequestError(e, {
         isFreeUser: !isPremiumUser,
+        quotaTier,
       })
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
       const rejectReason = deployRejectReasonFromError(e)
@@ -1043,11 +1052,11 @@ export function Sidebar() {
                 {topologyViolations[0].message}
               </p>
             ) : null}
-            {quotaPreview ? (
+            {quotaDisplay ? (
               <p className="text-[11px] leading-snug text-amber-300/90">
-                This design exceeds the {quotaPreview.tier} quota ({quotaPreview.requested.cpu} /{' '}
-                {quotaPreview.requested.memory} vs cap {quotaPreview.cap.cpu} /{' '}
-                {quotaPreview.cap.memory}). Downsize nodes or replicas to deploy.
+                This design is {quotaDisplay.requested.cpu} / {quotaDisplay.requested.memory},{' '}
+                but {displayQuotaTierLabel(quotaTier)} allows {quotaDisplay.cap.cpu} /{' '}
+                {quotaDisplay.cap.memory} on the canvas. Downsize nodes or replicas to deploy.
               </p>
             ) : null}
             {selectedTemplate && !templateOffersLiveDeploy(selectedTemplate) ? (
