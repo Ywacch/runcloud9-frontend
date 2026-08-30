@@ -28,9 +28,6 @@
   ],
   "rewrites": [
     {
-      "handle": "filesystem"
-    },
-    {
       "source": "/(.*)",
       "destination": "/"
     }
