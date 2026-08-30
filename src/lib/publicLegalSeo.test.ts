@@ -7,8 +7,10 @@ describe('public legal SEO content', () => {
   it('renders full terms HTML for crawlers', () => {
     const html = renderLegalDocumentHtml(legalContent.terms)
     expect(html).toContain('Terms of Service')
+    expect(html).toContain('operator of RunCloud9')
     expect(html).toContain('Stop subscription')
-    expect(html).toContain('Cancel &amp; refund')
+    expect(html).toContain('Indemnification')
+    expect(html).toContain('US$100')
     expect(html).not.toContain('invite alpha')
   })
 
@@ -16,7 +18,8 @@ describe('public legal SEO content', () => {
     const html = renderLegalDocumentHtml(legalContent.privacy)
     expect(html).toContain('Privacy Policy')
     expect(html).toContain('What we collect')
-    expect(html).toContain('Processors')
+    expect(html).toContain('Processors and sharing')
+    expect(html).toContain('Discord')
     expect(html).not.toContain('invite alpha')
   })
 
