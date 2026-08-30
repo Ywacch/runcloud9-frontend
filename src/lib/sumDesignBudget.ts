@@ -199,6 +199,78 @@ export function toResourceBudgetErrorResponse(
   }
 }
 
+/** Plan label for canvas quota copy — internal maps to Engineer in UI. */
+export function displayQuotaTierLabel(tier: string | undefined | null): string {
+  switch (normalizeResourceTier(tier)) {
+    case 'engineer':
+    case 'internal':
+      return 'Engineer'
+    case 'architect':
+      return 'Architect'
+    default:
+      return 'Explorer'
+  }
+}
+
+type CanvasQuotaDisplayInput = Pick<
+  ResourceBudgetErrorResponse,
+  'tier' | 'requested' | 'cap' | 'breakdown'
+> & { error?: string }
+
+/** Canvas-only quota for UI — subtracts loadgen from session totals and cap. */
+export function canvasQuotaForDisplay(
+  budget: CanvasQuotaDisplayInput,
+  tier?: string,
+): ResourceBudgetErrorResponse {
+  const quotaTier = normalizeResourceTier(tier ?? budget.tier)
+  const loadgenRow = budget.breakdown.find((row) => row.label === 'loadgen')
+  const breakdown = budget.breakdown.filter((row) => row.label !== 'loadgen')
+
+  let requestedCpuMilli: number
+  let requestedMemoryBytes: number
+  if (loadgenRow) {
+    requestedCpuMilli =
+      parseCpuMilli(budget.requested.cpu) - parseCpuMilli(loadgenRow.cpu)
+    requestedMemoryBytes =
+      parseMemoryBytes(budget.requested.memory) -
+      parseMemoryBytes(loadgenRow.memory)
+  } else {
+    requestedCpuMilli = breakdown.reduce(
+      (total, row) => total + parseCpuMilli(row.cpu),
+      0,
+    )
+    requestedMemoryBytes = breakdown.reduce(
+      (total, row) => total + parseMemoryBytes(row.memory),
+      0,
+    )
+  }
+
+  const sessionCap = tierResourceCaps(quotaTier)
+  const lg = loadgenLimits(quotaTier)
+  const cap = {
+    cpu: formatCpuMilli(
+      parseCpuMilli(sessionCap.cpu) - parseCpuMilli(lg.cpu),
+    ),
+    memory: formatMemoryBytes(
+      parseMemoryBytes(sessionCap.memory) - parseMemoryBytes(lg.memory),
+    ),
+  }
+  const requested = {
+    cpu: formatCpuMilli(requestedCpuMilli),
+    memory: formatMemoryBytes(requestedMemoryBytes),
+  }
+
+  return {
+    error:
+      budget.error ??
+      `design exceeds ${quotaTier} quota (need ${requested.cpu} CPU / ${requested.memory} memory, cap ${cap.cpu} CPU / ${cap.memory} memory)`,
+    tier: quotaTier,
+    requested,
+    cap,
+    breakdown,
+  }
+}
+
 export function isResourceBudgetErrorResponse(
   value: unknown,
 ): value is ResourceBudgetErrorResponse {

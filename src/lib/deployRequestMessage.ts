@@ -1,6 +1,9 @@
 import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
-import type { ResourceBudgetErrorResponse } from './sumDesignBudget'
+import {
+  canvasQuotaForDisplay,
+  type ResourceBudgetErrorResponse,
+} from './sumDesignBudget'
 import {
   isDesignExceedsClusterCapacity,
   isMonthlySessionLimitError,
@@ -35,14 +38,18 @@ function technicalDetailsFrom(raw: string | undefined): string | undefined {
 
 export function mapDeployRequestError(
   error: unknown,
-  opts?: { isFreeUser?: boolean },
+  opts?: { isFreeUser?: boolean; quotaTier?: string },
 ): DeployRequestMessage {
   if (isResourceBudgetApiError(error)) {
+    const displayBudget = canvasQuotaForDisplay(
+      error.budget,
+      opts?.quotaTier,
+    )
     return {
       title: 'Design exceeds your resource quota',
-      body: 'This design needs more CPU and memory than your plan allows. Downsize nodes, reduce replicas, or remove components before deploying.',
-      technicalDetails: technicalDetailsFrom(error.budget.error),
-      resourceBudget: error.budget,
+      body: 'This design needs more CPU and memory than your plan allows on the canvas. Downsize nodes, reduce replicas, or remove components before deploying.',
+      technicalDetails: technicalDetailsFrom(displayBudget.error),
+      resourceBudget: displayBudget,
     }
   }
 

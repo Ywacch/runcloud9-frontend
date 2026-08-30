@@ -3,8 +3,10 @@ import type { DeploymentDesign } from './deploymentTypes'
 import { parseCpuMilli, parseMemoryBytes } from './k8sQuantity'
 import { FALLBACK_RESOURCE_PROFILES } from './resourceProfileCatalogFallback'
 import {
+  canvasQuotaForDisplay,
   designExceedsResourceQuota,
   sumDesignBudget,
+  toResourceBudgetErrorResponse,
 } from './sumDesignBudget'
 
 const catalog = FALLBACK_RESOURCE_PROFILES
@@ -313,5 +315,70 @@ describe('sumDesignBudget', () => {
     const mixedBudget = sumDesignBudget(mixed, 'explorer', catalog)
     const twoLargeBudget = sumDesignBudget(uniformLarge, 'explorer', catalog)
     expect(mixedBudget.cpuMilli).toBeLessThan(twoLargeBudget.cpuMilli)
+  })
+})
+
+describe('canvasQuotaForDisplay', () => {
+  it('shows explorer lite url-shortener at canvas cap without loadgen row', () => {
+    const session = sumDesignBudget(urlShortenerLiteDesign(), 'explorer', catalog)
+    const display = canvasQuotaForDisplay(session, 'explorer')
+
+    expect(parseCpuMilli(display.requested.cpu)).toBe(375)
+    expect(parseMemoryBytes(display.requested.memory)).toBe(768 * 1024 ** 2)
+    expect(display.cap.cpu).toBe('375m')
+    expect(display.cap.memory).toBe('768Mi')
+    expect(display.breakdown.some((row) => row.label === 'loadgen')).toBe(false)
+    expect(
+      designExceedsResourceQuota(urlShortenerLiteDesign(), 'explorer', catalog),
+    ).toBeNull()
+  })
+
+  it('flags medium app lite design over explorer canvas cap while session check matches API', () => {
+    const mediumAppLite: DeploymentDesign = {
+      ...urlShortenerLiteDesign(),
+      nodes: urlShortenerLiteDesign().nodes.map((node) =>
+        node.type === 'app-server'
+          ? { ...node, config: { ...node.config, instanceSize: 'medium' } }
+          : node,
+      ),
+    }
+    const session = sumDesignBudget(mediumAppLite, 'explorer', catalog)
+    const display = canvasQuotaForDisplay(session, 'explorer')
+
+    expect(parseCpuMilli(session.requested.cpu)).toBe(750)
+    expect(parseCpuMilli(display.requested.cpu)).toBe(500)
+    expect(parseMemoryBytes(display.requested.memory)).toBe(1024 * 1024 ** 2)
+    expect(display.cap.cpu).toBe('375m')
+    expect(display.cap.memory).toBe('768Mi')
+    expect(
+      designExceedsResourceQuota(mediumAppLite, 'explorer', catalog),
+    ).not.toBeNull()
+  })
+
+  it('uses engineer and internal canvas caps for paid tiers', () => {
+    const session = sumDesignBudget(urlShortenerLiteDesign(), 'engineer', catalog)
+    const engineerDisplay = canvasQuotaForDisplay(session, 'engineer')
+    const internalDisplay = canvasQuotaForDisplay(session, 'internal')
+
+    expect(engineerDisplay.cap.cpu).toBe('2875m')
+    expect(engineerDisplay.cap.memory).toBe('5888Mi')
+    expect(internalDisplay.cap.cpu).toBe('3750m')
+    expect(internalDisplay.cap.memory).toBe('7296Mi')
+    expect(
+      designExceedsResourceQuota(urlShortenerLiteDesign(), 'engineer', catalog),
+    ).toBeNull()
+    expect(
+      designExceedsResourceQuota(urlShortenerLiteDesign(), 'internal', catalog),
+    ).toBeNull()
+  })
+
+  it('maps 422 budget payloads to canvas-only numbers', () => {
+    const session = sumDesignBudget(urlShortenerLiteDesign(), 'explorer', catalog)
+    const apiBudget = toResourceBudgetErrorResponse(session)
+    const display = canvasQuotaForDisplay(apiBudget, 'explorer')
+
+    expect(display.breakdown.some((row) => row.label === 'loadgen')).toBe(false)
+    expect(display.requested.cpu).toBe('375m')
+    expect(display.cap.cpu).toBe('375m')
   })
 })

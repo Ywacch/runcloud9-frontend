@@ -1,10 +1,17 @@
-import type { ResourceBudgetErrorResponse } from '../lib/sumDesignBudget'
+import {
+  canvasQuotaForDisplay,
+  displayQuotaTierLabel,
+  type ResourceBudgetErrorResponse,
+} from '../lib/sumDesignBudget'
 
 export function ResourceBudgetBreakdown({
   budget,
 }: {
   budget: ResourceBudgetErrorResponse
 }) {
+  const display = canvasQuotaForDisplay(budget)
+  const tierLabel = displayQuotaTierLabel(display.tier)
+
   return (
     <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-3 text-sm">
       <div className="grid grid-cols-2 gap-2 font-mono text-[11px] text-[var(--c9-text)]">
@@ -13,15 +20,15 @@ export function ResourceBudgetBreakdown({
             Requested
           </p>
           <p>
-            {budget.requested.cpu} CPU · {budget.requested.memory} RAM
+            {display.requested.cpu} CPU · {display.requested.memory} RAM
           </p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wide text-[var(--c9-muted)]">
-            Plan cap ({budget.tier})
+            Canvas cap ({tierLabel})
           </p>
           <p>
-            {budget.cap.cpu} CPU · {budget.cap.memory} RAM
+            {display.cap.cpu} CPU · {display.cap.memory} RAM
           </p>
         </div>
       </div>
@@ -34,7 +41,7 @@ export function ResourceBudgetBreakdown({
           </tr>
         </thead>
         <tbody>
-          {budget.breakdown.map((row) => (
+          {display.breakdown.map((row) => (
             <tr key={row.label} className="border-t border-white/10 text-[var(--c9-text)]">
               <td className="py-1 pr-2">{row.label}</td>
               <td className="py-1 pr-2">{row.cpu}</td>
