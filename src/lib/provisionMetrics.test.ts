@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isWaitingForProvisionSlot,
   metricsSummaryHasContractFields,
+  padReplicaWaitRows,
   parseProvisionMetrics,
   shouldLingerProvisionOverlay,
   shouldUseLegacyProvisioningPulse,
@@ -151,5 +152,42 @@ describe('shouldLingerProvisionOverlay', () => {
     expect(shouldLingerProvisionOverlay(parseProvisionMetrics(fullContract))).toBe(
       true,
     )
+  })
+})
+
+describe('padReplicaWaitRows', () => {
+  it('returns N pending rows when replica_status is empty', () => {
+    expect(padReplicaWaitRows(undefined, 3)).toEqual([
+      { ordinal: 1, ready: false, waitCode: 'pending' },
+      { ordinal: 2, ready: false, waitCode: 'pending' },
+      { ordinal: 3, ready: false, waitCode: 'pending' },
+    ])
+  })
+
+  it('pads missing ordinals when only primary is in replica_status', () => {
+    expect(
+      padReplicaWaitRows(
+        [{ ordinal: 1, ready: false, waitCode: 'starting' }],
+        3,
+      ),
+    ).toEqual([
+      { ordinal: 1, ready: false, waitCode: 'starting' },
+      { ordinal: 2, ready: false, waitCode: 'pending' },
+      { ordinal: 3, ready: false, waitCode: 'pending' },
+    ])
+  })
+
+  it('leaves all live rows unchanged when count matches expected', () => {
+    const live = [
+      { ordinal: 1, ready: true, waitCode: 'ready' },
+      { ordinal: 2, ready: true, waitCode: 'ready' },
+      { ordinal: 3, ready: true, waitCode: 'ready' },
+    ]
+    expect(padReplicaWaitRows(live, 3)).toEqual(live)
+  })
+
+  it('returns rows as-is when expectedCount is zero', () => {
+    const live = [{ ordinal: 1, ready: true, waitCode: 'ready' }]
+    expect(padReplicaWaitRows(live, 0)).toEqual(live)
   })
 })

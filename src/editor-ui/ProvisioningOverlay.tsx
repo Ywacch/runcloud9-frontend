@@ -24,6 +24,7 @@ import {
   buildOrderedComponentRows,
   canvasInstanceCount,
   isWaitingForProvisionSlot,
+  padReplicaWaitRows,
   parseProvisionMetrics,
   shouldShowReplicaChildren,
   shouldUseLegacyProvisioningPulse,
@@ -209,10 +210,11 @@ const ComponentProvisionRow = memo(function ComponentProvisionRow({
     expectedCount,
     row.state,
   )
+  const childRows = padReplicaWaitRows(replicaRows, expectedCount)
   const [expanded, setExpanded] = useState(() =>
-    shouldDefaultExpanded(replicaRows ?? []),
+    shouldDefaultExpanded(childRows),
   )
-  const userLine = componentStatusToUserLine(row.state, replicaRows)
+  const userLine = componentStatusToUserLine(row.state, childRows)
   const visuallyReady = userLine.status === 'Ready'
   let tone: CheckRowTone = 'neutral'
   if (visuallyReady) tone = 'ready'
@@ -228,15 +230,6 @@ const ComponentProvisionRow = memo(function ComponentProvisionRow({
     ) : (
       <IconRadioEmpty className="h-4 w-4 text-[var(--c9-muted)]" />
     )
-
-  const childRows =
-    replicaRows && replicaRows.length > 0
-      ? replicaRows
-      : Array.from({ length: expectedCount }, (_, index) => ({
-          ordinal: index + 1,
-          ready: false,
-          waitCode: 'pending',
-        }))
 
   return (
     <div className="space-y-1">
