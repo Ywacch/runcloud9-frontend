@@ -4,26 +4,36 @@ export default function TermsPage() {
   return (
     <LegalPageLayout title="Terms of Service">
       <p className="text-xs uppercase tracking-wider text-[var(--c9-muted)]">
-        Draft · invite alpha · last updated August 2026
+        Last updated 30 August 2026
       </p>
       <p>
-        By using RunCloud9 during the invite alpha, you agree to these terms. If you do not agree,
-        do not use the service.
+        By creating an account, signing in (email and password, Google, GitHub, or another method
+        we offer), or using RunCloud9, you agree to these terms and our Privacy Policy. If you do
+        not agree, do not use the service.
       </p>
 
-      <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Alpha service</h2>
+      <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Accounts</h2>
       <p>
-        RunCloud9 is experimental pre-release software. Features, limits, and availability may
-        change without notice. There is no service-level agreement; sessions may fail, queue, or
-        be terminated for capacity or abuse reasons.
+        One person may hold one account. Do not share credentials, create extra accounts to multiply
+        free sessions or limits, or automate signups. We may require a verified email before you
+        can deploy labs. We may suspend or close accounts that farm free capacity, evade limits,
+        or otherwise abuse the service.
+      </p>
+
+      <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Service</h2>
+      <p>
+        RunCloud9 provisions short-lived lab environments on shared infrastructure. Features,
+        limits, and availability may change. There is no service-level agreement. Sessions may
+        fail, queue, or be terminated for capacity, maintenance, or abuse.
       </p>
 
       <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Acceptable use</h2>
       <p>
-        Use the platform for lawful learning and architecture experimentation. Do not attempt to
-        disrupt shared infrastructure, probe other users&apos; sessions, upload malware, or run
-        sustained attacks outside the provided load tools. We may suspend accounts that threaten
-        cluster stability or violate fair use.
+        Use the platform for lawful learning and architecture experimentation. Do not disrupt
+        shared infrastructure, probe other users&apos; sessions, upload malware, or run sustained
+        attacks outside the provided load tools. Do not use labs as general-purpose hosting or to
+        attack systems you do not own. We may suspend accounts that threaten cluster stability or
+        violate these rules.
       </p>
 
       <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Your content</h2>
@@ -36,7 +46,8 @@ export default function TermsPage() {
       <h2 className="pt-2 text-base font-semibold text-[var(--c9-text)]">Billing</h2>
       <p>
         Paid subscriptions are charged through Stripe at the price shown at checkout. You manage
-        billing from your profile.
+        billing from your profile. Session and concurrent limits are those stated in the product
+        at purchase.
       </p>
       <p>
         <strong className="font-medium text-[var(--c9-text)]">Stop subscription</strong> ends
@@ -58,7 +69,7 @@ export default function TermsPage() {
       <p>
         THE SERVICE IS PROVIDED &ldquo;AS IS&rdquo; WITHOUT WARRANTIES OF ANY KIND. METRICS AND
         SIMULATIONS ARE DIRECTIONAL, NOT CERTIFICATION-GRADE. WE ARE NOT LIABLE FOR INDIRECT,
-        INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING FROM ALPHA USE, TO THE MAXIMUM EXTENT
+        INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING FROM USE OF THE SERVICE, TO THE MAXIMUM EXTENT
         PERMITTED BY LAW.
       </p>
 
