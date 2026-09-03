@@ -18,16 +18,11 @@ import {
   mapDeployRequestError,
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
-import {
-  explorerFullModeDeployBlock,
-  templateHasExplorerRunnable,
-} from '../lib/templatePresetMode'
 import { switchTemplatePresetMode } from '../lib/switchTemplatePresetMode'
 import {
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
   templateOffersLiveDeploy,
 } from '../lib/templateAvailability'
-import { BILLING_ENABLED } from '../lib/featureFlags'
 import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
@@ -628,24 +623,6 @@ export function Sidebar() {
           ? `The "${selectedTemplate.name}" template is simulation-only right now.`
           : `The "${selectedTemplate.name}" template is not available to deploy yet.`,
       )
-      return
-    }
-
-    const softBlock = explorerFullModeDeployBlock({
-      isFreeUser: !isPremiumUser,
-      mode: stCheck.templatePresetMode,
-      nodes: stCheck.nodes,
-      billingEnabled: BILLING_ENABLED,
-      hasExplorerRunnable: templateHasExplorerRunnable(selectedTemplate),
-    })
-    if (softBlock) {
-      trackDeployBlocked('topology_violation', stCheck.snapshotTemplateId)
-      setDeploying(false)
-      setDeployModalOpen(true)
-      setDeployModalMode('request_rejected')
-      setDeployRequestMessage(softBlock)
-      setDeploySimulationMessage(null)
-      setDeployResourceBudget(null)
       return
     }
 

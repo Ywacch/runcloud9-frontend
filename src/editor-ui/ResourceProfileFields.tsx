@@ -11,7 +11,14 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
-import { RESOURCE_PROFILE_HELPER } from '../lib/billingCopy'
+import {
+  INSTANCE_SIZE_LARGE_LOCKED_HELPER,
+  RESOURCE_PROFILE_HELPER,
+} from '../lib/billingCopy'
+import {
+  isInstanceSizePlanLocked,
+  type InstanceSize,
+} from '../lib/userTier'
 import { InfoTooltip } from './InfoTooltip'
 
 const fieldClass =
@@ -20,6 +27,8 @@ const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-m
 
 const PROXY_SIZE_HELPER =
   'Sizes the caching-proxy sidecar separately from Redis. CPU/RAM amounts differ from Redis profiles.'
+
+const SIZE_OPTIONS: InstanceSize[] = ['small', 'medium', 'large']
 
 type SizeConfigKey = 'instanceSize' | 'proxyInstanceSize'
 
@@ -33,6 +42,7 @@ export function ResourceProfileFields({
   helperText = RESOURCE_PROFILE_HELPER,
   configKey = 'instanceSize',
   readOnly = false,
+  maxInstanceSize = 'large',
 }: {
   idPrefix: string
   nodeType: CanvasNode['type']
@@ -43,6 +53,7 @@ export function ResourceProfileFields({
   helperText?: string
   configKey?: SizeConfigKey
   readOnly?: boolean
+  maxInstanceSize?: InstanceSize
 }) {
   const catalog = useResourceProfiles()
   const isProxy = configKey === 'proxyInstanceSize'
@@ -63,6 +74,8 @@ export function ResourceProfileFields({
         catalog,
       )
 
+  const showLargeLocked = maxInstanceSize !== 'large'
+
   return (
     <>
       <div>
@@ -81,6 +94,7 @@ export function ResourceProfileFields({
             if (readOnly) return
             const prev = instanceSize
             const v = e.target.value.trim()
+            if (isInstanceSizePlanLocked(v, maxInstanceSize)) return
             if (isProxy) {
               if (!v) {
                 updateConfig({
@@ -107,11 +121,22 @@ export function ResourceProfileFields({
           }}
         >
           {showDefaultOption ? <option value="">Default</option> : null}
-          <option value="small">small</option>
-          <option value="medium">medium</option>
-          <option value="large">large</option>
+          {SIZE_OPTIONS.map((option) => (
+            <option
+              key={option}
+              value={option}
+              disabled={isInstanceSizePlanLocked(option, maxInstanceSize)}
+            >
+              {option}
+            </option>
+          ))}
         </select>
       </div>
+      {showLargeLocked ? (
+        <p className="text-[11px] text-[var(--c9-muted)]">
+          {INSTANCE_SIZE_LARGE_LOCKED_HELPER}
+        </p>
+      ) : null}
       <p className="text-[11px] text-[var(--c9-muted)]">
         {formatProvisionedLabel(limits)}
       </p>

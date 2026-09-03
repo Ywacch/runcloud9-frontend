@@ -121,10 +121,10 @@ describe('sumDesignBudget', () => {
     expect(got.breakdown.some((row) => row.label === 'loadgen')).toBe(true)
   })
 
-  it('flags engineer url-shortener preset as over explorer quota', () => {
+  it('fits engineer url-shortener preset within explorer quota', () => {
     expect(
       designExceedsResourceQuota(urlShortenerDefaultDesign(), 'explorer', catalog),
-    ).not.toBeNull()
+    ).toBeNull()
   })
 
   it('matches explorer lite url-shortener totals (625m / 1280Mi)', () => {
@@ -133,13 +133,13 @@ describe('sumDesignBudget', () => {
     expect(parseMemoryBytes(got.requested.memory)).toBe(1280 * 1024 ** 2)
   })
 
-  it('explorer lite url-shortener fits raised explorer cap', () => {
+  it('explorer lite url-shortener fits launch explorer cap', () => {
     expect(
       designExceedsResourceQuota(urlShortenerLiteDesign(), 'explorer', catalog),
     ).toBeNull()
     const got = sumDesignBudget(urlShortenerLiteDesign(), 'explorer', catalog)
-    expect(got.cap.cpu).toBe('625m')
-    expect(got.cap.memory).toBe('1280Mi')
+    expect(got.cap.cpu).toBe('1075m')
+    expect(got.cap.memory).toBe('2048Mi')
   })
 
   it('social-feed-pull lite fits explorer cap exactly', () => {
@@ -325,8 +325,8 @@ describe('canvasQuotaForDisplay', () => {
 
     expect(parseCpuMilli(display.requested.cpu)).toBe(375)
     expect(parseMemoryBytes(display.requested.memory)).toBe(768 * 1024 ** 2)
-    expect(display.cap.cpu).toBe('375m')
-    expect(display.cap.memory).toBe('768Mi')
+    expect(display.cap.cpu).toBe('825m')
+    expect(display.cap.memory).toBe('1536Mi')
     expect(display.breakdown.some((row) => row.label === 'loadgen')).toBe(false)
     expect(
       designExceedsResourceQuota(urlShortenerLiteDesign(), 'explorer', catalog),
@@ -348,11 +348,11 @@ describe('canvasQuotaForDisplay', () => {
     expect(parseCpuMilli(session.requested.cpu)).toBe(750)
     expect(parseCpuMilli(display.requested.cpu)).toBe(500)
     expect(parseMemoryBytes(display.requested.memory)).toBe(1024 * 1024 ** 2)
-    expect(display.cap.cpu).toBe('375m')
-    expect(display.cap.memory).toBe('768Mi')
+    expect(display.cap.cpu).toBe('825m')
+    expect(display.cap.memory).toBe('1536Mi')
     expect(
       designExceedsResourceQuota(mediumAppLite, 'explorer', catalog),
-    ).not.toBeNull()
+    ).toBeNull()
   })
 
   it('uses engineer and internal canvas caps for paid tiers', () => {
@@ -379,6 +379,6 @@ describe('canvasQuotaForDisplay', () => {
 
     expect(display.breakdown.some((row) => row.label === 'loadgen')).toBe(false)
     expect(display.requested.cpu).toBe('375m')
-    expect(display.cap.cpu).toBe('375m')
+    expect(display.cap.cpu).toBe('825m')
   })
 })

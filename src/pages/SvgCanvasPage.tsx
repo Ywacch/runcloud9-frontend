@@ -21,7 +21,6 @@ import {
   WalkthroughOverlay,
 } from '../editor-ui'
 import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
-import { TemplatePresetModeBanner } from '../editor-ui/TemplatePresetModeBanner'
 import { useDevDebugExtrasVisible } from '../lib/devCanvasTools'
 import { useDevInstanceScopePreview } from '../lib/devInstanceScopePreview'
 import { getTopologyFlags } from '../lib/componentRole'
@@ -173,7 +172,6 @@ export default function SvgCanvasPage() {
                 debugExtrasVisible ? 'top-12' : 'top-3'
               }`}
             >
-              <TemplatePresetModeBanner />
               {designJourneys.length > 0 && !walkthroughActive ? (
                 <button
                   type="button"

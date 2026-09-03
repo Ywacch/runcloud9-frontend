@@ -107,8 +107,8 @@ describe('billingCopy', () => {
     expect(PUBLISHED_TIER_LIMITS.explorer).toEqual({
       maxConcurrent: 1,
       sessionMinsLabel: '9 min',
-      maxSessionsPerMonth: 5,
-      maxAppServerReplicas: 1,
+      maxSessionsPerMonth: 3,
+      maxAppServerReplicas: 3,
     })
     expect(PUBLISHED_TIER_LIMITS.engineer).toEqual({
       maxConcurrent: 1,
@@ -137,7 +137,7 @@ describe('billingCopy', () => {
     }
     expect(
       TIER_COMPARE_ROWS.find((r) => r.id === 'sessions_month')?.explorer,
-    ).toBe('5')
+    ).toBe('3')
     expect(
       TIER_COMPARE_ROWS.find((r) => r.id === 'sessions_month')?.engineer,
     ).toBe('20')

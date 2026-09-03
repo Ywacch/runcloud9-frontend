@@ -5,6 +5,7 @@ import {
   resolveEffectiveTier,
   resourceQuotaTier,
   topologyLimitsForTier,
+  maxInstanceSizeForUser,
 } from './userTier'
 
 describe('userTier', () => {
@@ -55,12 +56,24 @@ describe('userTier', () => {
     expect(resourceQuotaTier('engineer')).toBe('engineer')
   })
 
-  it('free tier blocks lb/mq/worker, proxy cache, and caps replicas at 1', () => {
+  it('free tier allows full topology and caps replicas at 3', () => {
     const limits = topologyLimitsForTier('free')
-    expect(limits.allowLoadBalancer).toBe(false)
-    expect(limits.allowMQWorker).toBe(false)
-    expect(limits.allowProxyCache).toBe(false)
-    expect(limits.maxAppServerReplicas).toBe(1)
+    expect(limits.allowLoadBalancer).toBe(true)
+    expect(limits.allowMQWorker).toBe(true)
+    expect(limits.allowProxyCache).toBe(true)
+    expect(limits.maxAppServerReplicas).toBe(3)
+  })
+
+  it('maxInstanceSizeForUser uses API limits when present', () => {
+    expect(
+      maxInstanceSizeForUser(null, { maxInstanceSize: 'medium' }),
+    ).toBe('medium')
+    expect(
+      maxInstanceSizeForUser(
+        { isInternal: false, isPremium: false, premiumExpiresAt: null },
+        { maxInstanceSize: 'large' },
+      ),
+    ).toBe('large')
   })
 
   it('engineer tier allows proxy cache strategies', () => {

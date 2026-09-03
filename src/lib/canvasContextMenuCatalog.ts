@@ -33,13 +33,8 @@ export function isEngineerOnlyNodeType(type: CanvasNode['type']): boolean {
   return ENGINEER_ONLY_TYPES.has(type)
 }
 
-/**
- * Whether Explorer free-tier locks on LB / MQ / worker are enforced.
- * Off in Vite DEV so local design can place those nodes without a subscription;
- * production builds always enforce.
- */
 export function explorerComponentLocksActive(): boolean {
-  return !import.meta.env.DEV
+  return false
 }
 
 /** True when a create-menu row should be locked for free users. */
