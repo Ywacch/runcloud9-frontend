@@ -52,6 +52,7 @@ export function switchTemplatePresetMode(
     templatePresetToCanvasSnapshot(preset, templateId),
     'design',
   )
+  st.setLoadedVariationId(null)
   st.setTemplatePresetMode(mode)
   return true
 }

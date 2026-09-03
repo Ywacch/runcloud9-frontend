@@ -51,6 +51,7 @@ export function CanvasContextMenu() {
   const mode = useCanvasStore((s) => s.mode)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const addNode = useCanvasStore((s) => s.addNode)
   const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
   const selectNode = useCanvasStore((s) => s.selectNode)
@@ -119,8 +120,9 @@ export function CanvasContextMenu() {
       mode,
       deploymentId,
       chaosTargetBusy,
+      loadedVariationId,
     })
-  }, [node, mode, deploymentId, chaosTargetBusy])
+  }, [node, mode, deploymentId, chaosTargetBusy, loadedVariationId])
 
   const filteredRoot = useMemo(
     () => filterCreateMenuItems(CREATE_MENU_ROOT, query),
@@ -133,7 +135,10 @@ export function CanvasContextMenu() {
 
   if (!menu) return null
 
-  if (menu.kind === 'create' && !canPlaceOnCanvas(mode, movementLocked)) {
+  if (
+    menu.kind === 'create' &&
+    (!canPlaceOnCanvas(mode, movementLocked) || loadedVariationId)
+  ) {
     return null
   }
 
@@ -141,6 +146,7 @@ export function CanvasContextMenu() {
 
   const placeLeaf = (leaf: CreateMenuLeaf) => {
     if (menu.kind !== 'create') return
+    if (loadedVariationId) return
     if (
       explorerComponentLocksActive() &&
       !isPremiumUser &&

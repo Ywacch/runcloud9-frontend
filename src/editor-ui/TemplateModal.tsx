@@ -137,6 +137,7 @@ export type TemplateSelectAction =
   | {
       kind: 'preset'
       id: string
+      variationId: string
       preset: () => CanvasSnapshot
     }
   | {
@@ -347,6 +348,7 @@ function VariationCard({
                   onSelect({
                     kind: 'preset',
                     id: row.templateId,
+                    variationId: row.variationId,
                     preset: () => snapshot,
                   })
                 }}
