@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { getTemplates, type TemplateInfo as ApiTemplateInfo } from '../lib/api'
-import { selectTemplatePreset } from '../lib/selectTemplatePreset'
+import { getTemplates, type TemplateInfo as ApiTemplateInfo, type TemplateVariation } from '../lib/api'
 import { templateDisplayCopy } from '../lib/templateDisplayCopy'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../product/stores/authStore'
@@ -21,6 +20,12 @@ import {
   templateOfferBadge,
   type TemplateAvailabilityFlags,
 } from '../lib/templateAvailability'
+import {
+  findTemplateVariation,
+  TEMPLATE_FAMILIES,
+  type TemplateFamilyConfig,
+  type TemplateFamilyId,
+} from '../lib/templateFamilyCatalog'
 
 /** Display names when the API has not been fetched yet (Sidebar label). */
 const TEMPLATE_TITLE_FALLBACK: Record<string, string> = {
@@ -31,22 +36,9 @@ const TEMPLATE_TITLE_FALLBACK: Record<string, string> = {
   'ticket-drop': 'Ticket Drop',
 }
 
-const SOCIAL_FEED_VARIANT_IDS = new Set(['social-feed', 'social-feed-pull'])
-
-const SOCIAL_FEED_VARIANT_COPY: Record<
-  string,
-  { label: string; description: string }
-> = {
-  'social-feed': {
-    label: 'Push (async fan-out)',
-    description:
-      'App publishes to a queue. Workers write timeline updates to Redis.',
-  },
-  'social-feed-pull': {
-    label: 'Pull (DB JOINs)',
-    description: 'Feed reads assemble posts with JOINs. No async worker pipeline.',
-  },
-}
+const FAMILY_TEMPLATE_IDS = new Set(
+  TEMPLATE_FAMILIES.flatMap((family) => family.slots.map((slot) => slot.templateId)),
+)
 
 export function templateTitleForId(id: string | null): string | null {
   if (!id) return null
@@ -125,10 +117,21 @@ const TEMPLATE_META_BY_ID: Record<string, LocalTemplateMeta> = {
   },
 }
 
-type PresetTemplateRow = ApiTemplateInfo &
+type VariationRow = ApiTemplateInfo &
   LocalTemplateMeta & {
+    templateId: string
+    variationId: string
+    variationLabel: string
+    variationDescription: string
     snapshot: CanvasSnapshot
   }
+
+type FamilyModalItem = {
+  kind: 'family'
+  family: TemplateFamilyConfig
+  preview: VariationRow | null
+  variations: VariationRow[]
+}
 
 export type TemplateSelectAction =
   | {
@@ -141,10 +144,7 @@ export type TemplateSelectAction =
       id: string
     }
 
-type ModalTemplateItem =
-  | { kind: 'preset'; row: PresetTemplateRow }
-  | { kind: 'remote'; row: ApiTemplateInfo }
-  | { kind: 'social-feed-family'; rows: PresetTemplateRow[] }
+type ModalTemplateItem = FamilyModalItem | { kind: 'remote'; row: ApiTemplateInfo }
 
 const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
 
@@ -206,39 +206,6 @@ function TemplateOfferBadgeChip({ row }: { row: TemplateAvailabilityFlags }) {
   )
 }
 
-function TemplateLoadButtons({
-  onPreset,
-  onScratch,
-  presetDisabled,
-  presetTitle,
-}: {
-  onPreset: () => void
-  onScratch: () => void
-  presetDisabled?: boolean
-  presetTitle?: string
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        disabled={presetDisabled}
-        title={presetTitle}
-        onClick={onPreset}
-        className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Use preset
-      </button>
-      <button
-        type="button"
-        onClick={onScratch}
-        className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
-      >
-        Start from scratch
-      </button>
-    </>
-  )
-}
-
 const LockIconLarge = (
   <svg
     className="mx-auto h-14 w-14 text-gray-500"
@@ -256,108 +223,64 @@ const LockIconLarge = (
   </svg>
 )
 
-
-function TemplatePickerCard({
-  row,
-  userRecord,
-  canUsePremiumTemplates,
-  onSelect,
-  onClose,
-}: {
-  row: PresetTemplateRow
-  userRecord: UserRecord | null
-  canUsePremiumTemplates: boolean
-  onSelect: (action: TemplateSelectAction) => boolean | void
-  onClose: () => void
-}) {
-  const premiumLocked = row.premium && !canUsePremiumTemplates
-  const snapshot = row.snapshot
-  const display = templateDisplayCopy(row, userRecord)
-
-  return (
-    <div
-      className={`relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600 ${premiumLocked ? 'opacity-60' : ''}`}
-    >
-      <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
-        <MiniTopologyPreview nodes={snapshot.nodes} edges={snapshot.edges} />
-      </div>
-
-      <div className="flex flex-1 flex-col p-4">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex items-start gap-2">
-            <span
-              className="mt-0.5 shrink-0 text-gray-300"
-              style={{ color: row.accent }}
-              aria-hidden
-            >
-              {row.icon}
-            </span>
-            <h3
-              className="min-w-0 flex-1 text-sm font-semibold leading-snug text-white [overflow-wrap:anywhere] line-clamp-2"
-              title={row.name}
-            >
-              {row.name}
-            </h3>
-          </div>
-          {/* Align with title text (past icon + gap: w-5 + gap-2). */}
-          <div className="flex flex-wrap items-center gap-1.5 pl-7">
-            {premiumLocked ? (
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                Premium
-              </span>
-            ) : (
-              <TemplateOfferBadgeChip row={row} />
-            )}
-          </div>
-        </div>
-        <p className="mt-1.5 line-clamp-3 text-xs text-gray-400">{display.description}</p>
-        <p className="mt-2 text-[10px] text-gray-500">
-          {display.components} components · {display.bottleneck}
-        </p>
-
-        <div className="mt-4 space-y-2">
-          {premiumLocked ? (
-            <PremiumUpgradeButton onDone={onClose} />
-          ) : templateCanLoadInPicker(row) ? (
-            <>
-              <TemplateLoadButtons
-                onPreset={() => {
-                  onSelect({
-                    kind: 'preset',
-                    id: row.id,
-                    preset: () => snapshot,
-                  })
-                }}
-                onScratch={() => {
-                  onSelect({ kind: 'scratch', id: row.id })
-                }}
-              />
-              {!row.available ? (
-                <p className="text-[10px] leading-snug text-gray-500">
-                  {TEMPLATE_LIVE_NOT_OFFERED_HINT}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-[10px] leading-snug text-gray-500">
-              {TEMPLATE_COMING_SOON_HINT}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+function buildVariationRow(
+  template: ApiTemplateInfo,
+  variation: TemplateVariation,
+  meta: LocalTemplateMeta,
+  templateId: string,
+): VariationRow {
+  return {
+    ...template,
+    templateId,
+    variationId: variation.id,
+    variationLabel: variation.label,
+    variationDescription: variation.description,
+    icon: meta.icon,
+    accent: meta.accent,
+    snapshot: templatePresetToCanvasSnapshot(variation, templateId),
+  }
 }
 
-function SocialFeedFamilyCard({
-  rows,
+function buildFamilyItems(templates: ApiTemplateInfo[]): FamilyModalItem[] {
+  const byId = new Map(templates.map((t) => [t.id, t]))
+  return TEMPLATE_FAMILIES.map((family) => {
+    const meta = TEMPLATE_META_BY_ID[family.metaKey] ?? TEMPLATE_META_BY_ID['social-feed']
+    const variations: VariationRow[] = []
+    for (const slot of family.slots) {
+      const template = byId.get(slot.templateId)
+      if (!template) continue
+      const variation = findTemplateVariation(template, slot.variationId)
+      if (!variation) continue
+      variations.push(buildVariationRow(template, variation, meta, slot.templateId))
+    }
+    return {
+      kind: 'family' as const,
+      family,
+      preview: variations[0] ?? null,
+      variations,
+    }
+  })
+}
+
+function buildModalItems(templates: ApiTemplateInfo[]): ModalTemplateItem[] {
+  const familyItems = buildFamilyItems(templates)
+  const remote: ModalTemplateItem[] = []
+  for (const t of templates) {
+    if (FAMILY_TEMPLATE_IDS.has(t.id)) continue
+    remote.push({ kind: 'remote', row: t })
+  }
+  return [...familyItems, ...remote]
+}
+
+function FamilyCard({
+  item,
   onChooseVariant,
 }: {
-  rows: PresetTemplateRow[]
+  item: FamilyModalItem
   onChooseVariant: () => void
 }) {
-  const preview = rows.find((r) => r.id === 'social-feed') ?? rows[0]
-  const meta = TEMPLATE_META_BY_ID['social-feed']
+  const meta = TEMPLATE_META_BY_ID[item.family.metaKey] ?? TEMPLATE_META_BY_ID['social-feed']
+  const preview = item.preview
   return (
     <button
       type="button"
@@ -365,10 +288,13 @@ function SocialFeedFamilyCard({
       className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600"
     >
       <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
-        <MiniTopologyPreview
-          nodes={preview.snapshot.nodes}
-          edges={preview.snapshot.edges}
-        />
+        {preview ? (
+          <MiniTopologyPreview nodes={preview.snapshot.nodes} edges={preview.snapshot.edges} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-gray-500">
+            Variations unavailable
+          </div>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start gap-2">
@@ -379,30 +305,27 @@ function SocialFeedFamilyCard({
           >
             {meta?.icon ?? UsersIcon}
           </span>
-          <h3 className="text-sm font-semibold text-white">Social Feed</h3>
+          <h3 className="text-sm font-semibold text-white">{item.family.title}</h3>
         </div>
-        <p className="mt-2 text-xs text-gray-400">
-          Push async fan-out with Redis timeline, or pull reads with database JOINs.
-        </p>
+        <p className="mt-2 text-xs text-gray-400">{item.family.summary}</p>
         <div className="mt-4 flex items-center justify-end">
           <span className="text-lg font-medium text-[var(--c9-muted)]" aria-hidden>
             →
           </span>
-          <span className="sr-only">Open variants</span>
+          <span className="sr-only">Open variations</span>
         </div>
       </div>
     </button>
   )
 }
 
-function SocialFeedVariantCard({
+function VariationCard({
   row,
   onSelect,
 }: {
-  row: PresetTemplateRow
+  row: VariationRow
   onSelect: (action: TemplateSelectAction) => boolean | void
 }) {
-  const copy = SOCIAL_FEED_VARIANT_COPY[row.id]
   const snapshot = row.snapshot
   return (
     <div className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600">
@@ -410,30 +333,27 @@ function SocialFeedVariantCard({
         <MiniTopologyPreview nodes={snapshot.nodes} edges={snapshot.edges} />
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="text-sm font-semibold text-white">
-          {copy?.label ?? row.name}
-        </h3>
-        <p className="mt-1.5 text-xs text-gray-400">
-          {copy?.description ?? row.description}
-        </p>
+        <h3 className="text-sm font-semibold text-white">{row.variationLabel}</h3>
+        <p className="mt-1.5 text-xs text-gray-400">{row.variationDescription}</p>
         <div className="mt-2">
           <TemplateOfferBadgeChip row={row} />
         </div>
         <div className="mt-4 space-y-2">
           {templateCanLoadInPicker(row) ? (
             <>
-              <TemplateLoadButtons
-                onPreset={() => {
+              <button
+                type="button"
+                onClick={() => {
                   onSelect({
                     kind: 'preset',
-                    id: row.id,
+                    id: row.templateId,
                     preset: () => snapshot,
                   })
                 }}
-                onScratch={() => {
-                  onSelect({ kind: 'scratch', id: row.id })
-                }}
-              />
+                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              >
+                Use this variation
+              </button>
               {!row.available ? (
                 <p className="text-[10px] leading-snug text-gray-500">
                   {TEMPLATE_LIVE_NOT_OFFERED_HINT}
@@ -455,18 +375,15 @@ function RemoteTemplateCard({
   row,
   userRecord,
   canUsePremiumTemplates,
-  onSelect,
   onClose,
 }: {
   row: ApiTemplateInfo
   userRecord: UserRecord | null
   canUsePremiumTemplates: boolean
-  onSelect: (action: TemplateSelectAction) => boolean | void
   onClose: () => void
 }) {
   const premiumLocked = row.premium && !canUsePremiumTemplates
   const display = templateDisplayCopy(row, userRecord)
-  const remotePresetTitle = 'Canvas preset not available for this template yet'
 
   return (
     <div
@@ -477,7 +394,7 @@ function RemoteTemplateCard({
           LockIconLarge
         ) : (
           <p className="px-2 text-center text-xs leading-snug text-gray-400">
-            No canvas preset yet — start blank and build from the component palette.
+            No canvas preset yet — premium templates open when your plan includes them.
           </p>
         )}
       </div>
@@ -508,22 +425,6 @@ function RemoteTemplateCard({
         <div className="mt-4 space-y-2">
           {premiumLocked ? (
             <PremiumUpgradeButton onDone={onClose} />
-          ) : templateCanLoadInPicker(row) ? (
-            <>
-              <TemplateLoadButtons
-                presetDisabled
-                presetTitle={remotePresetTitle}
-                onPreset={() => undefined}
-                onScratch={() => {
-                  onSelect({ kind: 'scratch', id: row.id })
-                }}
-              />
-              {!row.available ? (
-                <p className="text-[10px] leading-snug text-gray-500">
-                  {TEMPLATE_LIVE_NOT_OFFERED_HINT}
-                </p>
-              ) : null}
-            </>
           ) : (
             <p className="text-[10px] leading-snug text-gray-500">
               {TEMPLATE_COMING_SOON_HINT}
@@ -556,9 +457,11 @@ export function TemplateModal({
   const [items, setItems] = useState<ModalTemplateItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [socialFeedVariants, setSocialFeedVariants] = useState<
-    PresetTemplateRow[] | null
-  >(null)
+  const [activeFamily, setActiveFamily] = useState<{
+    id: TemplateFamilyId
+    title: string
+    variations: VariationRow[]
+  } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -569,7 +472,7 @@ export function TemplateModal({
   }, [open])
 
   useEffect(() => {
-    if (!open) setSocialFeedVariants(null)
+    if (!open) setActiveFamily(null)
   }, [open])
 
   useEffect(() => {
@@ -581,40 +484,7 @@ export function TemplateModal({
       .then((list) => {
         if (cancelled) return
         useTemplateRegistryStore.getState().mergeTemplates(list)
-        const next: ModalTemplateItem[] = []
-        const socialFeedRows: PresetTemplateRow[] = []
-        for (const t of list) {
-          const meta = TEMPLATE_META_BY_ID[t.id] ?? TEMPLATE_META_BY_ID['social-feed']
-          const preset = selectTemplatePreset(t, userRecord, 'full')
-          if (SOCIAL_FEED_VARIANT_IDS.has(t.id)) {
-            if (preset) {
-              socialFeedRows.push({
-                ...t,
-                icon: meta?.icon ?? UsersIcon,
-                accent: meta?.accent ?? 'var(--c9-accent)',
-                snapshot: templatePresetToCanvasSnapshot(preset, t.id),
-              })
-            }
-            continue
-          }
-          if (preset) {
-            next.push({
-              kind: 'preset',
-              row: {
-                ...t,
-                icon: meta?.icon ?? LinkIcon,
-                accent: meta?.accent ?? 'var(--c9-text-muted)',
-                snapshot: templatePresetToCanvasSnapshot(preset, t.id),
-              },
-            })
-          } else {
-            next.push({ kind: 'remote', row: t })
-          }
-        }
-        if (socialFeedRows.length > 0) {
-          next.push({ kind: 'social-feed-family', rows: socialFeedRows })
-        }
-        setItems(next)
+        setItems(buildModalItems(list))
       })
       .catch((e) => {
         if (!cancelled) {
@@ -641,6 +511,10 @@ export function TemplateModal({
 
   if (!open) return null
 
+  const activeTitle = activeFamily
+    ? `${activeFamily.title}: choose variation`
+    : 'Choose a lab'
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--c9-bg)]/65 p-4 backdrop-blur-sm"
@@ -657,7 +531,7 @@ export function TemplateModal({
         <div className="shrink-0 border-b border-[var(--c9-border)] px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 id="template-modal-title" className="text-xl font-semibold text-[var(--c9-text)]">
-              {socialFeedVariants ? 'Social Feed: choose variant' : 'Open or use a template'}
+              {activeTitle}
             </h2>
             <button
               type="button"
@@ -668,19 +542,19 @@ export function TemplateModal({
               ✕
             </button>
           </div>
-          {socialFeedVariants ? (
+          {activeFamily ? (
             <button
               type="button"
-              onClick={() => setSocialFeedVariants(null)}
+              onClick={() => setActiveFamily(null)}
               className="mt-2 text-xs text-[var(--c9-muted)] hover:text-[var(--c9-text)]"
             >
-              ← Back to templates
+              ← Back to families
             </button>
           ) : null}
           {showExplorerLimitsNotice ? (
             <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
-              Designs loaded for non subscribers are limited. Presets leave out load
-              balancers, message queues, and workers.
+              Pick a variation to start. You can tune instance sizes and replicas after load;
+              deploy quota still applies.
             </p>
           ) : null}
         </div>
@@ -690,41 +564,32 @@ export function TemplateModal({
             <p className="py-12 text-center text-sm text-[var(--c9-muted)]">Loading templates…</p>
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-400">{error}</p>
-          ) : socialFeedVariants ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {['social-feed', 'social-feed-pull'].map((variantId) => {
-                const row = socialFeedVariants.find((r) => r.id === variantId)
-                if (!row) return null
-                return (
-                  <SocialFeedVariantCard
-                    key={row.id}
-                    row={row}
-                    onSelect={(action) => {
-                      if (onSelect(action) !== false) onClose()
-                    }}
-                  />
-                )
-              })}
+          ) : activeFamily ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {activeFamily.variations.map((row) => (
+                <VariationCard
+                  key={`${row.templateId}:${row.variationId}`}
+                  row={row}
+                  onSelect={(action) => {
+                    if (onSelect(action) !== false) onClose()
+                  }}
+                />
+              ))}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
               {items.map((item) =>
-                item.kind === 'preset' ? (
-                  <TemplatePickerCard
-                    key={item.row.id}
-                    row={item.row}
-                    userRecord={userRecord}
-                    canUsePremiumTemplates={canUsePremiumTemplates}
-                    onClose={onClose}
-                    onSelect={(action) => {
-                      if (onSelect(action) !== false) onClose()
+                item.kind === 'family' ? (
+                  <FamilyCard
+                    key={item.family.id}
+                    item={item}
+                    onChooseVariant={() => {
+                      setActiveFamily({
+                        id: item.family.id,
+                        title: item.family.title,
+                        variations: item.variations,
+                      })
                     }}
-                  />
-                ) : item.kind === 'social-feed-family' ? (
-                  <SocialFeedFamilyCard
-                    key="social-feed-family"
-                    rows={item.rows}
-                    onChooseVariant={() => setSocialFeedVariants(item.rows)}
                   />
                 ) : (
                   <RemoteTemplateCard
@@ -733,9 +598,6 @@ export function TemplateModal({
                     userRecord={userRecord}
                     canUsePremiumTemplates={canUsePremiumTemplates}
                     onClose={onClose}
-                    onSelect={(action) => {
-                      if (onSelect(action) !== false) onClose()
-                    }}
                   />
                 ),
               )}

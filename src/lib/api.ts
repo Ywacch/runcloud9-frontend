@@ -143,6 +143,8 @@ export interface TemplateInfo {
   preset?: TemplatePreset
   /** Explorer/free-tier canvas variant (app + cache + db, no LB/MQ/worker). */
   presetLite?: TemplatePreset
+  /** Named topology graphs for the variation picker (PR2). */
+  variations?: TemplateVariation[]
   /** Template-scoped storytelling (journeys, roles, narrative hints) from GET /templates. */
   storytelling?: StorytellingSpec | null
   /** Default load-generator RPS for this template (from GET /templates). */
@@ -177,6 +179,14 @@ export interface TemplatePresetEdge {
 }
 
 export interface TemplatePreset {
+  nodes: TemplatePresetNode[]
+  edges: TemplatePresetEdge[]
+}
+
+export interface TemplateVariation {
+  id: string
+  label: string
+  description: string
   nodes: TemplatePresetNode[]
   edges: TemplatePresetEdge[]
 }
