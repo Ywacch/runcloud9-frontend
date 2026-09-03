@@ -126,32 +126,11 @@ describe('templatePresetMode', () => {
 })
 
 describe('engineerLockedVisual', () => {
-  it('mutes engineer-only nodes only for free full mode', () => {
+  it('no longer mutes engineer-only nodes after launch limits', () => {
     expect(
       engineerLockedNodeOpacity({
         nodeType: 'load_balancer',
         isFreeUser: true,
-        mode: 'full',
-      }),
-    ).toBeLessThan(1)
-    expect(
-      engineerLockedNodeOpacity({
-        nodeType: 'compute',
-        isFreeUser: true,
-        mode: 'full',
-      }),
-    ).toBe(1)
-    expect(
-      engineerLockedNodeOpacity({
-        nodeType: 'load_balancer',
-        isFreeUser: true,
-        mode: 'explorer',
-      }),
-    ).toBe(1)
-    expect(
-      engineerLockedNodeOpacity({
-        nodeType: 'load_balancer',
-        isFreeUser: false,
         mode: 'full',
       }),
     ).toBe(1)
@@ -161,6 +140,6 @@ describe('engineerLockedVisual', () => {
         isFreeUser: true,
         mode: 'full',
       }),
-    ).toBe(true)
+    ).toBe(false)
   })
 })

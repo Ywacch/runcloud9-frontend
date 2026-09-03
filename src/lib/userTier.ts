@@ -66,6 +66,8 @@ export function topologyLimitsFromApi(limits: {
   }
 }
 
+export type InstanceSize = 'small' | 'medium' | 'large'
+
 export function topologyLimitsForTier(effectiveTier: EffectiveTier): TopologyLimits {
   if (effectiveTier === 'engineer' || effectiveTier === 'internal') {
     return {
@@ -76,11 +78,31 @@ export function topologyLimitsForTier(effectiveTier: EffectiveTier): TopologyLim
     }
   }
   return {
-    maxAppServerReplicas: 1,
-    allowLoadBalancer: false,
-    allowMQWorker: false,
-    allowProxyCache: false,
+    maxAppServerReplicas: 3,
+    allowLoadBalancer: true,
+    allowMQWorker: true,
+    allowProxyCache: true,
   }
+}
+
+export function maxInstanceSizeForUser(
+  user: UserRecord | null,
+  apiLimits?: { maxInstanceSize?: string } | null,
+): InstanceSize {
+  const fromApi = String(apiLimits?.maxInstanceSize ?? '').trim().toLowerCase()
+  if (fromApi === 'small' || fromApi === 'medium' || fromApi === 'large') {
+    return fromApi
+  }
+  return hasPaidTier(user) ? 'large' : 'medium'
+}
+
+export function isInstanceSizePlanLocked(
+  size: string,
+  maxSize: InstanceSize,
+): boolean {
+  const normalized = String(size).trim().toLowerCase()
+  if (normalized !== 'large') return false
+  return maxSize !== 'large'
 }
 
 export function maxAppServerReplicasForUser(user: UserRecord | null): number {

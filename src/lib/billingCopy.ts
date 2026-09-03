@@ -28,6 +28,9 @@ export const UPGRADE_TO_SCALE_REPLICAS_TOOLTIP =
 export const RESOURCE_PROFILE_HELPER =
   'Adjust CPU and memory for this component.'
 
+export const INSTANCE_SIZE_LARGE_LOCKED_HELPER =
+  'Large is not available on this plan.'
+
 export const FREE_TIER_LABEL = 'Free tier'
 
 export const FREE_TIER_DESIGN_LABEL = 'Free tier design'
@@ -75,8 +78,8 @@ export const PUBLISHED_TIER_LIMITS = {
   explorer: {
     maxConcurrent: 1,
     sessionMinsLabel: '9 min',
-    maxSessionsPerMonth: 5,
-    maxAppServerReplicas: 1,
+    maxSessionsPerMonth: 3,
+    maxAppServerReplicas: 3,
   },
   engineer: {
     maxConcurrent: 1,

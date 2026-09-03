@@ -163,6 +163,7 @@ describe('getMe', () => {
         allowLoadBalancer: true,
         allowMQWorker: true,
         allowProxyCache: true,
+        maxInstanceSize: 'large',
       },
       sessionsUsedThisMonth: 2,
       sessionsRemainingThisMonth: 18,

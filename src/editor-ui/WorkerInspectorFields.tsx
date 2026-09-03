@@ -7,7 +7,7 @@ import {
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { ResourceProfileFields } from './ResourceProfileFields'
 import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
-import { InfoTooltip } from './InfoTooltip'
+import type { InstanceSize } from '../lib/userTier'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -24,11 +24,13 @@ export function WorkerInspectorFields({
   updateConfig,
   readOnly = false,
   simulationMode = false,
+  maxInstanceSize = 'large',
 }: {
   config: Record<string, unknown>
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   readOnly?: boolean
   simulationMode?: boolean
+  maxInstanceSize?: InstanceSize
 }) {
   const workerReplicas = clampWorkerReplicas(config.replicas ?? 1)
   const prefetch = optionalPositiveInt(config.workerPrefetch)
@@ -136,6 +138,7 @@ export function WorkerInspectorFields({
           replicaCount={workerReplicas}
           updateConfig={updateConfig}
           readOnly={readOnly}
+          maxInstanceSize={maxInstanceSize}
           labelForIndex={(i) => `Replica ${i + 1} size`}
         />
       ) : (
@@ -152,6 +155,7 @@ export function WorkerInspectorFields({
             })
           }}
           readOnly={readOnly}
+          maxInstanceSize={maxInstanceSize}
         />
       )}
       {simulationMode ? (

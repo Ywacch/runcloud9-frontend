@@ -66,7 +66,7 @@ import {
 } from '../lib/readConsistency'
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
-import { maxAppServerReplicasForUser } from '../lib/userTier'
+import { maxAppServerReplicasForUser, maxInstanceSizeForUser, resolveEffectiveTier, topologyLimitsForTier, type InstanceSize } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
 import {
   REPLICAS_HELP_FREE,
@@ -482,6 +482,7 @@ export function CacheNodeInspectorFields({
   updateConfig,
   templateId,
   readOnly = false,
+  maxInstanceSize = 'large',
 }: {
   node: CanvasNode
   nodes: Record<string, CanvasNode>
@@ -490,18 +491,24 @@ export function CacheNodeInspectorFields({
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   templateId?: string | null
   readOnly?: boolean
+  maxInstanceSize?: InstanceSize
 }) {
   const c = node.config
-  const strategy = String(c.cacheStrategy ?? 'cache-aside')
-  const isPremiumUser = useAuthStore((s) => s.isPremium)
+  const currentUser = useAuthStore((s) => s.currentUser)
+  const userRecord = useAuthStore((s) => s.userRecord)
+  const allowProxyStrategies =
+    currentUser?.limits.allowProxyCache ??
+    topologyLimitsForTier(resolveEffectiveTier(userRecord)).allowProxyCache
 
   const available = useMemo(
     () =>
       getAvailableCacheStrategies(node.id, nodes, edges, {
-        allowProxyStrategies: isPremiumUser,
+        allowProxyStrategies,
       }),
-    [node.id, nodes, edges, isPremiumUser],
+    [node.id, nodes, edges, allowProxyStrategies],
   )
+
+  const strategy = String(c.cacheStrategy ?? 'cache-aside')
 
   const ambiguousTopology = available.length === 0
   const selectValue = readOnly
@@ -909,6 +916,7 @@ export function CacheNodeInspectorFields({
         helperText="Sizes redis-internal. Memory limit for eviction comes from this profile."
         updateConfig={updateConfig}
         readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
       />
       {showProxySize ? (
         <ResourceProfileFields
@@ -919,6 +927,7 @@ export function CacheNodeInspectorFields({
           configKey="proxyInstanceSize"
           updateConfig={updateConfig}
           readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
         />
       ) : null}
       {simulationMode ? (
@@ -981,6 +990,10 @@ function TypeFields({
   const maxAppReplicas =
     currentUser?.limits.maxAppServerReplicas ??
     maxAppServerReplicasForUser(userRecord)
+  const maxInstanceSize = maxInstanceSizeForUser(
+    userRecord,
+    currentUser?.limits,
+  )
   const c = node.config
 
   switch (node.type) {
@@ -1091,6 +1104,7 @@ function TypeFields({
             showDefaultOption
             updateConfig={updateConfig}
             readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
           />
           {simulationMode ? (
             <>
@@ -1241,6 +1255,7 @@ function TypeFields({
               replicaCount={replicas}
               updateConfig={updateConfig}
               readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
             />
           ) : (
             <ResourceProfileFields
@@ -1256,6 +1271,7 @@ function TypeFields({
                 })
               }}
               readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
             />
           )}
           {showPurchaseMode ? (
@@ -1406,6 +1422,7 @@ function TypeFields({
               replicaCount={dbInstanceCount}
               updateConfig={updateConfig}
               readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
               labelForIndex={(i) =>
                 i === 0 ? 'Primary size' : `Replica ${i} size`
               }
@@ -1424,6 +1441,7 @@ function TypeFields({
                 })
               }}
               readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
             />
           )}
           <div>
@@ -1582,6 +1600,7 @@ function TypeFields({
           updateConfig={updateConfig}
           templateId={templateId}
           readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
         />
       )
 
@@ -1601,6 +1620,7 @@ function TypeFields({
             showDefaultOption
             updateConfig={updateConfig}
             readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
           />
           {simulationMode ? (
             <>
@@ -1663,6 +1683,7 @@ function TypeFields({
           config={c}
           updateConfig={updateConfig}
           readOnly={readOnly}
+        maxInstanceSize={maxInstanceSize}
           simulationMode={simulationMode}
         />
       )
