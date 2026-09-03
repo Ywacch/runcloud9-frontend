@@ -20,10 +20,10 @@ export const CANCEL_SUCCESS_BODY_REFUNDED =
 export const CANCEL_SUCCESS_BODY_NO_REFUND =
   'Your Engineer plan has ended. No refund was issued for this cancellation.'
 
-export const UPGRADE_TO_UNLOCK_TOOLTIP = 'Upgrade to Engineer to unlock this'
+export const UPGRADE_TO_UNLOCK_TOOLTIP = 'Not available on your plan'
 
 export const UPGRADE_TO_SCALE_REPLICAS_TOOLTIP =
-  'Upgrade to Engineer to scale replicas up to 2 extra instances'
+  'Replica limit reached on your plan'
 
 export const RESOURCE_PROFILE_HELPER =
   'Adjust CPU and memory for this component.'
@@ -55,14 +55,14 @@ export function formatSessionsLeftThisMonth(
   return `${remaining} of ${max} left`
 }
 
-/** Plan label for UI — never expose internal. */
+/** Plan label for UI — never expose internal tier names. */
 export function displayPlanTierLabel(
   effectiveTier: string | null | undefined,
 ): string {
   switch (effectiveTier) {
     case 'engineer':
     case 'internal':
-      return 'Engineer'
+      return 'Your plan'
     case 'free':
       return FREE_TIER_LABEL
     default:
@@ -236,7 +236,7 @@ export const ENGINEER_BENEFIT_ROWS: EngineerBenefitRow[] = [
   {
     id: 'all_templates',
     label: 'All templates unlocked',
-    explorerNote: 'Premium templates require Engineer',
+    explorerNote: 'Some templates are not available on Free tier',
   },
 ]
 

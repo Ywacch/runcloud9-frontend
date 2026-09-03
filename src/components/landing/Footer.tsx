@@ -27,7 +27,6 @@ function RunCloud9Logo() {
 }
 
 const FOOTER_LINKS = [
-  { label: 'Pricing', to: '/pricing' },
   { label: 'About', to: '/about' },
   { label: 'Privacy', to: '/privacy' },
   { label: 'Terms', to: '/terms' },

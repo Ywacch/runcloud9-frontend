@@ -13,8 +13,9 @@ describe('publicSeo', () => {
   it('lists distinct public pages for sitelink targets', () => {
     const paths = PUBLIC_SEO_PAGES.map((p) => p.path)
     expect(paths).toEqual(
-      expect.arrayContaining(['/', '/pricing', '/about', '/privacy', '/terms']),
+      expect.arrayContaining(['/', '/about', '/privacy', '/terms']),
     )
+    expect(paths).not.toContain('/pricing')
     expect(new Set(paths).size).toBe(paths.length)
     for (const page of PUBLIC_SEO_PAGES) {
       expect(page.title.length).toBeGreaterThan(8)
@@ -24,15 +25,15 @@ describe('publicSeo', () => {
   })
 
   it('resolves marketing paths and falls back for app routes', () => {
-    expect(resolvePublicSeo('/pricing').path).toBe('/pricing')
-    expect(resolvePublicSeo('/pricing/').title).toContain('Pricing')
+    expect(resolvePublicSeo('/about').path).toBe('/about')
+    expect(resolvePublicSeo('/about/').title).toContain('About')
     expect(resolvePublicSeo('/dashboard').title).toBe(SITE_NAME)
     expect(resolvePublicSeo('/').title).toBe(HOME_SEO.title)
   })
 
   it('builds absolute URLs and JSON-LD graph', () => {
     expect(absoluteUrl('/')).toBe(`${SITE_ORIGIN}/`)
-    expect(absoluteUrl('/pricing')).toBe(`${SITE_ORIGIN}/pricing`)
+    expect(absoluteUrl('/about')).toBe(`${SITE_ORIGIN}/about`)
     const graph = siteJsonLdGraph()
     expect(graph['@graph']).toEqual(
       expect.arrayContaining([

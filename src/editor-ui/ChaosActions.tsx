@@ -11,10 +11,7 @@ import {
 import { trackEvent } from '../lib/analytics'
 import {
   isChaosTrialUsedMessage,
-  startEngineerCheckout,
-  UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
-import { BILLING_ENABLED } from '../lib/featureFlags'
 import { ApiError } from '../lib/apiError'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
@@ -28,8 +25,6 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
 
   const [busy, setBusy] = useState<ChaosScenario | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [upgradePrompt, setUpgradePrompt] = useState(false)
-  const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   const target = chaosTargetForNode(node.type)
   const scenarios = target ? chaosScenariosForTarget(target) : []
@@ -50,7 +45,6 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
     if (!ok) return
     setBusy(scenario)
     setError(null)
-    setUpgradePrompt(false)
     try {
       await triggerChaos(deploymentId, { scenario, targetComponent: target })
       registerChaos(scenario, target)
@@ -65,10 +59,7 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
             ? e.message
             : ''
       if (isChaosTrialUsedMessage(raw)) {
-        setUpgradePrompt(true)
-        setError(
-          'You used your free chaos trial. Upgrade to Engineer for unlimited chaos.',
-        )
+        setError('You used your free chaos trial for this feature.')
       } else {
         setError(
           mapAuthErrorMessage(e, 'Chaos request failed. Check deployment status and try again.'),
@@ -112,32 +103,9 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
         <p className="text-[10px] text-violet-300">Chaos in progress on this component.</p>
       ) : null}
       {error ? (
-        <div className="space-y-2">
-          <p className="text-xs text-red-400" role="alert">
-            {error}
-          </p>
-          {upgradePrompt && BILLING_ENABLED ? (
-            <button
-              type="button"
-              disabled={checkoutBusy}
-              onClick={() => {
-                setCheckoutBusy(true)
-                void startEngineerCheckout()
-                  .catch((err: unknown) => {
-                    setError(
-                      err instanceof Error
-                        ? err.message
-                        : 'Could not start checkout.',
-                    )
-                  })
-                  .finally(() => setCheckoutBusy(false))
-              }}
-              className="w-full rounded border border-amber-500/50 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-900/40 disabled:opacity-50"
-            >
-              {checkoutBusy ? 'Starting checkout…' : UPGRADE_TO_ENGINEER_LABEL}
-            </button>
-          ) : null}
-        </div>
+        <p className="text-xs text-red-400" role="alert">
+          {error}
+        </p>
       ) : null}
     </div>
   )

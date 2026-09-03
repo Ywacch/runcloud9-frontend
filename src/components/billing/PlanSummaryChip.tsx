@@ -35,7 +35,7 @@ export function PlanSummaryChip({
         <p className="mt-0.5 text-xs text-[var(--c9-muted)]">
           {sessionsLine
             ? `Sessions this month: ${sessionsLine}`
-            : 'Engineer features are active on your account.'}
+            : 'Plan limits are active on your account.'}
         </p>
       </div>
       <Link

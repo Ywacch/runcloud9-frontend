@@ -96,7 +96,7 @@ describe('templatePresetMode', () => {
       hasExplorerRunnable: true,
     })
     expect(block?.secondaryActionLabel).toBe(SWITCH_TO_FREE_TIER_DESIGN_LABEL)
-    expect(block?.actionLabel).toBe('Upgrade to Engineer')
+    expect(block?.actionLabel).toBeUndefined()
     expect(
       explorerFullModeDeployBlock({
         isFreeUser: true,

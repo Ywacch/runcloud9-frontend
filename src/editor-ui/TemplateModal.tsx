@@ -3,11 +3,6 @@ import { getTemplates, type TemplateInfo as ApiTemplateInfo, type TemplateVariat
 import { templateDisplayCopy } from '../lib/templateDisplayCopy'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
 import { useAuthStore } from '../product/stores/authStore'
-import {
-  startEngineerCheckout,
-  UPGRADE_TO_ENGINEER_LABEL,
-} from '../lib/stripeCheckout'
-import { BILLING_ENABLED } from '../lib/featureFlags'
 import { refreshCurrentUser } from '../lib/auth'
 import { hasPaidTier, canAccessPremiumTemplates, type UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
@@ -146,43 +141,6 @@ export type TemplateSelectAction =
     }
 
 type ModalTemplateItem = FamilyModalItem | { kind: 'remote'; row: ApiTemplateInfo }
-
-const UPGRADE_TOOLTIP = 'Upgrade to RunCloud9 Engineer'
-
-function PremiumUpgradeButton({ onDone }: { onDone?: () => void }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  if (!BILLING_ENABLED) return null
-  return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        disabled={busy}
-        title={UPGRADE_TOOLTIP}
-        onClick={() => {
-          setError(null)
-          setBusy(true)
-          void startEngineerCheckout()
-            .then(() => onDone?.())
-            .catch((err: unknown) => {
-              setError(
-                err instanceof Error ? err.message : 'Could not start checkout.',
-              )
-            })
-            .finally(() => setBusy(false))
-        }}
-        className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {busy ? 'Starting checkout…' : UPGRADE_TO_ENGINEER_LABEL}
-      </button>
-      {error ? (
-        <p className="text-[10px] text-red-400" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  )
-}
 
 function TemplateOfferBadgeChip({ row }: { row: TemplateAvailabilityFlags }) {
   const badge = templateOfferBadge(row)
@@ -377,12 +335,10 @@ function RemoteTemplateCard({
   row,
   userRecord,
   canUsePremiumTemplates,
-  onClose,
 }: {
   row: ApiTemplateInfo
   userRecord: UserRecord | null
   canUsePremiumTemplates: boolean
-  onClose: () => void
 }) {
   const premiumLocked = row.premium && !canUsePremiumTemplates
   const display = templateDisplayCopy(row, userRecord)
@@ -396,7 +352,7 @@ function RemoteTemplateCard({
           LockIconLarge
         ) : (
           <p className="px-2 text-center text-xs leading-snug text-gray-400">
-            No canvas preset yet — premium templates open when your plan includes them.
+            No canvas preset yet for this template.
           </p>
         )}
       </div>
@@ -412,7 +368,7 @@ function RemoteTemplateCard({
           <div className="flex flex-wrap items-center gap-1.5">
             {premiumLocked ? (
               <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                Premium
+                Unavailable
               </span>
             ) : (
               <TemplateOfferBadgeChip row={row} />
@@ -426,7 +382,9 @@ function RemoteTemplateCard({
 
         <div className="mt-4 space-y-2">
           {premiumLocked ? (
-            <PremiumUpgradeButton onDone={onClose} />
+            <p className="text-[10px] leading-snug text-gray-500">
+              This template is not available on your plan.
+            </p>
           ) : (
             <p className="text-[10px] leading-snug text-gray-500">
               {TEMPLATE_COMING_SOON_HINT}
@@ -599,7 +557,6 @@ export function TemplateModal({
                     row={item.row}
                     userRecord={userRecord}
                     canUsePremiumTemplates={canUsePremiumTemplates}
-                    onClose={onClose}
                   />
                 ),
               )}

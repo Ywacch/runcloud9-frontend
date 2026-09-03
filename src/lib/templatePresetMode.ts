@@ -1,7 +1,6 @@
 import type { TemplateInfo, TemplatePreset } from './api'
 import { isEngineerOnlyNodeType } from './canvasContextMenuCatalog'
 import {
-  engineerUpgradeActionLabel,
   SWITCH_TO_FREE_TIER_DESIGN_LABEL,
 } from './billingCopy'
 import type { DeployRequestMessage } from './deployRequestMessage'
@@ -58,11 +57,10 @@ export function explorerFullModeDeployBlock(opts: {
   if (!designHasEngineerOnlyNodes(opts.nodes)) return null
 
   return {
-    title: 'Engineer components on canvas',
+    title: 'Components not on your plan',
     body: opts.hasExplorerRunnable
-      ? 'This design includes load balancers, queues, or workers. Upgrade to Engineer to deploy this shape, or switch to the Free tier design.'
-      : 'This design includes load balancers, queues, or workers. Upgrade to Engineer to deploy this architecture.',
-    actionLabel: engineerUpgradeActionLabel(opts.billingEnabled),
+      ? 'This design includes load balancers, queues, or workers your plan does not allow. Switch to the Free tier design to deploy.'
+      : 'This design includes load balancers, queues, or workers your plan does not allow.',
     secondaryActionLabel: opts.hasExplorerRunnable
       ? SWITCH_TO_FREE_TIER_DESIGN_LABEL
       : undefined,

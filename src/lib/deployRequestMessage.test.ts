@@ -19,51 +19,51 @@ describe('mapDeployRequestError', () => {
     expect(mapOff(err).actionLabel).toBeUndefined()
   })
 
-  it('maps topology 403 load balancer to upgrade CTA', () => {
+  it('maps topology 403 load balancer without upgrade CTA', () => {
     const err = new ApiError(
       403,
       'load balancers require an active subscription — remove the load balancer or upgrade',
     )
     const msg = mapDeployRequestError(err)
-    expect(msg.title).toBe('Upgrade required for this topology')
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.title).toBe('Design not supported on your plan')
+    expect(msg.actionLabel).toBeUndefined()
   })
 
-  it('maps topology 403 mq/worker to upgrade CTA', () => {
+  it('maps topology 403 mq/worker without upgrade CTA', () => {
     const err = new ApiError(
       403,
       'message queues and workers require an active subscription — remove async components or upgrade',
     )
     const msg = mapDeployRequestError(err)
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.actionLabel).toBeUndefined()
   })
 
-  it('maps replica limit 403 to upgrade CTA', () => {
+  it('maps replica limit 403 without upgrade CTA', () => {
     const err = new ApiError(
       403,
       'app server "App": replicas 2 exceed your plan limit of 1 — reduce replicas or upgrade',
     )
     const msg = mapDeployRequestError(err)
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.actionLabel).toBeUndefined()
   })
 
-  it('maps proxy cache 403 to upgrade CTA', () => {
+  it('maps proxy cache 403 without upgrade CTA', () => {
     const err = new ApiError(
       403,
       'proxy cache strategies require an active subscription — use cache-aside or timeline-store, or upgrade',
     )
     const msg = mapDeployRequestError(err)
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.actionLabel).toBeUndefined()
   })
 
-  it('maps premium template 403 to upgrade CTA', () => {
+  it('maps premium template 403 without upgrade CTA', () => {
     const err = new ApiError(
       403,
       'premium templates require an active subscription',
     )
     const msg = mapDeployRequestError(err)
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
-    expect(msg.title).toBe('Premium template')
+    expect(msg.actionLabel).toBeUndefined()
+    expect(msg.title).toBe('Template not available')
   })
 
   it('maps queue_full 429 to cluster queue copy', () => {
@@ -84,17 +84,18 @@ describe('mapDeployRequestError', () => {
     expect(msg.actionLabel).toBeUndefined()
   })
 
-  it('maps concurrent 429 for free users to upgrade CTA', () => {
+  it('maps concurrent 429 for free users without upgrade CTA', () => {
     const err = new ApiError(
       429,
       'you already have an active deployment — end it before creating another',
     )
     const msg = mapDeployRequestError(err, { isFreeUser: true })
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
-    expect(msg.body).toContain('concurrent')
+    expect(msg.title).toBe('Concurrent session limit')
+    expect(msg.actionLabel).toBeUndefined()
+    expect(msg.body).toContain('one active deployment')
   })
 
-  it('maps monthly_session_limit 429 by reason with upgrade for free users', () => {
+  it('maps monthly_session_limit 429 by reason without upgrade for free users', () => {
     const err = new ApiError(
       429,
       'monthly session limit reached — upgrade or wait until next month',
@@ -102,9 +103,9 @@ describe('mapDeployRequestError', () => {
     )
     const msg = mapDeployRequestError(err, { isFreeUser: true })
     expect(msg.title).toBe('Out of sessions this month')
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
-    expect(msg.body).toContain('Upgrade to Engineer')
+    expect(msg.actionLabel).toBeUndefined()
     expect(msg.body).toContain('next month')
+    expect(msg.body).not.toContain('Upgrade')
   })
 
   it('maps monthly_session_limit 429 without upgrade for paid users', () => {
@@ -130,13 +131,13 @@ describe('mapDeployRequestError', () => {
     expect(msg.body).not.toContain('this month')
   })
 
-  it('maps chaos trial 403 to upgrade CTA', () => {
+  it('maps chaos trial 403 without upgrade CTA', () => {
     const err = new ApiError(
       403,
       'chaos trial already used — upgrade to continue',
     )
     const msg = mapDeployRequestError(err)
-    expect(msg.actionLabel).toBe('Upgrade to Engineer')
+    expect(msg.actionLabel).toBeUndefined()
     expect(msg.title).toBe('Chaos trial used')
     expect(msg.technicalDetails).not.toContain('—')
     expect(msg.technicalDetails).toMatch(/upgrade to continue/i)

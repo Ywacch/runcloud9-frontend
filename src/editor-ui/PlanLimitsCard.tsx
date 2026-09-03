@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import type { CurrentUserLimits } from '../lib/api'
 import {
   CANCEL_SUBSCRIPTION_LABEL,
@@ -131,14 +130,6 @@ function PlanBillingActions({
           ) : null}
         </div>
       ) : null}
-      {isFree && !upgradeCta ? (
-        <Link
-          to="/pricing"
-          className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--c9-border)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]"
-        >
-          See Free tier vs Engineer
-        </Link>
-      ) : null}
       {showPaidBilling && BILLING_ENABLED ? (
         <div className="space-y-3">
           <p className="text-xs text-[var(--c9-muted)]">
@@ -261,18 +252,12 @@ export function PlanLimitsCard({
             >
               {statusLabel}
             </span>
-            <Link
-              to="/pricing"
-              className="text-sm font-medium text-[var(--c9-accent)] transition-colors hover:text-[var(--c9-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]"
-            >
-              Full comparison →
-            </Link>
           </div>
         </div>
         <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-muted)]">
           {isFree
-            ? 'Full architecture preview shows Engineer components locked. Compare plans for the full matrix.'
-            : 'Engineer features are active on your account.'}
+            ? 'Your current limits and which features are included.'
+            : 'Plan limits are active on your account.'}
         </p>
       </div>
       <div className="flex flex-col gap-[1.35rem] px-[1.2rem] pt-[1.15rem] pb-5">
@@ -293,7 +278,7 @@ export function PlanLimitsCard({
           <div className="min-w-[16rem] flex-[0.52_1_16rem]">
             {isFree ? (
               <p className="mb-2.5 text-sm text-[var(--c9-muted)]">
-                Unlock on Engineer
+                Plan features
               </p>
             ) : null}
             <PlanBenefitMarks

@@ -30,7 +30,6 @@ function metaFor(path) {
 const siteNav = `
   <nav aria-label="Site">
     <a href="/">Home</a>
-    <a href="/pricing">Pricing</a>
     <a href="/about">About</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
@@ -51,22 +50,6 @@ const pageBodies = {
     strategy, fan-out, and scale. Use simulation when a design is not ready to deploy.
   </p>
   <p><a href="/canvas">Open the canvas</a> or <a href="/login">sign in</a> to deploy.</p>
-  ${siteNav}
-</main>`,
-  '/pricing': `<main>
-  <h1>Subscription plans</h1>
-  <p>
-    Design on a canvas, deploy to real Kubernetes, and watch the system under load.
-    Start on Free tier; Engineer unlocks the full template shape and higher limits.
-  </p>
-  <h2>Free tier</h2>
-  <p>$0 forever. Deploy free templates on the free tier designs.</p>
-  <h2>Engineer</h2>
-  <p>
-    Load balancers, queues, workers, proxy cache strategies, all templates, and higher
-    session quotas. Price shown at checkout.
-  </p>
-  <p><a href="/login">Sign in</a> to upgrade or <a href="/canvas">open the canvas</a>.</p>
   ${siteNav}
 </main>`,
   '/privacy': `<main>

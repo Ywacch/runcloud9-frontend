@@ -3,7 +3,6 @@ Allow: /
 Allow: /about
 Allow: /privacy
 Allow: /terms
-Allow: /pricing
 
 Disallow: /canvas
 Disallow: /login

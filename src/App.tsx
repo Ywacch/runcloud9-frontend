@@ -10,9 +10,6 @@ import DashboardPage from './pages/DashboardPage'
 import AboutPage from './pages/AboutPage'
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
-import PricingPage from './pages/PricingPage'
-import BillingSuccessPage from './pages/BillingSuccessPage'
-import BillingCancelPage from './pages/BillingCancelPage'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './editor-ui/NavHeader'
 import { DocumentMeta } from './components/seo/DocumentMeta'
@@ -96,10 +93,10 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/pricing" element={<Navigate to="/" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/billing/success" element={<BillingSuccessPage />} />
-          <Route path="/billing/cancel" element={<BillingCancelPage />} />
+          <Route path="/billing/success" element={<Navigate to="/profile" replace />} />
+          <Route path="/billing/cancel" element={<Navigate to="/profile" replace />} />
           <Route
             path="/loadtest"
             element={

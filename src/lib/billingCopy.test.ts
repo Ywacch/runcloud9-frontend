@@ -37,12 +37,10 @@ describe('billingCopy', () => {
     expect(MANAGE_BILLING_HINT).not.toContain('—')
   })
 
-  it('exposes free-tier upgrade tooltips', () => {
-    expect(UPGRADE_TO_UNLOCK_TOOLTIP).toBe(
-      'Upgrade to Engineer to unlock this',
-    )
+  it('exposes free-tier tooltips', () => {
+    expect(UPGRADE_TO_UNLOCK_TOOLTIP).toBe('Not available on your plan')
     expect(UPGRADE_TO_SCALE_REPLICAS_TOOLTIP).toBe(
-      'Upgrade to Engineer to scale replicas up to 2 extra instances',
+      'Replica limit reached on your plan',
     )
   })
 
@@ -58,8 +56,8 @@ describe('billingCopy', () => {
 
   it('maps plan labels without exposing internal', () => {
     expect(displayPlanTierLabel('free')).toBe('Free tier')
-    expect(displayPlanTierLabel('engineer')).toBe('Engineer')
-    expect(displayPlanTierLabel('internal')).toBe('Engineer')
+    expect(displayPlanTierLabel('engineer')).toBe('Your plan')
+    expect(displayPlanTierLabel('internal')).toBe('Your plan')
   })
 
   it('formats monthly sessions remaining', () => {

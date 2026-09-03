@@ -55,9 +55,6 @@ function HeaderLinks({
           Dashboard
         </NavLink>
       ) : null}
-      <NavLink to="/pricing" active={pathname === '/pricing'}>
-        Pricing
-      </NavLink>
       <NavLink to="/canvas" active={false}>
         Open Canvas
       </NavLink>

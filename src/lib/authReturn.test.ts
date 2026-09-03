@@ -30,7 +30,6 @@ describe('authReturn', () => {
     expect(sanitizeAuthReturnPath('/dashboard')).toBe('/dashboard')
     expect(sanitizeAuthReturnPath('/profile')).toBe('/profile')
     expect(sanitizeAuthReturnPath('/canvas')).toBe('/canvas')
-    expect(sanitizeAuthReturnPath('/pricing')).toBe('/pricing')
     expect(sanitizeAuthReturnPath('/billing/success')).toBe('/billing/success')
   })
 

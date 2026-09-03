@@ -4,7 +4,7 @@ import {
   formatSessionsLeftThisMonth,
 } from '../../lib/billingCopy'
 
-/** Compact plan status strip for the dashboard (both Explorer and Engineer). */
+/** Compact plan status strip for the dashboard. */
 export function DashboardStatusStrip({
   effectiveTier,
   sessionsRemainingThisMonth,
@@ -39,11 +39,11 @@ export function DashboardStatusStrip({
   } else if (isFree) {
     description = sessionsLine
       ? `Sessions this month: ${sessionsLine}`
-      : 'Free tier · compare plans to unlock the full lab.'
+      : 'Free tier · monthly session limits apply.'
   } else {
     description = sessionsLine
       ? `Sessions this month: ${sessionsLine}`
-      : 'Engineer features are active on your account.'
+      : 'Plan limits are active on your account.'
   }
 
   return (
@@ -77,10 +77,10 @@ export function DashboardStatusStrip({
           </button>
         ) : null}
         <Link
-          to={isFree ? '/pricing' : '/profile'}
+          to="/profile"
           className="text-sm text-[var(--c9-text-muted)] transition-colors hover:text-[var(--c9-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg-card)]"
         >
-          {isFree ? 'Compare plans →' : 'Manage plan →'}
+          View limits →
         </Link>
       </div>
     </div>
