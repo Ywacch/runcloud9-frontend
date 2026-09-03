@@ -58,11 +58,13 @@ export function useCanvasKeyboard(): void {
         return
       }
       if (bareKey === 'c') {
+        if (!canEditTopology) return
         e.preventDefault()
         setDesignTool('connect')
         return
       }
       if (bareKey === 'e') {
+        if (!canEditTopology) return
         e.preventDefault()
         setDesignTool('erase')
         return

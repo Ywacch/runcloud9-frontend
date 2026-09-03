@@ -37,7 +37,9 @@ export function isCanvasEditMode(mode: CanvasMode): boolean {
 export function canMutateCanvasTopology(state: {
   mode: CanvasMode
   deploymentId: string | null
+  loadedVariationId?: string | null
 }): boolean {
+  if (state.loadedVariationId) return false
   if (state.mode === 'live') return false
   if (state.deploymentId) return false
   return state.mode === 'design' || state.mode === 'simulate'
@@ -140,6 +142,8 @@ interface CanvasState {
    * Null for paid users or when no template is loaded.
    */
   templatePresetMode: 'full' | 'explorer' | null
+  /** Variation picked from the template modal; locks topology edits until cleared. */
+  loadedVariationId: string | null
   /** Client-side session end (deploy + N minutes) for countdown. */
   liveSessionEndsAt: number | null
   /** When the live session clock started (running_at or enter-live). */
@@ -193,6 +197,7 @@ interface CanvasState {
   setDesignTool: (tool: DesignTool) => void
   setSnapshotTemplateId: (id: string | null) => void
   setTemplatePresetMode: (mode: 'full' | 'explorer' | null) => void
+  setLoadedVariationId: (id: string | null) => void
   setLiveSessionEndsAt: (t: number | null) => void
   setLiveSessionStartedAt: (t: number | null) => void
   setSessionSummary: (summary: SessionSummary | null) => void
@@ -258,6 +263,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   connectHoverTargetId: null,
   snapshotTemplateId: null,
   templatePresetMode: null,
+  loadedVariationId: null,
   liveSessionEndsAt: null,
   liveSessionStartedAt: null,
   sessionSummary: null,
@@ -538,11 +544,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
     set({
       snapshotTemplateId,
-      ...(snapshotTemplateId ? {} : { templatePresetMode: null }),
+      ...(snapshotTemplateId
+        ? {}
+        : { templatePresetMode: null, loadedVariationId: null }),
     })
   },
 
   setTemplatePresetMode: (templatePresetMode) => set({ templatePresetMode }),
+
+  setLoadedVariationId: (loadedVariationId) => set({ loadedVariationId }),
 
   setLiveSessionEndsAt: (liveSessionEndsAt) => set({ liveSessionEndsAt }),
 
@@ -626,6 +636,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connectHoverTargetId: null,
       snapshotTemplateId: snapshot.templateId ?? null,
       templatePresetMode: null,
+      loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       liveSessionStartedAt: null,
@@ -657,6 +668,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connectHoverTargetId: null,
       snapshotTemplateId: snapshot.templateId ?? null,
       templatePresetMode: null,
+      loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       liveSessionStartedAt: null,
@@ -688,6 +700,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connectHoverTargetId: null,
       snapshotTemplateId: templateId,
       templatePresetMode: null,
+      loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       liveSessionStartedAt: null,
@@ -720,6 +733,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connectHoverTargetId: null,
       snapshotTemplateId: null,
       templatePresetMode: null,
+      loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
       liveSessionStartedAt: null,

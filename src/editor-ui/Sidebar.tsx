@@ -152,6 +152,7 @@ export function Sidebar() {
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
+  const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const setPlacingNodeType = useCanvasStore((s) => s.setPlacingNodeType)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
@@ -376,6 +377,7 @@ export function Sidebar() {
           : undefined
 
   const togglePlace = (type: CanvasNode['type']) => {
+    if (useCanvasStore.getState().loadedVariationId) return
     if (placingNodeType === type) {
       setPlacingNodeType(null)
     } else {
@@ -392,13 +394,14 @@ export function Sidebar() {
     useSimulationStore.getState().stop()
     if (action.kind === 'preset') {
       st.loadTemplateSnapshot(action.preset(), 'design')
-      const free = !useAuthStore.getState().isPremium
-      st.setTemplatePresetMode(free ? 'full' : null)
+      st.setLoadedVariationId(action.variationId)
+      st.setTemplatePresetMode(null)
       setBanner(`Loaded ${templateTitleForId(action.id) ?? action.id} template`)
       trackEvent('template_selected', { template: action.id, archetype: 'preset' })
       return
     }
     st.startFromTemplate(action.id)
+    st.setLoadedVariationId(null)
     st.setTemplatePresetMode(null)
     setBanner(
       `Selected ${templateTitleForId(action.id) ?? action.id} template (blank canvas)`,
@@ -413,6 +416,10 @@ export function Sidebar() {
 
   const onDragStart =
     (type: CanvasNode['type']) => (e: DragEvent) => {
+      if (useCanvasStore.getState().loadedVariationId) {
+        e.preventDefault()
+        return
+      }
       e.dataTransfer.setData('application/runcloud9-node-type', type)
       e.dataTransfer.effectAllowed = 'copy'
       e.dataTransfer.setDragImage(getEmptyDragImage(), 0, 0)
@@ -894,14 +901,20 @@ export function Sidebar() {
               explorerComponentLocksActive() &&
               !isPremiumUser &&
               isEngineerOnlyNodeType(type)
-            const disabled = live || tierLocked
+            const variationLocked = Boolean(loadedVariationId)
+            const disabled = live || tierLocked || variationLocked
+            const lockTitle = variationLocked
+              ? 'Topology is locked for this lab variation'
+              : tierLocked
+                ? UPGRADE_TO_UNLOCK_TOOLTIP
+                : undefined
             return (
               <li key={type}>
                 <button
                   type="button"
                   draggable={!disabled}
                   disabled={disabled}
-                  title={tierLocked ? UPGRADE_TO_UNLOCK_TOOLTIP : undefined}
+                  title={lockTitle}
                   onDragStart={disabled ? undefined : onDragStart(type)}
                   onClick={() => {
                     if (disabled) return

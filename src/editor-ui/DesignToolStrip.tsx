@@ -15,7 +15,10 @@ export function DesignToolStrip() {
   const mode = useCanvasStore((s) => s.mode)
   const designTool = useCanvasStore((s) => s.designTool)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
+  const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
+
+  const topologyLocked = Boolean(loadedVariationId)
 
   if (!isCanvasEditMode(mode) || walkthroughActive) return null
 
@@ -27,16 +30,24 @@ export function DesignToolStrip() {
     >
       {tools.map((t) => {
         const active = designTool === t.id
+        const disabled =
+          topologyLocked && (t.id === 'connect' || t.id === 'erase')
         return (
           <button
             key={t.id}
             type="button"
-            title={t.title}
-            onClick={() => setDesignTool(t.id)}
+            title={disabled ? 'Topology is locked for this lab variation' : t.title}
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return
+              setDesignTool(t.id)
+            }}
             className={`relative flex min-w-[4.5rem] flex-col items-center rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              active
-                ? 'bg-[var(--c9-accent)] text-white'
-                : 'text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)]'
+              disabled
+                ? 'cursor-not-allowed opacity-40'
+                : active
+                  ? 'bg-[var(--c9-accent)] text-white'
+                  : 'text-[var(--c9-muted)] hover:bg-[var(--c9-badge-bg)]'
             }`}
           >
             <span>{t.label}</span>

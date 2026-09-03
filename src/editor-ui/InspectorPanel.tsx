@@ -108,6 +108,11 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
+import {
+  filterStrategiesForVariation,
+  variationCacheStrategyMode,
+} from '../lib/variationTopologyLock'
+import { isVariationTopologyLocked } from '../lib/variationTopologyLock'
 
 const fieldClass =
   'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
@@ -148,6 +153,7 @@ export function InspectorPanel() {
   const updateNodeLabel = useCanvasStore((s) => s.updateNodeLabel)
   const removeNode = useCanvasStore((s) => s.removeNode)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const templatePresetMode = useCanvasStore((s) => s.templatePresetMode)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
@@ -191,6 +197,7 @@ export function InspectorPanel() {
       isFreeUser: !isPremiumUser,
       mode: templatePresetMode,
     })
+  const variationTopologyLocked = isVariationTopologyLocked(loadedVariationId)
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
@@ -241,7 +248,7 @@ export function InspectorPanel() {
   }, [])
 
   const onDelete = () => {
-    if (!node) return
+    if (!node || variationTopologyLocked) return
     removeNode(node.id)
     selectNode(null)
   }
@@ -278,7 +285,7 @@ export function InspectorPanel() {
             />
             <div className="min-w-0 flex-1">
               <span className={labelClass}>Label</span>
-              {!liveMode && !engineerPreviewLocked ? (
+              {!liveMode && !engineerPreviewLocked && !variationTopologyLocked ? (
                 <input
                   id="runcloud9-inspector-label"
                   type="text"
@@ -425,6 +432,7 @@ export function InspectorPanel() {
                   nodes={nodes}
                   simulationMode={simulationMode}
                   readOnly={engineerPreviewLocked}
+                  loadedVariationId={loadedVariationId}
                   updateConfig={
                     engineerPreviewLocked
                       ? () => {}
@@ -450,13 +458,15 @@ export function InspectorPanel() {
                 ) : null}
               </div>
               <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 transition-colors duration-200 hover:bg-red-800"
-                >
-                  Delete node
-                </button>
+                {!variationTopologyLocked ? (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 transition-colors duration-200 hover:bg-red-800"
+                  >
+                    Delete node
+                  </button>
+                ) : null}
               </div>
             </>
           )}
@@ -482,6 +492,7 @@ export function CacheNodeInspectorFields({
   updateConfig,
   templateId,
   readOnly = false,
+  loadedVariationId = null,
   maxInstanceSize = 'large',
 }: {
   node: CanvasNode
@@ -491,6 +502,7 @@ export function CacheNodeInspectorFields({
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   templateId?: string | null
   readOnly?: boolean
+  loadedVariationId?: string | null
   maxInstanceSize?: InstanceSize
 }) {
   const c = node.config
@@ -499,24 +511,30 @@ export function CacheNodeInspectorFields({
   const allowProxyStrategies =
     currentUser?.limits.allowProxyCache ??
     topologyLimitsForTier(resolveEffectiveTier(userRecord)).allowProxyCache
+  const strategyMode = variationCacheStrategyMode(loadedVariationId)
+  const strategyLocked = strategyMode === 'frozen'
 
   const available = useMemo(
     () =>
-      getAvailableCacheStrategies(node.id, nodes, edges, {
-        allowProxyStrategies,
-      }),
-    [node.id, nodes, edges, allowProxyStrategies],
+      filterStrategiesForVariation(
+        getAvailableCacheStrategies(node.id, nodes, edges, {
+          allowProxyStrategies,
+        }),
+        loadedVariationId,
+      ),
+    [node.id, nodes, edges, allowProxyStrategies, loadedVariationId],
   )
 
   const strategy = String(c.cacheStrategy ?? 'cache-aside')
 
   const ambiguousTopology = available.length === 0
-  const selectValue = readOnly
+  const strategyReadOnly = readOnly || strategyLocked
+  const selectValue = strategyReadOnly
     ? strategy
     : available.includes(strategy)
       ? strategy
       : available[0] ?? strategy
-  const showProxyReadThroughNote = readOnly
+  const showProxyReadThroughNote = strategyReadOnly
     ? isProxyCacheStrategy(strategy)
     : available.some((s) => isProxyCacheStrategy(s))
   const showProxySize = isProxyCacheStrategy(selectValue)
@@ -571,6 +589,7 @@ export function CacheNodeInspectorFields({
 
   useEffect(() => {
     if (readOnly) return
+    if (strategyLocked) return
     if (strategy === 'read-through') {
       useCanvasStore.getState().updateNodeConfig(node.id, {
         cacheStrategy: 'write-through',
@@ -626,6 +645,7 @@ export function CacheNodeInspectorFields({
     templateId,
     templateTtlDefault,
     readOnly,
+    strategyLocked,
   ])
 
   return (
@@ -642,11 +662,11 @@ export function CacheNodeInspectorFields({
         </label>
         <select
           id="cache-strat"
-          className={`${fieldClass}${readOnly || ambiguousTopology ? ' cursor-not-allowed opacity-60' : ''}`}
+          className={`${fieldClass}${strategyReadOnly || ambiguousTopology ? ' cursor-not-allowed opacity-60' : ''}`}
           value={selectValue}
-          disabled={readOnly || ambiguousTopology}
+          disabled={strategyReadOnly || ambiguousTopology}
           onChange={(e) => {
-            if (readOnly) return
+            if (strategyReadOnly) return
             const prev = selectValue
             const next = e.target.value
             const patch: Partial<CanvasNode['config']> = {
@@ -682,10 +702,10 @@ export function CacheNodeInspectorFields({
             })
           }}
         >
-          {readOnly || ambiguousTopology ? (
+          {strategyReadOnly || ambiguousTopology ? (
             <option value={strategy}>
               {CACHE_STRATEGY_LABEL[strategy] ?? strategy}
-              {!readOnly && ambiguousTopology ? ' (fix wiring)' : ''}
+              {!strategyReadOnly && ambiguousTopology ? ' (fix wiring)' : ''}
             </option>
           ) : (
             available.map((v) => (
@@ -705,7 +725,7 @@ export function CacheNodeInspectorFields({
             not read the database.
           </InlineDisclosure>
         ) : null}
-        {!readOnly && ambiguousTopology ? (
+        {!strategyReadOnly && ambiguousTopology ? (
           <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
             This wiring is invalid: a connector reaches this cache and the database while the cache
             also reaches the database. Remove either the direct connector→database link or the
@@ -976,6 +996,7 @@ function TypeFields({
   updateConfig,
   templateId,
   readOnly = false,
+  loadedVariationId = null,
 }: {
   node: CanvasNode
   edges: Record<string, CanvasEdge>
@@ -984,6 +1005,7 @@ function TypeFields({
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   templateId?: string | null
   readOnly?: boolean
+  loadedVariationId?: string | null
 }) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -1600,6 +1622,7 @@ function TypeFields({
           updateConfig={updateConfig}
           templateId={templateId}
           readOnly={readOnly}
+          loadedVariationId={loadedVariationId}
         maxInstanceSize={maxInstanceSize}
         />
       )

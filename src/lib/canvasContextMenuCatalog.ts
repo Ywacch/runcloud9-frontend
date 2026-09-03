@@ -171,15 +171,25 @@ export function nodeMenuActions(params: {
   mode: CanvasMode
   deploymentId: string | null
   chaosTargetBusy: boolean
+  loadedVariationId?: string | null
 }): NodeMenuAction[] {
-  const { node, mode, deploymentId, chaosTargetBusy } = params
+  const { node, mode, deploymentId, chaosTargetBusy, loadedVariationId } = params
   const actions: NodeMenuAction[] = [
     { kind: 'open_inspector', label: 'Open inspector' },
   ]
 
   const editMode = mode === 'design' || mode === 'simulate'
   if (editMode && node.type !== 'client') {
-    actions.push({ kind: 'delete', label: 'Delete' })
+    if (loadedVariationId) {
+      actions.push({
+        kind: 'delete',
+        label: 'Delete',
+        disabled: true,
+        reason: 'Topology is locked for this lab variation',
+      })
+    } else {
+      actions.push({ kind: 'delete', label: 'Delete' })
+    }
   } else if (mode === 'live' && node.type !== 'client') {
     actions.push({
       kind: 'delete',
