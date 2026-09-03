@@ -11,10 +11,8 @@ import {
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
 import {
-  engineerUpgradeActionLabel,
   isChaosTrialUsedMessage,
 } from './billingCopy'
-import { BILLING_ENABLED } from './featureFlags'
 import { scrubEmDashCopy } from './topologyRulesTypes'
 
 export interface DeployRequestMessage {
@@ -25,10 +23,6 @@ export interface DeployRequestMessage {
   /** Optional second CTA (e.g. switch to Free tier design). */
   secondaryActionLabel?: string
   resourceBudget?: ResourceBudgetErrorResponse
-}
-
-function upgradeActionLabel(): string | undefined {
-  return engineerUpgradeActionLabel(BILLING_ENABLED)
 }
 
 function technicalDetailsFrom(raw: string | undefined): string | undefined {
@@ -69,17 +63,15 @@ export function mapDeployRequestError(
       if (isChaosTrialUsedMessage(raw)) {
         return {
           title: 'Chaos trial used',
-          body: 'You used your free chaos trial. Upgrade to Engineer for unlimited chaos.',
+          body: 'You used your free chaos trial for this feature.',
           technicalDetails: technicalDetailsFrom(raw),
-          actionLabel: upgradeActionLabel(),
         }
       }
       if (normalized.includes('premium')) {
         return {
-          title: 'Premium template',
-          body: 'This template requires RunCloud9 Engineer. Upgrade to deploy it on the cluster.',
+          title: 'Template not available',
+          body: 'This template is not available on your plan.',
           technicalDetails: technicalDetailsFrom(raw),
-          actionLabel: upgradeActionLabel(),
         }
       }
       if (
@@ -89,10 +81,9 @@ export function mapDeployRequestError(
         normalized.includes('exceed your plan limit')
       ) {
         return {
-          title: 'Upgrade required for this topology',
-          body: 'Engineer unlocks load balancers, queues, workers, proxy cache, and more replicas. Change the design or upgrade.',
+          title: 'Design not supported on your plan',
+          body: 'This design uses components or settings your plan does not allow. Change the design and try again.',
           technicalDetails: technicalDetailsFrom(raw),
-          actionLabel: upgradeActionLabel(),
         }
       }
       if (normalized.includes('you do not own this deployment')) {
@@ -126,9 +117,8 @@ export function mapDeployRequestError(
         if (opts?.isFreeUser) {
           return {
             title: 'Out of sessions this month',
-            body: 'You hit the Free tier monthly limit. Upgrade to Engineer for more sessions, or try again next month.',
+            body: 'You hit the monthly session limit. Try again next month.',
             technicalDetails: technicalDetailsFrom(raw),
-            actionLabel: upgradeActionLabel(),
           }
         }
         return {
@@ -141,9 +131,8 @@ export function mapDeployRequestError(
         if (opts?.isFreeUser) {
           return {
             title: 'Concurrent session limit',
-            body: 'Free tier allows one active deployment. Upgrade to Engineer for more concurrent sessions, or end your current deployment first.',
+            body: 'Free tier allows one active deployment. End your current deployment first.',
             technicalDetails: technicalDetailsFrom(raw),
-            actionLabel: upgradeActionLabel(),
           }
         }
         return {

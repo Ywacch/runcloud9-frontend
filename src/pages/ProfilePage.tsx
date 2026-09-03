@@ -153,12 +153,6 @@ export default function ProfilePage() {
               >
                 View past runs
               </Link>
-              <Link
-                to="/pricing"
-                className="text-sm text-[var(--c9-muted)] transition-colors hover:text-[var(--c9-text)]"
-              >
-                Pricing
-              </Link>
             </div>
           </div>
 

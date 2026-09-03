@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { useAuthStore } from '../product/stores/authStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
@@ -41,7 +40,7 @@ export function TemplatePresetModeBanner() {
       </p>
       <p className="leading-snug text-[var(--c9-muted)]">
         {templatePresetMode === 'full'
-          ? 'Engineer components are dimmed and not deployable. Switch to deploy on Free tier.'
+          ? 'Some components are preview-only and not deployable. Switch to deploy on Free tier.'
           : 'Deployable Free tier design. Switch back to preview the full template shape.'}
       </p>
       <div className="mt-1 flex flex-wrap gap-2">
@@ -67,12 +66,6 @@ export function TemplatePresetModeBanner() {
         >
           {FREE_TIER_DESIGN_LABEL}
         </button>
-        <Link
-          to="/pricing"
-          className="rounded px-2 py-1 font-medium text-[var(--c9-accent)] hover:text-[var(--c9-accent-hover)]"
-        >
-          Pricing
-        </Link>
       </div>
     </div>
   )

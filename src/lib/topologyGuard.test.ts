@@ -38,7 +38,7 @@ describe('findTopologyViolations', () => {
     )
     expect(violations.some((v) => v.kind === 'proxy_cache')).toBe(true)
     expect(violations.find((v) => v.kind === 'proxy_cache')?.message).toBe(
-      'That cache strategy needs Engineer. Use cache-aside or timeline-store, or upgrade.',
+      'That cache strategy is not available on your plan. Use cache-aside or timeline-store.',
     )
   })
 
@@ -76,7 +76,7 @@ describe('findTopologyViolations', () => {
       legacyExplorerLimits,
     )
     expect(violations[0]?.message).toBe(
-      'Load balancers need Engineer. Remove them or upgrade.',
+      'Load balancers are not available on your plan. Remove them to deploy.',
     )
   })
 })

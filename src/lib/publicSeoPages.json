@@ -9,11 +9,6 @@
   },
   "pages": [
     {
-      "path": "/pricing",
-      "title": "Pricing | runcloud9",
-      "description": "Free tier is included. Engineer unlocks load balancers, queues, workers, all templates, and higher session limits on RunCloud9."
-    },
-    {
       "path": "/about",
       "title": "About | runcloud9",
       "description": "RunCloud9 is an architecture lab on a canvas: place components, deploy to Kubernetes for short sessions, and observe real load."

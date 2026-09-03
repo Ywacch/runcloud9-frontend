@@ -199,16 +199,16 @@ export function toResourceBudgetErrorResponse(
   }
 }
 
-/** Plan label for canvas quota copy — internal maps to Engineer in UI. */
+/** Plan label for canvas quota copy — internal maps to paid plan in UI. */
 export function displayQuotaTierLabel(tier: string | undefined | null): string {
   switch (normalizeResourceTier(tier)) {
     case 'engineer':
     case 'internal':
-      return 'Engineer'
+      return 'Your plan'
     case 'architect':
       return 'Architect'
     default:
-      return 'Explorer'
+      return 'Free tier'
   }
 }
 
