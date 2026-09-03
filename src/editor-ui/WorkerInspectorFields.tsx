@@ -7,6 +7,7 @@ import {
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { ResourceProfileFields } from './ResourceProfileFields'
 import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
+import { InfoTooltip } from './InfoTooltip'
 import type { InstanceSize } from '../lib/userTier'
 
 const fieldClass =

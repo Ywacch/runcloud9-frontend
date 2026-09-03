@@ -23,7 +23,6 @@ import {
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
   templateOffersLiveDeploy,
 } from '../lib/templateAvailability'
-import { BILLING_ENABLED } from '../lib/featureFlags'
 import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
