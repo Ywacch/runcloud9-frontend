@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { RESET_PASSWORD_SUCCESS_COPY } from '../lib/authErrorMessage'
 import { supabase } from '../lib/supabase'
 import { C9Card, C9PrimaryButton, C9SectionTitle } from '../editor-ui/c9Primitives'
 
@@ -27,10 +28,10 @@ export default function ResetPasswordPage() {
         { redirectTo },
       )
       if (resetError) throw resetError
-      setSuccess('Check your email for a password reset link.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset link.')
+    } catch {
+      /* enumeration-safe: same copy whether or not the email has a password account */
     } finally {
+      setSuccess(RESET_PASSWORD_SUCCESS_COPY)
       setSubmitting(false)
     }
   }

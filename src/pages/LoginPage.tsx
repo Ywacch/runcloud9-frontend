@@ -3,13 +3,15 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../product/stores/authStore'
 import { trackEvent } from '../lib/analytics'
 import { consumeAuthReturnTo, setAuthReturnTo } from '../lib/authReturn'
+import { isLoginPasswordMode } from '../lib/loginPasswordMode'
 import { C9Card } from '../editor-ui/c9Primitives'
 import { SignInForm } from '../editor-ui/SignInForm'
 
 export default function LoginPage() {
   const session = useAuthStore((s) => s.session)
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const passwordFormVisible = isLoginPasswordMode(searchParams.get('password'))
 
   useEffect(() => {
     if (session) return
@@ -18,6 +20,18 @@ export default function LoginPage() {
     if (returnTo) setAuthReturnTo(returnTo)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const setPasswordFormVisible = (visible: boolean) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (visible) next.set('password', '1')
+        else next.delete('password')
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   if (session) {
     return <Navigate to={consumeAuthReturnTo('/dashboard')} replace />
@@ -31,14 +45,17 @@ export default function LoginPage() {
             Sign in to RunCloud9
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--c9-muted)]">
-            Use the email and password for your account, or sign in with Google or GitHub if you
-            connected them.
+            {passwordFormVisible
+              ? 'Sign in with the email and password for your account.'
+              : 'Sign in with Google or GitHub to continue.'}
           </p>
           <div className="mt-5">
             <SignInForm
               idPrefix="login-page"
               submitLabel="Sign in with password"
               showHelper={false}
+              passwordFormVisible={passwordFormVisible}
+              onPasswordFormVisibleChange={setPasswordFormVisible}
               onSuccess={() => {
                 navigate(consumeAuthReturnTo('/dashboard'), { replace: true })
               }}

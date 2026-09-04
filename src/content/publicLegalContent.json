@@ -162,7 +162,7 @@
         "listItems": [
           {
             "label": "Account data",
-            "text": "email address, authentication identifiers, and profile information via Supabase (sign-in, password reset, and OAuth when enabled)."
+            "text": "email address, authentication identifiers, and profile information from Supabase, including Google or GitHub sign-in when you use those providers."
           },
           {
             "label": "Session data",

@@ -42,7 +42,7 @@ export default function AuthCallbackPage() {
       } else if (tokenHash) {
         const otpType = resolveTokenHashOtpType(type)
         if (!otpType) {
-          fail('This invite link is missing a valid type. Request a new invite.')
+          fail('This sign-in link is missing a valid type. Request a new link from your email.')
           return
         }
         const { error } = await supabase.auth.verifyOtp({
@@ -59,7 +59,7 @@ export default function AuthCallbackPage() {
       const { data } = await supabase.auth.getSession()
       if (!data.session) {
         fail(
-          'We could not start your session. Open the invite or reset link from your email again.',
+          'We could not start your session. Open the sign-in or reset link from your email again.',
         )
         return
       }
@@ -81,14 +81,14 @@ export default function AuthCallbackPage() {
         <C9Card className="w-full max-w-md p-6 text-center">
           <C9SectionTitle
             title="Link could not be verified"
-            description={errorMessage ?? 'This invite or reset link is no longer valid.'}
+            description={errorMessage ?? 'This sign-in or reset link is no longer valid.'}
           />
           <div className="mt-5 flex flex-col gap-2">
             <Link
               to="/reset-password"
               className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
             >
-              Request a new invite
+              Request a new reset link
             </Link>
             <Link
               to="/login"
