@@ -92,6 +92,15 @@ describe('deployWaitAnalytics', () => {
       ),
     ).toBe('monthly_session_limit')
     expect(
+      deployRejectReasonFromError(
+        new ApiError(
+          403,
+          'confirm your email before deploying',
+          'email_unconfirmed',
+        ),
+      ),
+    ).toBe('email_unconfirmed')
+    expect(
       deployRejectReasonFromError(new ApiError(422, 'design exceeds quota')),
     ).toBeUndefined()
   })

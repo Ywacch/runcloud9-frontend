@@ -28,6 +28,7 @@ import {
   UPGRADE_TO_ENGINEER_LABEL,
 } from '../lib/stripeCheckout'
 import {
+  EMAIL_UNCONFIRMED,
   MONTHLY_SESSION_LIMIT,
   ROOM_QUEUE_TITLE,
   formatRoomWaitingDetail,
@@ -105,6 +106,7 @@ import {
   type DeployBlockedReason,
 } from '../lib/analytics'
 import { loginPathWithReturnTo } from '../lib/authReturn'
+import { supabase } from '../lib/supabase'
 import {
   deployAdmitStatusFromCreate,
   deployRejectReasonFromError,
@@ -536,7 +538,21 @@ export function Sidebar() {
       const design = snapshotToDeploymentDesign(st.exportJSON(), {
         ...(wireMinutes != null ? { sessionMinutes: wireMinutes } : {}),
       })
-      const result = await createDeployment(design)
+      let result: DeploymentResult
+      try {
+        result = await createDeployment(design)
+      } catch (deployError) {
+        if (
+          deployError instanceof ApiError &&
+          deployError.reason === EMAIL_UNCONFIRMED
+        ) {
+          const { error: refreshError } = await supabase.auth.refreshSession()
+          if (refreshError) throw deployError
+          result = await createDeployment(design)
+        } else {
+          throw deployError
+        }
+      }
 
       if (result.status === 'simulation_recommended') {
         trackEvent('deploy_assessment_shown', {
