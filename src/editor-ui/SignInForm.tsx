@@ -7,14 +7,18 @@ import { OAuthProviderButtons } from './OAuthProviderButtons'
 
 const labelClass = 'text-sm font-medium text-[var(--c9-text)]'
 
+const switchLinkClass =
+  'text-center text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]'
+
 export interface SignInFormProps {
   idPrefix?: string
   submitLabel?: string
   showForgotPasswordLink?: boolean
   showHelper?: boolean
-  showOAuth?: boolean
   authReturnPath?: string
   overwriteAuthReturnPath?: boolean
+  passwordFormVisible?: boolean
+  onPasswordFormVisibleChange?: (visible: boolean) => void
   onSuccess?: () => void
   onCancel?: () => void
   cancelLabel?: string
@@ -25,9 +29,10 @@ export function SignInForm({
   submitLabel = 'Sign in',
   showForgotPasswordLink = true,
   showHelper = true,
-  showOAuth = true,
   authReturnPath = '/dashboard',
   overwriteAuthReturnPath = false,
+  passwordFormVisible = false,
+  onPasswordFormVisibleChange,
   onSuccess,
   onCancel,
   cancelLabel = 'Keep designing',
@@ -70,99 +75,125 @@ export function SignInForm({
     }
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      {showOAuth ? (
-        <>
-          <OAuthProviderButtons
-            idPrefix={`${idPrefix}-oauth`}
-            authReturnPath={authReturnPath}
-            overwriteAuthReturnPath={overwriteAuthReturnPath}
-            disabled={submitting}
-          />
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-[var(--c9-border)]" aria-hidden />
-            <span className="text-xs text-[var(--c9-muted)]">or sign in with password</span>
-            <div className="h-px flex-1 bg-[var(--c9-border)]" aria-hidden />
-          </div>
-        </>
-      ) : null}
-
-      <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
-      {showHelper ? (
-        <p className="text-sm leading-relaxed text-[var(--c9-muted)]">
-          Sign in with the email and password for your RunCloud9 account.
-        </p>
-      ) : null}
-
-      <div className="flex flex-col gap-2">
-        <label className={labelClass} htmlFor={emailId}>
-          Email
-        </label>
-        <input
-          id={emailId}
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value)
-            setError(null)
-          }}
+  if (!passwordFormVisible) {
+    return (
+      <div className="flex flex-col gap-4">
+        <OAuthProviderButtons
+          idPrefix={`${idPrefix}-oauth`}
+          authReturnPath={authReturnPath}
+          overwriteAuthReturnPath={overwriteAuthReturnPath}
           disabled={submitting}
-          className="c9-input"
-          placeholder="you@example.com"
         />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className={labelClass} htmlFor={passwordId}>
-          Password
-        </label>
-        <input
-          id={passwordId}
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            setError(null)
-          }}
-          disabled={submitting}
-          className="c9-input"
-          placeholder="Password"
-        />
-      </div>
-
-      {error ? <p className="c9-banner-error">{error}</p> : null}
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-[transform,background-color] duration-200 hover:bg-[var(--c9-accent-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {submitting ? 'Signing in…' : submitLabel}
-      </button>
-
-      {onCancel ? (
         <button
           type="button"
+          id={`${idPrefix}-use-password`}
           disabled={submitting}
-          onClick={onCancel}
-          className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/80 px-4 py-2 text-sm font-medium text-[var(--c9-text)] transition-[transform,background-color] duration-200 hover:bg-[var(--c9-surface)] active:scale-[0.98] disabled:opacity-50"
+          onClick={() => onPasswordFormVisibleChange?.(true)}
+          className={switchLinkClass}
         >
-          {cancelLabel}
+          Sign in with password
         </button>
-      ) : null}
+        {onCancel ? (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={onCancel}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/80 px-4 py-2 text-sm font-medium text-[var(--c9-text)] transition-[transform,background-color] duration-200 hover:bg-[var(--c9-surface)] active:scale-[0.98] disabled:opacity-50"
+          >
+            {cancelLabel}
+          </button>
+        ) : null}
+      </div>
+    )
+  }
 
-      {showForgotPasswordLink ? (
-        <Link
-          to="/reset-password"
-          className="text-center text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
+  return (
+    <div className="flex flex-col gap-4">
+      <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
+        {showHelper ? (
+          <p className="text-sm leading-relaxed text-[var(--c9-muted)]">
+            Sign in with the email and password for your RunCloud9 account.
+          </p>
+        ) : null}
+
+        <div className="flex flex-col gap-2">
+          <label className={labelClass} htmlFor={emailId}>
+            Email
+          </label>
+          <input
+            id={emailId}
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              setError(null)
+            }}
+            disabled={submitting}
+            className="c9-input"
+            placeholder="you@example.com"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className={labelClass} htmlFor={passwordId}>
+            Password
+          </label>
+          <input
+            id={passwordId}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              setError(null)
+            }}
+            disabled={submitting}
+            className="c9-input"
+            placeholder="Password"
+          />
+        </div>
+
+        {error ? <p className="c9-banner-error">{error}</p> : null}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-[transform,background-color] duration-200 hover:bg-[var(--c9-accent-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Forgot password? Set or reset it
-        </Link>
-      ) : null}
+          {submitting ? 'Signing in…' : submitLabel}
+        </button>
+
+        {onCancel ? (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={onCancel}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/80 px-4 py-2 text-sm font-medium text-[var(--c9-text)] transition-[transform,background-color] duration-200 hover:bg-[var(--c9-surface)] active:scale-[0.98] disabled:opacity-50"
+          >
+            {cancelLabel}
+          </button>
+        ) : null}
+
+        {showForgotPasswordLink ? (
+          <Link
+            to="/reset-password"
+            className={`${switchLinkClass} block`}
+          >
+            Forgot password? Set or reset it
+          </Link>
+        ) : null}
       </form>
+
+      <button
+        type="button"
+        id={`${idPrefix}-use-oauth`}
+        disabled={submitting}
+        onClick={() => onPasswordFormVisibleChange?.(false)}
+        className={switchLinkClass}
+      >
+        Use Google or GitHub instead
+      </button>
     </div>
   )
 }

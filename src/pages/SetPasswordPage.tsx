@@ -58,7 +58,7 @@ export default function SetPasswordPage() {
         <C9Card className="w-full max-w-md p-6 text-center">
           <h1 className="text-xl font-semibold text-[var(--c9-text)]">Session not found</h1>
           <p className="mt-2 text-sm text-[var(--c9-muted)]">
-            Open the invite or password recovery link again, then set your password.
+            Open the sign-in or password reset link from your email again to set a password.
           </p>
           <Link
             to="/login"
@@ -80,7 +80,7 @@ export default function SetPasswordPage() {
         <C9Card className="p-6">
           <C9SectionTitle
             title="Set your password"
-            description="Finish your invite/reset flow by choosing a password for future sign-ins."
+            description="Optional: add a password for email sign-in. You can keep using Google or GitHub instead."
           />
 
           <label className="mt-5 block text-sm text-[var(--c9-text)]" htmlFor="new-password">

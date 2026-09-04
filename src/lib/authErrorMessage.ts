@@ -1,6 +1,11 @@
-import { ApiError } from './api'
+import { ApiError } from './apiError'
 
 const SESSION_EXPIRED_COPY = 'Session expired or missing. Please sign in again.'
+
+export const RESET_PASSWORD_SUCCESS_COPY =
+  'If an account exists for that email and it uses a password, we sent a reset link. If you signed in with Google or GitHub, use that button instead.'
+
+const OAUTH_SIGN_IN_HINT = ' If you signed in with Google or GitHub, use that button.'
 
 export function mapAuthErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
@@ -34,7 +39,7 @@ export function mapSupabaseSignInError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? '')
   const msg = raw.toLowerCase()
   if (msg.includes('invalid login credentials') || msg.includes('invalid email or password')) {
-    return 'Email or password is incorrect.'
+    return `Email or password is incorrect.${OAUTH_SIGN_IN_HINT}`
   }
   if (msg.includes('email not confirmed')) {
     return 'Confirm your email before signing in.'
@@ -49,7 +54,7 @@ export function mapSupabaseOtpError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? '')
   const msg = raw.toLowerCase()
   if (msg.includes('expired') || msg.includes('otp_expired')) {
-    return 'This invite or reset link has expired. Request a new one.'
+    return 'This sign-in or reset link has expired. Request a new one.'
   }
   if (msg.includes('invalid') || msg.includes('otp_disabled') || msg.includes('not found')) {
     return 'This link is invalid or has already been used.'
@@ -57,7 +62,7 @@ export function mapSupabaseOtpError(error: unknown): string {
   if (msg.includes('too many requests')) {
     return 'Too many attempts. Wait a moment and try again.'
   }
-  return raw || 'Could not verify this link. Request a new invite or reset link.'
+  return raw || 'Could not verify this link. Request a new sign-in or reset link.'
 }
 
 export function debugAuthError(error: unknown, context: string): void {

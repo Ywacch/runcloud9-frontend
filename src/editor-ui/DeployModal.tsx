@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { DeployProgressSteps, type DeployStep } from './DeployProgressSteps'
 import { SignInForm } from './SignInForm'
 import { ResourceBudgetBreakdown } from './ResourceBudgetBreakdown'
@@ -63,6 +64,14 @@ export function DeployModal({
   onDeployAnyway,
   onDeployWarningsContinue,
 }: Props) {
+  const [passwordFormVisible, setPasswordFormVisible] = useState(false)
+
+  useEffect(() => {
+    if (!open || mode !== 'auth_required') {
+      setPasswordFormVisible(false)
+    }
+  }, [open, mode])
+
   if (!open) return null
 
   const showSimulation =
@@ -113,8 +122,9 @@ export function DeployModal({
 
         {showAuthRequired ? (
           <p className="mt-2 text-sm leading-relaxed text-[var(--c9-muted)]">
-            Your canvas design stays here. Sign in to your RunCloud9 account, then we will start
-            provisioning automatically.
+            {passwordFormVisible
+              ? 'Sign in with your email and password to deploy.'
+              : 'Your canvas design stays here. Sign in with Google or GitHub, then we will start provisioning automatically.'}
           </p>
         ) : null}
 
@@ -215,6 +225,8 @@ export function DeployModal({
               showHelper={false}
               authReturnPath="/canvas"
               overwriteAuthReturnPath
+              passwordFormVisible={passwordFormVisible}
+              onPasswordFormVisibleChange={setPasswordFormVisible}
               onCancel={onAuthDismiss}
               cancelLabel="Keep designing"
             />
