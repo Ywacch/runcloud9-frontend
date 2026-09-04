@@ -1,4 +1,4 @@
-import { ApiError } from './api'
+import { ApiError } from './apiError'
 
 const SESSION_EXPIRED_COPY = 'Session expired or missing. Please sign in again.'
 
