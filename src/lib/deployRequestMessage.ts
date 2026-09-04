@@ -13,6 +13,7 @@ import {
 import {
   isChaosTrialUsedMessage,
 } from './billingCopy'
+import { isEmailUnconfirmedError } from './deployQueue'
 import { scrubEmDashCopy } from './topologyRulesTypes'
 
 export interface DeployRequestMessage {
@@ -60,6 +61,13 @@ export function mapDeployRequestError(
     }
 
     if (error.status === 403) {
+      if (isEmailUnconfirmedError({ reason: error.reason, message: raw })) {
+        return {
+          title: 'Confirm your email',
+          body: 'Confirm your email before deploying. Check your inbox for the confirmation link, then try again.',
+          technicalDetails: technicalDetailsFrom(raw),
+        }
+      }
       if (isChaosTrialUsedMessage(raw)) {
         return {
           title: 'Chaos trial used',

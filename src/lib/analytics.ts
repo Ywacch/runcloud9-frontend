@@ -45,6 +45,7 @@ export type AnalyticsEventMap = {
       | 'concurrent_active'
       | 'monthly_session_limit'
       | 'resource_budget'
+      | 'email_unconfirmed'
   }
   deploy_wait_entered: {
     template: string

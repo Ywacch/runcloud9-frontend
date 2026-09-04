@@ -66,6 +66,18 @@ describe('mapDeployRequestError', () => {
     expect(msg.title).toBe('Template not available')
   })
 
+  it('maps email_unconfirmed 403 without sign-in CTA', () => {
+    const err = new ApiError(
+      403,
+      'confirm your email before deploying',
+      'email_unconfirmed',
+    )
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Confirm your email')
+    expect(msg.body).toContain('Confirm your email before deploying')
+    expect(msg.actionLabel).toBeUndefined()
+  })
+
   it('maps queue_full 429 to cluster queue copy', () => {
     const err = new ApiError(429, 'deploy queue is full — try again shortly')
     const msg = mapDeployRequestError(err)

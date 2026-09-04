@@ -98,6 +98,17 @@ export function isAtMonthlySessionCap(me: {
 
 export const DESIGN_EXCEEDS_CLUSTER_CAPACITY = 'design_exceeds_cluster_capacity'
 
+export const EMAIL_UNCONFIRMED = 'email_unconfirmed'
+
+export function isEmailUnconfirmedError(opts: {
+  reason?: string | null
+  message?: string | null
+}): boolean {
+  if (opts.reason === EMAIL_UNCONFIRMED) return true
+  const n = (opts.message ?? '').toLowerCase()
+  return n.includes(EMAIL_UNCONFIRMED) || n.includes('confirm your email before deploying')
+}
+
 export function isDesignExceedsClusterCapacity(opts: {
   reason?: string | null
   message?: string | null

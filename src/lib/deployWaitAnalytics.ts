@@ -2,6 +2,7 @@ import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import {
   isDesignExceedsClusterCapacity,
+  isEmailUnconfirmedError,
   isMonthlySessionLimitError,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
@@ -22,6 +23,7 @@ export type DeployRejectReason =
   | 'concurrent_active'
   | 'monthly_session_limit'
   | 'resource_budget'
+  | 'email_unconfirmed'
 
 export type DeployAdmitStatus = 'provisioning' | 'queued'
 
@@ -79,6 +81,9 @@ export function deployRejectReasonFromError(
   if (isResourceBudgetApiError(error)) return 'resource_budget'
   if (!(error instanceof ApiError)) return undefined
   const raw = error.rawMessage || error.message
+  if (isEmailUnconfirmedError({ reason: error.reason, message: raw })) {
+    return 'email_unconfirmed'
+  }
   if (
     isDesignExceedsClusterCapacity({
       reason: error.reason,
