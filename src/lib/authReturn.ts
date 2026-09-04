@@ -52,6 +52,15 @@ export function setAuthReturnTo(path: string): void {
   }
 }
 
+/** Set return path before OAuth unless one is already stored (or overwrite is requested). */
+export function primeAuthReturnTo(
+  path: string,
+  options: { overwrite?: boolean } = {},
+): void {
+  if (!options.overwrite && peekAuthReturnTo()) return
+  setAuthReturnTo(path)
+}
+
 export function peekAuthReturnTo(): string | null {
   try {
     return sanitizeAuthReturnPath(sessionStorage.getItem(AUTH_RETURN_STORAGE_KEY))
