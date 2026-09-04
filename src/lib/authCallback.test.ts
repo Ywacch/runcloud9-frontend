@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   mergeAuthCallbackParams,
+  parseAuthCallbackOAuthError,
   parseAuthCallbackHash,
   parseAuthCallbackSearch,
   postAuthRedirectPath,
@@ -35,6 +36,16 @@ describe('authCallback', () => {
     expect(resolveTokenHashOtpType('recovery')).toBe('recovery')
     expect(resolveTokenHashOtpType('invalid')).toBeNull()
     expect(resolveTokenHashOtpType(null)).toBeNull()
+  })
+
+  it('parses OAuth error redirect params', () => {
+    const params = new URLSearchParams(
+      'error=server_error&error_description=Error+getting+user+email+from+external+provider',
+    )
+    expect(parseAuthCallbackOAuthError(params)).toBe(
+      'Error getting user email from external provider',
+    )
+    expect(parseAuthCallbackOAuthError(new URLSearchParams('code=abc'))).toBeNull()
   })
 
   it('routes invite and recovery to set-password', () => {

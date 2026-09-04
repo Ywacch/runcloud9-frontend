@@ -23,16 +23,43 @@ export function mapAuthErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-export function mapSupabaseOAuthError(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error ?? '')
+const GITHUB_EMAIL_HELP_COPY =
+  'We could not get a verified email from GitHub. In GitHub Settings → Emails, set a primary email and allow applications to see it, then try again.'
+
+function oauthErrorMessage(raw: string): string | null {
   const msg = raw.toLowerCase()
-  if (msg.includes('provider is not enabled')) {
-    return 'This sign-in method is not available yet. Try email and password instead.'
+  if (
+    msg.includes('provider is not enabled') ||
+    msg.includes('provider_disabled') ||
+    msg.includes('unsupported provider')
+  ) {
+    return 'This sign-in method is not available yet. Try another sign-in option.'
+  }
+  if (
+    msg.includes('error getting user email') ||
+    msg.includes('email_address_not_provided') ||
+    msg.includes('provider_email_needs_verification') ||
+    msg.includes('unverified email with github') ||
+    (msg.includes('github') && msg.includes('email') && msg.includes('verif'))
+  ) {
+    return GITHUB_EMAIL_HELP_COPY
   }
   if (msg.includes('too many requests')) {
     return 'Too many attempts. Wait a moment and try again.'
   }
-  return raw || 'Could not start sign-in. Try again.'
+  return null
+}
+
+export function mapSupabaseOAuthError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  return oauthErrorMessage(raw) ?? raw ?? 'Could not start sign-in. Try again.'
+}
+
+export function mapAuthCallbackError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const oauth = oauthErrorMessage(raw)
+  if (oauth) return oauth
+  return mapSupabaseOtpError(error)
 }
 
 export function mapSupabaseSignInError(error: unknown): string {

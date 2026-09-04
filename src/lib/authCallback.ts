@@ -54,3 +54,10 @@ export function mergeAuthCallbackParams(
     type: fromSearch.type ?? fromHash.type,
   }
 }
+
+/** OAuth redirect failures arrive as ?error=...&error_description=... */
+export function parseAuthCallbackOAuthError(search: URLSearchParams): string | null {
+  const error = search.get('error')
+  if (!error) return null
+  return search.get('error_description') ?? error
+}
