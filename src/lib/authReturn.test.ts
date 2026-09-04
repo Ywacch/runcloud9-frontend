@@ -3,6 +3,7 @@ import {
   consumeAuthReturnTo,
   loginPathWithReturnTo,
   peekAuthReturnTo,
+  primeAuthReturnTo,
   sanitizeAuthReturnPath,
   setAuthReturnTo,
 } from './authReturn'
@@ -52,5 +53,16 @@ describe('authReturn', () => {
   it('builds login URLs with encoded returnTo', () => {
     expect(loginPathWithReturnTo('/profile')).toBe('/login?returnTo=%2Fprofile')
     expect(loginPathWithReturnTo('/login')).toBe('/login')
+  })
+
+  it('primes auth return path only when unset unless overwrite is requested', () => {
+    primeAuthReturnTo('/dashboard')
+    expect(peekAuthReturnTo()).toBe('/dashboard')
+
+    primeAuthReturnTo('/profile')
+    expect(peekAuthReturnTo()).toBe('/dashboard')
+
+    primeAuthReturnTo('/canvas', { overwrite: true })
+    expect(peekAuthReturnTo()).toBe('/canvas')
   })
 })

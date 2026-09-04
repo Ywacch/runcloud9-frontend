@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { mapSupabaseSignInError } from '../lib/authErrorMessage'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../product/stores/authStore'
+import { OAuthProviderButtons } from './OAuthProviderButtons'
 
 const labelClass = 'text-sm font-medium text-[var(--c9-text)]'
 
@@ -11,6 +12,9 @@ export interface SignInFormProps {
   submitLabel?: string
   showForgotPasswordLink?: boolean
   showHelper?: boolean
+  showOAuth?: boolean
+  authReturnPath?: string
+  overwriteAuthReturnPath?: boolean
   onSuccess?: () => void
   onCancel?: () => void
   cancelLabel?: string
@@ -21,6 +25,9 @@ export function SignInForm({
   submitLabel = 'Sign in',
   showForgotPasswordLink = true,
   showHelper = true,
+  showOAuth = true,
+  authReturnPath = '/dashboard',
+  overwriteAuthReturnPath = false,
   onSuccess,
   onCancel,
   cancelLabel = 'Keep designing',
@@ -64,7 +71,24 @@ export function SignInForm({
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
+      {showOAuth ? (
+        <>
+          <OAuthProviderButtons
+            idPrefix={`${idPrefix}-oauth`}
+            authReturnPath={authReturnPath}
+            overwriteAuthReturnPath={overwriteAuthReturnPath}
+            disabled={submitting}
+          />
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-[var(--c9-border)]" aria-hidden />
+            <span className="text-xs text-[var(--c9-muted)]">or sign in with password</span>
+            <div className="h-px flex-1 bg-[var(--c9-border)]" aria-hidden />
+          </div>
+        </>
+      ) : null}
+
+      <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       {showHelper ? (
         <p className="text-sm leading-relaxed text-[var(--c9-muted)]">
           Sign in with the email and password for your RunCloud9 account.
@@ -138,6 +162,7 @@ export function SignInForm({
           Forgot password? Set or reset it
         </Link>
       ) : null}
-    </form>
+      </form>
+    </div>
   )
 }

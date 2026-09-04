@@ -18,6 +18,18 @@ export function mapAuthErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+export function mapSupabaseOAuthError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const msg = raw.toLowerCase()
+  if (msg.includes('provider is not enabled')) {
+    return 'This sign-in method is not available yet. Try email and password instead.'
+  }
+  if (msg.includes('too many requests')) {
+    return 'Too many attempts. Wait a moment and try again.'
+  }
+  return raw || 'Could not start sign-in. Try again.'
+}
+
 export function mapSupabaseSignInError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? '')
   const msg = raw.toLowerCase()

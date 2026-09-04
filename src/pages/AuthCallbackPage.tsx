@@ -38,6 +38,7 @@ export default function AuthCallbackPage() {
           fail(mapSupabaseOtpError(error))
           return
         }
+        await supabase.auth.refreshSession()
       } else if (tokenHash) {
         const otpType = resolveTokenHashOtpType(type)
         if (!otpType) {
@@ -52,6 +53,7 @@ export default function AuthCallbackPage() {
           fail(mapSupabaseOtpError(error))
           return
         }
+        await supabase.auth.refreshSession()
       }
 
       const { data } = await supabase.auth.getSession()

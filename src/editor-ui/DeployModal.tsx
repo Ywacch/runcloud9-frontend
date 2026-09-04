@@ -213,6 +213,8 @@ export function DeployModal({
               submitLabel="Sign in and deploy"
               showForgotPasswordLink
               showHelper={false}
+              authReturnPath="/canvas"
+              overwriteAuthReturnPath
               onCancel={onAuthDismiss}
               cancelLabel="Keep designing"
             />
