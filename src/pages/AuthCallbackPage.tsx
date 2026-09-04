@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   mergeAuthCallbackParams,
+  parseAuthCallbackOAuthError,
   postAuthRedirectPath,
   resolveTokenHashOtpType,
 } from '../lib/authCallback'
-import { mapSupabaseOtpError } from '../lib/authErrorMessage'
+import { mapAuthCallbackError } from '../lib/authErrorMessage'
 import { trackEvent } from '../lib/analytics'
 import { consumeAuthReturnTo } from '../lib/authReturn'
 import { supabase } from '../lib/supabase'
@@ -27,6 +28,12 @@ export default function AuthCallbackPage() {
         trackEvent('auth_failed', { errorCategory: 'unauthorized' })
       }
 
+      const oauthError = parseAuthCallbackOAuthError(searchParams)
+      if (oauthError) {
+        fail(mapAuthCallbackError(new Error(oauthError)))
+        return
+      }
+
       const { code, tokenHash, type } = mergeAuthCallbackParams(
         searchParams,
         window.location.hash,
@@ -35,7 +42,7 @@ export default function AuthCallbackPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          fail(mapSupabaseOtpError(error))
+          fail(mapAuthCallbackError(error))
           return
         }
         await supabase.auth.refreshSession()
@@ -50,7 +57,7 @@ export default function AuthCallbackPage() {
           type: otpType,
         })
         if (error) {
-          fail(mapSupabaseOtpError(error))
+          fail(mapAuthCallbackError(error))
           return
         }
         await supabase.auth.refreshSession()

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   RESET_PASSWORD_SUCCESS_COPY,
+  mapAuthCallbackError,
+  mapSupabaseOAuthError,
   mapSupabaseOtpError,
   mapSupabaseSignInError,
 } from './authErrorMessage'
@@ -10,6 +12,34 @@ describe('authErrorMessage', () => {
     const msg = mapSupabaseSignInError(new Error('Invalid login credentials'))
     expect(msg).toContain('Email or password is incorrect.')
     expect(msg).toContain('Google or GitHub')
+  })
+
+  it('maps disabled OAuth provider copy', () => {
+    expect(mapSupabaseOAuthError(new Error('provider is not enabled'))).toBe(
+      'This sign-in method is not available yet. Try another sign-in option.',
+    )
+    expect(mapSupabaseOAuthError(new Error('provider_disabled'))).toContain(
+      'not available yet',
+    )
+  })
+
+  it('maps GitHub email visibility errors', () => {
+    const cases = [
+      'Error getting user email from external provider',
+      'email_address_not_provided',
+      'provider_email_needs_verification',
+      'Unverified email with github. A confirmation email has been sent',
+    ]
+    for (const message of cases) {
+      expect(mapSupabaseOAuthError(new Error(message))).toContain('GitHub Settings')
+    }
+  })
+
+  it('maps OAuth callback errors and falls back to OTP copy', () => {
+    expect(
+      mapAuthCallbackError(new Error('Error getting user email from external provider')),
+    ).toContain('GitHub Settings')
+    expect(mapAuthCallbackError(new Error('otp_expired'))).toContain('sign-in or reset link')
   })
 
   it('uses sign-in or reset wording for OTP errors', () => {
