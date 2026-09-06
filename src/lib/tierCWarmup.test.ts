@@ -94,10 +94,10 @@ describe('isTierCWarmingUp', () => {
 })
 
 describe('formatDbClusterResourceLabels', () => {
-  it('shows warming-up limit copy instead of actionable %', () => {
+  it('shows real utilization during warmup with help elsewhere', () => {
     const labels = formatDbClusterResourceLabels(bucket({}), 100, 77, true)
-    expect(labels.cpu).toBe('Warming up · Limit 125m')
-    expect(labels.mem).toBe('Warming up · Limit 256 MB')
+    expect(labels.cpu).toBe('100%')
+    expect(labels.mem).toContain('77%')
   })
 
   it('falls back to normal labels after warmup', () => {
@@ -118,8 +118,8 @@ describe('formatDbClusterResourceLabels', () => {
 })
 
 describe('shouldShowDbClusterUtilizationCharts', () => {
-  it('hides charts during warmup and when estimated', () => {
-    expect(shouldShowDbClusterUtilizationCharts(bucket({}), true)).toBe(false)
+  it('shows charts during warmup and hides only when estimated', () => {
+    expect(shouldShowDbClusterUtilizationCharts(bucket({}), true)).toBe(true)
     expect(shouldShowDbClusterUtilizationCharts(bucket({}), false)).toBe(true)
     expect(shouldShowDbClusterUtilizationCharts(bucket({ cpuIsEstimated: true }), false)).toBe(
       false,
