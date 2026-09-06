@@ -84,6 +84,14 @@ describe('refreshCurrentUser', () => {
     }
   })
 
+  it('clears session on failed to load user from GET /me', async () => {
+    vi.mocked(getMe).mockRejectedValue(new ApiError(500, 'failed to load user'))
+    await refreshCurrentUser()
+
+    expect(useAuthStore.getState().session).toBeNull()
+    expect(supabase.auth.signOut).toHaveBeenCalled()
+  })
+
   it('falls back to null currentUser on other errors', async () => {
     vi.mocked(getMe).mockRejectedValue(new Error('network'))
     await refreshCurrentUser()

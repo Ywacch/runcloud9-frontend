@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   RESET_PASSWORD_SUCCESS_COPY,
+  isAuthCallbackOAuthError,
   mapAuthCallbackError,
   mapSupabaseOAuthError,
   mapSupabaseOtpError,
@@ -23,6 +24,15 @@ describe('authErrorMessage', () => {
     )
   })
 
+  it('maps signups-disabled OAuth copy', () => {
+    expect(
+      mapSupabaseOAuthError(new Error('Signups not allowed for this instance')),
+    ).toContain('New accounts are not open right now')
+    expect(
+      mapAuthCallbackError(new Error('Signups not allowed for this instance')),
+    ).toContain('New accounts are not open right now')
+  })
+
   it('maps GitHub email visibility errors', () => {
     const cases = [
       'Error getting user email from external provider',
@@ -40,6 +50,10 @@ describe('authErrorMessage', () => {
       mapAuthCallbackError(new Error('Error getting user email from external provider')),
     ).toContain('GitHub Settings')
     expect(mapAuthCallbackError(new Error('otp_expired'))).toContain('sign-in or reset link')
+    expect(isAuthCallbackOAuthError(new Error('Signups not allowed for this instance'))).toBe(
+      true,
+    )
+    expect(isAuthCallbackOAuthError(new Error('otp_expired'))).toBe(false)
   })
 
   it('uses sign-in or reset wording for OTP errors', () => {

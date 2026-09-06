@@ -1,5 +1,5 @@
 import { getMe } from './api'
-import { ApiError } from './apiError'
+import { ApiError, isMissingUserRecordError } from './apiError'
 import {
   categorizeSafeError,
   identifyAnalyticsUser,
@@ -58,7 +58,10 @@ export async function refreshCurrentUser(): Promise<void> {
       identifiedUserId = supabaseUserId
     }
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) {
+    if (
+      err instanceof ApiError &&
+      (err.status === 401 || isMissingUserRecordError(err))
+    ) {
       useAuthStore.getState().setSession(null)
       void supabase.auth.signOut()
       applyDevAccountPreviewUser(useAuthStore.getState().setCurrentUser, null)

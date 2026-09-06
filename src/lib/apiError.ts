@@ -12,3 +12,9 @@ export class ApiError extends Error {
     this.reason = reason
   }
 }
+
+export function isMissingUserRecordError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false
+  const raw = (error.rawMessage || error.message || '').toLowerCase()
+  return error.status === 500 && raw.includes('failed to load user')
+}

@@ -26,8 +26,18 @@ export function mapAuthErrorMessage(error: unknown, fallback: string): string {
 const GITHUB_EMAIL_HELP_COPY =
   'We could not get a verified email from GitHub. In GitHub Settings → Emails, set a primary email and allow applications to see it, then try again.'
 
+const SIGNUPS_DISABLED_COPY =
+  'New accounts are not open right now. If you already have an account, try signing in again.'
+
 function oauthErrorMessage(raw: string): string | null {
   const msg = raw.toLowerCase()
+  if (
+    msg.includes('signups not allowed') ||
+    msg.includes('signup_disabled') ||
+    msg.includes('signups disabled')
+  ) {
+    return SIGNUPS_DISABLED_COPY
+  }
   if (
     msg.includes('provider is not enabled') ||
     msg.includes('provider_disabled') ||
@@ -60,6 +70,11 @@ export function mapAuthCallbackError(error: unknown): string {
   const oauth = oauthErrorMessage(raw)
   if (oauth) return oauth
   return mapSupabaseOtpError(error)
+}
+
+export function isAuthCallbackOAuthError(error: unknown): boolean {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  return oauthErrorMessage(raw) != null
 }
 
 export function mapSupabaseSignInError(error: unknown): string {
