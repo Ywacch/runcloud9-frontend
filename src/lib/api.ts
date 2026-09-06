@@ -376,6 +376,8 @@ export interface DeploymentRecord {
   estimatedWaitSeconds?: number
   /** Present after teardown; includes `session_history` and peak aggregates. */
   metricsSummary?: Record<string, unknown>
+  /** Stored topology; returned by GET /deployments/{id} for redeploy / rejoin. */
+  design?: DeploymentDesign
 }
 
 export async function getDeployment(id: string): Promise<DeploymentRecord> {

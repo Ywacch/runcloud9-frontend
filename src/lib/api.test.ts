@@ -380,3 +380,38 @@ describe('dev account preview deployments', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+
+describe('getDeployment design field', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('parses optional design from GET /deployments/{id}', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('tok')
+    const design = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'standard',
+      nodes: [],
+      connections: [],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          id: 'dep-1',
+          status: 'terminated',
+          expiresAt: new Date().toISOString(),
+          template: 'url-shortener',
+          design,
+        }),
+      }),
+    )
+
+    const rec = await getDeployment('dep-1')
+    expect(rec.design).toEqual(design)
+  })
+})

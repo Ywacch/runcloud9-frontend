@@ -11,6 +11,7 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
 import { trackEvent } from '../lib/analytics'
+import { dispatchRequestDeploy } from '../lib/deployEvents'
 import { HighlightReel } from './HighlightReel'
 import { MetricChart } from './MetricChart'
 import { ClientLatencyBoxChart } from './ClientLatencyBoxChart'
@@ -29,6 +30,8 @@ function markerRatios(
 export interface SessionSummaryViewProps {
   summary: SessionSummary
   onDismiss: () => void
+  onRedeploy?: () => void
+  onOpenCanvas?: () => void
   title?: string
   statusLabel?: string
   actionLabel?: string
@@ -38,6 +41,8 @@ export interface SessionSummaryViewProps {
 export function SessionSummaryView({
   summary,
   onDismiss,
+  onRedeploy,
+  onOpenCanvas,
   title = 'Session Complete',
   statusLabel = 'Finished',
   actionLabel = 'Back to Design',
@@ -248,13 +253,33 @@ export function SessionSummaryView({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="mt-5 w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
-      >
-        {actionLabel}
-      </button>
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+        {onOpenCanvas ? (
+          <button
+            type="button"
+            onClick={onOpenCanvas}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:border-[var(--c9-border-strong)]"
+          >
+            Open in canvas
+          </button>
+        ) : null}
+        {onRedeploy ? (
+          <button
+            type="button"
+            onClick={onRedeploy}
+            className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:border-[var(--c9-border-strong)]"
+          >
+            Redeploy
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+        >
+          {actionLabel}
+        </button>
+      </div>
     </div>
   )
 
@@ -301,10 +326,16 @@ export function SessionSummary() {
 
   if (!summary) return null
 
+  const redeploy = () => {
+    dismiss()
+    dispatchRequestDeploy()
+  }
+
   return (
     <SessionSummaryView
       summary={summary}
       onDismiss={dismiss}
+      onRedeploy={redeploy}
       modal={true}
     />
   )

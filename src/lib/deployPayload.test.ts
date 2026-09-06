@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
-import { deployConfigForNode } from './deployPayload'
+import { deployConfigForNode, deploymentDesignToSnapshot } from './deployPayload'
+import type { DeploymentDesign } from './deploymentTypes'
 
 function cacheNode(config: CanvasNode['config']): CanvasNode {
   return {
@@ -465,5 +466,38 @@ describe('deployConfigForNode', () => {
     expect(otherTemplate.purchaseMode).toBeUndefined()
     expect(otherTemplate.seedEventName).toBeUndefined()
     expect(otherTemplate.seedEventCapacity).toBeUndefined()
+  })
+})
+
+describe('deploymentDesignToSnapshot', () => {
+  it('maps stored design nodes into a canvas snapshot', () => {
+    const design: DeploymentDesign = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'standard',
+      nodes: [
+        {
+          id: 'app-1',
+          type: 'app-server',
+          name: 'App',
+          config: { replicas: 1 },
+        },
+        {
+          id: 'db-1',
+          type: 'database',
+          name: 'DB',
+          config: { engine: 'postgresql', readReplicas: 0 },
+        },
+      ],
+      connections: [{ sourceId: 'app-1', targetId: 'db-1', protocol: 'http' }],
+    }
+
+    const snapshot = deploymentDesignToSnapshot(design, 'url-shortener')
+    expect(snapshot.templateId).toBe('url-shortener')
+    expect(snapshot.nodes).toHaveLength(2)
+    expect(snapshot.nodes.map((n) => n.id)).toEqual(['app-1', 'db-1'])
+    expect(snapshot.nodes[0]?.type).toBe('compute')
+    expect(snapshot.edges).toHaveLength(1)
+    expect(snapshot.edges[0]?.sourceId).toBe('app-1')
   })
 })

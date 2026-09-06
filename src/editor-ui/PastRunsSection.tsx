@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   listDeploymentHistory,
   listActiveDeployments,
@@ -14,6 +15,9 @@ import { fmtInt, fmtMs } from '../lib/format'
 import { C9Card } from './c9Primitives'
 import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
+import { deploymentDesignToSnapshot } from '../lib/deployPayload'
+import type { DeploymentDesign } from '../lib/deploymentTypes'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import {
   filterPastRuns,
   mergeActiveAndHistory,
@@ -23,8 +27,36 @@ import {
 } from '../lib/pastRunsFilters'
 
 type DetailState =
-  | { kind: 'summary'; summary: SessionSummary; title: string; statusLabel: string }
-  | { kind: 'no-metrics'; title: string; statusLabel: string }
+  | {
+      kind: 'summary'
+      summary: SessionSummary
+      title: string
+      statusLabel: string
+      template: string
+      design: DeploymentDesign | null
+    }
+  | {
+      kind: 'no-metrics'
+      title: string
+      statusLabel: string
+      template: string
+      design: DeploymentDesign | null
+    }
+
+function loadDesignIntoCanvas(design: DeploymentDesign, template: string): void {
+  const snapshot = deploymentDesignToSnapshot(design, template)
+  const st = useCanvasStore.getState()
+  st.loadJSON(snapshot)
+  st.setDeploymentId(null)
+  st.setLiveSessionEndsAt(null)
+  st.setLiveSessionStartedAt(null)
+  st.setAllEdgesAnimated(false)
+  st.setMode('design')
+  st.selectNode(null)
+  st.setPendingSource(null)
+  st.setPlacingNodeType(null)
+  st.setDesignTool('select')
+}
 
 function fmtDuration(secs: number | undefined): string {
   if (secs == null || !Number.isFinite(secs)) return '-'
@@ -69,6 +101,7 @@ const controlClass =
   'rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-2.5 py-1.5 text-xs text-[var(--c9-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]'
 
 export function PastRunsSection() {
+  const navigate = useNavigate()
   const [runs, setRuns] = useState<PastRunListItem[]>([])
   const [templates, setTemplates] = useState<TemplateInfo[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -154,17 +187,28 @@ export function PastRunsSection() {
       const metrics = dep.metricsSummary as Record<string, unknown> | undefined
       const title = `Past run · ${item.template}`
       const statusLabel = capLabel(item.status)
+      const template = dep.template || item.template
+      const design = dep.design ?? null
       if (!metrics) {
-        setDetail({ kind: 'no-metrics', title, statusLabel })
+        setDetail({ kind: 'no-metrics', title, statusLabel, template, design })
       } else {
         const summary = sessionSummaryFromApiMetrics(item.template, metrics)
-        setDetail({ kind: 'summary', summary, title, statusLabel })
+        setDetail({
+          kind: 'summary',
+          summary,
+          title,
+          statusLabel,
+          template,
+          design,
+        })
       }
     } catch {
       setDetail({
         kind: 'no-metrics',
         title: `Past run · ${item.template}`,
         statusLabel: capLabel(item.status),
+        template: item.template,
+        design: null,
       })
     } finally {
       setDetailLoading(false)
@@ -175,6 +219,18 @@ export function PastRunsSection() {
     debouncedSearch.trim() !== '' ||
     statusFilter !== 'all' ||
     dateRange !== 'all'
+
+  const openDesignInCanvas = (design: DeploymentDesign, template: string) => {
+    loadDesignIntoCanvas(design, template)
+    setDetail(null)
+    navigate('/canvas')
+  }
+
+  const redeployDesign = (design: DeploymentDesign, template: string) => {
+    loadDesignIntoCanvas(design, template)
+    setDetail(null)
+    navigate('/canvas?redeploy=1')
+  }
 
   return (
     <>
@@ -354,6 +410,16 @@ export function PastRunsSection() {
         <SessionSummaryView
           summary={detail.summary}
           onDismiss={() => setDetail(null)}
+          onOpenCanvas={
+            detail.design
+              ? () => openDesignInCanvas(detail.design!, detail.template)
+              : undefined
+          }
+          onRedeploy={
+            detail.design
+              ? () => redeployDesign(detail.design!, detail.template)
+              : undefined
+          }
           title={detail.title}
           statusLabel={detail.statusLabel}
           actionLabel="Close"
@@ -371,15 +437,41 @@ export function PastRunsSection() {
               Status: {detail.statusLabel}
             </p>
             <p className="mt-4 text-sm text-[var(--c9-muted)]">
-              No metrics summary for this run.
+              {detail.design
+                ? 'No metrics summary for this run.'
+                : 'No metrics summary for this run. Design not available.'}
             </p>
-            <button
-              type="button"
-              onClick={() => setDetail(null)}
-              className="mt-5 w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)]"
-            >
-              Close
-            </button>
+            <div className="mt-5 flex flex-col gap-2">
+              {detail.design ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDesignInCanvas(detail.design!, detail.template)
+                    }
+                    className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-border-strong)]"
+                  >
+                    Open in canvas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      redeployDesign(detail.design!, detail.template)
+                    }
+                    className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--c9-text)] transition-colors hover:border-[var(--c9-border-strong)]"
+                  >
+                    Redeploy
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setDetail(null)}
+                className="w-full rounded-lg bg-[var(--c9-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--c9-accent-hover)]"
+              >
+                Close
+              </button>
+            </div>
           </C9Card>
         </div>
       )}
