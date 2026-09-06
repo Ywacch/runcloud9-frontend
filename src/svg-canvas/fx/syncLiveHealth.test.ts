@@ -128,4 +128,30 @@ describe('nextHealthVisualForSvgNode', () => {
       }),
     ).toBe('chaos')
   })
+
+  it('maps idle to healthy in live once metrics exist', () => {
+    expect(
+      nextHealthVisualForSvgNode({
+        canvasNode: node(),
+        mode: 'live',
+        metrics: metrics({ cpuPercent: 0, memPercent: 0 }),
+        isTargetActive: () => false,
+        prevHealth: 'healthy',
+        leftMetricsMode: false,
+      }),
+    ).toBe('healthy')
+  })
+
+  it('keeps idle in simulate when metrics are flat', () => {
+    expect(
+      nextHealthVisualForSvgNode({
+        canvasNode: node(),
+        mode: 'simulate',
+        metrics: metrics({ cpuPercent: 0, memPercent: 0 }),
+        isTargetActive: () => false,
+        prevHealth: undefined,
+        leftMetricsMode: false,
+      }),
+    ).toBe('idle')
+  })
 })

@@ -2,6 +2,7 @@ import {
   memo,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactElement,
@@ -21,6 +22,7 @@ import {
 import { resolveSkin } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
+import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { ClientLoadgenGlyph } from './ClientLoadgenGlyph'
 import { RedisBrandGlyph } from './RedisBrandGlyph'
 import { SpriteBackedGlyph } from './SpriteBackedGlyph'
@@ -64,6 +66,8 @@ function NodeGlyphInner({
   onUnitPointerEnter,
   onUnitPointerLeave,
 }: NodeGlyphProps) {
+  const canvasMode = useCanvasStore((s) => s.mode)
+  const stableHealthRim = canvasMode === 'live'
   const skin = resolveSkin(node.archetype, node.engine)
   const expanded = useExpanded(node)
   const resolved = useMemo(
@@ -79,6 +83,8 @@ function NodeGlyphInner({
     ],
   )
   const unitsKey = resolved.units.map((u) => `${u.dx},${u.dy}`).join('|')
+  const topologyKey = `${node.topology.replicas}:${node.topology.shards}:${node.topology.packing}:${expanded ? 1 : 0}`
+  const prevTopologyKeyRef = useRef(topologyKey)
   const staticUnits: MotionUnit[] = useMemo(
     () =>
       resolved.units.map((u, i) => ({
@@ -92,8 +98,11 @@ function NodeGlyphInner({
   )
 
   useEffect(() => {
-    retarget(node.id, resolved.units)
-  }, [node.id, unitsKey, expanded, resolved.units])
+    const topologyChanged = prevTopologyKeyRef.current !== topologyKey
+    prevTopologyKeyRef.current = topologyKey
+    const animateSpawn = canvasMode !== 'live' || topologyChanged
+    retarget(node.id, resolved.units, { dx: 0, dy: 0 }, { animateSpawn })
+  }, [node.id, unitsKey, topologyKey, resolved.units, canvasMode])
 
   const motionKey = useSyncExternalStore(
     subscribeUnitMotion,
@@ -153,6 +162,7 @@ function NodeGlyphInner({
             units={units}
             logoId={skin.logoId}
             tint={skin.brandTint}
+            stableHealthRim={stableHealthRim}
           />
         )
         break
@@ -164,6 +174,7 @@ function NodeGlyphInner({
             units={units}
             logoId={skin.logoId}
             tint={skin.brandTint}
+            stableHealthRim={stableHealthRim}
           />
         )
         break
@@ -175,6 +186,7 @@ function NodeGlyphInner({
             units={units}
             logoId={skin.logoId}
             tint={skin.brandTint}
+            stableHealthRim={stableHealthRim}
           />
         )
         break
@@ -186,6 +198,7 @@ function NodeGlyphInner({
             units={[{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }]}
             logoId={skin.logoId}
             tint={skin.brandTint}
+            stableHealthRim={stableHealthRim}
           />
         )
         break
@@ -197,6 +210,7 @@ function NodeGlyphInner({
             units={units}
             logoId={skin.logoId}
             tint={skin.brandTint}
+            stableHealthRim={stableHealthRim}
           />
         )
         break
@@ -209,6 +223,7 @@ function NodeGlyphInner({
             units={units}
             logoId={skin.logoId}
             tint={skin.brandTint}
+            stableHealthRim={stableHealthRim}
           />
         )
     }

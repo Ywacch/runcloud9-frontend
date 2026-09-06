@@ -1314,7 +1314,7 @@ export default function SvgDesignCanvas({
               }
               interactive={!spaceDown && !panning && !marquee}
               opacity={nodeOpacityById?.get(node.id) ?? 1}
-              appear={appearIds.has(node.id)}
+              appear={canvasMode !== 'live' && appearIds.has(node.id)}
               onPointerDown={(ev) => beginNodeDrag(node.id, ev)}
               onPointerEnter={() => onNodePointerEnter(node.id)}
               onPointerLeave={() => onNodePointerLeave(node.id)}

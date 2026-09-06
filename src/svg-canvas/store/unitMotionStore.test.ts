@@ -18,4 +18,18 @@ describe('unitMotionStore helpers', () => {
     expect(anims.length).toBe(2)
     expect(units[1].opacity).toBe(0)
   })
+
+  it('planUnitTransition can snap new units without spawn fade', () => {
+    const { units, anims } = planUnitTransition(
+      [{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }],
+      [{ dx: 0, dy: 0 }, { dx: 10, dy: 5 }],
+      { dx: 0, dy: 0 },
+      0,
+      { animateSpawn: false },
+    )
+    expect(units.length).toBe(2)
+    expect(units[1].opacity).toBe(1)
+    expect(units[1].scale).toBe(1)
+    expect(anims.some((a) => a.id === 'u1')).toBe(false)
+  })
 })

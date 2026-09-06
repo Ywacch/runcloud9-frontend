@@ -64,7 +64,9 @@ export function planUnitTransition(
   target: UnitOffset[],
   primarySeat: UnitOffset = { dx: 0, dy: 0 },
   now = 0,
+  options: { animateSpawn?: boolean } = {},
 ): { units: MotionUnit[]; anims: UnitAnim[] } {
+  const animateSpawn = options.animateSpawn !== false
   const anims: UnitAnim[] = []
   const nextUnits: MotionUnit[] = []
 
@@ -104,6 +106,10 @@ export function planUnitTransition(
       const id = unitId(i)
       const prev = existingById.get(id)
       const isNew = !prev
+      if (isNew && !animateSpawn) {
+        nextUnits.push({ id, dx: t.dx, dy: t.dy, opacity: 1, scale: 1 })
+        continue
+      }
       const fromDx = isNew ? primarySeat.dx : prev.dx
       const fromDy = isNew ? primarySeat.dy : prev.dy
       const fromO = isNew ? 0 : prev.opacity
@@ -129,6 +135,7 @@ export function planUnitTransition(
   const targetIds = new Set(target.map((_, i) => unitId(i)))
   for (const c of current) {
     if (!targetIds.has(c.id)) {
+      if (!animateSpawn) continue
       nextUnits.push({ ...c })
       anims.push({
         id: c.id,
@@ -267,6 +274,7 @@ export function retarget(
   nodeId: string,
   target: UnitOffset[],
   primarySeat: UnitOffset = { dx: 0, dy: 0 },
+  options: { animateSpawn?: boolean } = {},
 ): void {
   const current = nodes.get(nodeId)?.units ?? []
   const now = performance.now()
@@ -277,7 +285,13 @@ export function retarget(
     return
   }
 
-  const { units, anims } = planUnitTransition(current, target, primarySeat, now)
+  const { units, anims } = planUnitTransition(
+    current,
+    target,
+    primarySeat,
+    now,
+    options,
+  )
 
   if (anims.length === 0) {
     if (nodes.has(nodeId)) nodes.delete(nodeId)
