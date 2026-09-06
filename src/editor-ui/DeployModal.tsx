@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DeployProgressSteps, type DeployStep } from './DeployProgressSteps'
 import { SignInForm } from './SignInForm'
 import { ResourceBudgetBreakdown } from './ResourceBudgetBreakdown'
+import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 import type { ResourceBudgetErrorResponse } from '../lib/sumDesignBudget'
 import type { TopologyWarning } from '../lib/connectionSemantics'
 
@@ -75,7 +76,13 @@ export function DeployModal({
   if (!open) return null
 
   const showSimulation =
-    mode === 'simulation_recommended' && Boolean(simulationRecommended)
+    SHOW_SIMULATION_UI &&
+    mode === 'simulation_recommended' &&
+    Boolean(simulationRecommended)
+  const showSimulationRecommendedWithoutSimUi =
+    !SHOW_SIMULATION_UI &&
+    mode === 'simulation_recommended' &&
+    Boolean(simulationRecommended)
   const showAuthRequired = mode === 'auth_required'
   const showRequestRejected = mode === 'request_rejected'
   const showInvalidTopology =
@@ -90,6 +97,8 @@ export function DeployModal({
 
   const title = showSimulation
     ? 'Simulation recommended'
+    : showSimulationRecommendedWithoutSimUi
+      ? 'Design not ready to deploy'
     : showAuthRequired
       ? 'Sign in to deploy'
       : showInvalidTopology
@@ -126,6 +135,21 @@ export function DeployModal({
               ? 'Sign in with your email and password to deploy.'
               : 'Your canvas design stays here. Sign in with Google or GitHub, then we will start provisioning automatically.'}
           </p>
+        ) : null}
+
+        {showSimulationRecommendedWithoutSimUi ? (
+          <div className="mb-4 mt-4 rounded-lg border border-violet-500/35 bg-violet-500/10 px-3 py-3 text-sm">
+            <p className="text-xs text-purple-100/90">{simulationRecommended}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onModifyDesign?.()}
+                className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-1.5 text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] active:scale-[0.98]"
+              >
+                Modify design
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {showSimulation ? (
@@ -297,6 +321,7 @@ export function DeployModal({
         !showInvalidTopology &&
         !showDecorativeConfirm &&
         !showDeployWarnings &&
+        !showSimulationRecommendedWithoutSimUi &&
         onClose ? (
           <button
             type="button"

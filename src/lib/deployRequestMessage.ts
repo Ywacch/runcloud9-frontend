@@ -186,7 +186,7 @@ export function mapDeployRequestError(
       if (normalized.includes('not yet available')) {
         return {
           title: 'Template not available',
-          body: 'This template is not offered for live deploy yet. Simulate it if the template supports simulation.',
+          body: 'This template is not offered for live deploy yet.',
           technicalDetails: technicalDetailsFrom(raw),
         }
       }

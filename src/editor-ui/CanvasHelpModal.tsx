@@ -1,8 +1,12 @@
+import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
+
 const HOW_IT_WORKS = [
   'Place components from the sidebar, or right-click empty canvas to open Add.',
   'Right-click a component for inspector, delete, and (in live) chaos actions.',
   'Use Connect to wire nodes. Click a node to open the inspector.',
-  'Pick a template preset or start from scratch, then deploy or simulate.',
+  SHOW_SIMULATION_UI
+    ? 'Pick a template preset or start from scratch, then deploy or simulate.'
+    : 'Pick a template preset or start from scratch, then deploy.',
 ] as const
 
 type ShortcutRow = { label: string; keys: string[] }
@@ -131,7 +135,9 @@ export function CanvasHelpModal({
               How the canvas works
             </h2>
             <p className="mt-1 text-sm text-[var(--c9-muted)]">
-              Design a topology, then deploy or simulate.
+              {SHOW_SIMULATION_UI
+                ? 'Design a topology, then deploy or simulate.'
+                : 'Design a topology, then deploy.'}
             </p>
           </div>
           <button

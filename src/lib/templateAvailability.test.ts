@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  remoteTemplateVisibleInPicker,
   templateCanLoadInPicker,
   templateOfferBadge,
   templateOffersLiveDeploy,
 } from './templateAvailability'
+
+vi.mock('./featureFlags', () => ({
+  SHOW_SIMULATION_UI: false,
+}))
 
 describe('templateOffersLiveDeploy', () => {
   it('requires available and deployable', () => {
@@ -42,14 +47,21 @@ describe('templateCanLoadInPicker', () => {
     ).toBe(true)
   })
 
-  it('allows load for simulation when live is not offered', () => {
+  it('blocks simulation-only templates when simulation UI is hidden', () => {
     expect(
       templateCanLoadInPicker({
         available: false,
         deployable: true,
         simulatable: true,
       }),
-    ).toBe(true)
+    ).toBe(false)
+    expect(
+      templateCanLoadInPicker({
+        available: true,
+        deployable: false,
+        simulatable: true,
+      }),
+    ).toBe(false)
   })
 
   it('blocks load when neither live nor simulation is offered', () => {
@@ -99,5 +111,35 @@ describe('templateOfferBadge', () => {
         simulatable: true,
       }),
     ).toBe('simulation-only')
+  })
+})
+
+describe('remoteTemplateVisibleInPicker', () => {
+  it('keeps premium deployable templates visible with lock UX', () => {
+    expect(
+      remoteTemplateVisibleInPicker(
+        {
+          available: true,
+          deployable: true,
+          simulatable: false,
+          premium: true,
+        },
+        false,
+      ),
+    ).toBe(true)
+  })
+
+  it('hides unavailable simulation-only remote templates', () => {
+    expect(
+      remoteTemplateVisibleInPicker(
+        {
+          available: true,
+          deployable: false,
+          simulatable: true,
+          premium: false,
+        },
+        true,
+      ),
+    ).toBe(false)
   })
 })

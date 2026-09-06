@@ -1,3 +1,5 @@
+import { SHOW_SIMULATION_UI } from './featureFlags'
+
 /** Flags from GET /templates that control picker actions and live deploy. */
 export type TemplateAvailabilityFlags = {
   available: boolean
@@ -8,7 +10,7 @@ export type TemplateAvailabilityFlags = {
 export type TemplateOfferBadge = 'ready' | 'simulation-only' | 'coming-soon'
 
 export const TEMPLATE_LIVE_NOT_OFFERED_HINT =
-  'Live deploy is not offered yet. You can still simulate this design.'
+  'Live deploy is not offered yet.'
 
 export const TEMPLATE_COMING_SOON_HINT =
   'This template is not available to load yet.'
@@ -24,7 +26,21 @@ export function templateOffersLiveDeploy(
 export function templateCanLoadInPicker(
   t: TemplateAvailabilityFlags,
 ): boolean {
-  return templateOffersLiveDeploy(t) || t.simulatable
+  if (SHOW_SIMULATION_UI) {
+    return templateOffersLiveDeploy(t) || t.simulatable
+  }
+  return templateOffersLiveDeploy(t)
+}
+
+/** Keep premium-gated deployable templates visible with lock UX when sim UI is hidden. */
+export function remoteTemplateVisibleInPicker(
+  t: TemplateAvailabilityFlags & { premium?: boolean },
+  canUsePremiumTemplates: boolean,
+): boolean {
+  if (templateCanLoadInPicker(t)) return true
+  return Boolean(
+    t.premium && !canUsePremiumTemplates && t.available && t.deployable,
+  )
 }
 
 export function templateOfferBadge(
