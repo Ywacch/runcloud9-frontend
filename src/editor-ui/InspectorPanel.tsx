@@ -66,7 +66,14 @@ import {
 } from '../lib/readConsistency'
 import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
-import { maxAppServerReplicasForUser, maxInstanceSizeForUser, resolveEffectiveTier, topologyLimitsForTier, type InstanceSize } from '../lib/userTier'
+import { maxAppServerReplicasForUser, maxInstanceSizeForUser, resolveEffectiveTier, resourceQuotaTier, topologyLimitsForTier, type InstanceSize } from '../lib/userTier'
+import { snapshotToDeploymentDesign } from '../lib/deployPayload'
+import {
+  canvasQuotaForDisplay,
+  designExceedsResourceQuota,
+  displayQuotaTierLabel,
+  toResourceBudgetErrorResponse,
+} from '../lib/sumDesignBudget'
 import { useAuthStore } from '../product/stores/authStore'
 import {
   REPLICAS_HELP_FREE,
@@ -159,6 +166,11 @@ export function InspectorPanel() {
   const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
   const isPremiumUser = useAuthStore((s) => s.isPremium)
+  const currentUser = useAuthStore((s) => s.currentUser)
+  const userRecord = useAuthStore((s) => s.userRecord)
+  const effectiveTier =
+    currentUser?.effectiveTier ?? resolveEffectiveTier(userRecord)
+  const quotaTier = currentUser?.quotaTier ?? resourceQuotaTier(effectiveTier)
   const templateInfo = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId] : undefined,
   )
@@ -198,6 +210,21 @@ export function InspectorPanel() {
       mode: templatePresetMode,
     })
   const variationTopologyLocked = isVariationTopologyLocked(loadedVariationId)
+  const quotaDisplay = useMemo(() => {
+    if (liveMode || simulationMode || !snapshotTemplateId) return null
+    try {
+      const design = snapshotToDeploymentDesign(
+        useCanvasStore.getState().exportJSON(),
+        { mutateCanvas: false },
+      )
+      const over = designExceedsResourceQuota(design, quotaTier)
+      return over
+        ? canvasQuotaForDisplay(toResourceBudgetErrorResponse(over), quotaTier)
+        : null
+    } catch {
+      return null
+    }
+  }, [liveMode, simulationMode, snapshotTemplateId, nodes, edges, quotaTier])
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
@@ -440,6 +467,15 @@ export function InspectorPanel() {
                   }
                   templateId={snapshotTemplateId}
                 />
+                {quotaDisplay ? (
+                  <p className="text-[11px] leading-snug text-amber-300/90">
+                    This design is {quotaDisplay.requested.cpu} /{' '}
+                    {quotaDisplay.requested.memory}, but{' '}
+                    {displayQuotaTierLabel(quotaTier)} allows {quotaDisplay.cap.cpu} /{' '}
+                    {quotaDisplay.cap.memory} on the canvas. Downsize nodes or replicas to
+                    deploy.
+                  </p>
+                ) : null}
                 {simulationMode ? <LiveMetrics node={node} /> : null}
                 {devInstanceScopePreview ? (
                   <div className="space-y-4 border-t border-[var(--c9-border)] pt-4">
