@@ -322,148 +322,156 @@ export function CacheBrowser({
         </p>
       ) : null}
 
-      {keys.length > 0 ? (
-        <div
-          className={`overflow-x-auto rounded border border-[var(--c9-border)] ${loading ? 'animate-pulse opacity-80' : ''}`}
-        >
-          <table className="w-full min-w-max border-collapse text-left text-[10px]">
-            <thead>
-              <tr className="border-b border-[var(--c9-border)] bg-[var(--c9-surface)]/50">
-                <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">Key</th>
-                <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">Type</th>
-                <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">TTL</th>
-                <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">Memory</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keys.map((k) => (
-                <tr
-                  key={k.key}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => void onSelectKey(k.key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      void onSelectKey(k.key)
-                    }
-                  }}
-                  className={`cursor-pointer border-b border-[var(--c9-border)]/40 hover:bg-[var(--c9-surface)]/40 ${
-                    selectedKey === k.key ? 'bg-[var(--c9-accent)]/10' : ''
-                  }`}
-                >
-                  <td className="max-w-[11rem] truncate px-2 py-1 font-mono text-[var(--c9-text)]">
-                    {k.key}
-                  </td>
-                  <td className="px-2 py-1">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${typePillClass(k.type as RedisType)}`}
+      <div className="flex min-h-0 flex-col gap-3 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1 space-y-2 lg:max-w-[55%]">
+          {keys.length > 0 ? (
+            <div
+              className={`max-h-48 overflow-y-auto rounded border border-[var(--c9-border)] ${loading ? 'animate-pulse opacity-80' : ''}`}
+            >
+              <table className="w-full min-w-max border-collapse text-left text-[10px]">
+                <thead className="sticky top-0 z-[1] bg-[var(--c9-bg)]">
+                  <tr className="border-b border-[var(--c9-border)] bg-[var(--c9-surface)]/50">
+                    <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">Key</th>
+                    <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">Type</th>
+                    <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">TTL</th>
+                    <th className="px-2 py-1.5 font-semibold text-[var(--c9-muted)]">Memory</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keys.map((k) => (
+                    <tr
+                      key={k.key}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => void onSelectKey(k.key)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          void onSelectKey(k.key)
+                        }
+                      }}
+                      className={`cursor-pointer border-b border-[var(--c9-border)]/40 hover:bg-[var(--c9-surface)]/40 ${
+                        selectedKey === k.key ? 'bg-[var(--c9-accent)]/10' : ''
+                      }`}
                     >
-                      {k.type}
-                    </span>
-                  </td>
-                  <td
-                    className={`px-2 py-1 font-mono tabular-nums ${
-                      k.ttl === -1 ? 'text-[var(--c9-muted)]' : 'text-[var(--c9-text)]'
-                    }`}
-                  >
-                    {fmtTtl(k.ttl)}
-                  </td>
-                  <td className="px-2 py-1 font-mono text-[var(--c9-muted)]">
-                    {fmtBytes(k.memory)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {nextCursor > 0 ? (
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void loadMore()}
-          className="w-full rounded border border-[var(--c9-border)] py-1.5 text-[11px] font-semibold text-[var(--c9-text)] hover:bg-[var(--c9-surface)] disabled:opacity-50"
-        >
-          Load more
-        </button>
-      ) : null}
-
-      {selectedKey ? (
-        <div className="border-t border-[var(--c9-border)] pt-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="text-[10px] font-semibold text-[var(--c9-muted)]">
-              <span className="text-[var(--c9-text)]">{selectedKey}</span>
-              {keyValue ? (
-                <span className="ml-2 text-[var(--c9-muted)]">
-                  ({keyValue.type})
-                </span>
-              ) : null}
-            </div>
-            {timelineEligible ? (
-              <div
-                className="inline-flex rounded border border-[var(--c9-border)] p-0.5 text-[10px]"
-                role="group"
-                aria-label="Key value view mode"
-              >
-                {(
-                  [
-                    ['raw', 'Raw'],
-                    ['timeline', 'Timeline'],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={detailView === id}
-                    onClick={() => setDetailView(id)}
-                    className={`rounded px-2 py-0.5 font-semibold transition-colors ${
-                      detailView === id
-                        ? 'bg-[var(--c9-accent)]/20 text-[var(--c9-text)]'
-                        : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          {detailLoading ? (
-            <div className="animate-pulse space-y-2">
-              <div className="h-8 rounded bg-[var(--c9-surface)]" />
-            </div>
-          ) : keyValue ? (
-            detailView === 'timeline' && timelineEligible ? (
-              <div className="space-y-2">
-                <div className="max-h-80 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50">
-                  {parseZsetRows(keyValue.value).map((row, i) => (
-                    <TimelineCard
-                      key={`${i}-${row.score}`}
-                      member={row.member}
-                      rank={i + 1}
-                    />
+                      <td className="max-w-[11rem] truncate px-2 py-1 font-mono text-[var(--c9-text)]">
+                        {k.key}
+                      </td>
+                      <td className="px-2 py-1">
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${typePillClass(k.type as RedisType)}`}
+                        >
+                          {k.type}
+                        </span>
+                      </td>
+                      <td
+                        className={`px-2 py-1 font-mono tabular-nums ${
+                          k.ttl === -1 ? 'text-[var(--c9-muted)]' : 'text-[var(--c9-text)]'
+                        }`}
+                      >
+                        {fmtTtl(k.ttl)}
+                      </td>
+                      <td className="px-2 py-1 font-mono text-[var(--c9-muted)]">
+                        {fmtBytes(k.memory)}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-                <InlineDisclosure label="Why sorted sets?">
-                  <p>
-                    Redis sorted sets (ZSET) store timeline feeds ranked by timestamp.
-                    Each user&apos;s feed is a separate key (timeline:{'{'}userId{'}'}),
-                    giving O(1) reads for the most recent posts. This is the push model:
-                    the fan-out worker pre-computes feeds at write time so reads are
-                    instant.
-                  </p>
-                </InlineDisclosure>
-              </div>
-            ) : (
-              <div className="max-h-64 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50 p-2">
-                <KeyValueView kv={keyValue} />
-              </div>
-            )
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          {nextCursor > 0 ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void loadMore()}
+              className="w-full rounded border border-[var(--c9-border)] py-1.5 text-[11px] font-semibold text-[var(--c9-text)] hover:bg-[var(--c9-surface)] disabled:opacity-50"
+            >
+              Load more
+            </button>
           ) : null}
         </div>
-      ) : null}
+
+        <div className="min-h-[8rem] min-w-0 flex-1 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/40 p-3">
+          {!selectedKey ? (
+            <p className="py-6 text-center text-xs text-[var(--c9-muted)]">Select a key</p>
+          ) : (
+            <>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[10px] font-semibold text-[var(--c9-muted)]">
+                  <span className="text-[var(--c9-text)]">{selectedKey}</span>
+                  {keyValue ? (
+                    <span className="ml-2 text-[var(--c9-muted)]">
+                      ({keyValue.type})
+                    </span>
+                  ) : null}
+                </div>
+                {timelineEligible ? (
+                  <div
+                    className="inline-flex rounded border border-[var(--c9-border)] p-0.5 text-[10px]"
+                    role="group"
+                    aria-label="Key value view mode"
+                  >
+                    {(
+                      [
+                        ['raw', 'Raw'],
+                        ['timeline', 'Timeline'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={detailView === id}
+                        onClick={() => setDetailView(id)}
+                        className={`rounded px-2 py-0.5 font-semibold transition-colors ${
+                          detailView === id
+                            ? 'bg-[var(--c9-accent)]/20 text-[var(--c9-text)]'
+                            : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              {detailLoading ? (
+                <div className="animate-pulse space-y-2">
+                  <div className="h-8 rounded bg-[var(--c9-surface)]" />
+                </div>
+              ) : keyValue ? (
+                detailView === 'timeline' && timelineEligible ? (
+                  <div className="space-y-2">
+                    <div className="max-h-80 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50">
+                      {parseZsetRows(keyValue.value).map((row, i) => (
+                        <TimelineCard
+                          key={`${i}-${row.score}`}
+                          member={row.member}
+                          rank={i + 1}
+                        />
+                      ))}
+                    </div>
+                    <InlineDisclosure label="Why sorted sets?">
+                      <p>
+                        Redis sorted sets (ZSET) store timeline feeds ranked by timestamp.
+                        Each user&apos;s feed is a separate key (timeline:{'{'}userId{'}'}),
+                        giving O(1) reads for the most recent posts. This is the push model:
+                        the fan-out worker pre-computes feeds at write time so reads are
+                        instant.
+                      </p>
+                    </InlineDisclosure>
+                  </div>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50 p-2">
+                    <KeyValueView kv={keyValue} />
+                  </div>
+                )
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

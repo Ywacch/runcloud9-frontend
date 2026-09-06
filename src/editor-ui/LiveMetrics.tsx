@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import type { ReplicaMetrics, SimNodeInspector } from '../editor-core/domain/simulation/types'
 import {
@@ -74,6 +74,9 @@ function simInspectorHasContent(d: SimNodeInspector | undefined): boolean {
 
 interface LiveMetricsProps {
   node: CanvasNode
+  hideControls?: boolean
+  panelView?: PanelViewState
+  onPanelViewChange?: (patch: Partial<PanelViewState>) => void
 }
 
 export function MetricsWaitingSkeleton() {
@@ -92,7 +95,12 @@ export function MetricsWaitingSkeleton() {
   )
 }
 
-export function LiveMetrics({ node }: LiveMetricsProps) {
+export function LiveMetrics({
+  node,
+  hideControls = false,
+  panelView: panelViewProp,
+  onPanelViewChange,
+}: LiveMetricsProps) {
   const nodeId = node.id
   const mode = useCanvasStore((s) => s.mode)
   const m = useMetricsStore((s) => s.metrics[nodeId])
@@ -116,20 +124,28 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
     mode === 'simulate' && simReplicaBreakdown.length > 0
       ? simReplicaBreakdown.map(replicaRowFromSimulation)
       : liveReplicaRows
-  const [panelView, setPanelView] = useState<PanelViewState>(() => ({
+  const [internalPanelView, setInternalPanelView] = useState<PanelViewState>(() => ({
     timeframe: 'live',
     showGraphs: true,
     latencyQuantile: readLatencyQuantile(),
   }))
-  const patchPanelView = (patch: Partial<PanelViewState>) => {
-    setPanelView((v) => {
-      const next = { ...v, ...patch }
-      if (patch.latencyQuantile) {
-        writeLatencyQuantile(patch.latencyQuantile)
+  const panelView = panelViewProp ?? internalPanelView
+  const patchPanelView = useCallback(
+    (patch: Partial<PanelViewState>) => {
+      if (onPanelViewChange) {
+        onPanelViewChange(patch)
+        return
       }
-      return next
-    })
-  }
+      setInternalPanelView((view) => {
+        const next = { ...view, ...patch }
+        if (patch.latencyQuantile) {
+          writeLatencyQuantile(patch.latencyQuantile)
+        }
+        return next
+      })
+    },
+    [onPanelViewChange],
+  )
 
   const simInspectorCallout = useMemo(() => {
     if (mode !== 'simulate') return null
@@ -168,7 +184,7 @@ export function LiveMetrics({ node }: LiveMetricsProps) {
 
   return (
     <div className="space-y-4">
-      {node.type !== 'client' ? (
+      {!hideControls && node.type !== 'client' ? (
         <PanelViewControls
           view={panelView}
           onChange={patchPanelView}
