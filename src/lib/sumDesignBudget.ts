@@ -18,7 +18,7 @@ import {
   normalizeResourceTier,
   tierResourceCaps,
 } from './resourceTierCaps'
-import { clampAppServerReplicas } from './replicaConfig'
+import { clampAppServerReplicas, clampReadReplicas } from './replicaConfig'
 import { normalizeInstanceSizes } from './instanceSizes'
 
 export interface ResourceBudgetLine {
@@ -57,8 +57,45 @@ function replicasForBudget(node: DeploymentNode): number {
   if (node.type === 'app-server' || node.type === 'worker') {
     return clampAppServerReplicas(node.config.replicas ?? 1)
   }
+  if (node.type === 'db') {
+    return 1 + clampReadReplicas(node.config.readReplicas)
+  }
   const raw = Math.floor(Number(node.config.replicas ?? 1))
   return Number.isFinite(raw) && raw >= 1 ? raw : 1
+}
+
+function addPerCopyBudgetLines(
+  node: DeploymentNode,
+  canvasType: NonNullable<(typeof backendComponentToCanvasType)[string]>,
+  catalog: ResourceProfilesResponse,
+  breakdown: ResourceBudgetLine[],
+  totals: { cpuMilli: number; memoryBytes: number },
+): void {
+  const replicas = replicasForBudget(node)
+  const sizes = normalizeInstanceSizes(node.config, replicas)
+  const name = String(node.name ?? '').trim() || node.type
+  const counts = new Map<string, number>()
+  const order: string[] = []
+  for (const size of sizes) {
+    if (!counts.has(size)) order.push(size)
+    counts.set(size, (counts.get(size) ?? 0) + 1)
+  }
+  for (const size of order) {
+    const count = counts.get(size) ?? 0
+    const limits = resolveProvisionedLimits(
+      canvasType,
+      { ...node.config, instanceSize: size },
+      catalog,
+    )
+    const label = count > 1 ? `${name} ${size}×${count}` : `${name} ${size}`
+    addLine(
+      breakdown,
+      label,
+      scaleCpuMilli(limits.cpu, count),
+      scaleMemoryBytes(limits.memory, count),
+      totals,
+    )
+  }
 }
 
 function budgetNodeLabel(node: DeploymentNode, replicas: number): string {
@@ -99,33 +136,8 @@ export function sumDesignBudget(
     if (!DEPLOYABLE_NODE_TYPES.has(node.type)) continue
     const canvasType = backendComponentToCanvasType[node.type]
     if (!canvasType) continue
-    if (node.type === 'app-server' || node.type === 'worker') {
-      const replicas = replicasForBudget(node)
-      const sizes = normalizeInstanceSizes(node.config, replicas)
-      const name = String(node.name ?? '').trim() || node.type
-      const counts = new Map<string, number>()
-      const order: string[] = []
-      for (const size of sizes) {
-        if (!counts.has(size)) order.push(size)
-        counts.set(size, (counts.get(size) ?? 0) + 1)
-      }
-      for (const size of order) {
-        const count = counts.get(size) ?? 0
-        const limits = resolveProvisionedLimits(
-          canvasType,
-          { ...node.config, instanceSize: size },
-          catalog,
-        )
-        const label =
-          count > 1 ? `${name} ${size}×${count}` : `${name} ${size}`
-        addLine(
-          breakdown,
-          label,
-          scaleCpuMilli(limits.cpu, count),
-          scaleMemoryBytes(limits.memory, count),
-          totals,
-        )
-      }
+    if (node.type === 'app-server' || node.type === 'worker' || node.type === 'db') {
+      addPerCopyBudgetLines(node, canvasType, catalog, breakdown, totals)
       continue
     }
     const replicas = replicasForBudget(node)

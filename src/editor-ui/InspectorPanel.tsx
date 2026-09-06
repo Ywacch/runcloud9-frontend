@@ -64,7 +64,7 @@ import {
   readConsistencyOptionDisabled,
   readConsistencyRequiresMultipleReplicas,
 } from '../lib/readConsistency'
-import { ensureLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
+import { syncAutoLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { maxAppServerReplicasForUser, maxInstanceSizeForUser, resolveEffectiveTier, resourceQuotaTier, topologyLimitsForTier, type InstanceSize } from '../lib/userTier'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
@@ -1293,9 +1293,7 @@ function TypeFields({
                   instanceSizes: sizes,
                   instanceSize: sizes[0],
                 })
-                if (next > 1) {
-                  ensureLoadBalancerForReplicas()
-                }
+                syncAutoLoadBalancerForReplicas()
                 const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
                 trackEvent('design_option_changed', {
                   template,

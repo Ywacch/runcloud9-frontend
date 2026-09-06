@@ -88,17 +88,18 @@ describe('ensureLoadBalancerForReplicas', () => {
     expect(nodes['lb-manual']).toBeDefined()
   })
 
-  it('keeps auto LB when replicas scale back to 1', () => {
+  it('removes auto LB when replicas scale back to 1', () => {
     useCanvasStore.setState({
       nodes: { 'app-1': computeNode('app-1', 2) },
       edges: {},
     })
     ensureLoadBalancerForReplicas()
+    expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]).toBeDefined()
 
     useCanvasStore.getState().updateNodeConfig('app-1', { replicas: 1 })
     ensureLoadBalancerForReplicas()
 
-    expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]).toBeDefined()
+    expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]).toBeUndefined()
   })
 
   it('rewires client-loadgen to the auto LB when present', () => {
