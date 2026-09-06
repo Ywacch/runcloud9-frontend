@@ -107,11 +107,11 @@ describe('tooltip resource labels', () => {
     expect(tooltipMemoryDisplay(b, 0, labels.mem)).toBe('Limit 256 MB')
   })
 
-  it('uses warmup copy for database tier C during warmup', () => {
+  it('keeps real utilization labels for database tier C during warmup', () => {
     const cpuPct = clampPercent(bucket().cpuPercent)
     const memPct = clampPercent(bucket().memPercent)
     const labels = formatDbClusterResourceLabels(bucket(), cpuPct, memPct, true)
-    expect(labels.cpu).toBe('Warming up · Limit 125m')
-    expect(labels.mem).toBe('Warming up · Limit 256 MB')
+    expect(labels.cpu).toBe('8%')
+    expect(labels.mem).toContain('47%')
   })
 })

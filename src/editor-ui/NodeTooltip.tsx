@@ -15,6 +15,7 @@ import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import {
+  dbClusterResourceHelp,
   formatDbClusterResourceLabels,
   formatResourceLabels,
   resourceUsageHelp,
@@ -163,13 +164,13 @@ export function NodeTooltip({
   const cpuPct =
     grouped?.kind === 'single'
       ? grouped.cpuPct
-      : metrics?.cpuIsEstimated || dbWarmingUp
+      : metrics?.cpuIsEstimated
         ? 0
         : clampPercent(metrics?.cpuPercent)
   const memPct =
     grouped?.kind === 'single'
       ? grouped.memPct
-      : metrics?.memIsEstimated || dbWarmingUp
+      : metrics?.memIsEstimated
         ? 0
         : clampPercent(metrics?.memPercent)
   const labels = metrics
@@ -177,7 +178,11 @@ export function NodeTooltip({
       ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
       : formatResourceLabels(metrics, cpuPct, memPct)
     : { cpu: '-', mem: '-' }
-  const resourceHelp = metrics ? resourceUsageHelp(metrics) : undefined
+  const resourceHelp = metrics
+    ? node.type === 'database'
+      ? dbClusterResourceHelp(metrics, dbWarmingUp)
+      : resourceUsageHelp(metrics)
+    : undefined
   const memDisplay = metrics
     ? tooltipMemoryDisplay(metrics, memPct, labels.mem, dbWarmingUp)
     : labels.mem

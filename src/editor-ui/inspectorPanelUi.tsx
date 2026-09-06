@@ -463,10 +463,9 @@ export function isTierCWarmingUp(
 
 export function shouldShowDbClusterUtilizationCharts(
   m: MetricsBucket,
-  warmingUp: boolean,
+  _warmingUp: boolean,
 ): boolean {
   if (m.cpuIsEstimated) return false
-  if (warmingUp && isTierCResource(m)) return false
   return true
 }
 
@@ -485,21 +484,8 @@ export function formatDbClusterResourceLabels(
   m: MetricsBucket,
   cpuPercent: number,
   memPercent: number,
-  warmingUp: boolean,
+  _warmingUp: boolean,
 ): { cpu: string; mem: string } {
-  if (m.cpuIsEstimated || m.memIsEstimated) {
-    return formatResourceLabels(m, cpuPercent, memPercent)
-  }
-  if (warmingUp && isTierCResource(m)) {
-    const cpuLimit =
-      m.cpuLimit > 0 ? fmtCpuMilliCores(m.cpuLimit) : fmtCpuMilliCores(m.cpuUsage)
-    const memLimit =
-      m.memoryLimit > 0 ? fmtMemMB(m.memoryLimit) : fmtMemMB(m.memoryBytes)
-    return {
-      cpu: `Warming up · Limit ${cpuLimit}`,
-      mem: `Warming up · Limit ${memLimit}`,
-    }
-  }
   return formatResourceLabels(m, cpuPercent, memPercent)
 }
 
