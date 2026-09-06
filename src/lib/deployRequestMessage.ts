@@ -1,19 +1,17 @@
-import { ApiError } from './apiError'
+import { ApiError, isMissingUserRecordError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import {
   canvasQuotaForDisplay,
   type ResourceBudgetErrorResponse,
 } from './sumDesignBudget'
+import { isChaosTrialUsedMessage } from './billingCopy'
 import {
   isDesignExceedsClusterCapacity,
+  isEmailUnconfirmedError,
   isMonthlySessionLimitError,
   isQueueFullErrorMessage,
   isUserConcurrentDeployErrorMessage,
 } from './deployQueue'
-import {
-  isChaosTrialUsedMessage,
-} from './billingCopy'
-import { isEmailUnconfirmedError } from './deployQueue'
 import { scrubEmDashCopy } from './topologyRulesTypes'
 
 export interface DeployRequestMessage {
@@ -52,7 +50,7 @@ export function mapDeployRequestError(
     const raw = error.rawMessage || error.message
     const normalized = raw.toLowerCase()
 
-    if (error.status === 401) {
+    if (error.status === 401 || isMissingUserRecordError(error)) {
       return {
         title: 'Session expired',
         body: 'Please sign in again to deploy infrastructure.',

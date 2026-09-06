@@ -66,6 +66,21 @@ describe('mapDeployRequestError', () => {
     expect(msg.title).toBe('Template not available')
   })
 
+  it('maps 401 to session expired with sign-in CTA', () => {
+    const err = new ApiError(401, 'invalid token')
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Session expired')
+    expect(msg.actionLabel).toBe('Sign in')
+  })
+
+  it('maps failed to load user 500 as session expired', () => {
+    const err = new ApiError(500, 'failed to load user')
+    const msg = mapDeployRequestError(err)
+    expect(msg.title).toBe('Session expired')
+    expect(msg.body).toContain('sign in again')
+    expect(msg.actionLabel).toBe('Sign in')
+  })
+
   it('maps email_unconfirmed 403 without sign-in CTA', () => {
     const err = new ApiError(
       403,

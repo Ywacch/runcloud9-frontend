@@ -6,7 +6,7 @@ import {
   postAuthRedirectPath,
   resolveTokenHashOtpType,
 } from '../lib/authCallback'
-import { mapAuthCallbackError } from '../lib/authErrorMessage'
+import { mapAuthCallbackError, isAuthCallbackOAuthError } from '../lib/authErrorMessage'
 import { trackEvent } from '../lib/analytics'
 import { consumeAuthReturnTo } from '../lib/authReturn'
 import { supabase } from '../lib/supabase'
@@ -19,18 +19,20 @@ export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState<CallbackStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [oauthFailure, setOauthFailure] = useState(false)
 
   useEffect(() => {
     const run = async () => {
-      const fail = (message: string) => {
+      const fail = (message: string, isOauth = false) => {
         setErrorMessage(message)
+        setOauthFailure(isOauth)
         setStatus('error')
         trackEvent('auth_failed', { errorCategory: 'unauthorized' })
       }
 
       const oauthError = parseAuthCallbackOAuthError(searchParams)
       if (oauthError) {
-        fail(mapAuthCallbackError(new Error(oauthError)))
+        fail(mapAuthCallbackError(new Error(oauthError)), true)
         return
       }
 
@@ -42,7 +44,7 @@ export default function AuthCallbackPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          fail(mapAuthCallbackError(error))
+          fail(mapAuthCallbackError(error), isAuthCallbackOAuthError(error))
           return
         }
         await supabase.auth.refreshSession()
@@ -87,19 +89,25 @@ export default function AuthCallbackPage() {
       <main className="dot-grid flex min-h-screen flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
         <C9Card className="w-full max-w-md p-6 text-center">
           <C9SectionTitle
-            title="Link could not be verified"
+            title={oauthFailure ? 'Could not complete sign-in' : 'Link could not be verified'}
             description={errorMessage ?? 'This sign-in or reset link is no longer valid.'}
           />
           <div className="mt-5 flex flex-col gap-2">
-            <Link
-              to="/reset-password"
-              className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
-            >
-              Request a new reset link
-            </Link>
+            {oauthFailure ? null : (
+              <Link
+                to="/reset-password"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
+              >
+                Request a new reset link
+              </Link>
+            )}
             <Link
               to="/login"
-              className="text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
+              className={
+                oauthFailure
+                  ? 'inline-flex w-full items-center justify-center rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]'
+                  : 'text-xs text-[var(--c9-badge-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]'
+              }
             >
               Back to sign in
             </Link>
