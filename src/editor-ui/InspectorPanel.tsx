@@ -136,7 +136,7 @@ function clampInspectorWidth(px: number): number {
 }
 
 function defaultInspectorWidth(): number {
-  return clampInspectorWidth(window.innerWidth * 0.45)
+  return clampInspectorWidth(INSPECTOR_MIN_W)
 }
 
 function clamp(n: number, min: number, max: number): number {
