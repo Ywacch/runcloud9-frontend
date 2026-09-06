@@ -58,5 +58,8 @@ export function resolveHealthVisual(
 ): HealthVisualState {
   if (!isMetricsViewportMode(mode)) return 'off'
   if (chaosActive) return 'chaos'
-  return computeHealthState(metrics, node.status)
+  const state = computeHealthState(metrics, node.status)
+  // Live: 0% metric ticks stay "healthy" so the rim layer does not mount/unmount.
+  if (mode === 'live' && metrics && state === 'idle') return 'healthy'
+  return state
 }

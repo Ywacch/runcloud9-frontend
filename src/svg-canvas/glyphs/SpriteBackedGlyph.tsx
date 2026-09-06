@@ -9,6 +9,7 @@ import {
 import {
   healthRimFilterId,
   healthRimLayerOpacity,
+  HEALTH_RIM_FILTER_IDS,
 } from '../fx/healthRimFilter'
 import type { BrandTint } from '../skins/engineSkins'
 import { tintColorMatrixValues } from '../skins/brandTintFilter'
@@ -32,6 +33,8 @@ type SpriteBackedGlyphProps = {
   tint?: BrandTint | null
   /** When false, skip face logo (rare). Default true â€” still no-ops if logoId null. */
   showBadge?: boolean
+  /** When true (live canvas), keep rim image mounted and drive opacity only. */
+  stableHealthRim?: boolean
   selected?: boolean
   healthVisual?: HealthVisualState
   interactive?: boolean
@@ -52,6 +55,7 @@ export function SpriteBackedGlyph({
   logoId = null,
   tint = null,
   showBadge = true,
+  stableHealthRim = false,
   selected = false,
   healthVisual = 'off',
   interactive = false,
@@ -75,8 +79,12 @@ export function SpriteBackedGlyph({
   const strokeWidth = perUnitSelect ? 2.5 : 0
   const rimStyle = resolveRimStyle(healthVisual)
   const rimAlpha = usePulsingAlpha(rimStyle)
-  const rimFilter = healthRimFilterId(healthVisual)
-  const rimOpacity = rimFilter ? healthRimLayerOpacity(rimAlpha) : 0
+  const activeRimFilter = healthRimFilterId(healthVisual)
+  const rimFilter =
+    activeRimFilter ??
+    (stableHealthRim ? HEALTH_RIM_FILTER_IDS.healthy : null)
+  const rimOpacity = activeRimFilter ? healthRimLayerOpacity(rimAlpha) : 0
+  const mountRim = stableHealthRim || activeRimFilter != null
   const matrix = tintColorMatrixValues(tint)
   const rawId = useId().replace(/:/g, '')
   const filterId = matrix ? `sprite-tint-${rawId}` : null
@@ -136,7 +144,7 @@ export function SpriteBackedGlyph({
               }
             />
             {/* Silhouette rim from dilated sprite alpha (shared feMorphology). */}
-            {rimFilter ? (
+            {mountRim && rimFilter ? (
               <image
                 href={spec.url}
                 x={-spec.tipX}
