@@ -11,6 +11,7 @@ import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview
 import {
   TEMPLATE_COMING_SOON_HINT,
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
+  remoteTemplateVisibleInPicker,
   templateCanLoadInPicker,
   templateOfferBadge,
   type TemplateAvailabilityFlags,
@@ -212,20 +213,25 @@ function buildFamilyItems(templates: ApiTemplateInfo[]): FamilyModalItem[] {
       if (!variation) continue
       variations.push(buildVariationRow(template, variation, meta, slot.templateId))
     }
+    const loadable = variations.filter((row) => templateCanLoadInPicker(row))
     return {
       kind: 'family' as const,
       family,
-      preview: variations[0] ?? null,
-      variations,
+      preview: loadable[0] ?? null,
+      variations: loadable,
     }
-  })
+  }).filter((item) => item.variations.length > 0)
 }
 
-function buildModalItems(templates: ApiTemplateInfo[]): ModalTemplateItem[] {
+function buildModalItems(
+  templates: ApiTemplateInfo[],
+  canUsePremiumTemplates: boolean,
+): ModalTemplateItem[] {
   const familyItems = buildFamilyItems(templates)
   const remote: ModalTemplateItem[] = []
   for (const t of templates) {
     if (FAMILY_TEMPLATE_IDS.has(t.id)) continue
+    if (!remoteTemplateVisibleInPicker(t, canUsePremiumTemplates)) continue
     remote.push({ kind: 'remote', row: t })
   }
   return [...familyItems, ...remote]
@@ -444,7 +450,7 @@ export function TemplateModal({
       .then((list) => {
         if (cancelled) return
         useTemplateRegistryStore.getState().mergeTemplates(list)
-        setItems(buildModalItems(list))
+        setItems(buildModalItems(list, canUsePremiumTemplates))
       })
       .catch((e) => {
         if (!cancelled) {
@@ -458,7 +464,7 @@ export function TemplateModal({
     return () => {
       cancelled = true
     }
-  }, [open, userRecord])
+  }, [open, userRecord, canUsePremiumTemplates])
 
   useEffect(() => {
     if (!open) return
@@ -525,6 +531,11 @@ export function TemplateModal({
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-400">{error}</p>
           ) : activeFamily ? (
+            activeFamily.variations.length === 0 ? (
+              <p className="py-12 text-center text-sm text-[var(--c9-muted)]">
+                No templates available right now.
+              </p>
+            ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activeFamily.variations.map((row) => (
                 <VariationCard
@@ -536,6 +547,11 @@ export function TemplateModal({
                 />
               ))}
             </div>
+            )
+          ) : items.length === 0 ? (
+            <p className="py-12 text-center text-sm text-[var(--c9-muted)]">
+              No templates available right now.
+            </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
               {items.map((item) =>

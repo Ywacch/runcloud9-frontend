@@ -5,6 +5,7 @@ import {
   useLiveChromeStore,
 } from '../lib/liveChromeStore'
 import { useDevLiveStripVisible } from '../lib/devCanvasTools'
+import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { DataViewPanel } from './DataViewPanel'
@@ -299,7 +300,7 @@ export function LiveMetricsDrawer() {
         ) : null}
         {mode === 'simulate' || mode === 'live' ? (
           <div className="mt-2 flex gap-2 px-1">
-            {mode === 'simulate' ? (
+            {SHOW_SIMULATION_UI && mode === 'simulate' ? (
               <button
                 type="button"
                 onClick={() => setFlowOpen(true)}
@@ -320,7 +321,9 @@ export function LiveMetricsDrawer() {
           </div>
         ) : null}
       </div>
-      <FlowPanel open={flowOpen} onClose={() => setFlowOpen(false)} />
+      {SHOW_SIMULATION_UI ? (
+        <FlowPanel open={flowOpen} onClose={() => setFlowOpen(false)} />
+      ) : null}
       {mode === 'live' ? (
         <DataViewPanel open={dataViewOpen} onClose={() => setDataViewOpen(false)} />
       ) : null}

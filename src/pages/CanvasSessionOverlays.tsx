@@ -12,6 +12,7 @@ import {
 } from '../editor-ui'
 import { PROVISION_FAILED_HEADLINE } from '../lib/provisionCopy'
 import type { CanvasSessionLifecycle } from './useCanvasSessionLifecycle'
+import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 
 export type CanvasSessionOverlaysProps = {
   session: CanvasSessionLifecycle
@@ -69,9 +70,11 @@ export function CanvasSessionOverlays({
       {mode !== 'design' ? (
         <div className="pointer-events-none absolute left-3 top-3 z-30 flex min-w-0 max-w-[min(100%,28rem)] flex-col gap-1.5 pr-14">
           <EventTimeline />
-          <div className="pointer-events-auto w-fit max-w-full">
-            <SimulationOverlay />
-          </div>
+          {SHOW_SIMULATION_UI ? (
+            <div className="pointer-events-auto w-fit max-w-full">
+              <SimulationOverlay />
+            </div>
+          ) : null}
         </div>
       ) : null}
       {showProvisioningOverlay ? (

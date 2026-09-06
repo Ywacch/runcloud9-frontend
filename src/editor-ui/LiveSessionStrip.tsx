@@ -4,6 +4,7 @@ import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 import { startLoadGen, stopLoadGen, updateLoadGen, getTemplateLoadgen } from '../lib/api'
 import { ApiError } from '../lib/apiError'
 import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
+import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 import { trackEvent } from '../lib/analytics'
 import { fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import { useDevLiveStripVisible } from '../lib/devCanvasTools'
@@ -530,6 +531,7 @@ export function LiveSessionStrip() {
     return () => window.clearInterval(id)
   }, [devDesignPreview, previewLoadActive, rps])
 
+  if (mode === 'simulate' && !SHOW_SIMULATION_UI) return null
   if (mode !== 'live' && mode !== 'simulate' && !devDesignPreview) return null
   if (!stripVisible) return null
 
@@ -651,7 +653,7 @@ export function LiveSessionStrip() {
                 </span>
               </span>
             ) : null}
-            {mode === 'simulate' ? (
+            {SHOW_SIMULATION_UI && mode === 'simulate' ? (
               <span
                 className="shrink-0 text-[12px] text-[var(--c9-muted)]"
                 title={INGRESS_HELP_SIM}

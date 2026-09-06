@@ -11,6 +11,7 @@ import {
   withoutCanvasHistoryRecording,
 } from '../../lib/canvasHistory'
 import { resetDesignStorytellingUi } from '../../lib/resetStorytellingUi'
+import { SHOW_SIMULATION_UI } from '../../lib/featureFlags'
 import type { SessionEventSummary } from '../../lib/eventsSummaryFromApi'
 import type {
   ClientLatencyInterval,
@@ -509,12 +510,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { selectedIds, selectedId: null, selectedInstanceId: null }
     }),
 
-  setMode: (next) =>
+  setMode: (next) => {
+    const mode = next === 'simulate' && !SHOW_SIMULATION_UI ? 'design' : next
     set({
-      mode: next,
+      mode,
       hoveredNodeId: null,
       hoveredInstanceId: null,
-      ...(next === 'live' || next === 'simulate'
+      ...(mode === 'live' || mode === 'simulate'
         ? {
             pendingSourceId: null,
             placingNodeType: null,
@@ -522,7 +524,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             designTool: 'select' as const,
           }
         : {}),
-    }),
+    })
+  },
 
   setDeploymentId: (deploymentId) => set({ deploymentId }),
 

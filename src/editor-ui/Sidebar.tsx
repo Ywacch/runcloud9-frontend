@@ -19,6 +19,7 @@ import {
   type DeployRequestMessage,
 } from '../lib/deployRequestMessage'
 import { switchTemplatePresetMode } from '../lib/switchTemplatePresetMode'
+import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 import {
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
   templateOffersLiveDeploy,
@@ -1039,7 +1040,7 @@ export function Sidebar() {
           >
             Teardown
           </button>
-        ) : simulate ? (
+        ) : simulate && SHOW_SIMULATION_UI ? (
           <>
             <button
               type="button"
@@ -1128,11 +1129,13 @@ export function Sidebar() {
             {selectedTemplate && !templateOffersLiveDeploy(selectedTemplate) ? (
               <p className="text-[11px] leading-snug text-amber-300/90">
                 {selectedTemplate.available
-                  ? `The "${selectedTemplate.name}" template is simulation-only right now.`
+                  ? SHOW_SIMULATION_UI
+                    ? `The "${selectedTemplate.name}" template is simulation-only right now.`
+                    : `The "${selectedTemplate.name}" template is not available to deploy yet.`
                   : TEMPLATE_LIVE_NOT_OFFERED_HINT}
               </p>
             ) : null}
-            {nodeCount > 0 && snapshotTemplateId ? (
+            {SHOW_SIMULATION_UI && nodeCount > 0 && snapshotTemplateId ? (
               <button
                 type="button"
                 disabled={!selectedTemplate || !selectedTemplate.simulatable}
