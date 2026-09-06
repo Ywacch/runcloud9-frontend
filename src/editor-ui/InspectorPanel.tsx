@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getAvailableCacheStrategies,
   isProxyCacheStrategy,
@@ -116,6 +116,14 @@ import {
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
 import {
+  readLatencyQuantile,
+  writeLatencyQuantile,
+} from '../lib/latencyQuantile'
+import {
+  PanelViewControls,
+  type PanelViewState,
+} from './inspectorPanelUi'
+import {
   filterStrategiesForVariation,
   variationCacheStrategyMode,
 } from '../lib/variationTopologyLock'
@@ -228,6 +236,27 @@ export function InspectorPanel() {
   const [liveTab, setLiveTab] = useState<'metrics' | 'logs' | 'config' | 'data'>(
     'metrics',
   )
+  const [metricsPanelView, setMetricsPanelView] = useState<PanelViewState>(() => ({
+    timeframe: 'live',
+    showGraphs: true,
+    latencyQuantile: readLatencyQuantile(),
+  }))
+  const patchMetricsPanelView = useCallback((patch: Partial<PanelViewState>) => {
+    setMetricsPanelView((view) => {
+      const next = { ...view, ...patch }
+      if (patch.latencyQuantile) {
+        writeLatencyQuantile(patch.latencyQuantile)
+      }
+      return next
+    })
+  }, [])
+  const showLiveInstanceTabs =
+    showInstanceTabs && (liveTab === 'metrics' || liveTab === 'logs')
+  const showLiveMetricsControls = liveTab === 'metrics' && node?.type !== 'client'
+  const showLiveStickyChrome =
+    showLiveInstanceTabs ||
+    (showDbDataInstanceTabs && liveTab === 'data') ||
+    showLiveMetricsControls
   const inspectorTabNonce = useLogStore((s) => s.inspectorTabNonce)
   const [dockWidth, setDockWidth] = useState(defaultInspectorWidth)
   const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
@@ -376,26 +405,40 @@ export function InspectorPanel() {
                   ))}
                 </div>
               </div>
+              {showLiveStickyChrome ? (
+                <div className="shrink-0 space-y-2 border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2">
+                  {showLiveInstanceTabs ? (
+                    <DbInstanceTabBar
+                      tabs={instanceTabs}
+                      selectedId={selectedInstanceId}
+                      onSelect={setSelectedInstanceId}
+                    />
+                  ) : null}
+                  {showDbDataInstanceTabs && liveTab === 'data' ? (
+                    <DbInstanceTabBar
+                      tabs={instanceTabs}
+                      selectedId={selectedInstanceId}
+                      onSelect={setSelectedInstanceId}
+                    />
+                  ) : null}
+                  {showLiveMetricsControls ? (
+                    <PanelViewControls
+                      view={metricsPanelView}
+                      onChange={patchMetricsPanelView}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                {showInstanceTabs &&
-                (liveTab === 'metrics' || liveTab === 'logs') ? (
-                  <DbInstanceTabBar
-                    tabs={instanceTabs}
-                    selectedId={selectedInstanceId}
-                    onSelect={setSelectedInstanceId}
-                  />
-                ) : null}
-                {showDbDataInstanceTabs && liveTab === 'data' ? (
-                  <DbInstanceTabBar
-                    tabs={instanceTabs}
-                    selectedId={selectedInstanceId}
-                    onSelect={setSelectedInstanceId}
-                  />
-                ) : null}
                 {liveTab === 'metrics' ? (
                   <>
                     <ChaosActions node={node} />
-                    <LiveMetrics node={node} />
+                    <LiveMetrics
+                      node={node}
+                      hideControls
+                      panelView={metricsPanelView}
+                      onPanelViewChange={patchMetricsPanelView}
+                    />
                   </>
                 ) : null}
                 {liveTab === 'logs' ? (
