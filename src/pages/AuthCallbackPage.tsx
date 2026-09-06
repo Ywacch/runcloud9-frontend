@@ -8,6 +8,8 @@ import {
 } from '../lib/authCallback'
 import { mapAuthCallbackError, isAuthCallbackOAuthError } from '../lib/authErrorMessage'
 import { trackEvent } from '../lib/analytics'
+import { categorizeAuthCallbackOAuthRedirect } from '../lib/authAnalytics'
+import type { AuthFailedCategory, SafeErrorCategory } from '../lib/analytics'
 import { consumeAuthReturnTo } from '../lib/authReturn'
 import { supabase } from '../lib/supabase'
 import { C9Card, C9SectionTitle } from '../editor-ui/c9Primitives'
@@ -23,16 +25,24 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const run = async () => {
-      const fail = (message: string, isOauth = false) => {
+      const fail = (
+        message: string,
+        errorCategory: AuthFailedCategory | SafeErrorCategory,
+        isOauth = false,
+      ) => {
         setErrorMessage(message)
         setOauthFailure(isOauth)
         setStatus('error')
-        trackEvent('auth_failed', { errorCategory: 'unauthorized' })
+        trackEvent('auth_failed', { errorCategory })
       }
 
       const oauthError = parseAuthCallbackOAuthError(searchParams)
       if (oauthError) {
-        fail(mapAuthCallbackError(new Error(oauthError)), true)
+        fail(
+          mapAuthCallbackError(new Error(oauthError)),
+          categorizeAuthCallbackOAuthRedirect(searchParams),
+          true,
+        )
         return
       }
 
@@ -44,14 +54,21 @@ export default function AuthCallbackPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          fail(mapAuthCallbackError(error), isAuthCallbackOAuthError(error))
+          fail(
+            mapAuthCallbackError(error),
+            'exchange_failed',
+            isAuthCallbackOAuthError(error),
+          )
           return
         }
         await supabase.auth.refreshSession()
       } else if (tokenHash) {
         const otpType = resolveTokenHashOtpType(type)
         if (!otpType) {
-          fail('This sign-in link is missing a valid type. Request a new link from your email.')
+          fail(
+            'This sign-in link is missing a valid type. Request a new link from your email.',
+            'unauthorized',
+          )
           return
         }
         const { error } = await supabase.auth.verifyOtp({
@@ -59,7 +76,7 @@ export default function AuthCallbackPage() {
           type: otpType,
         })
         if (error) {
-          fail(mapAuthCallbackError(error))
+          fail(mapAuthCallbackError(error), 'unauthorized')
           return
         }
         await supabase.auth.refreshSession()
@@ -69,6 +86,7 @@ export default function AuthCallbackPage() {
       if (!data.session) {
         fail(
           'We could not start your session. Open the sign-in or reset link from your email again.',
+          'unauthorized',
         )
         return
       }

@@ -129,12 +129,81 @@ describe('analytics wrappers', () => {
   })
 
   it('identify and reset go through wrappers', () => {
-    identifyAnalyticsUser('user-123', { effectiveTier: 'engineer' })
+    identifyAnalyticsUser('user-123', {
+      effectiveTier: 'engineer',
+      provider: 'google',
+    })
     resetAnalytics()
     expect(identify).toHaveBeenCalledWith('user-123', {
       effectiveTier: 'engineer',
+      provider: 'google',
     })
     expect(reset).toHaveBeenCalled()
+  })
+
+  it('captures auth and session lifecycle events', () => {
+    trackEvent('auth_started', { provider: 'github' })
+    trackEvent('auth_succeeded', {
+      effectiveTier: 'explorer',
+      provider: 'github',
+      isNewUser: true,
+    })
+    trackEvent('auth_failed', { errorCategory: 'exchange_failed' })
+    trackEvent('canvas_opened', {
+      mode: 'new',
+      authenticated: true,
+      presetMode: 'explorer',
+    })
+    trackEvent('provision_tab_returned', {
+      template: 'social-feed',
+      waitKind: 'provisioning',
+      hiddenSeconds: 8,
+    })
+    trackEvent('loadgen_stopped', { template: 'social-feed', liveSeconds: 42 })
+    trackEvent('session_summary_viewed', {
+      template: 'social-feed',
+      sessionDuration: '3m 12s',
+      usedLoadgen: true,
+    })
+    trackEvent('journey_panel_opened', {
+      template: 'social-feed',
+      context: 'design',
+    })
+    trackEvent('journey_selected', {
+      template: 'social-feed',
+      journeyId: 'feed-read',
+      context: 'live',
+    })
+    trackEvent('walkthrough_started', {
+      template: 'social-feed',
+      journeyId: 'feed-read',
+    })
+    trackEvent('walkthrough_stopped', {
+      template: 'social-feed',
+      journeyId: 'feed-read',
+      lastStepIndex: 2,
+      stepCount: 5,
+    })
+    trackEvent('session_ended', {
+      template: 'social-feed',
+      reason: 'expired',
+      durationSeconds: 540,
+    })
+    trackEvent('past_run_opened', { template: 'social-feed' })
+    trackEvent('preset_mode_switched', {
+      template: 'social-feed',
+      from: 'full',
+      to: 'explorer',
+    })
+    expect(capture).toHaveBeenCalledWith('auth_started', { provider: 'github' })
+    expect(capture).toHaveBeenCalledWith(
+      'provision_tab_returned',
+      expect.objectContaining({ waitKind: 'provisioning' }),
+    )
+    expect(capture).toHaveBeenCalledWith(
+      'loadgen_stopped',
+      expect.objectContaining({ liveSeconds: 42 }),
+    )
   })
 
   it('deploymentAnalyticsProperties allowlists design fields only', () => {

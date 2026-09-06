@@ -9,7 +9,7 @@ import {
 } from './deployQueue'
 import { isWaitingForProvisionSlot } from './provisionMetrics'
 
-export type DeployWaitKind = 'room' | 'door'
+export type DeployWaitKind = 'room' | 'door' | 'provisioning'
 
 export type DeployWaitOutcome =
   | 'promoted'
@@ -39,6 +39,7 @@ export function deriveDeployWaitKind(
   ) {
     return 'door'
   }
+  if (status === 'provisioning') return 'provisioning'
   return null
 }
 
@@ -47,7 +48,8 @@ export function shouldKeepDeployQueueFields(
   status: string | null | undefined,
   provisionPhase?: string | null,
 ): boolean {
-  return deriveDeployWaitKind(status, provisionPhase) != null
+  const kind = deriveDeployWaitKind(status, provisionPhase)
+  return kind === 'room' || kind === 'door'
 }
 
 export function readDeployQueueFields(dep: {

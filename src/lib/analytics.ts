@@ -18,6 +18,15 @@ export interface DeploymentAnalyticsProperties {
   proxyResourceProfile?: string
 }
 
+export type OAuthAnalyticsProvider = 'google' | 'github'
+
+export type AuthFailedCategory =
+  | 'oauth_denied'
+  | 'signups_disabled'
+  | 'exchange_failed'
+
+export type AnalyticsPresetMode = 'full' | 'explorer'
+
 export type AnalyticsEventMap = {
   landing_viewed: {
     referrerCategory: string
@@ -27,12 +36,22 @@ export type AnalyticsEventMap = {
   }
   landing_cta_clicked: { ctaName: string }
   login_viewed: Record<string, never>
-  auth_succeeded: { effectiveTier: string }
-  auth_failed: { errorCategory: string }
-  canvas_opened: { mode: 'new' | 'restored' }
+  auth_started: { provider: OAuthAnalyticsProvider }
+  auth_succeeded: {
+    effectiveTier: string
+    provider?: OAuthAnalyticsProvider
+    isNewUser: boolean
+  }
+  auth_failed: { errorCategory: AuthFailedCategory | SafeErrorCategory }
+  canvas_opened: {
+    mode: 'new' | 'restored'
+    authenticated: boolean
+    presetMode?: AnalyticsPresetMode
+  }
   template_selected: { template: string; archetype: string }
   deployment_requested: DeploymentAnalyticsProperties & {
     admitStatus: 'provisioning' | 'queued'
+    presetMode?: AnalyticsPresetMode
   }
   deployment_running: { template: string; elapsedSeconds: number }
   deployment_failed: {
@@ -49,18 +68,27 @@ export type AnalyticsEventMap = {
   }
   deploy_wait_entered: {
     template: string
-    waitKind: 'room' | 'door'
+    waitKind: 'room' | 'door' | 'provisioning'
     queuePosition?: number
     estimatedWaitSeconds?: number
   }
   deploy_wait_left: {
     template: string
-    waitKind: 'room' | 'door'
+    waitKind: 'room' | 'door' | 'provisioning'
     outcome: 'promoted' | 'cancelled' | 'failed' | 'terminated'
     waitSeconds: number
     queuePosition?: number
   }
-  session_summary_viewed: { template: string; sessionDuration: string }
+  provision_tab_returned: {
+    template: string
+    waitKind: 'room' | 'door' | 'provisioning'
+    hiddenSeconds: number
+  }
+  session_summary_viewed: {
+    template: string
+    sessionDuration: string
+    usedLoadgen: boolean
+  }
   session_summary_dismissed: { template: string; visibleSeconds: number }
   loadgen_started: {
     template: string
@@ -68,7 +96,31 @@ export type AnalyticsEventMap = {
     durationSeconds: number
     scheduleId?: string
   }
-  loadgen_stopped: { template: string }
+  loadgen_stopped: { template: string; liveSeconds: number }
+  journey_panel_opened: { template: string; context: 'design' | 'live' }
+  journey_selected: {
+    template: string
+    journeyId: string
+    context: 'design' | 'live'
+  }
+  walkthrough_started: { template: string; journeyId: string }
+  walkthrough_stopped: {
+    template: string
+    journeyId: string
+    lastStepIndex: number
+    stepCount: number
+  }
+  session_ended: {
+    template: string
+    reason: 'expired' | 'user_teardown' | 'failed'
+    durationSeconds: number
+  }
+  past_run_opened: { template: string }
+  preset_mode_switched: {
+    template: string
+    from: AnalyticsPresetMode
+    to: AnalyticsPresetMode
+  }
   chaos_injected: {
     template: string
     chaosKind: string
@@ -180,7 +232,7 @@ export async function initAnalytics(): Promise<void> {
 
 export function identifyAnalyticsUser(
   userId: string,
-  traits?: { effectiveTier?: string },
+  traits?: { effectiveTier?: string; provider?: OAuthAnalyticsProvider },
 ): void {
   if (!userId.trim()) return
   if (client) {
@@ -201,6 +253,32 @@ export function trackEvent<E extends AnalyticsEventName>(
   const props = properties as Record<string, unknown>
   if (client) client.capture(event, props)
   debugLog(event, props)
+}
+
+let sessionEndedForDeploymentId: string | null = null
+
+/** Fire session_ended at most once per deployment id (or once with no id). */
+export function trackSessionEndedOnce(
+  deploymentId: string | null | undefined,
+  properties: AnalyticsEventMap['session_ended'],
+): void {
+  const key = deploymentId ?? '__none__'
+  if (sessionEndedForDeploymentId === key) return
+  sessionEndedForDeploymentId = key
+  trackEvent('session_ended', properties)
+}
+
+export function analyticsPresetModeFromStore(
+  mode: 'full' | 'explorer' | null,
+): AnalyticsPresetMode | undefined {
+  return mode === 'full' || mode === 'explorer' ? mode : undefined
+}
+
+export function sessionEndedDurationSeconds(
+  liveSessionStartedAt: number | null,
+): number {
+  if (liveSessionStartedAt == null) return 0
+  return Math.max(0, Math.floor((Date.now() - liveSessionStartedAt) / 1000))
 }
 
 /** Allowlisted design summary for deployment_requested — no node IDs or edges. */
@@ -333,6 +411,7 @@ export function utmFieldsFromSearch(
 export function __resetAnalyticsForTests(): void {
   client = null
   initAttempted = false
+  sessionEndedForDeploymentId = null
 }
 
 /** Test helper — inject a fake PostHog client. */

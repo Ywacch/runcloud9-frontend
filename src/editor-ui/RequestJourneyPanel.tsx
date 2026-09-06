@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { fmtMs } from '../lib/format'
+import { trackEvent } from '../lib/analytics'
 import { journeyStepHeading, type JourneySpec } from '../lib/requestJourney'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
@@ -24,6 +25,8 @@ interface RequestJourneyPanelProps {
   allJourneys: JourneySpec[]
   nodes: Record<string, CanvasNode>
   metrics: Record<string, MetricsBucket>
+  template: string
+  context: 'design' | 'live'
   onClose: () => void
   onSelectJourney: (id: string) => void
   onStartWalkthrough?: (journeyId: string) => void
@@ -36,6 +39,8 @@ export function RequestJourneyPanel({
   allJourneys,
   nodes,
   metrics,
+  template,
+  context,
   onClose,
   onSelectJourney,
   onStartWalkthrough,
@@ -56,6 +61,17 @@ export function RequestJourneyPanel({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
+
+  const selectJourney = (id: string) => {
+    if (id !== '__overview__') {
+      trackEvent('journey_selected', {
+        template,
+        journeyId: id,
+        context,
+      })
+    }
+    onSelectJourney(id)
+  }
 
   if (!open) return null
 
@@ -82,7 +98,7 @@ export function RequestJourneyPanel({
                   <button
                     type="button"
                     className="min-w-0 flex-1 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)]/40 px-3 py-2 text-left text-sm text-[var(--c9-text)] hover:border-cyan-500/40 hover:bg-[var(--c9-surface)]"
-                    onClick={() => onSelectJourney(j.id)}
+                    onClick={() => selectJourney(j.id)}
                   >
                     <span className="font-mono text-xs text-cyan-300/90">
                       {j.method} {j.path}
@@ -170,7 +186,7 @@ export function RequestJourneyPanel({
             <button
               type="button"
               className="rounded border border-[var(--c9-border)] px-3 py-2 text-xs text-[var(--c9-muted)] hover:text-[var(--c9-text)]"
-              onClick={() => onSelectJourney('__overview__')}
+              onClick={() => selectJourney('__overview__')}
             >
               All journeys
             </button>

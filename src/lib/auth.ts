@@ -7,6 +7,10 @@ import {
   trackEvent,
 } from './analytics'
 import {
+  isNewOAuthUser,
+  oauthAnalyticsProvider,
+} from './authAnalytics'
+import {
   applyDevAccountPreviewUser,
   DEV_ENGINEER_USER,
   isDevAccountPreviewEnabled,
@@ -50,11 +54,20 @@ export async function refreshCurrentUser(): Promise<void> {
     const me = await getMe()
     useAuthStore.getState().setCurrentUser(me)
     const supabaseUserId = useAuthStore.getState().session?.user?.id
+    const sessionUser = useAuthStore.getState().session?.user
     if (supabaseUserId && supabaseUserId !== identifiedUserId) {
+      const provider = sessionUser
+        ? oauthAnalyticsProvider(sessionUser.app_metadata?.provider)
+        : undefined
       identifyAnalyticsUser(supabaseUserId, {
         effectiveTier: me.effectiveTier,
+        ...(provider ? { provider } : {}),
       })
-      trackEvent('auth_succeeded', { effectiveTier: me.effectiveTier })
+      trackEvent('auth_succeeded', {
+        effectiveTier: me.effectiveTier,
+        isNewUser: sessionUser ? isNewOAuthUser(sessionUser) : false,
+        ...(provider ? { provider } : {}),
+      })
       identifiedUserId = supabaseUserId
     }
   } catch (err) {

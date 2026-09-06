@@ -7,6 +7,7 @@ import {
 import { FREE_TIER_DESIGN_LABEL } from './billingCopy'
 import { hasPaidTier, type UserRecord } from './userTier'
 import type { TemplateInfo } from './api'
+import { trackEvent } from './analytics'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
@@ -47,6 +48,7 @@ export function switchTemplatePresetMode(
   const preset = selectTemplatePreset(template, user, mode)
   if (!preset) return false
 
+  const previousMode = st.templatePresetMode
   useSimulationStore.getState().stop()
   st.loadTemplateSnapshot(
     templatePresetToCanvasSnapshot(preset, templateId),
@@ -54,5 +56,16 @@ export function switchTemplatePresetMode(
   )
   st.setLoadedVariationId(null)
   st.setTemplatePresetMode(mode)
+  if (
+    (previousMode === 'full' || previousMode === 'explorer') &&
+    (mode === 'full' || mode === 'explorer') &&
+    previousMode !== mode
+  ) {
+    trackEvent('preset_mode_switched', {
+      template: templateId,
+      from: previousMode,
+      to: mode,
+    })
+  }
   return true
 }
