@@ -151,6 +151,28 @@ describe('sumDesignBudget', () => {
     expect(parseMemoryBytes(got.requested.memory)).toBe(1024 * 1024 ** 2)
   })
 
+  it('counts postgres read replicas in explorer budget', () => {
+    const design: DeploymentDesign = {
+      ...socialFeedPullLiteDesign(),
+      nodes: socialFeedPullLiteDesign().nodes.map((node) =>
+        node.type === 'db'
+          ? {
+              ...node,
+              config: { readReplicas: 2, instanceSize: 'small' },
+            }
+          : node,
+      ),
+    }
+    const base = sumDesignBudget(socialFeedPullLiteDesign(), 'explorer', catalog)
+    const withReplicas = sumDesignBudget(design, 'explorer', catalog)
+    expect(parseCpuMilli(withReplicas.requested.cpu)).toBeGreaterThan(
+      parseCpuMilli(base.requested.cpu),
+    )
+    expect(
+      withReplicas.breakdown.some((row) => row.label.includes('PostgreSQL small×3')),
+    ).toBe(true)
+  })
+
   it('uses engineer caps when tier is engineer', () => {
     const got = sumDesignBudget(urlShortenerLiteDesign(), 'engineer', catalog)
     expect(got.cap.cpu).toBe('3375m')

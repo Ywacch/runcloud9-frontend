@@ -113,13 +113,28 @@ export function ensureLoadBalancerForReplicasInSnapshot(
   }
 }
 
+/** Add or remove the auto LB as compute replica count changes. */
+export function syncAutoLoadBalancerForReplicas(): void {
+  const st = useCanvasStore.getState()
+  const scaled = scaledComputeNodes(st.nodes)
+  if (scaled.length > 0) {
+    if (!hasLoadBalancer(st.nodes)) {
+      injectAutoLoadBalancer(scaled)
+    }
+    return
+  }
+  removeAutoLoadBalancerIfPresent()
+}
+
 /** Inject LB + edges when any compute scales past 1 replica and no LB exists. */
 export function ensureLoadBalancerForReplicas(): void {
+  syncAutoLoadBalancerForReplicas()
+}
+
+function injectAutoLoadBalancer(scaled: CanvasNode[]): void {
   const st = useCanvasStore.getState()
   const { nodes, edges } = st
   if (hasLoadBalancer(nodes)) return
-
-  const scaled = scaledComputeNodes(nodes)
   if (scaled.length === 0) return
 
   const anchor = scaled.reduce((leftmost, n) =>
@@ -169,6 +184,31 @@ export function ensureLoadBalancerForReplicas(): void {
   }
 
   autoArrangeCanvasAfterLbInject()
+}
+
+function removeAutoLoadBalancerIfPresent(): void {
+  const st = useCanvasStore.getState()
+  const lb = st.nodes[AUTO_LOAD_BALANCER_ID]
+  if (!lb || lb.config.autoAdded !== true) return
+
+  const computeTargetId = Object.values(st.edges).find(
+    (edge) => edge.sourceId === AUTO_LOAD_BALANCER_ID,
+  )?.targetId
+
+  st.removeNode(AUTO_LOAD_BALANCER_ID)
+
+  if (!computeTargetId || !st.nodes[CLIENT_LOADGEN_ID]) return
+  if (Object.values(st.edges).some((edge) => edge.sourceId === CLIENT_LOADGEN_ID)) {
+    return
+  }
+
+  st.addEdge({
+    id: `edge-client-${computeTargetId}`,
+    sourceId: CLIENT_LOADGEN_ID,
+    targetId: computeTargetId,
+    protocol: defaultEdgeProtocol('client', 'compute'),
+    animated: true,
+  })
 }
 
 function autoArrangeCanvasAfterLbInject(): void {
