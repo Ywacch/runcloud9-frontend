@@ -1574,83 +1574,85 @@ function TypeFields({
               }}
             />
           </div>
-          <div>
-            <label className={labelClass} htmlFor="db-read-consistency">
-              <span className="inline-flex items-center gap-1">
-                Read consistency
-                <InfoTooltip text="How app reads are routed when read replicas are provisioned." />
-              </span>
-            </label>
-            <select
-              id="db-read-consistency"
-              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={readConsistency}
-              disabled={readOnly}
-              onChange={(e) => {
-                if (readOnly) return
-                const prev = readConsistency
-                const next = readConsistencyFromConfig(e.target.value)
-                updateConfig({ readConsistency: next })
-                const template =
-                  useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-                trackEvent('design_option_changed', {
-                  template,
-                  optionName: 'read_consistency',
-                  previousCategory: prev,
-                  newCategory: next,
-                })
-              }}
-            >
-              {READ_CONSISTENCY_POLICIES.map((policy) => (
-                <option
-                  key={policy}
-                  value={policy}
-                  disabled={
-                    !readOnly &&
-                    readConsistencyOptionDisabled(policy, readReplicas)
-                  }
-                  title={READ_CONSISTENCY_HELP[policy]}
+          {readReplicas >= 1 ? (
+            <>
+              <div>
+                <label className={labelClass} htmlFor="db-read-consistency">
+                  <span className="inline-flex items-center gap-1">
+                    Read consistency
+                    <InfoTooltip text="How app reads are routed when read replicas are provisioned." />
+                  </span>
+                </label>
+                <select
+                  id="db-read-consistency"
+                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  value={readConsistency}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    const prev = readConsistency
+                    const next = readConsistencyFromConfig(e.target.value)
+                    updateConfig({ readConsistency: next })
+                    const template =
+                      useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+                    trackEvent('design_option_changed', {
+                      template,
+                      optionName: 'read_consistency',
+                      previousCategory: prev,
+                      newCategory: next,
+                    })
+                  }}
                 >
-                  {READ_CONSISTENCY_LABEL[policy]}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              {READ_CONSISTENCY_HELP[readConsistency]}
-            </p>
-            {showReadConsistencyClampHint ? (
-              <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
-                {READ_CONSISTENCY_CLAMP_HINT}
-              </p>
-            ) : null}
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="db-replication-mode">
-              Replication
-            </label>
-            <select
-              id="db-replication-mode"
-              className={`${fieldClass}${readOnly || readReplicas === 0 ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={
-                readReplicas === 0
-                  ? 'async'
-                  : String(c.replicationMode ?? 'async') === 'sync'
-                    ? 'sync'
-                    : 'async'
-              }
-              disabled={readOnly || readReplicas === 0}
-              onChange={(e) => {
-                if (readOnly || readReplicas === 0) return
-                updateConfig({ replicationMode: e.target.value })
-              }}
-            >
-              <option value="async">Async</option>
-              <option value="sync">Sync</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Async: replica may lag. Sync: commits wait for standby.
-            </p>
-          </div>
+                  {READ_CONSISTENCY_POLICIES.map((policy) => (
+                    <option
+                      key={policy}
+                      value={policy}
+                      disabled={
+                        !readOnly &&
+                        readConsistencyOptionDisabled(policy, readReplicas)
+                      }
+                      title={READ_CONSISTENCY_HELP[policy]}
+                    >
+                      {READ_CONSISTENCY_LABEL[policy]}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {READ_CONSISTENCY_HELP[readConsistency]}
+                </p>
+                {showReadConsistencyClampHint ? (
+                  <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+                    {READ_CONSISTENCY_CLAMP_HINT}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="db-replication-mode">
+                  Replication
+                </label>
+                <select
+                  id="db-replication-mode"
+                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  value={
+                    String(c.replicationMode ?? 'async') === 'sync'
+                      ? 'sync'
+                      : 'async'
+                  }
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    updateConfig({ replicationMode: e.target.value })
+                  }}
+                >
+                  <option value="async">Async</option>
+                  <option value="sync">Sync</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Async: replica may lag. Sync: commits wait for standby.
+                </p>
+              </div>
+            </>
+          ) : null}
           {simulationMode ? (
             <>
               <div>
@@ -1798,4 +1800,30 @@ function TypeFields({
     default:
       return null
   }
+}
+
+/** Test and story helper for database TypeFields. */
+export function DatabaseNodeInspectorFields({
+  node,
+  nodes,
+  edges,
+  simulationMode = false,
+  updateConfig,
+  readOnly = false,
+}: {
+  node: CanvasNode
+  nodes: Record<string, CanvasNode>
+  edges: Record<string, CanvasEdge>
+  simulationMode?: boolean
+  updateConfig: (patch: Partial<CanvasNode['config']>) => void
+  readOnly?: boolean
+}) {
+  return TypeFields({
+    node: { ...node, type: 'database' },
+    nodes,
+    edges,
+    simulationMode,
+    updateConfig,
+    readOnly,
+  })
 }

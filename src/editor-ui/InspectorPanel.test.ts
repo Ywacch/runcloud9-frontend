@@ -8,7 +8,7 @@ import {
 } from '../lib/redisEvictionPolicy'
 import { VOLATILE_NO_EXPIRY_WARNING } from '../lib/cacheTtl'
 import { WRITE_BEHIND_INTERVAL_VALIDATION } from '../lib/writeBehindInterval'
-import { CacheNodeInspectorFields } from './InspectorPanel'
+import { CacheNodeInspectorFields, DatabaseNodeInspectorFields } from './InspectorPanel'
 
 vi.mock('../product/stores/authStore', () => ({
   useAuthStore: (selector: (state: { isPremium: boolean }) => unknown) =>
@@ -336,5 +336,43 @@ describe('CacheNodeInspectorFields readOnly (live Config)', () => {
     expect(html).toContain('Proxy size')
     expect(html).toContain('disabled=""')
     expect(html).not.toContain('(fix wiring)')
+  })
+})
+
+function renderDatabaseInspector(readReplicas: number): string {
+  const node: CanvasNode = {
+    id: 'db',
+    type: 'database',
+    position: [0, 0, 0],
+    label: 'DB',
+    config: { readReplicas },
+    status: 'idle',
+  }
+
+  return renderToStaticMarkup(
+    createElement(DatabaseNodeInspectorFields, {
+      node,
+      nodes: { db: node },
+      edges: {},
+      updateConfig: vi.fn(),
+    }),
+  )
+}
+
+describe('DatabaseNodeInspectorFields applicable knobs', () => {
+  it('hides replication and read consistency when readReplicas is 0', () => {
+    const html = renderDatabaseInspector(0)
+
+    expect(html).toContain('id="db-read-replicas"')
+    expect(html).not.toContain('id="db-replication-mode"')
+    expect(html).not.toContain('id="db-read-consistency"')
+  })
+
+  it('shows replication and read consistency when readReplicas is at least 1', () => {
+    const html = renderDatabaseInspector(1)
+
+    expect(html).toContain('id="db-read-replicas"')
+    expect(html).toContain('id="db-replication-mode"')
+    expect(html).toContain('id="db-read-consistency"')
   })
 })
