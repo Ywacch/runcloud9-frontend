@@ -1,5 +1,5 @@
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   type DeploymentResult,
   createDeployment,
@@ -46,6 +46,7 @@ import {
   UPGRADE_TO_UNLOCK_TOOLTIP,
 } from '../lib/billingCopy'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
+import { REQUEST_DEPLOY_EVENT } from '../lib/deployEvents'
 import {
   canPickSessionLength,
   clampSessionMinutes,
@@ -150,6 +151,7 @@ function getEmptyDragImage(): HTMLCanvasElement {
 
 export function Sidebar() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const mode = useCanvasStore((s) => s.mode)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
@@ -803,6 +805,24 @@ export function Sidebar() {
     setPendingDeployAfterAuth(false)
     void runDeploy()
   }, [session, pendingDeployAfterAuth, runDeploy, setPendingDeployAfterAuth])
+
+  useEffect(() => {
+    const onRequestDeploy = () => {
+      void runDeploy()
+    }
+    window.addEventListener(REQUEST_DEPLOY_EVENT, onRequestDeploy)
+    return () => window.removeEventListener(REQUEST_DEPLOY_EVENT, onRequestDeploy)
+  }, [runDeploy])
+
+  useEffect(() => {
+    if (searchParams.get('redeploy') !== '1') return
+    const next = new URLSearchParams(searchParams)
+    next.delete('redeploy')
+    setSearchParams(next, { replace: true })
+    queueMicrotask(() => {
+      void runDeploy()
+    })
+  }, [searchParams, setSearchParams, runDeploy])
 
   const dismissAuthModal = useCallback(() => {
     setPendingDeployAfterAuth(false)
