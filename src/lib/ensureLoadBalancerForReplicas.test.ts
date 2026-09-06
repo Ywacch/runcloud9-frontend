@@ -4,7 +4,9 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import {
   AUTO_LOAD_BALANCER_ID,
   ensureLoadBalancerForReplicas,
+  ensureLoadBalancerForReplicasInSnapshot,
 } from './ensureLoadBalancerForReplicas'
+import { snapshotToDeploymentDesign } from './deployPayload'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 import { canvasPositionToSvgWorld } from '../svg-canvas/bridge/canvasSvgAdapter'
 
@@ -131,5 +133,55 @@ describe('ensureLoadBalancerForReplicas', () => {
       targetId: AUTO_LOAD_BALANCER_ID,
     })
     expect(edges['edge-client-app-1']).toBeUndefined()
+  })
+})
+
+describe('ensureLoadBalancerForReplicasInSnapshot', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      nodes: {},
+      edges: {},
+      selectedId: null,
+      selectedIds: [],
+      snapshotTemplateId: 'url-shortener',
+    })
+  })
+
+  it('injects LB in the returned snapshot without mutating the canvas store', () => {
+    useCanvasStore.setState({
+      nodes: { 'app-1': computeNode('app-1', 2, [6, 0.3, 0]) },
+      edges: {},
+    })
+    ensureLoadBalancerForReplicas()
+    useCanvasStore.getState().removeNode(AUTO_LOAD_BALANCER_ID)
+
+    const snapshot = useCanvasStore.getState().exportJSON()
+    expect(snapshot.nodes.some((node) => node.id === AUTO_LOAD_BALANCER_ID)).toBe(
+      false,
+    )
+
+    const withLb = ensureLoadBalancerForReplicasInSnapshot(snapshot)
+    expect(withLb.nodes.some((node) => node.id === AUTO_LOAD_BALANCER_ID)).toBe(
+      true,
+    )
+    expect(
+      useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID],
+    ).toBeUndefined()
+  })
+
+  it('snapshotToDeploymentDesign with mutateCanvas false leaves the store unchanged', () => {
+    useCanvasStore.setState({
+      nodes: { 'app-1': computeNode('app-1', 2, [6, 0.3, 0]) },
+      edges: {},
+    })
+    ensureLoadBalancerForReplicas()
+    useCanvasStore.getState().removeNode(AUTO_LOAD_BALANCER_ID)
+
+    const snapshot = useCanvasStore.getState().exportJSON()
+    snapshotToDeploymentDesign(snapshot, { mutateCanvas: false })
+
+    expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]).toBeUndefined()
+    const design = snapshotToDeploymentDesign(snapshot, { mutateCanvas: false })
+    expect(design.nodes.some((node) => node.type === 'lb')).toBe(true)
   })
 })

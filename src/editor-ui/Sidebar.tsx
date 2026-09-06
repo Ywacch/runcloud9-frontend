@@ -35,6 +35,7 @@ import {
   isAtMonthlySessionCap,
 } from '../lib/deployQueue'
 import { ApiError } from '../lib/apiError'
+import { ResourceBudgetApiError } from '../lib/resourceBudgetError'
 import {
   explorerComponentLocksActive,
   isEngineerOnlyNodeType,
@@ -331,13 +332,29 @@ export function Sidebar() {
   const quotaPreview = useMemo(() => {
     if (live || simulate || !snapshotTemplateId || nodeCount === 0) return null
     try {
-      const design = snapshotToDeploymentDesign(useCanvasStore.getState().exportJSON())
+      const design = snapshotToDeploymentDesign(
+        useCanvasStore.getState().exportJSON(),
+        { mutateCanvas: false },
+      )
       const over = designExceedsResourceQuota(design, quotaTier)
       return over ? toResourceBudgetErrorResponse(over) : null
-    } catch {
+    } catch (e) {
+      console.error('quota preview failed', e)
       return null
     }
   }, [live, simulate, snapshotTemplateId, nodeCount, nodes, edges, quotaTier])
+
+  const quotaPreviewFailed = useMemo(() => {
+    if (live || simulate || !snapshotTemplateId || nodeCount === 0) return false
+    try {
+      snapshotToDeploymentDesign(useCanvasStore.getState().exportJSON(), {
+        mutateCanvas: false,
+      })
+      return false
+    } catch {
+      return true
+    }
+  }, [live, simulate, snapshotTemplateId, nodeCount, nodes, edges])
 
   const quotaDisplay = useMemo(
     () =>
@@ -376,7 +393,9 @@ export function Sidebar() {
           ? topologyViolations[0].message
         : quotaDisplay
           ? `Needs ${quotaDisplay.requested.cpu} CPU / ${quotaDisplay.requested.memory} RAM (${displayQuotaTierLabel(quotaTier)} canvas cap ${quotaDisplay.cap.cpu} / ${quotaDisplay.cap.memory})`
-          : undefined
+          : quotaPreviewFailed
+            ? 'Could not validate resource quota for this design.'
+            : undefined
 
   const togglePlace = (type: CanvasNode['type']) => {
     if (useCanvasStore.getState().loadedVariationId) return
@@ -447,15 +466,38 @@ export function Sidebar() {
         : 'template_not_available'
     }
     if (quotaPreview) return 'resource_quota_exceeded'
+    if (quotaPreviewFailed) return 'resource_quota_exceeded'
     if (topologyViolations.length > 0) return 'topology_violation'
     return null
   }, [
     nodeCount,
     quotaPreview,
+    quotaPreviewFailed,
     selectedTemplate,
     snapshotTemplateId,
     topologyViolations.length,
   ])
+
+  const showResourceQuotaRejected = useCallback(() => {
+    if (!quotaPreview) return
+    const friendly = mapDeployRequestError(
+      new ResourceBudgetApiError(quotaPreview),
+      { isFreeUser: !isPremiumUser, quotaTier },
+    )
+    setDeploying(false)
+    setDeployModalOpen(true)
+    setDeployModalMode('request_rejected')
+    setDeployRequestMessage(friendly)
+    setDeployResourceBudget(friendly.resourceBudget ?? null)
+    setDeploySimulationMessage(null)
+    setDeploySteps((steps) =>
+      steps.map((step) =>
+        step.state === 'active'
+          ? { ...step, state: 'error' as const, detail: 'Failed' }
+          : step,
+      ),
+    )
+  }, [isPremiumUser, quotaPreview, quotaTier])
 
   const trackDeployModalDismissed = useCallback(
     (
@@ -488,6 +530,15 @@ export function Sidebar() {
   )
 
   const executeDeploy = useCallback(async () => {
+    if (quotaPreview) {
+      trackDeployBlocked(
+        'resource_quota_exceeded',
+        useCanvasStore.getState().snapshotTemplateId ?? undefined,
+      )
+      showResourceQuotaRejected()
+      return
+    }
+
     setDeploying(true)
     setBanner(null)
     setDeployModalOpen(true)
@@ -618,7 +669,16 @@ export function Sidebar() {
       )
       setDeploying(false)
     }
-  }, [finishDeployCreate, isPremiumUser, sessionMinutesChoice, setPendingDeployAfterAuth])
+  }, [
+    finishDeployCreate,
+    isPremiumUser,
+    quotaPreview,
+    quotaTier,
+    sessionMinutesChoice,
+    setPendingDeployAfterAuth,
+    showResourceQuotaRejected,
+    trackDeployBlocked,
+  ])
 
   const runDeploy = useCallback(async () => {
     if (live || deploying) return
@@ -707,14 +767,22 @@ export function Sidebar() {
       return
     }
 
+    if (quotaPreview) {
+      trackDeployBlocked('resource_quota_exceeded', stCheck.snapshotTemplateId)
+      showResourceQuotaRejected()
+      return
+    }
+
     await executeDeploy()
   }, [
     deploying,
     live,
     nodeCount,
+    quotaPreview,
     selectedTemplate,
     executeDeploy,
     setPendingDeployAfterAuth,
+    showResourceQuotaRejected,
     trackDeployBlocked,
   ])
 
@@ -1038,18 +1106,10 @@ export function Sidebar() {
             ) : null}
             <button
               type="button"
-              disabled={deploying}
+              disabled={deploying || !!deployBlockedReason}
               title={deployDisabledReason}
-              onClick={() => {
-                if (deployBlockedReason) {
-                  trackDeployBlocked(deployBlockedReason)
-                  return
-                }
-                handleDeploy()
-              }}
-              className={`w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50 ${
-                deployBlockedReason ? 'opacity-50' : ''
-              }`}
+              onClick={handleDeploy}
+              className="w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>

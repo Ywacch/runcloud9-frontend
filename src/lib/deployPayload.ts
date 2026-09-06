@@ -7,7 +7,10 @@ import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
 import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { DeploymentDesign } from './api'
-import { ensureLoadBalancerForReplicas } from './ensureLoadBalancerForReplicas'
+import {
+  ensureLoadBalancerForReplicas,
+  ensureLoadBalancerForReplicasInSnapshot,
+} from './ensureLoadBalancerForReplicas'
 import { normalizeReadConsistencyForDeploy } from './readConsistency'
 import {
   clampAppServerReplicas,
@@ -169,10 +172,14 @@ export function deployConfigForNode(
 
 export function snapshotToDeploymentDesign(
   snapshot: CanvasSnapshot,
-  opts?: { sessionMinutes?: number },
+  opts?: { sessionMinutes?: number; mutateCanvas?: boolean },
 ): DeploymentDesign {
-  ensureLoadBalancerForReplicas()
-  snapshot = useCanvasStore.getState().exportJSON()
+  if (opts?.mutateCanvas === false) {
+    snapshot = ensureLoadBalancerForReplicasInSnapshot(snapshot)
+  } else {
+    ensureLoadBalancerForReplicas()
+    snapshot = useCanvasStore.getState().exportJSON()
+  }
   const clientIds = new Set(
     snapshot.nodes.filter((n) => n.type === 'client').map((n) => n.id),
   )

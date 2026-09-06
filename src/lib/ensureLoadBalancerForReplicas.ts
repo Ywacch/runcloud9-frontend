@@ -1,4 +1,8 @@
-import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type {
+  CanvasEdge,
+  CanvasNode,
+  CanvasSnapshot,
+} from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { applyAutoArrange } from './applyAutoArrange'
 import { defaultEdgeProtocol } from './defaultEdgeProtocol'
@@ -28,6 +32,85 @@ function hasEdge(
   return Object.values(edges).some(
     (e) => e.sourceId === sourceId && e.targetId === targetId,
   )
+}
+
+function nodesRecord(nodes: CanvasNode[]): Record<string, CanvasNode> {
+  return Object.fromEntries(nodes.map((node) => [node.id, node]))
+}
+
+function edgesRecord(edges: CanvasEdge[]): Record<string, CanvasEdge> {
+  return Object.fromEntries(edges.map((edge) => [edge.id, edge]))
+}
+
+/** Pure LB inject for quota preview and budget math — does not touch the canvas store. */
+export function ensureLoadBalancerForReplicasInSnapshot(
+  snapshot: CanvasSnapshot,
+): CanvasSnapshot {
+  const nodeMap = { ...nodesRecord(snapshot.nodes) }
+  let nextEdges = [...snapshot.edges]
+  const edgeMap = edgesRecord(nextEdges)
+
+  if (hasLoadBalancer(nodeMap)) return snapshot
+
+  const scaled = scaledComputeNodes(nodeMap)
+  if (scaled.length === 0) return snapshot
+
+  const anchor = scaled.reduce((leftmost, node) =>
+    node.position[0] < leftmost.position[0] ? node : leftmost,
+  )
+  const position: [number, number, number] = [
+    anchor.position[0] - 3,
+    anchor.position[1],
+    anchor.position[2],
+  ]
+
+  const lbNode = createCanvasNode('load_balancer', position, nodeMap)
+  lbNode.id = AUTO_LOAD_BALANCER_ID
+  lbNode.label = 'Load Balancer'
+  lbNode.config = {
+    ...lbNode.config,
+    algorithm: 'round-robin',
+    autoAdded: true,
+  }
+  nodeMap[AUTO_LOAD_BALANCER_ID] = lbNode
+
+  for (const compute of scaled) {
+    if (hasEdge(edgeMap, AUTO_LOAD_BALANCER_ID, compute.id)) continue
+    const edge: CanvasEdge = {
+      id: `edge-${AUTO_LOAD_BALANCER_ID}-${compute.id}`,
+      sourceId: AUTO_LOAD_BALANCER_ID,
+      targetId: compute.id,
+      protocol: defaultEdgeProtocol('load_balancer', 'compute'),
+      animated: false,
+    }
+    nextEdges.push(edge)
+    edgeMap[edge.id] = edge
+  }
+
+  if (nodeMap[CLIENT_LOADGEN_ID]) {
+    const clientEdgeIndex = nextEdges.findIndex(
+      (edge) => edge.sourceId === CLIENT_LOADGEN_ID,
+    )
+    if (
+      clientEdgeIndex >= 0 &&
+      nextEdges[clientEdgeIndex]!.targetId !== AUTO_LOAD_BALANCER_ID
+    ) {
+      nextEdges = nextEdges.filter((_, index) => index !== clientEdgeIndex)
+      nextEdges.push({
+        id: `edge-client-${AUTO_LOAD_BALANCER_ID}`,
+        sourceId: CLIENT_LOADGEN_ID,
+        targetId: AUTO_LOAD_BALANCER_ID,
+        protocol: defaultEdgeProtocol('client', 'load_balancer'),
+        animated: true,
+      })
+    }
+  }
+
+  return {
+    ...snapshot,
+    nodes: Object.values(nodeMap),
+    edges: nextEdges,
+  }
 }
 
 /** Inject LB + edges when any compute scales past 1 replica and no LB exists. */
