@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import {
   useMetricsStore,
@@ -13,6 +13,10 @@ import {
   resetCanvasSvgBridgeForTests,
   useSvgCanvasStore,
 } from '../store/svgCanvasStore'
+
+vi.mock('../../lib/featureFlags', () => ({
+  SHOW_SIMULATION_UI: true,
+}))
 
 function highCpuMetrics(): MetricsBucket {
   return {
