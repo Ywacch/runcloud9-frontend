@@ -16,12 +16,12 @@
     {
       "path": "/privacy",
       "title": "Privacy Policy | runcloud9",
-      "description": "How RunCloud9 handles account, session, analytics, and billing data."
+      "description": "How RunCloud9 handles account, session, and analytics data."
     },
     {
       "path": "/terms",
       "title": "Terms of Service | runcloud9",
-      "description": "Terms for using RunCloud9, including acceptable use, billing, and disclaimers."
+      "description": "Terms for using RunCloud9, including acceptable use and disclaimers."
     }
   ]
 }

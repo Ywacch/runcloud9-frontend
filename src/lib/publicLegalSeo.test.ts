@@ -8,10 +8,10 @@ describe('public legal SEO content', () => {
     const html = renderLegalDocumentHtml(legalContent.terms)
     expect(html).toContain('Terms of Service')
     expect(html).toContain('operator of RunCloud9')
-    expect(html).toContain('Stop subscription')
+    expect(html).toContain('Paid plans may be offered later')
     expect(html).toContain('Indemnification')
-    expect(html).toContain('US$100')
-    expect(html).not.toContain('invite alpha')
+    expect(html).not.toContain('Stop subscription')
+    expect(html).not.toContain('Stripe')
   })
 
   it('renders full privacy HTML for crawlers', () => {
@@ -19,8 +19,10 @@ describe('public legal SEO content', () => {
     expect(html).toContain('Privacy Policy')
     expect(html).toContain('What we collect')
     expect(html).toContain('Processors and sharing')
+    expect(html).toContain('Google or GitHub')
     expect(html).toContain('Discord')
-    expect(html).not.toContain('invite alpha')
+    expect(html).not.toContain('Stripe')
+    expect(html).not.toContain('Engineer subscriptions')
   })
 
   it('keeps marketing SEO meta free of invite-only alpha copy', () => {

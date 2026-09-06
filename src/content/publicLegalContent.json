@@ -1,7 +1,7 @@
 {
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "30 August 2026",
+    "lastUpdated": "6 September 2026",
     "intro": "RunCloud9 is provided by its operator (\"we\", \"us\", \"our\"). By creating an account, signing in (email and password, Google, GitHub, or another method we offer), or using RunCloud9, you agree to these terms and our Privacy Policy. If you do not agree, do not use the service.",
     "sections": [
       {
@@ -22,6 +22,7 @@
         "heading": "The service",
         "paragraphs": [
           "RunCloud9 is an educational and experimental platform for learning distributed systems. We provision short-lived lab environments on shared cloud infrastructure. Features, limits, and availability may change without notice.",
+          "Paid plans may be offered later. Today, use is subject to the session and feature limits shown in the product.",
           "There is no service-level agreement. Sessions may fail, queue, or end early for capacity, maintenance, abuse, or technical problems.",
           "RunCloud9 is not a general-purpose hosting provider. Do not rely on it for production, mission-critical, safety-critical, financial, healthcare, emergency-response, or other high-consequence workloads."
         ]
@@ -57,7 +58,7 @@
           },
           {
             "label": "Limit evasion",
-            "text": "circumvent quotas, billing, access controls, or technical restrictions."
+            "text": "circumvent quotas, access controls, or technical restrictions."
           }
         ]
       },
@@ -84,23 +85,13 @@
       {
         "heading": "Third-party services",
         "paragraphs": [
-          "RunCloud9 depends on third-party infrastructure and services (including cloud providers, authentication, payments, analytics, and error monitoring). Those providers have their own terms and may experience outages or policy changes outside our control. We are not responsible for failures attributable solely to third parties."
-        ]
-      },
-      {
-        "heading": "Billing",
-        "paragraphs": [
-          "Paid subscriptions are billed through Stripe at the price and interval shown at checkout. By subscribing, you authorize recurring charges until you cancel. Taxes may apply where required by law.",
-          "You manage billing from your profile. Session and concurrent limits are those stated in the product at purchase. Failed payments may suspend paid features.",
-          { "lead": "Stop subscription", "text": " ends renewal at the end of the current billing period. You keep paid access until that period ends. We do not refund time already paid for when you stop renewal." },
-          { "lead": "Cancel & refund", "text": " ends paid access immediately and refunds the current period only if you have not used paid features in that Stripe billing period (no live sessions after the period started). If you have used them, Cancel & refund is unavailable; use Stop instead." },
-          "Unused time in a period you already paid for does not entitle you to a refund. We may correct billing errors or issue refunds for duplicate or unauthorized charges. Where law requires a refund, that law controls."
+          "RunCloud9 depends on third-party infrastructure and services (including cloud providers, authentication, analytics, and error monitoring). Those providers have their own terms and may experience outages or policy changes outside our control. We are not responsible for failures attributable solely to third parties."
         ]
       },
       {
         "heading": "Suspension and termination",
         "paragraphs": [
-          "We may suspend or terminate your access immediately if you violate these terms, create a security risk, engage in fraud or illegal activity, fail to pay, receive a valid legal request, or if we must protect the service or other users.",
+          "We may suspend or terminate your access immediately if you violate these terms, create a security risk, engage in fraud or illegal activity, receive a valid legal request, or if we must protect the service or other users.",
           "When a session ends, live cluster resources are destroyed. When an account is closed, we may retain account and deployment history for a period described in our Privacy Policy, then delete or anonymize it subject to legal obligations."
         ]
       },
@@ -154,7 +145,7 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "30 August 2026",
+    "lastUpdated": "6 September 2026",
     "intro": "This policy describes how the operator of RunCloud9 (\"we\", \"us\", \"our\") handles information when you use the service at www.runcloud9.io. The operator is the data controller for personal information described here.",
     "sections": [
       {
@@ -181,10 +172,6 @@
             "text": "client errors and performance signals via Sentry when enabled."
           },
           {
-            "label": "Billing",
-            "text": "if you upgrade, Stripe processes payment; we receive subscription status and customer identifiers, not full card numbers."
-          },
-          {
             "label": "Support messages",
             "text": "information you send when you contact us (for example through Discord), including your account email when you provide it for verification."
           }
@@ -193,7 +180,7 @@
       {
         "heading": "How we use it",
         "paragraphs": [
-          "We use personal information to provide and secure the service, provision lab sessions, enforce quotas, authenticate users, process Engineer subscriptions, respond to support requests, improve reliability and UX, and comply with law. We do not sell your personal information."
+          "We use personal information to provide and secure the service, provision lab sessions, enforce quotas, authenticate users, respond to support requests, improve reliability and UX, and comply with law. We do not sell your personal information."
         ]
       },
       {
@@ -217,10 +204,6 @@
             "text": "Kubernetes workloads for lab sessions."
           },
           {
-            "label": "Stripe",
-            "text": "subscription billing."
-          },
-          {
             "label": "PostHog",
             "text": "product analytics."
           },
@@ -240,7 +223,7 @@
         "heading": "Retention",
         "paragraphs": [
           "Live cluster resources are torn down when sessions end. Account and deployment history are kept to operate dashboards and respond to support requests, typically until you delete your account or until we remove inactive accounts after at least twelve months of no sign-in, with notice when practical.",
-          "Analytics and error data follow each provider's retention settings. We may retain limited records longer where required for security, fraud prevention, billing disputes, or legal obligations."
+          "Analytics and error data follow each provider's retention settings. We may retain limited records longer where required for security, fraud prevention, abuse prevention, or legal obligations."
         ]
       },
       {
@@ -271,7 +254,7 @@
       {
         "heading": "Changes",
         "paragraphs": [
-          "We may update this policy. We will post the revised version on this page and update the \"Last updated\" date. Material changes may be communicated by email or in-product notice where appropriate."
+          "We may update this policy. We will post the revised version on this page and update the \"Last updated\" date. Material changes may be communicated by email or in-product notice where appropriate. If we later offer paid plans, we may collect payment-related information through a payment processor and will update this policy before doing so."
         ]
       },
       {

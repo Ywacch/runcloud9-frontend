@@ -54,10 +54,12 @@ function PlanMark({ included }: { included: boolean }) {
 function PlanBenefitMarks({
   limits,
   isFree,
+  showExplorerNotes,
   className,
 }: {
   limits: CurrentUserLimits | undefined
   isFree: boolean
+  showExplorerNotes: boolean
   className?: string
 }) {
   return (
@@ -73,7 +75,7 @@ function PlanBenefitMarks({
               }
             >
               {row.label}
-              {isFree && row.explorerNote ? (
+              {showExplorerNotes && isFree && row.explorerNote ? (
                 <span className="mt-0.5 block text-xs text-[var(--c9-muted)]">
                   {row.explorerNote}
                 </span>
@@ -284,6 +286,7 @@ export function PlanLimitsCard({
             <PlanBenefitMarks
               limits={limits}
               isFree={isFree}
+              showExplorerNotes={BILLING_ENABLED}
               className="space-y-2.5"
             />
           </div>
