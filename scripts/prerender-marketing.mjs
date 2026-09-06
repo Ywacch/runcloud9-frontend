@@ -33,6 +33,7 @@ const siteNav = `
     <a href="/about">About</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
+    <a href="/cookies">Cookies</a>
     <a href="/login">Sign in</a>
   </nav>`
 
@@ -58,6 +59,10 @@ const pageBodies = {
 </main>`,
   '/terms': `<main>
   ${renderLegalDocumentHtml(legalContent.terms)}
+  ${siteNav}
+</main>`,
+  '/cookies': `<main>
+  ${renderLegalDocumentHtml(legalContent.cookies)}
   ${siteNav}
 </main>`,
 }

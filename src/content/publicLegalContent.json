@@ -236,7 +236,7 @@
       {
         "heading": "Cookies and analytics",
         "paragraphs": [
-          "We use cookies and similar technologies needed for sign-in and security. PostHog may set analytics cookies or use similar technologies to understand product usage. You can limit cookies through your browser settings; some features may not work without essential cookies."
+          "We use essential cookies and similar technologies for sign-in and security. Analytics cookies and similar technologies (PostHog) are used only if you accept analytics in the cookie banner or choose Cookie settings in the website footer. See our Cookie Policy at /cookies for details."
         ]
       },
       {
@@ -261,6 +261,39 @@
         "heading": "Contact",
         "paragraphs": [
           "Data controller: the operator of RunCloud9. For privacy requests or account deletion, contact us through the Discord server linked in the website footer. Include your RunCloud9 account email so we can verify your request."
+        ]
+      }
+    ]
+  },
+  "cookies": {
+    "title": "Cookie Policy",
+    "lastUpdated": "6 September 2026",
+    "intro": "This policy explains how RunCloud9 uses cookies and similar technologies. Essential cookies are required for sign-in and security. Analytics cookies are optional and help us understand product usage.",
+    "sections": [
+      {
+        "heading": "Essential cookies",
+        "paragraphs": [
+          "We use cookies and similar technologies required for sign-in, session management, and security. These are provided through our authentication provider (Supabase) and are necessary for the product to work. You cannot turn off essential cookies while using RunCloud9."
+        ]
+      },
+      {
+        "heading": "Analytics cookies",
+        "paragraphs": [
+          "If you choose Accept analytics in the cookie banner, we load PostHog to collect usage analytics. PostHog may set cookies or use local storage (including localStorage+cookie persistence) to assign a distinct id and record product events such as sign-in, deployment, and session activity.",
+          "Analytics cookies are not set until you opt in. If you choose Essential only, we do not initialize PostHog."
+        ]
+      },
+      {
+        "heading": "How to change your choice",
+        "paragraphs": [
+          "Use Cookie settings in the website footer to reopen the banner and switch between Essential only and Accept analytics.",
+          "You can also review this policy at any time on this page (/cookies)."
+        ]
+      },
+      {
+        "heading": "Privacy",
+        "paragraphs": [
+          "For how we handle personal data, see our Privacy Policy at /privacy."
         ]
       }
     ]

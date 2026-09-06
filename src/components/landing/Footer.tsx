@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DISCORD_INVITE_URL } from '../../lib/featureFlags'
+import { requestCookieSettings } from '../../lib/cookieConsent'
 
 function RunCloud9Logo() {
   return (
@@ -30,6 +31,7 @@ const FOOTER_LINKS = [
   { label: 'About', to: '/about' },
   { label: 'Privacy', to: '/privacy' },
   { label: 'Terms', to: '/terms' },
+  { label: 'Cookies', to: '/cookies' },
 ] as const
 
 export function Footer() {
@@ -59,6 +61,13 @@ export function Footer() {
               Discord
             </a>
           ) : null}
+          <button
+            type="button"
+            onClick={requestCookieSettings}
+            className="text-sm text-c9-text-muted transition-colors hover:text-c9-text"
+          >
+            Cookie settings
+          </button>
         </nav>
         <p className="text-xs text-c9-text-muted">
           © {new Date().getFullYear()} RunCloud9

@@ -170,6 +170,7 @@ export function CacheBrowser({
   )
   const [pattern, setPattern] = useState(() => patterns[0] ?? '*')
   const [keys, setKeys] = useState<KeyInfo[]>([])
+  const [keyCount, setKeyCount] = useState<number | null>(null)
   const [nextCursor, setNextCursor] = useState(0)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [keyValue, setKeyValue] = useState<KeyValue | null>(null)
@@ -205,6 +206,7 @@ export function CacheBrowser({
       setError(null)
       setLoading(true)
       setKeys([])
+      setKeyCount(null)
       setNextCursor(0)
       setSelectedKey(null)
       setKeyValue(null)
@@ -213,6 +215,7 @@ export function CacheBrowser({
         const res = await fetchKeys(deploymentId, component, pat, 0, 50)
         setKeys(res.keys)
         setNextCursor(res.cursor)
+        setKeyCount(Number.isFinite(res.keyCount) ? Number(res.keyCount) : null)
         const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
         trackEvent('data_inspector_used', {
           template,
@@ -241,6 +244,9 @@ export function CacheBrowser({
       const res = await fetchKeys(deploymentId, component, pattern, nextCursor, 50)
       setKeys((k) => [...k, ...res.keys])
       setNextCursor(res.cursor)
+      if (Number.isFinite(res.keyCount)) {
+        setKeyCount(Number(res.keyCount))
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load more keys')
     } finally {
@@ -276,6 +282,11 @@ export function CacheBrowser({
 
   return (
     <div className="space-y-3">
+      {keyCount != null ? (
+        <p className="text-xs font-semibold text-[var(--c9-text)]">
+          {keyCount} {keyCount === 1 ? 'key' : 'keys'}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1 text-[10px]">
           <span className="font-semibold text-[var(--c9-muted)]">Pattern</span>

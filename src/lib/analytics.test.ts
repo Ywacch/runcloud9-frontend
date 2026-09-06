@@ -2,9 +2,11 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import {
   __resetAnalyticsForTests,
   __setAnalyticsClientForTests,
+  __analyticsInitAttemptedForTests,
   categorizeSafeError,
   deploymentAnalyticsProperties,
   identifyAnalyticsUser,
+  initAnalytics,
   referrerCategory,
   resetAnalytics,
   trackEvent,
@@ -12,6 +14,26 @@ import {
 } from './analytics'
 import type { DeploymentDesign } from './deploymentTypes'
 import { ApiError } from './apiError'
+import {
+  __resetCookieConsentForTests,
+  setCookieConsent,
+} from './cookieConsent'
+
+function installLocalStorageMock() {
+  const store = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
+    setItem: (key: string, value: string) => {
+      store.set(key, value)
+    },
+    removeItem: (key: string) => {
+      store.delete(key)
+    },
+    clear: () => {
+      store.clear()
+    },
+  })
+}
 
 describe('analytics wrappers', () => {
   const capture = vi.fn()
@@ -19,16 +41,38 @@ describe('analytics wrappers', () => {
   const reset = vi.fn()
 
   beforeEach(() => {
+    installLocalStorageMock()
     capture.mockReset()
     identify.mockReset()
     reset.mockReset()
+    __resetCookieConsentForTests()
     __resetAnalyticsForTests()
+    setCookieConsent('all')
     __setAnalyticsClientForTests({
       init: vi.fn(),
       capture,
       identify,
       reset,
     })
+  })
+
+  it('does not capture events without analytics consent', () => {
+    __resetCookieConsentForTests()
+    trackEvent('landing_cta_clicked', { ctaName: 'start_building' })
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('initAnalytics can run after consent is granted', async () => {
+    __resetCookieConsentForTests()
+    __resetAnalyticsForTests()
+    vi.stubEnv('VITE_POSTHOG_KEY', '')
+
+    await initAnalytics()
+    expect(__analyticsInitAttemptedForTests()).toBe(false)
+
+    setCookieConsent('all')
+    await initAnalytics()
+    expect(__analyticsInitAttemptedForTests()).toBe(true)
   })
 
   it('trackEvent forwards typed events to the client', () => {

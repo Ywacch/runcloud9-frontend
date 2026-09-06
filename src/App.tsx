@@ -10,6 +10,8 @@ import DashboardPage from './pages/DashboardPage'
 import AboutPage from './pages/AboutPage'
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
+import CookiesPage from './pages/CookiesPage'
+import { CookieConsentBanner } from './components/legal/CookieConsentBanner'
 import { LOADTEST_ROUTE_ENABLED } from './lib/featureFlags'
 import NavHeader from './editor-ui/NavHeader'
 import { DocumentMeta } from './components/seo/DocumentMeta'
@@ -83,6 +85,7 @@ export default function App() {
       <BrowserRouter>
         <DocumentMeta />
         <NavHeader />
+        <CookieConsentBanner />
         <Routes>
           <Route path="/" element={<HomeRoute />} />
           <Route path="/login" element={<LoginPage />} />
@@ -93,6 +96,7 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/cookies" element={<CookiesPage />} />
           <Route path="/pricing" element={<Navigate to="/" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/billing/success" element={<Navigate to="/profile" replace />} />

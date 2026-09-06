@@ -1,4 +1,5 @@
 import type { DeploymentDesign } from './deploymentTypes'
+import { hasAnalyticsConsent } from './cookieConsent'
 
 const DEFAULT_POSTHOG_HOST = 'https://us.i.posthog.com'
 
@@ -206,6 +207,7 @@ export function isAnalyticsEnabled(): boolean {
 /** Initialize PostHog when a key is present. Safe no-op without a key. */
 export async function initAnalytics(): Promise<void> {
   if (initAttempted) return
+  if (!hasAnalyticsConsent()) return
   initAttempted = true
   if (!isAnalyticsEnabled()) return
   const key = String(import.meta.env.VITE_POSTHOG_KEY).trim()
@@ -235,6 +237,7 @@ export function identifyAnalyticsUser(
   traits?: { effectiveTier?: string; provider?: OAuthAnalyticsProvider },
 ): void {
   if (!userId.trim()) return
+  if (!hasAnalyticsConsent()) return
   if (client) {
     client.identify(userId, traits)
   }
@@ -251,6 +254,7 @@ export function trackEvent<E extends AnalyticsEventName>(
   properties: AnalyticsEventMap[E],
 ): void {
   const props = properties as Record<string, unknown>
+  if (!hasAnalyticsConsent()) return
   if (client) client.capture(event, props)
   debugLog(event, props)
 }
@@ -412,6 +416,11 @@ export function __resetAnalyticsForTests(): void {
   client = null
   initAttempted = false
   sessionEndedForDeploymentId = null
+}
+
+/** Test helper — whether initAnalytics has marked initialization attempted. */
+export function __analyticsInitAttemptedForTests(): boolean {
+  return initAttempted
 }
 
 /** Test helper — inject a fake PostHog client. */

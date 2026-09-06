@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   fmtBytes,
   fmtErrorRate,
@@ -85,6 +86,7 @@ import {
 import { InlineDisclosure } from './InlineDisclosure'
 import { rollup, samplesFromCompute } from '../lib/instanceRollup'
 import { findDbLayer, type SelectedInstanceId } from '../lib/dbInstanceScope'
+import { fetchKeys } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 
 function truncatePodName(name: string, max = 28): string {
@@ -101,6 +103,49 @@ function useLiveMetricNumber(
   const tweened = useTweenedMetric(nodeId, field)
   if (mode === 'live' && tweened !== null) return tweened
   return raw
+}
+
+function CacheLiveKeyCount({
+  deploymentId,
+  pattern,
+}: {
+  deploymentId: string
+  pattern: string
+}) {
+  const [keyCount, setKeyCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const poll = async () => {
+      try {
+        const res = await fetchKeys(deploymentId, 'cache', pattern, 0, 1)
+        if (!cancelled && Number.isFinite(res.keyCount)) {
+          setKeyCount(Number(res.keyCount))
+        }
+      } catch {
+        // Ignore polling errors; the Data tab still offers full introspect.
+      }
+    }
+
+    void poll()
+    const timer = window.setInterval(() => {
+      void poll()
+    }, 10_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [deploymentId, pattern])
+
+  if (keyCount == null) return null
+
+  return (
+    <PedagogicalSection title="Keyspace" subtitle="Student cache keys in Redis">
+      <StatBlock label="Keys" value={fmtInt(keyCount)} />
+    </PedagogicalSection>
+  )
 }
 
 
@@ -167,6 +212,7 @@ export function LiveMetricsTypeSection({
   const resourceHelp = resourceUsageHelp(m)
   const memHelp = memoryUsageHelp(m, clusterMemPercent)
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
+  const deploymentId = useCanvasStore((s) => s.deploymentId)
   const panelPrefix =
     m.runtimeHealth && m.runtimeHealth.pods.length > 0 ? (
       <RuntimeHealthSection
@@ -447,6 +493,10 @@ export function LiveMetricsTypeSection({
       return (
         <div className="space-y-5">
           <CacheStrategyBanner strategy={backendStrategy} />
+
+          {mode === 'live' && deploymentId ? (
+            <CacheLiveKeyCount deploymentId={deploymentId} pattern="*" />
+          ) : null}
 
           {timelineMode ? (
             <CacheTimelinePerformanceSection
@@ -822,6 +872,9 @@ export function LiveMetricsTypeSection({
                 </PedagogicalHint>
               </InlineDisclosure>
             ) : null}
+            <p className="text-[11px] text-[var(--c9-muted)]">
+              Message bodies: Data tab → Peek (requeues the head message).
+            </p>
           </PedagogicalSection>
 
           <InspectorDisclosure title="Engine detail & diagnostics">
