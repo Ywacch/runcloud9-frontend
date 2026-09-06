@@ -6,6 +6,7 @@ import {
   parseProvisionMetrics,
   shouldLingerProvisionOverlay,
   shouldUseLegacyProvisioningPulse,
+  PROVISION_OVERLAY_LINGER_MS,
 } from './provisionMetrics'
 
 const fullContract = {
@@ -152,6 +153,10 @@ describe('shouldLingerProvisionOverlay', () => {
     expect(shouldLingerProvisionOverlay(parseProvisionMetrics(fullContract))).toBe(
       true,
     )
+  })
+
+  it('holds the overlay for one second after live', () => {
+    expect(PROVISION_OVERLAY_LINGER_MS).toBe(1000)
   })
 })
 

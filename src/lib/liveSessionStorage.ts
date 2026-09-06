@@ -5,6 +5,8 @@ const LIVE_SESSION_KEY = 'runcloud9_live_session'
 interface PersistedLiveSession {
   deploymentId: string
   snapshot: CanvasSnapshot
+  /** Epoch ms when this deployment first started provisioning. */
+  provisionStartedAt?: number
 }
 
 export function persistLiveSession(
@@ -12,7 +14,17 @@ export function persistLiveSession(
   snapshot: CanvasSnapshot,
 ): void {
   try {
-    const payload: PersistedLiveSession = { deploymentId, snapshot }
+    const prev = readLiveSessionPersist()
+    const provisionStartedAt =
+      prev?.deploymentId === deploymentId &&
+      typeof prev.provisionStartedAt === 'number'
+        ? prev.provisionStartedAt
+        : Date.now()
+    const payload: PersistedLiveSession = {
+      deploymentId,
+      snapshot,
+      provisionStartedAt,
+    }
     localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(payload))
   } catch {
     /* quota / private mode */
@@ -41,8 +53,31 @@ export function readLiveSessionPersist(): PersistedLiveSession | null {
     ) {
       return null
     }
-    return { deploymentId: o.deploymentId, snapshot: o.snapshot as CanvasSnapshot }
+    const provisionStartedAt =
+      typeof o.provisionStartedAt === 'number' && Number.isFinite(o.provisionStartedAt)
+        ? o.provisionStartedAt
+        : undefined
+    return {
+      deploymentId: o.deploymentId,
+      snapshot: o.snapshot as CanvasSnapshot,
+      ...(provisionStartedAt != null ? { provisionStartedAt } : {}),
+    }
   } catch {
     return null
   }
+}
+
+/** Clock start for the provision overlay; null if this deployment is not persisted. */
+export function readPersistedProvisionStartedAt(
+  deploymentId: string,
+): number | null {
+  const persisted = readLiveSessionPersist()
+  if (persisted?.deploymentId !== deploymentId) return null
+  if (
+    typeof persisted.provisionStartedAt !== 'number' ||
+    !Number.isFinite(persisted.provisionStartedAt)
+  ) {
+    return null
+  }
+  return persisted.provisionStartedAt
 }

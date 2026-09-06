@@ -209,6 +209,9 @@ export function isTerminalLoadgenStatus(
   return state === 'ready' || state === 'failed' || state === 'skipped'
 }
 
+/** How long the checklist stays up after the session goes live. */
+export const PROVISION_OVERLAY_LINGER_MS = 1000
+
 /** Keep the checklist visible briefly after running when seed/loadgen rows are meaningful. */
 export function shouldLingerProvisionOverlay(
   parsed: ParsedProvisionMetrics | null,

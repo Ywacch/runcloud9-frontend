@@ -341,7 +341,10 @@ export function InspectorPanel() {
             />
             <div className="min-w-0 flex-1">
               <span className={labelClass}>Label</span>
-              {!liveMode && !engineerPreviewLocked && !variationTopologyLocked ? (
+              {!liveMode &&
+              !engineerPreviewLocked &&
+              !variationTopologyLocked &&
+              !deploymentId ? (
                 <input
                   id="runcloud9-inspector-label"
                   type="text"
@@ -501,10 +504,10 @@ export function InspectorPanel() {
                   edges={edges}
                   nodes={nodes}
                   simulationMode={simulationMode}
-                  readOnly={engineerPreviewLocked}
+                  readOnly={engineerPreviewLocked || Boolean(deploymentId)}
                   loadedVariationId={loadedVariationId}
                   updateConfig={
-                    engineerPreviewLocked
+                    engineerPreviewLocked || deploymentId
                       ? () => {}
                       : (patch) => updateNodeConfig(node.id, patch)
                   }
@@ -537,7 +540,7 @@ export function InspectorPanel() {
                 ) : null}
               </div>
               <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
-                {!variationTopologyLocked ? (
+                {!variationTopologyLocked && !deploymentId ? (
                   <button
                     type="button"
                     onClick={onDelete}

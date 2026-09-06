@@ -16,6 +16,7 @@ import {
   isWaitingForProvisionSlot,
   normalizeComponentProvisionState,
   parseProvisionMetrics,
+  PROVISION_OVERLAY_LINGER_MS,
   shouldLingerProvisionOverlay,
 } from '../lib/provisionMetrics'
 import {
@@ -24,7 +25,11 @@ import {
   shouldKeepDeployQueueFields,
   type DeployWaitKind,
 } from '../lib/deployWaitAnalytics'
-import { clearLiveSessionPersist } from '../lib/liveSessionStorage'
+import {
+  clearLiveSessionPersist,
+  persistLiveSession,
+  readPersistedProvisionStartedAt,
+} from '../lib/liveSessionStorage'
 import { discardWsEventsStorage } from '../lib/wsEventsPersist'
 import {
   exitLiveSessionDueToRemoteEnd,
@@ -110,7 +115,6 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   const [overlayMinimized, setOverlayMinimized] = useState(false)
   const [provisionLingerActive, setProvisionLingerActive] = useState(false)
   const provisionLingerActiveRef = useRef(false)
-  const provisionLingerTimerRef = useRef<number | null>(null)
   const provisionStartRef = useRef<number>(Date.now())
   const deploymentRunningTrackedRef = useRef<string | null>(null)
   const statusBeforeCancelRef = useRef<string | null>(null)
@@ -140,12 +144,20 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   useMetricsSync(realtimeDeploymentId)
   useLogSync(realtimeDeploymentId)
 
+  // Own effect so poll cleanup on mode → live cannot kill the 1s checklist hold.
+  useEffect(() => {
+    if (!provisionLingerActive) return
+    const id = window.setTimeout(() => {
+      provisionLingerActiveRef.current = false
+      setProvisionLingerActive(false)
+      setDeployStatus(null)
+      setProvisionMetricsSummary(null)
+    }, PROVISION_OVERLAY_LINGER_MS)
+    return () => window.clearTimeout(id)
+  }, [provisionLingerActive])
+
   useEffect(() => {
     if (!deploymentId) {
-      if (provisionLingerTimerRef.current !== null) {
-        window.clearTimeout(provisionLingerTimerRef.current)
-        provisionLingerTimerRef.current = null
-      }
       provisionLingerActiveRef.current = false
       setProvisionLingerActive(false)
       setDeployStatus(null)
@@ -181,7 +193,14 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
       if (timerId !== null) window.clearInterval(timerId)
     }
 
-    provisionStartRef.current = Date.now()
+    const persistedStart = readPersistedProvisionStartedAt(deploymentId)
+    provisionStartRef.current = persistedStart ?? Date.now()
+    if (persistedStart == null) {
+      persistLiveSession(deploymentId, useCanvasStore.getState().exportJSON())
+    }
+    setProvisioningElapsed(
+      Math.max(0, Math.floor((Date.now() - provisionStartRef.current) / 1000)),
+    )
     deploymentRunningTrackedRef.current = null
     activeWaitRef.current = null
     setOverlayMinimized(false)
@@ -354,16 +373,6 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           if (linger) {
             provisionLingerActiveRef.current = true
             setProvisionLingerActive(true)
-            if (provisionLingerTimerRef.current !== null) {
-              window.clearTimeout(provisionLingerTimerRef.current)
-            }
-            provisionLingerTimerRef.current = window.setTimeout(() => {
-              provisionLingerActiveRef.current = false
-              setProvisionLingerActive(false)
-              setDeployStatus(null)
-              setProvisionMetricsSummary(null)
-              provisionLingerTimerRef.current = null
-            }, 1000)
           } else {
             setDeployStatus(null)
             setProvisionMetricsSummary(null)
@@ -467,10 +476,6 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     return () => {
       cancelled = true
       stopPolling()
-      if (provisionLingerTimerRef.current !== null) {
-        window.clearTimeout(provisionLingerTimerRef.current)
-        provisionLingerTimerRef.current = null
-      }
     }
   }, [deploymentId, mode])
 
