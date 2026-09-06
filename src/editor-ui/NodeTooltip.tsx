@@ -184,10 +184,12 @@ export function NodeTooltip({
       : resourceUsageHelp(metrics)
     : undefined
   const memDisplay = metrics
-    ? tooltipMemoryDisplay(metrics, memPct, labels.mem, dbWarmingUp)
+    ? tooltipMemoryDisplay(metrics, memPct, labels.mem)
     : labels.mem
   const memTitle =
-    memDisplay !== labels.mem && labels.mem !== '-' ? labels.mem : undefined
+    metrics && !metrics.memIsEstimated && labels.mem !== '-'
+      ? labels.mem
+      : undefined
 
   const rps =
     grouped?.kind === 'single'

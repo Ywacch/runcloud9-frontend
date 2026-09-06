@@ -514,8 +514,7 @@ export function tooltipMemoryDisplay(
   m: MetricsBucket,
   memPercent: number,
   memLabel: string,
-  warmingUp = false,
 ): string {
-  if (m.memIsEstimated || warmingUp || m.memoryLimit <= 0) return memLabel
+  if (m.memIsEstimated) return memLabel
   return fmtPct(memPercent)
 }

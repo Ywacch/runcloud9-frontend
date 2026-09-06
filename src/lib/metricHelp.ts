@@ -13,7 +13,7 @@ export const METRICS_API_FRESHNESS_HELP =
 export const ALLOCATED_NOT_MEASURED_HELP =
   'Allocated, not measured. Kube request/limit placeholder, not a live observation.'
 export const TIER_C_WARMUP_HELP =
-  'Kubernetes Metrics API samples can step for the first minute on Autopilot. Use query rate and storage execution above for live DB pressure.'
+  'CPU and memory can look high for about a minute after the database starts.'
 
 export const THROUGHPUT_HELP =
   'Request throughput through this component (rolling view from the metrics stream).'

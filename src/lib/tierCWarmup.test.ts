@@ -135,7 +135,7 @@ describe('dbClusterResourceHelp', () => {
   })
 
   it('shows warmup help during tier C warmup', () => {
-    expect(dbClusterResourceHelp(bucket({}), true)).toMatch(/first minute/)
+    expect(dbClusterResourceHelp(bucket({}), true)).toMatch(/about a minute/)
   })
 
   it('shows metrics API freshness after warmup', () => {

@@ -101,6 +101,13 @@ describe('tooltip resource labels', () => {
     expect(labels.mem).toContain('MB')
   })
 
+  it('shows percent-only memory when limit is unknown', () => {
+    const b = bucket({ memoryLimit: 0 })
+    const memPct = clampPercent(b.memPercent)
+    const labels = formatResourceLabels(b, 8, memPct)
+    expect(tooltipMemoryDisplay(b, memPct, labels.mem)).toBe('47%')
+  })
+
   it('keeps full memory label in tooltip when estimated', () => {
     const b = bucket({ memIsEstimated: true })
     const labels = formatResourceLabels(b, 0, 0)
