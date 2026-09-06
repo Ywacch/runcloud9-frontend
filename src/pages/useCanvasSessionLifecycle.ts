@@ -32,7 +32,8 @@ import {
 } from '../lib/sessionCapture'
 import { parseRunningAtMs } from '../lib/sessionMinutes'
 import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
-import { trackEvent } from '../lib/analytics'
+import { trackEvent, analyticsPresetModeFromStore, trackSessionEndedOnce, sessionEndedDurationSeconds } from '../lib/analytics'
+import { useAuthStore } from '../product/stores/authStore'
 import {
   overlayWaitKindFromFlags,
   useDeployTabSignals,
@@ -118,11 +119,21 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     enteredAt: number
     queuePosition?: number
   } | null>(null)
+  const tabHiddenRef = useRef<{
+    hiddenAt: number
+    waitKind: DeployWaitKind
+  } | null>(null)
 
   useEffect(() => {
     const st = useCanvasStore.getState()
     const restored = Boolean(st.deploymentId || st.liveSessionEndsAt || st.snapshotTemplateId)
-    trackEvent('canvas_opened', { mode: restored ? 'restored' : 'new' })
+    const authenticated = Boolean(useAuthStore.getState().session)
+    const presetMode = analyticsPresetModeFromStore(st.templatePresetMode)
+    trackEvent('canvas_opened', {
+      mode: restored ? 'restored' : 'new',
+      authenticated,
+      ...(presetMode ? { presetMode } : {}),
+    })
   }, [])
 
   const realtimeDeploymentId = mode === 'live' ? deploymentId : null
@@ -399,6 +410,14 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
             phase: 'provision',
             errorCategory: 'server',
           })
+          const failSt = useCanvasStore.getState()
+          trackSessionEndedOnce(deploymentId, {
+            template: templateName(),
+            reason: 'failed',
+            durationSeconds: sessionEndedDurationSeconds(
+              failSt.liveSessionStartedAt,
+            ),
+          })
           setProvisioningError('Deployment failed during provisioning.')
           setIsTerminating(false)
           stopPolling()
@@ -553,6 +572,39 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     provisioningError,
   })
 
+  useEffect(() => {
+    if (deployStatus !== 'queued' && deployStatus !== 'provisioning') {
+      tabHiddenRef.current = null
+      return
+    }
+
+    const onVisibilityChange = () => {
+      const waitKind = deriveDeployWaitKind(deployStatus, provisionPhase)
+      if (!waitKind) return
+
+      if (document.hidden) {
+        tabHiddenRef.current = { hiddenAt: Date.now(), waitKind }
+        return
+      }
+
+      const hidden = tabHiddenRef.current
+      tabHiddenRef.current = null
+      if (!hidden) return
+
+      trackEvent('provision_tab_returned', {
+        template: snapshotTemplateId ?? 'unknown',
+        waitKind: hidden.waitKind,
+        hiddenSeconds: Math.max(
+          0,
+          Math.floor((Date.now() - hidden.hiddenAt) / 1000),
+        ),
+      })
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [deployStatus, provisionPhase, snapshotTemplateId])
+
   const cancelProvisioning = useCallback(() => {
     if (!deploymentId || isTerminating) return
     statusBeforeCancelRef.current =
@@ -562,6 +614,14 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     setIsTerminating(true)
     setDeployStatus('terminating')
     setTerminationMessage(null)
+    const cancelSt = useCanvasStore.getState()
+    trackSessionEndedOnce(deploymentId, {
+      template: cancelSt.snapshotTemplateId ?? 'unknown',
+      reason: 'user_teardown',
+      durationSeconds: sessionEndedDurationSeconds(
+        cancelSt.liveSessionStartedAt,
+      ),
+    })
     void deleteDeployment(deploymentId).catch((err) => {
       const msg =
         err instanceof Error

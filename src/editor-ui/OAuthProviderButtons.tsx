@@ -1,6 +1,7 @@
 import { useState, type ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { mapSupabaseOAuthError } from '../lib/authErrorMessage'
+import { trackEvent } from '../lib/analytics'
 import { primeAuthReturnTo } from '../lib/authReturn'
 import {
   OAUTH_PROVIDERS,
@@ -83,6 +84,7 @@ export function OAuthProviderButtons({
     setError(null)
     setBusyProvider(provider)
     primeAuthReturnTo(authReturnPath, { overwrite: overwriteAuthReturnPath })
+    trackEvent('auth_started', { provider })
     try {
       const { error: oauthError } = await signInWithOAuthProvider(provider)
       if (oauthError) {

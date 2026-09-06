@@ -118,6 +118,7 @@ export function LiveSessionStrip() {
   const [error, setError] = useState<string | null>(null)
   const lastPatchRef = useRef<{ rps: number; distSnap: string } | null>(null)
   const patchTimerRef = useRef<number | null>(null)
+  const loadgenStartedAtRef = useRef<number | null>(null)
   const [loadOpen, setLoadOpen] = useState(false)
   const [chipsOpen, setChipsOpen] = useState(readChipsOpen)
   const [previewLoadActive, setPreviewLoadActive] = useState(true)
@@ -438,8 +439,12 @@ export function LiveSessionStrip() {
 
   const openJourneyOverview = useCallback(() => {
     if (allJourneys.length === 0) return
+    trackEvent('journey_panel_opened', {
+      template: snapshotTemplateId ?? 'unknown',
+      context: 'live',
+    })
     setJourneyUi({ open: true, overview: true, id: null })
-  }, [allJourneys.length])
+  }, [allJourneys.length, snapshotTemplateId])
 
   const closeJourney = useCallback(() => {
     setJourneyUi({ open: false, overview: false, id: null })
@@ -472,6 +477,7 @@ export function LiveSessionStrip() {
         distSnap: mixDistribution ? distributionSnapshot(mixDistribution) : '',
       }
       writeLoadSessionPrefs(deploymentId, buildSessionPrefs())
+      loadgenStartedAtRef.current = Date.now()
       trackEvent('loadgen_started', {
         template: snapshotTemplateId ?? '',
         rps,
@@ -512,7 +518,18 @@ export function LiveSessionStrip() {
     setError(null)
     try {
       await stopLoadGen(deploymentId)
-      trackEvent('loadgen_stopped', { template: snapshotTemplateId ?? '' })
+      const liveSeconds =
+        loadgenStartedAtRef.current != null
+          ? Math.max(
+              0,
+              Math.floor((Date.now() - loadgenStartedAtRef.current) / 1000),
+            )
+          : 0
+      loadgenStartedAtRef.current = null
+      trackEvent('loadgen_stopped', {
+        template: snapshotTemplateId ?? '',
+        liveSeconds,
+      })
     } catch (e) {
       debugAuthError(e, 'loadgen-stop')
       setError(
@@ -937,6 +954,8 @@ export function LiveSessionStrip() {
         allJourneys={allJourneys}
         nodes={nodes}
         metrics={metrics}
+        template={snapshotTemplateId ?? 'unknown'}
+        context="live"
         onClose={closeJourney}
         onSelectJourney={(id) => {
           if (id === '__overview__') {

@@ -105,6 +105,9 @@ import {
   trackEvent,
   deploymentAnalyticsProperties,
   categorizeSafeError,
+  analyticsPresetModeFromStore,
+  trackSessionEndedOnce,
+  sessionEndedDurationSeconds,
   type DeployBlockedReason,
 } from '../lib/analytics'
 import { loginPathWithReturnTo } from '../lib/authReturn'
@@ -634,9 +637,13 @@ export function Sidebar() {
       }
 
       finishDeployCreate(result)
+      const presetMode = analyticsPresetModeFromStore(
+        useCanvasStore.getState().templatePresetMode,
+      )
       trackEvent('deployment_requested', {
         ...deploymentAnalyticsProperties(design),
         admitStatus: deployAdmitStatusFromCreate(result.status),
+        ...(presetMode ? { presetMode } : {}),
       })
     } catch (e) {
       const friendly = mapDeployRequestError(e, {
@@ -814,6 +821,11 @@ export function Sidebar() {
     try {
       await deleteDeployment(deploymentId)
       const st = useCanvasStore.getState()
+      trackSessionEndedOnce(deploymentId, {
+        template: st.snapshotTemplateId ?? 'unknown',
+        reason: 'user_teardown',
+        durationSeconds: sessionEndedDurationSeconds(st.liveSessionStartedAt),
+      })
       if (st.nodes[CLIENT_LOADGEN_ID]) {
         st.removeNode(CLIENT_LOADGEN_ID)
       }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getTopologyFlags } from '../../lib/componentRole'
+import { trackEvent } from '../../lib/analytics'
 import { getJourneys, type JourneySpec } from '../../lib/requestJourney'
 import {
   buildJourneyWalkthroughPath,
@@ -115,9 +116,23 @@ export const useWalkthroughStore = create<WalkthroughState>((set, get) => ({
       speed: 1,
     })
     applyStepToCanvas(journey, path, 0)
+    trackEvent('walkthrough_started', {
+      template: templateId ?? 'unknown',
+      journeyId,
+    })
   },
 
   stop: () => {
+    const { activeJourneyId, journey, currentStepIndex } = get()
+    const templateId = useCanvasStore.getState().snapshotTemplateId
+    if (activeJourneyId && journey) {
+      trackEvent('walkthrough_stopped', {
+        template: templateId ?? 'unknown',
+        journeyId: activeJourneyId,
+        lastStepIndex: currentStepIndex,
+        stepCount: journey.steps.length,
+      })
+    }
     clearWalkthroughCanvas()
     useCanvasStore.getState().setMovementLocked(false)
     set({

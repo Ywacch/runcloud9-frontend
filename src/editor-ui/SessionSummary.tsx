@@ -295,6 +295,7 @@ export function SessionSummary() {
     trackEvent('session_summary_viewed', {
       template: summary.template ?? 'unknown',
       sessionDuration: summary.duration ?? '',
+      usedLoadgen: summary.peakRps > 0 || summary.totalRequests > 0,
     })
   }, [summary])
 

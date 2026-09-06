@@ -17,7 +17,9 @@ describe('deployWaitAnalytics', () => {
     expect(
       deriveDeployWaitKind('provisioning', 'waiting_for_provision_slot'),
     ).toBe('door')
-    expect(deriveDeployWaitKind('provisioning', 'deploying')).toBeNull()
+    expect(deriveDeployWaitKind('provisioning', 'deploying')).toBe(
+      'provisioning',
+    )
     expect(deriveDeployWaitKind('running', undefined)).toBeNull()
   })
 

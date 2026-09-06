@@ -7,6 +7,7 @@ import {
   type TemplateInfo,
 } from '../lib/api'
 import { sessionSummaryFromApiMetrics } from '../lib/sessionCapture'
+import { trackEvent } from '../lib/analytics'
 import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { SessionSummaryView } from './SessionSummary'
 import { fmtInt, fmtMs } from '../lib/format'
@@ -146,6 +147,7 @@ export function PastRunsSection() {
 
   const handleCardClick = async (item: PastRunListItem) => {
     if (detailLoading) return
+    trackEvent('past_run_opened', { template: item.template })
     setDetailLoading(true)
     try {
       const dep = await getDeployment(item.namespace)

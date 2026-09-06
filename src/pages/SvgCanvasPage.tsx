@@ -176,9 +176,13 @@ export default function SvgCanvasPage() {
                 <button
                   type="button"
                   className="pointer-events-auto rounded-lg border border-violet-500/40 bg-[var(--c9-surface)]/95 px-3 py-2 text-xs font-medium text-violet-200 shadow-lg backdrop-blur-sm hover:bg-violet-500/10"
-                  onClick={() =>
+                  onClick={() => {
+                    trackEvent('journey_panel_opened', {
+                      template: snapshotTemplateId ?? 'unknown',
+                      context: 'design',
+                    })
                     setDesignJourneyUi({ open: true, overview: true, id: null })
-                  }
+                  }}
                 >
                   Request journeys
                 </button>
@@ -198,6 +202,8 @@ export default function SvgCanvasPage() {
             allJourneys={designJourneys}
             nodes={nodes}
             metrics={metrics}
+            template={snapshotTemplateId ?? 'unknown'}
+            context="design"
             onClose={closeDesignJourney}
             onSelectJourney={(id) => {
               if (id === '__overview__') {
