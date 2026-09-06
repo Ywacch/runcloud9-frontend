@@ -22,6 +22,11 @@
       "path": "/terms",
       "title": "Terms of Service | runcloud9",
       "description": "Terms for using RunCloud9, including acceptable use and disclaimers."
+    },
+    {
+      "path": "/cookies",
+      "title": "Cookie Policy | runcloud9",
+      "description": "How RunCloud9 uses essential and analytics cookies, and how to change your preferences."
     }
   ]
 }

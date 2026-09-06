@@ -67,3 +67,4 @@ export function LegalDocument({ doc }: { doc: LegalDocumentData }) {
 
 export const termsDocument = legalContent.terms as LegalDocumentData
 export const privacyDocument = legalContent.privacy as LegalDocumentData
+export const cookiesDocument = legalContent.cookies as LegalDocumentData

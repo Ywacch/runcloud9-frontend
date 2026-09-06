@@ -33,6 +33,10 @@ export function LegalPageLayout({
           <Link to="/terms" className="hover:text-[var(--c9-text)]">
             Terms
           </Link>
+          {' · '}
+          <Link to="/cookies" className="hover:text-[var(--c9-text)]">
+            Cookies
+          </Link>
         </p>
       </article>
     </main>

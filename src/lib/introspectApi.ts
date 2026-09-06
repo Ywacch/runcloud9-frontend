@@ -82,6 +82,7 @@ export interface KeyValue {
 export interface KeyScanResult {
   keys: KeyInfo[]
   cursor: number
+  keyCount?: number
 }
 
 async function introspectGet<T>(
