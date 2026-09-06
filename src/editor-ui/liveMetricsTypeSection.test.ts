@@ -3,7 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
-import { LiveMetricsTypeSection } from './liveMetricsTypeSection'
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {},
+}))
 
 vi.mock('../editor-core/playback/useTweenedMetric', () => ({
   useTweenedMetric: () => null,
@@ -16,6 +19,8 @@ vi.mock('../editor-core/stores/canvasStore', () => ({
       deploymentId: null,
     }),
 }))
+
+import { LiveMetricsTypeSection } from './liveMetricsTypeSection'
 
 function mqMetrics(): MetricsBucket {
   return {
