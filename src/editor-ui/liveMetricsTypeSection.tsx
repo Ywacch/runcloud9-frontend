@@ -86,7 +86,7 @@ import {
 import { InlineDisclosure } from './InlineDisclosure'
 import { rollup, samplesFromCompute } from '../lib/instanceRollup'
 import { findDbLayer, type SelectedInstanceId } from '../lib/dbInstanceScope'
-import { fetchKeys } from '../lib/introspectApi'
+import { fetchCacheStats } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 
 function truncatePodName(name: string, max = 28): string {
@@ -105,13 +105,7 @@ function useLiveMetricNumber(
   return raw
 }
 
-function CacheLiveKeyCount({
-  deploymentId,
-  pattern,
-}: {
-  deploymentId: string
-  pattern: string
-}) {
+function CacheLiveKeyCount({ deploymentId }: { deploymentId: string }) {
   const [keyCount, setKeyCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -119,7 +113,7 @@ function CacheLiveKeyCount({
 
     const poll = async () => {
       try {
-        const res = await fetchKeys(deploymentId, 'cache', pattern, 0, 1)
+        const res = await fetchCacheStats(deploymentId, 'cache')
         if (!cancelled && Number.isFinite(res.keyCount)) {
           setKeyCount(Number(res.keyCount))
         }
@@ -137,7 +131,7 @@ function CacheLiveKeyCount({
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [deploymentId, pattern])
+  }, [deploymentId])
 
   if (keyCount == null) return null
 
@@ -495,7 +489,7 @@ export function LiveMetricsTypeSection({
           <CacheStrategyBanner strategy={backendStrategy} />
 
           {mode === 'live' && deploymentId ? (
-            <CacheLiveKeyCount deploymentId={deploymentId} pattern="*" />
+            <CacheLiveKeyCount deploymentId={deploymentId} />
           ) : null}
 
           {timelineMode ? (

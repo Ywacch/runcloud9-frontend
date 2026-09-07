@@ -85,6 +85,10 @@ export interface KeyScanResult {
   keyCount?: number
 }
 
+export interface CacheStatsResult {
+  keyCount?: number
+}
+
 async function introspectGet<T>(
   deploymentId: string,
   component: string,
@@ -186,6 +190,13 @@ export function fetchKeys(
     component,
     `keys?${params}`,
   )
+}
+
+export function fetchCacheStats(
+  deploymentId: string,
+  component: string,
+): Promise<CacheStatsResult> {
+  return introspectGet<CacheStatsResult>(deploymentId, component, 'stats')
 }
 
 export function fetchKeyValue(
