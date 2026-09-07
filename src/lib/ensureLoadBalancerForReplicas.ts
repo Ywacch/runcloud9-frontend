@@ -183,7 +183,7 @@ function injectAutoLoadBalancer(scaled: CanvasNode[]): void {
     }
   }
 
-  autoArrangeCanvasAfterLbInject()
+  autoArrangeAfterLbSync()
 }
 
 function removeAutoLoadBalancerIfPresent(): void {
@@ -197,20 +197,24 @@ function removeAutoLoadBalancerIfPresent(): void {
 
   st.removeNode(AUTO_LOAD_BALANCER_ID)
 
-  if (!computeTargetId || !st.nodes[CLIENT_LOADGEN_ID]) return
-  if (Object.values(st.edges).some((edge) => edge.sourceId === CLIENT_LOADGEN_ID)) {
-    return
+  const live = useCanvasStore.getState()
+  if (
+    computeTargetId &&
+    live.nodes[CLIENT_LOADGEN_ID] &&
+    !Object.values(live.edges).some((edge) => edge.sourceId === CLIENT_LOADGEN_ID)
+  ) {
+    live.addEdge({
+      id: `edge-client-${computeTargetId}`,
+      sourceId: CLIENT_LOADGEN_ID,
+      targetId: computeTargetId,
+      protocol: defaultEdgeProtocol('client', 'compute'),
+      animated: true,
+    })
   }
 
-  st.addEdge({
-    id: `edge-client-${computeTargetId}`,
-    sourceId: CLIENT_LOADGEN_ID,
-    targetId: computeTargetId,
-    protocol: defaultEdgeProtocol('client', 'compute'),
-    animated: true,
-  })
+  autoArrangeAfterLbSync()
 }
 
-function autoArrangeCanvasAfterLbInject(): void {
+function autoArrangeAfterLbSync(): void {
   applyAutoArrange({ recordHistory: false })
 }

@@ -1,23 +1,44 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
-import { fitStorePositionsToGrid } from '../canvas/utils/positionAdapter'
+import {
+  ISO_COL_MAX,
+  ISO_COL_MIN,
+  ISO_ROW_MAX,
+  ISO_ROW_MIN,
+  fitStorePositionsToGrid,
+} from '../canvas/utils/positionAdapter'
 
 // SVG host uses the Cloudcraft projector (x=(i-j)·64, y=(i+j)·37). To read
 // bottom-left → top-right, dependency layers must advance NE (right + up),
 // which is -j / -store.z. Siblings fan along the perpendicular ±i / store.x.
-// Keep the compact NE lattice from the Cloudcraft-style reference layout
-// (LAYER_STEP 6 / SIBLING_STEP 8). Only add depth when a layer is wide
-// enough that the next hop would otherwise choke (message queues).
-const LAYER_STEP = 6 // store.z per layer → iso row step of 3 (negated for NE)
-const SIBLING_STEP = 8 // store.x per sibling → iso col step of 4
-const WIDE_LAYER_EXTRA_STEP = 4
+// One major cell = iso Δ 2 = store Δ 4. Hops never go below that; few-node
+// graphs stretch toward the visible floor (capped so two cubes do not pin
+// to opposite corners).
+const MIN_ISO_STEP = 2
+const MAX_ISO_STEP = 6
+const MQ_EXTRA_WEIGHT = 1
 const UPSTREAM_TYPES: Partial<Record<CanvasNode['type'], CanvasNode['type']>> = {
   worker: 'message_queue',
 }
 
-function centerSpread(index: number, count: number): number {
+const AVAIL_ISO_COL = ISO_COL_MAX - ISO_COL_MIN
+const AVAIL_ISO_ROW = ISO_ROW_MAX - ISO_ROW_MIN
+
+function isoStepForGaps(gaps: number, avail: number): number {
+  if (gaps <= 0) return MIN_ISO_STEP
+  return Math.max(
+    MIN_ISO_STEP,
+    Math.min(MAX_ISO_STEP, Math.floor(avail / gaps)),
+  )
+}
+
+function storeStepFromIso(isoStep: number): number {
+  return isoStep * 2
+}
+
+function centerSpread(index: number, count: number, siblingStoreStep: number): number {
   if (count <= 1) return 0
   const mid = (count - 1) / 2
-  return Math.round((index - mid) * SIBLING_STEP)
+  return Math.round((index - mid) * siblingStoreStep)
 }
 
 function layerNeedsExtraGap(nodes: CanvasNode[]): boolean {
@@ -103,20 +124,37 @@ export function autoArrangeByDependencyLayers(
     layerBuckets.get(layer)?.push(node)
   }
 
-  const positions: Record<string, [number, number, number]> = {}
   const orderedLayers = [...layerBuckets.keys()].sort((a, b) => a - b)
+  const hopWeights: number[] = []
+  for (let i = 1; i < orderedLayers.length; i++) {
+    const prev = orderedLayers[i - 1]
+    const curr = orderedLayers[i]
+    let weight = curr - prev
+    if (layerNeedsExtraGap(layerBuckets.get(prev) ?? [])) {
+      weight += MQ_EXTRA_WEIGHT
+    }
+    hopWeights.push(weight)
+  }
+  const totalHopWeight = hopWeights.reduce((sum, w) => sum + w, 0)
+  const layerIsoStep = isoStepForGaps(totalHopWeight, AVAIL_ISO_ROW)
+  const layerStoreUnit = storeStepFromIso(layerIsoStep)
+
+  const maxSiblings = orderedLayers.reduce(
+    (max, layer) => Math.max(max, layerBuckets.get(layer)?.length ?? 0),
+    0,
+  )
+  const siblingIsoStep = isoStepForGaps(Math.max(0, maxSiblings - 1), AVAIL_ISO_COL)
+  const siblingStoreStep = storeStepFromIso(siblingIsoStep)
+
+  const positions: Record<string, [number, number, number]> = {}
   const layerDepth = new Map<number, number>()
   let depth = 0
-  let previousLayer: number | null = null
-  for (const layer of orderedLayers) {
-    if (previousLayer != null) {
-      depth += (layer - previousLayer) * LAYER_STEP
-      if (layerNeedsExtraGap(layerBuckets.get(previousLayer) ?? [])) {
-        depth += WIDE_LAYER_EXTRA_STEP
-      }
+  for (let i = 0; i < orderedLayers.length; i++) {
+    const layer = orderedLayers[i]
+    if (i > 0) {
+      depth += hopWeights[i - 1] * layerStoreUnit
     }
     layerDepth.set(layer, depth)
-    previousLayer = layer
 
     const barycenterFor = (node: CanvasNode): number | null => {
       const neighbors = neighborsById.get(node.id)
@@ -143,11 +181,11 @@ export function autoArrangeByDependencyLayers(
       if (aBary !== bBary) return aBary - bBary
       return a.id.localeCompare(b.id)
     })
-    for (let i = 0; i < bucket.length; i++) {
-      const n = bucket[i]
+    for (let s = 0; s < bucket.length; s++) {
+      const n = bucket[s]
       // Layer advances NE via -store.z; siblings fan on store.x.
       positions[n.id] = [
-        centerSpread(i, bucket.length),
+        centerSpread(s, bucket.length, siblingStoreStep),
         n.position[1],
         -(layerDepth.get(layer) ?? 0),
       ]

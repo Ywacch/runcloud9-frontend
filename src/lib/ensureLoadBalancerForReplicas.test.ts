@@ -102,6 +102,78 @@ describe('ensureLoadBalancerForReplicas', () => {
     expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]).toBeUndefined()
   })
 
+  it('rearranges remaining nodes after auto LB is removed', () => {
+    useCanvasStore.setState({
+      nodes: {
+        app: computeNode('app', 2, [0, 0.3, 0]),
+        queue: {
+          id: 'queue',
+          type: 'message_queue',
+          label: 'Queue',
+          position: [4, 0.3, 0],
+          config: {},
+          status: 'idle',
+        },
+        worker: {
+          id: 'worker',
+          type: 'worker',
+          label: 'Worker',
+          position: [8, 0.3, 0],
+          config: { replicas: 1 },
+          status: 'idle',
+        },
+        cache: {
+          id: 'cache',
+          type: 'cache',
+          label: 'Cache',
+          position: [12, 0.3, 0],
+          config: {},
+          status: 'idle',
+        },
+      },
+      edges: {
+        'app-queue': {
+          id: 'app-queue',
+          sourceId: 'app',
+          targetId: 'queue',
+          protocol: 'http',
+          animated: false,
+        },
+        'queue-worker': {
+          id: 'queue-worker',
+          sourceId: 'queue',
+          targetId: 'worker',
+          protocol: 'tcp',
+          animated: false,
+        },
+        'worker-cache': {
+          id: 'worker-cache',
+          sourceId: 'worker',
+          targetId: 'cache',
+          protocol: 'tcp',
+          animated: false,
+        },
+      },
+    })
+
+    ensureLoadBalancerForReplicas()
+    const withLb = useCanvasStore.getState().nodes
+    expect(withLb[AUTO_LOAD_BALANCER_ID]).toBeDefined()
+    const appToQueueWithLb = Math.abs(
+      withLb.queue.position[2] - withLb.app.position[2],
+    )
+
+    useCanvasStore.getState().updateNodeConfig('app', { replicas: 1 })
+    ensureLoadBalancerForReplicas()
+
+    const withoutLb = useCanvasStore.getState().nodes
+    expect(withoutLb[AUTO_LOAD_BALANCER_ID]).toBeUndefined()
+    const appToQueueWithoutLb = Math.abs(
+      withoutLb.queue.position[2] - withoutLb.app.position[2],
+    )
+    expect(appToQueueWithoutLb).not.toBe(appToQueueWithLb)
+  })
+
   it('rewires client-loadgen to the auto LB when present', () => {
     useCanvasStore.setState({
       nodes: {
