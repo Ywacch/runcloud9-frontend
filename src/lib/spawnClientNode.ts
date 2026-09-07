@@ -2,6 +2,7 @@ import { idleClientLoadgenBucket } from './clientMetrics'
 import { defaultEdgeProtocol } from './defaultEdgeProtocol'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
+import { applyAutoArrange } from './applyAutoArrange'
 
 export const CLIENT_LOADGEN_ID = 'client-loadgen'
 
@@ -38,4 +39,5 @@ export function spawnClientLoadgenNode(): void {
     animated: true,
   })
   useMetricsStore.getState().updateMetrics(CLIENT_LOADGEN_ID, idleClientLoadgenBucket())
+  applyAutoArrange({ recordHistory: false })
 }
