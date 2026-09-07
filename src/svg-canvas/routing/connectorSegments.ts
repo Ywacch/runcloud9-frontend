@@ -7,7 +7,7 @@ import {
 } from './connectorClearance'
 import type { SvgNode } from '../store/svgTypes'
 import type { SvgZone } from '../store/svgTypes'
-import { HALF_H, HALF_W, isoToScreen, screenToIso, type WorldPoint } from '../math/iso'
+import { HALF_H, HALF_W, isoToScreen, pathInBoundedSlab, screenToIso, type WorldPoint } from '../math/iso'
 
 export type ConnectorEdgeRef = {
   id: string
@@ -129,6 +129,35 @@ function outwardScore(
   return (opposite ? 1_000_000 : 0) + dist
 }
 
+function pathHopExtent(path: WorldPoint[]): number {
+  if (path.length <= 2) return 0
+  let len = 0
+  for (let i = 1; i < path.length; i++) {
+    len += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y)
+  }
+  const straight = Math.hypot(
+    path[path.length - 1].x - path[0].x,
+    path[path.length - 1].y - path[0].y,
+  )
+  return Math.max(0, len - straight)
+}
+
+function pathScore(
+  path: WorldPoint[],
+  source: WorldPoint,
+  target: WorldPoint,
+  centroid: WorldPoint | null,
+): number {
+  const offSlab = pathInBoundedSlab(path) ? 0 : 10_000_000_000
+  return (
+    offSlab +
+    path.length * 1_000_000_000 +
+    pathHopExtent(path) * 10_000 -
+    outwardScore(path, source, target, centroid) -
+    firstLegDot(path, source, target) * 0.01
+  )
+}
+
 function pickBest(
   paths: WorldPoint[][],
   source: WorldPoint,
@@ -138,10 +167,7 @@ function pickBest(
   let best: WorldPoint[] | null = null
   let bestScore = Infinity
   for (const path of paths) {
-    const score =
-      path.length * 1_000_000_000 -
-      outwardScore(path, source, target, centroid) -
-      firstLegDot(path, source, target) * 0.01
+    const score = pathScore(path, source, target, centroid)
     if (score < bestScore) {
       bestScore = score
       best = path
@@ -154,7 +180,7 @@ function pickBest(
 function aroundHops(source: WorldPoint, target: WorldPoint): WorldPoint[][] {
   const start = screenToIso(source.x, source.y)
   const goal = screenToIso(target.x, target.y)
-  const shifts = [-6, -4, -2, 2, 4, 6]
+  const shifts = [-4, -2, 2, 4]
   const out: WorldPoint[][] = []
   for (const s of shifts) {
     out.push(
@@ -211,12 +237,26 @@ function routeAvoiding(
   centroid: WorldPoint | null,
 ): { path: WorldPoint[]; candidates: WorldPoint[][] } {
   const all = candidatePaths(source, target)
-  const clear = all.filter((path) => !pathHitsBystanders(path, bystanders))
+  const clear = all.filter(
+    (path) => !pathHitsBystanders(path, bystanders) && pathInBoundedSlab(path),
+  )
+  const inSlab = all.filter((path) => pathInBoundedSlab(path))
+  const clearAny = all.filter((path) => !pathHitsBystanders(path, bystanders))
   const path =
     pickBest(clear, source, target, centroid) ??
+    pickBest(inSlab, source, target, centroid) ??
+    pickBest(clearAny, source, target, centroid) ??
     pickBest(all, source, target, centroid) ??
     [source, target]
-  return { path, candidates: clear.length > 0 ? clear : all }
+  const candidates =
+    clear.length > 0
+      ? clear
+      : inSlab.length > 0
+        ? inSlab
+        : clearAny.length > 0
+          ? clearAny
+          : all
+  return { path, candidates }
 }
 
 function routeOutgoingGroup(
@@ -257,9 +297,8 @@ function pairScore(
   centroid: WorldPoint | null,
 ): number {
   return (
-    (ca.length + cb.length) * 1_000_000_000 -
-    outwardScore(ca, ca[0], ca[ca.length - 1], centroid) -
-    outwardScore(cb, cb[0], cb[cb.length - 1], centroid)
+    pathScore(ca, ca[0], ca[ca.length - 1], centroid) +
+    pathScore(cb, cb[0], cb[cb.length - 1], centroid)
   )
 }
 

@@ -4,7 +4,7 @@ import type { CanvasEdge, CanvasNode } from '../../editor-core/stores/canvasStor
 import { autoArrangeByDependencyLayers } from '../../lib/autoArrange'
 import { createCanvasNode } from '../../lib/nodeFactory'
 import { canvasNodeToSvgNode } from '../bridge/canvasSvgAdapter'
-import { HALF_H, HALF_W, isoToScreen, type WorldPoint } from '../math/iso'
+import { HALF_H, HALF_W, isoToScreen, pathInBoundedSlab, type WorldPoint } from '../math/iso'
 import { faceCenter } from './attach'
 import type { SvgNode } from '../store/svgTypes'
 import ex1 from './fixtures/ex1-fan-out.stub.json'
@@ -447,5 +447,56 @@ describe('connectorSegments', () => {
         ).toBe(false)
       }
     }
+  })
+
+  it('keeps app→db on the bounded slab when LB blocks the outer hop', () => {
+    const specs: [string, Parameters<typeof createCanvasNode>[0]][] = [
+      ['lb-1', 'load_balancer'],
+      ['app-1', 'compute'],
+      ['mq-1', 'message_queue'],
+      ['worker-1', 'worker'],
+      ['cache-1', 'cache'],
+      ['db-1', 'database'],
+    ]
+    const canvasNodes: CanvasNode[] = specs.map(([id, kind]) => {
+      const n = createCanvasNode(kind, isoToNode(0, 0), {})
+      n.id = id
+      if (kind === 'compute') {
+        n.config = { ...n.config, replicas: 2 }
+      }
+      return n
+    })
+    const canvasEdges: CanvasEdge[] = [
+      ['e-lb-app', 'lb-1', 'app-1'],
+      ['e-app-mq', 'app-1', 'mq-1'],
+      ['e-worker-mq', 'worker-1', 'mq-1'],
+      ['e-worker-db', 'worker-1', 'db-1'],
+      ['e-worker-cache', 'worker-1', 'cache-1'],
+      ['e-app-cache', 'app-1', 'cache-1'],
+      ['e-app-db', 'app-1', 'db-1'],
+    ].map(([id, s, t]) => ({
+      id,
+      sourceId: s,
+      targetId: t,
+      protocol: 'tcp',
+      animated: false,
+    }))
+    const positions = autoArrangeByDependencyLayers(canvasNodes, canvasEdges)
+    const nodes: SvgNode[] = canvasNodes.map((n) =>
+      canvasNodeToSvgNode({ ...n, position: positions[n.id] ?? n.position }),
+    )
+    const edges = canvasEdges.map((e) => ({
+      id: e.id,
+      sourceId: e.sourceId,
+      targetId: e.targetId,
+    }))
+    const routes = routeConnectorScene({ nodes, zones: [], edges })
+    for (const e of edges) {
+      const path = routes.get(e.id) ?? []
+      expect(path.length).toBeGreaterThanOrEqual(2)
+      expect(pathInBoundedSlab(path)).toBe(true)
+    }
+    const appDb = routes.get('e-app-db') ?? []
+    expect(appDb.length).toBeLessThanOrEqual(4)
   })
 })

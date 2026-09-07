@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BOUNDED_COLS,
+  BOUNDED_ORIGIN_I,
+  BOUNDED_ORIGIN_J,
+  BOUNDED_ROWS,
+  boundedPlacementIsoBounds,
   CELL_H,
   CELL_W,
   HALF_H,
   HALF_W,
   isoToScreen,
+  pathInBoundedSlab,
+  pointInBoundedSlab,
   screenToIso,
   snapWorld,
   SNAP_H,
@@ -71,5 +78,22 @@ describe('svg-canvas iso math', () => {
     // Pattern major: M64 0 L128 37 64 74 0 37 — top / right verts
     expect(isoToScreen(0.5, -0.5)).toEqual({ x: 64, y: 0 })
     expect(isoToScreen(1.5, -0.5)).toEqual({ x: 128, y: 37 })
+  })
+
+  it('classifies points inside the bounded floor slab', () => {
+    expect(BOUNDED_COLS).toBe(10)
+    expect(BOUNDED_ROWS).toBe(18)
+    const center = isoToScreen(0, 0)
+    expect(pointInBoundedSlab(center)).toBe(true)
+    const far = isoToScreen(BOUNDED_ORIGIN_I - 6, BOUNDED_ORIGIN_J)
+    expect(pointInBoundedSlab(far)).toBe(false)
+    expect(
+      pathInBoundedSlab([center, isoToScreen(2, 2)]),
+    ).toBe(true)
+    const bounds = boundedPlacementIsoBounds()
+    expect(bounds.minCol).toBe(-3)
+    expect(bounds.maxCol).toBe(4)
+    expect(bounds.minRow).toBe(-7)
+    expect(bounds.maxRow).toBe(8)
   })
 })
