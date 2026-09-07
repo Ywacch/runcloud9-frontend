@@ -1,4 +1,8 @@
 import {
+  BOUNDED_COLS,
+  BOUNDED_ORIGIN_I,
+  BOUNDED_ORIGIN_J,
+  BOUNDED_ROWS,
   infiniteFloorDiamond,
   isoFootprintDiamond,
   pointsAttr,
@@ -22,12 +26,12 @@ type FloorProps = {
  * reads as a wide, flat table (Cloudcraft-style), not a tall diamond.
  * Origin is half-integer so the rim lies on major edges.
  */
-export const BOUNDED_MAJOR_COLS = 5
-export const BOUNDED_MAJOR_ROWS = 9
-export const BOUNDED_COLS = BOUNDED_MAJOR_COLS * 2
-export const BOUNDED_ROWS = BOUNDED_MAJOR_ROWS * 2
-const BOUNDED_ORIGIN_I = -BOUNDED_MAJOR_COLS + 0.5
-const BOUNDED_ORIGIN_J = -BOUNDED_MAJOR_ROWS + 0.5
+export {
+  BOUNDED_COLS,
+  BOUNDED_MAJOR_COLS,
+  BOUNDED_MAJOR_ROWS,
+  BOUNDED_ROWS,
+} from '../math/iso'
 export const BOUNDED_SLAB_THICKNESS = 16
 const SLAB_THICKNESS = BOUNDED_SLAB_THICKNESS
 

@@ -1,11 +1,6 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
-import {
-  ISO_COL_MAX,
-  ISO_COL_MIN,
-  ISO_ROW_MAX,
-  ISO_ROW_MIN,
-  fitStorePositionsToGrid,
-} from '../canvas/utils/positionAdapter'
+import { fitStorePositionsToBoundedSlab } from '../canvas/utils/positionAdapter'
+import { boundedPlacementIsoBounds } from '../svg-canvas/math/iso'
 
 // SVG host uses the Cloudcraft projector (x=(i-j)·64, y=(i+j)·37). To read
 // bottom-left → top-right, dependency layers must advance NE (right + up),
@@ -20,8 +15,9 @@ const UPSTREAM_TYPES: Partial<Record<CanvasNode['type'], CanvasNode['type']>> = 
   worker: 'message_queue',
 }
 
-const AVAIL_ISO_COL = ISO_COL_MAX - ISO_COL_MIN
-const AVAIL_ISO_ROW = ISO_ROW_MAX - ISO_ROW_MIN
+const bounded = boundedPlacementIsoBounds()
+const AVAIL_ISO_COL = bounded.maxCol - bounded.minCol
+const AVAIL_ISO_ROW = bounded.maxRow - bounded.minRow
 
 function isoStepForGaps(gaps: number, avail: number): number {
   if (gaps <= 0) return MIN_ISO_STEP
@@ -192,7 +188,7 @@ export function autoArrangeByDependencyLayers(
     }
   }
 
-  fitStorePositionsToGrid(positions)
+  fitStorePositionsToBoundedSlab(positions)
 
   return positions
 }
