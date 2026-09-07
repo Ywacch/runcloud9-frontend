@@ -4,7 +4,7 @@ import {
   getExpandEpoch,
   subscribeExpand,
 } from '../store/expandStore'
-import { useDragLiveEpoch } from '../hooks/useEdgeRenderModel'
+import { useDragLiveEpoch, useSessionLayoutEpoch } from '../hooks/useEdgeRenderModel'
 import { getDragLive } from '../store/dragLiveStore'
 import {
   getUnitMotionEpoch,
@@ -37,6 +37,7 @@ export function LiveZoneLayer({
   onZonePointerLeave,
 }: LiveZoneLayerProps) {
   useDragLiveEpoch()
+  useSessionLayoutEpoch()
   useSyncExternalStore(subscribeUnitMotion, () => getUnitMotionEpoch(), () => 0)
   useSyncExternalStore(subscribeExpand, () => getExpandEpoch(), () => 0)
   const drag = getDragLive()

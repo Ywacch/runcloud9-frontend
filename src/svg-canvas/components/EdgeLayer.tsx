@@ -11,19 +11,18 @@ import { classifyAllCanvasEdges } from '../../lib/connectionSemantics'
 import { paintForSemanticClass } from '../../lib/edgeSemanticPaint'
 import type { EdgeRenderModel } from '../hooks/useEdgeRenderModel'
 import {
-  protocolBadgeLayout,
-  protocolBadgeMidpoint,
-} from '../fx/edgeProtocolBadge'
+  CONNECTOR_CHEVRON_D,
+  CONNECTOR_CHEVRON_SHAFT_INSET,
+  connectorChevronTransform,
+} from '../fx/connectorChevron'
+import { connectorStrokeForProtocol } from '../fx/connectorStroke'
 import {
   EDGE_ARROW_OUTLINE,
   EDGE_HIT_STROKE,
-  EDGE_JUNCTION_R,
   EDGE_SOURCE_UNDERLAP,
-  arrowCloudcraftPolygon,
   clearanceForArchetype,
   extendBehind,
   glyphRimExtents,
-  junctionPoints,
   paintedSegmentEnds,
   terminalArrowGeometry,
 } from '../fx/edgePaint'
@@ -128,12 +127,18 @@ export function EdgeLayer({
         const semantic = edgeSemantics[edge.id]
         const preset = edge.style.preset ?? edgeStylePreset
         const base = resolveEdgePaint(edge.style, preset, floorTheme)
+        const protocol = edge.protocol ?? 'http'
+        const connectorStroke = connectorStrokeForProtocol(
+          protocol,
+          preset,
+          floorTheme,
+        )
 
-        let color = isSel ? '#3b82f6' : base.color
-        let width = isSel ? base.width + 1 : base.width
+        let color = connectorStroke?.color ?? base.color
+        let width = connectorStroke?.width ?? base.width
         let opacity = 1
         let highlighted = false
-        let dash = base.dash
+        let dash = connectorStroke?.dash ?? base.dash
         if (walkthrough && !isSel) {
           const wt = walkthroughEdgeStyle(
             edge.id,
@@ -161,48 +166,27 @@ export function EdgeLayer({
         if (isHovered && !isSel && semantic && semantic.class !== 'active') {
           width += 0.5
         }
+        if (isSel) {
+          color = '#3b82f6'
+          width = Math.max(width, base.width + 1)
+        }
 
-        const hasStartArrow = edge.style.startStyle === 'arrow'
         const hasEndArrow = edge.style.endStyle === 'arrow'
-        const protocol = edge.protocol ?? 'http'
-        const mid = protocolBadgeMidpoint(edge)
-        const badge = mid
-          ? protocolBadgeLayout(protocol, topologyIssue)
-          : null
-        const elbows = base.showJunctions ? junctionPoints(pts) : []
         const lastSeg = pts.length - 2
-        const clearStart = clearanceForArchetype(
-          archetypeById.get(edge.sourceNodeId),
-        )
         const clearEnd = clearanceForArchetype(
           archetypeById.get(edge.targetNodeId),
         )
         const targetNode = nodeById.get(edge.targetNodeId)
-        const sourceNode = nodeById.get(edge.sourceNodeId)
         const endArrow = hasEndArrow
           ? terminalArrowGeometry(
               pts[pts.length - 1],
               pts[pts.length - 2],
               clearEnd,
-              undefined,
-                  targetNode
+              CONNECTOR_CHEVRON_SHAFT_INSET,
+              targetNode
                 ? {
                     face: faceCenter(targetNode, targetNode.archetype),
                     rimExtents: glyphRimExtents(targetNode.archetype),
-                  }
-                : undefined,
-            )
-          : null
-        const startArrow = hasStartArrow
-          ? terminalArrowGeometry(
-              pts[0],
-              pts[1],
-              clearStart,
-              undefined,
-                  sourceNode
-                ? {
-                    face: faceCenter(sourceNode, sourceNode.archetype),
-                    rimExtents: glyphRimExtents(sourceNode.archetype),
                   }
                 : undefined,
             )
@@ -222,13 +206,10 @@ export function EdgeLayer({
                 // the node). Only pull the target back when there is no tip.
                 nodeClearanceStart: false,
                 nodeClearanceEnd: isLast && !hasEndArrow,
-                clearanceStart: clearStart,
                 clearanceEnd: clearEnd,
               })
               const paintedA = isFirst
-                ? startArrow
-                  ? startArrow.base
-                  : extendBehind(painted.a, painted.b, EDGE_SOURCE_UNDERLAP)
+                ? extendBehind(painted.a, painted.b, EDGE_SOURCE_UNDERLAP)
                 : painted.a
               const paintedB =
                 isLast && endArrow ? endArrow.base : painted.b
@@ -275,94 +256,19 @@ export function EdgeLayer({
                 </g>
               )
             }) : null}
-            {renderTerminals ? elbows.map((p, i) => (
-              <circle
-                key={`${edge.id}-j-${i}`}
-                cx={p.x}
-                cy={p.y}
-                r={EDGE_JUNCTION_R}
-                fill={color}
-                style={{ pointerEvents: 'none' }}
-              />
-            )) : null}
             {renderTerminals && endArrow ? (
               <g style={{ pointerEvents: 'none' }} data-edge-arrow="end">
-                <polygon
-                  points={arrowCloudcraftPolygon(
-                    endArrow.base.x,
-                    endArrow.base.y,
-                    endArrow.tip.x,
-                    endArrow.tip.y,
+                <path
+                  d={CONNECTOR_CHEVRON_D}
+                  transform={connectorChevronTransform(
+                    endArrow.tip,
+                    pts[pts.length - 2],
                   )}
                   fill={color}
                   stroke={color}
                   strokeWidth={EDGE_ARROW_OUTLINE}
                   strokeLinejoin="round"
                 />
-              </g>
-            ) : null}
-            {renderTerminals && startArrow ? (
-              <g style={{ pointerEvents: 'none' }} data-edge-arrow="start">
-                <polygon
-                  points={arrowCloudcraftPolygon(
-                    startArrow.base.x,
-                    startArrow.base.y,
-                    startArrow.tip.x,
-                    startArrow.tip.y,
-                  )}
-                  fill={color}
-                  stroke={color}
-                  strokeWidth={EDGE_ARROW_OUTLINE}
-                  strokeLinejoin="round"
-                />
-              </g>
-            ) : null}
-            {renderTerminals && pts.length >= 2 ? (
-              <g style={{ pointerEvents: 'none' }} data-edge-anchors>
-                <ellipse
-                  cx={pts[0].x}
-                  cy={pts[0].y}
-                  rx={3.5}
-                  ry={2}
-                  fill={color}
-                  transform={`rotate(-30 ${pts[0].x} ${pts[0].y})`}
-                />
-                <ellipse
-                  cx={pts[pts.length - 1].x}
-                  cy={pts[pts.length - 1].y}
-                  rx={3.5}
-                  ry={2}
-                  fill={color}
-                  transform={`rotate(-30 ${pts[pts.length - 1].x} ${pts[pts.length - 1].y})`}
-                />
-              </g>
-            ) : null}
-            {renderSegments && badge && mid ? (
-              <g
-                transform={`translate(${mid.x} ${mid.y})`}
-                style={{ pointerEvents: 'none' }}
-                data-protocol-badge
-              >
-                <rect
-                  x={-badge.width / 2}
-                  y={-badge.height / 2}
-                  width={badge.width}
-                  height={badge.height}
-                  rx={3}
-                  ry={3}
-                  fill={badge.fill}
-                />
-                <text
-                  x={0}
-                  y={0}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={10}
-                  fontFamily="system-ui, sans-serif"
-                  fill="#ffffff"
-                >
-                  {badge.text}
-                </text>
               </g>
             ) : null}
           </g>

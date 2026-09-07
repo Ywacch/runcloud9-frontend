@@ -22,6 +22,22 @@ describe('routeIsoManhattan', () => {
     expect(path[path.length - 1]).toEqual(target)
     // Cloudcraft: straight or one bend — never a lattice staircase.
     expect(path.length).toBeLessThanOrEqual(3)
+    // Offset that is not a shared screen row/col uses iso diamonds, not CAD H/V.
+    if (path.length === 3) {
+      const iso = 37 / 64
+      for (let i = 1; i < path.length; i++) {
+        const dx = Math.abs(path[i].x - path[i - 1].x)
+        const dy = Math.abs(path[i].y - path[i - 1].y)
+        expect(dx).toBeGreaterThan(1)
+        expect(dy).toBeGreaterThan(1)
+        expect(Math.abs(dy / dx - iso)).toBeLessThan(0.04)
+      }
+      const toX = target.x - source.x
+      const toY = target.y - source.y
+      const lastX = target.x - path[1].x
+      const lastY = target.y - path[1].y
+      expect(lastX * toX + lastY * toY).toBeGreaterThan(-1e-3)
+    }
   })
 
   it('uses a screen-horizontal run when ports share a row', () => {
@@ -46,8 +62,8 @@ describe('routeIsoManhattan', () => {
       target,
       obstacleAnchors: [],
     })
-    // Open-field Cloudcraft elbow ignores mid footprints (paints under).
-    // With only anchors, geometric straight still wins — both ends share j=0.
+    // Unused by routeConnectorScene (which goes around bystanders). This
+    // helper still returns the open-field straight when no cells are blocked.
     expect(clear.length).toBe(2)
     void mid
   })
@@ -89,7 +105,7 @@ describe('routeIsoManhattan', () => {
     }
   })
 
-  it('prefers a straight under-paint run even when cells sit between ports', () => {
+  it('legacy helper still paints a straight iso run through listed cells', () => {
     const source = isoToScreen(0, 0)
     const target = isoToScreen(8, 0)
     const path = routeIsoManhattan({

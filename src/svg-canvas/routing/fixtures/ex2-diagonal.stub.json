@@ -1,0 +1,9 @@
+{
+  "source": "connection-ex-2.txt",
+  "description": "Straight iso diagonal segment",
+  "segments": [
+    { "x1": -524, "y1": 562, "x2": -347, "y2": 460 }
+  ],
+  "sharedVertices": [],
+  "arrowAtEndOnly": true
+}

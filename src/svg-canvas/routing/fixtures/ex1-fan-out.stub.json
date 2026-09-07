@@ -1,0 +1,11 @@
+{
+  "source": "connection-ex-1.txt",
+  "description": "Fan-out: short iso into junction, 64px H trunk, iso stub. Shared vertex (144, 675).",
+  "segments": [
+    { "x1": 176, "y1": 657, "x2": 144, "y2": 675 },
+    { "x1": 144, "y1": 675, "x2": 80, "y2": 675 },
+    { "x1": 80, "y1": 675, "x2": -74, "y2": 586 }
+  ],
+  "sharedVertices": [{ "x": 144, "y": 675 }],
+  "arrowAtEndOnly": true
+}

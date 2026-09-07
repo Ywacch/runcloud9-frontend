@@ -6,6 +6,9 @@ import { isoToNode } from '../canvas/utils/positionAdapter'
 import * as fitBridge from '../canvas/utils/canvasFitBridge'
 import { applyAutoArrange } from './applyAutoArrange'
 import {
+  getSessionLayoutOffset,
+} from './sessionLayoutStore'
+import {
   installCanvasSvgBridge,
   resetCanvasSvgBridgeForTests,
   useSvgCanvasStore,
@@ -77,5 +80,23 @@ describe('applyAutoArrange + SVG host lock/arrange', () => {
 
   it('returns false when the canvas is empty', () => {
     expect(applyAutoArrange()).toBe(false)
+  })
+
+  it('stores preset variation moves in session layout without mutating canvasStore', () => {
+    const node = createCanvasNode('compute', isoToNode(0, 0), {})
+    useCanvasStore.getState().addNode(node)
+    useCanvasStore.getState().setLoadedVariationId('baseline')
+    installCanvasSvgBridge()
+    const before = useSvgCanvasStore.getState().nodes[0]
+    const beforeCanvas = useCanvasStore.getState().nodes[node.id].position
+
+    useSvgCanvasStore.getState().moveNodes([
+      { id: node.id, x: before.x + 128, y: before.y + 74 },
+    ])
+
+    expect(getSessionLayoutOffset(node.id)).toEqual({ dx: 128, dy: 74 })
+    expect(useCanvasStore.getState().nodes[node.id].position).toEqual(beforeCanvas)
+    expect(useSvgCanvasStore.getState().nodes[0].x).toBe(before.x)
+    expect(useSvgCanvasStore.getState().nodes[0].y).toBe(before.y)
   })
 })

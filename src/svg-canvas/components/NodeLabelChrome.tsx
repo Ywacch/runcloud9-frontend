@@ -1,7 +1,8 @@
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { isExpandToggleEligible } from '../compose/expandEligibility'
-import { useDragLiveEpoch } from '../hooks/useEdgeRenderModel'
+import { useDragLiveEpoch, useSessionLayoutEpoch } from '../hooks/useEdgeRenderModel'
 import { getDragLive } from '../store/dragLiveStore'
+import { displayWorldPosition } from '../../lib/sessionLayoutStore'
 import { useExpanded } from '../store/expandStore'
 import type { SvgNode } from '../store/svgTypes'
 import {
@@ -34,8 +35,8 @@ function NodeChromeRow({
   const drag = getDragLive()
   const expanded = useExpanded(node)
   const expandEligible = isExpandToggleEligible(node)
-  const o = drag?.idSet.has(node.id) ? drag.origins[node.id] : null
-  const placed = o ? { ...node, x: o.x + drag!.dx, y: o.y + drag!.dy } : node
+  const placedPos = displayWorldPosition(node, drag)
+  const placed = { ...node, x: placedPos.x, y: placedPos.y }
   const anchors = nodeChromeAnchors(placed)
   const badge = replicaBadgeText(node)
   const sublabel =
@@ -130,6 +131,7 @@ export function NodeLabelChrome({
   opacityById,
 }: NodeLabelChromeProps) {
   useDragLiveEpoch()
+  useSessionLayoutEpoch()
   const mode = useCanvasStore((s) => s.mode)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const showSublabel = shouldShowProvisionedSublabel(mode)

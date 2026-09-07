@@ -26,9 +26,9 @@ describe('attach', () => {
     const dbPort = attachPoint(db, toward, { archetype: 'database' })
     const face = faceCenter(db, 'database')
     const dist = Math.hypot(dbPort.x - face.x, dbPort.y - face.y)
-    // Outside the painted drum (~64 rim) but not floating far away.
-    expect(dist).toBeGreaterThan(68)
-    expect(dist).toBeLessThan(85)
+    // Just outside the painted lid ellipse (glyphRimExtents 45×38).
+    expect(dist).toBeGreaterThan(44)
+    expect(dist).toBeLessThan(60)
   })
 
   it('shares one approach port for multi-edge slots toward the same peer', () => {

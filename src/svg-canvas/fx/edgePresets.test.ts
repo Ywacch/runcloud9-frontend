@@ -28,7 +28,7 @@ describe('resolveEdgePaint', () => {
   it('uses light wires on dark floor for schematic', () => {
     const paint = resolveEdgePaint(defaultEdgeStyle(), 'schematic', 'dark')
     expect(paint.color).toBe('#e8e8ea')
-    expect(paint.showJunctions).toBe(true)
+    expect(paint.showJunctions).toBe(false)
   })
 
   it('uses black wires on light floor for schematic', () => {

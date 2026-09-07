@@ -11,6 +11,7 @@ import {
   withoutCanvasHistoryRecording,
 } from '../../lib/canvasHistory'
 import { resetDesignStorytellingUi } from '../../lib/resetStorytellingUi'
+import { clearSessionLayout } from '../../lib/sessionLayoutStore'
 import { SHOW_SIMULATION_UI } from '../../lib/featureFlags'
 import type { SessionEventSummary } from '../../lib/eventsSummaryFromApi'
 import type {
@@ -41,6 +42,16 @@ export function canMutateCanvasTopology(state: {
   loadedVariationId?: string | null
 }): boolean {
   if (state.loadedVariationId) return false
+  if (state.mode === 'live') return false
+  if (state.deploymentId) return false
+  return state.mode === 'design' || state.mode === 'simulate'
+}
+
+/** True when node layout (drag reposition) is allowed in the current viewport. */
+export function canMutateCanvasLayout(state: {
+  mode: CanvasMode
+  deploymentId: string | null
+}): boolean {
   if (state.mode === 'live') return false
   if (state.deploymentId) return false
   return state.mode === 'design' || state.mode === 'simulate'
@@ -627,6 +638,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   loadJSON: (snapshot) => {
     clearCanvasHistory()
     resetDesignStorytellingUi()
+    clearSessionLayout()
     set({
       nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
@@ -659,6 +671,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   loadTemplateSnapshot: (snapshot, targetMode) => {
     clearCanvasHistory()
     resetDesignStorytellingUi()
+    clearSessionLayout()
     set({
       nodes: Object.fromEntries(snapshot.nodes.map((n) => [n.id, n])),
       edges: Object.fromEntries(snapshot.edges.map((e) => [e.id, e])),
@@ -691,6 +704,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   startFromTemplate: (templateId) => {
     clearCanvasHistory()
     resetDesignStorytellingUi()
+    clearSessionLayout()
     set({
       nodes: {},
       edges: {},
@@ -723,6 +737,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clearCanvas: () => {
     clearCanvasHistory()
     resetDesignStorytellingUi()
+    clearSessionLayout()
     set({
       mode: 'design',
       nodes: {},
