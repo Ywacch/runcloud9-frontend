@@ -49,3 +49,6 @@ throwaway/
 .impeccable/
 skills-lock.json
 PRODUCT.md
+
+# Local-only routing reference tooling (committed stubs live in fixtures/*.json)
+src/svg-canvas/routing/fixtures/_*

@@ -83,6 +83,22 @@ describe('edgePaint', () => {
     expect(arrow.base.x).toBeLessThan(arrow.tip.x)
   })
 
+  it('does not park the chevron past the drum when the last stub crossed it', () => {
+    const face = { x: 200, y: 0 }
+    const from = { x: 400, y: 0 }
+    const attach = { x: 150, y: 0 }
+    const arrow = terminalArrowGeometry(
+      attach,
+      from,
+      4,
+      EDGE_ARROW_SHAFT_INSET,
+      { face, rimExtents: { rx: 45, ry: 38 } },
+    )
+    expect(arrow.tip.x).toBeLessThan(face.x)
+    expect(arrow.tip.x).toBeGreaterThan(attach.x - 1)
+    expect(Math.abs(arrow.tip.y)).toBeLessThan(1)
+  })
+
   it('shortens the head before burying the tip on a short stub', () => {
     const arrow = terminalArrowGeometry(
       { x: 20, y: 0 },

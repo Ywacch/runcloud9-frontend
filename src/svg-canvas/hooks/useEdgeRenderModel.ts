@@ -11,6 +11,10 @@ import {
   getDragLiveEpoch,
   subscribeDragLive,
 } from '../store/dragLiveStore'
+import {
+  getSessionLayoutEpoch,
+  subscribeSessionLayout,
+} from '../../lib/sessionLayoutStore'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
 import type { SvgEdge, SvgNode } from '../store/svgTypes'
 
@@ -77,4 +81,12 @@ export function useEdgeRenderModel(_svgEdges: SvgEdge[]): EdgeRenderModel {
 
 export function useDragLiveEpoch(): number {
   return useSyncExternalStore(subscribeDragLive, getDragLiveEpoch, () => 0)
+}
+
+export function useSessionLayoutEpoch(): number {
+  return useSyncExternalStore(
+    subscribeSessionLayout,
+    getSessionLayoutEpoch,
+    () => 0,
+  )
 }

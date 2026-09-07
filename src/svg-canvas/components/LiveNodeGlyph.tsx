@@ -8,9 +8,14 @@ import {
 import { useReducedMotion } from '../fx/reducedMotion'
 import {
   dragLiveKeyForNode,
-  parseDragLiveKey,
+  getDragLive,
   subscribeDragLive,
 } from '../store/dragLiveStore'
+import {
+  displayWorldPosition,
+  sessionLayoutKeyForNode,
+  subscribeSessionLayout,
+} from '../../lib/sessionLayoutStore'
 import type { SvgNode } from '../store/svgTypes'
 import { NodeGlyph } from '../glyphs/NodeGlyph'
 
@@ -46,14 +51,19 @@ function LiveNodeGlyphInner({
   onUnitPointerLeave,
 }: LiveNodeGlyphProps) {
   const reducedMotion = useReducedMotion()
-  const key = useSyncExternalStore(
+  useSyncExternalStore(
+    subscribeSessionLayout,
+    () => sessionLayoutKeyForNode(node.id),
+    () => '',
+  )
+  useSyncExternalStore(
     subscribeDragLive,
     () => liveKey(node.id),
     () => '',
   )
-  const live = parseDragLiveKey(key)
-  const x = live?.x ?? node.x
-  const y = live?.y ?? node.y
+  const placed = displayWorldPosition(node, getDragLive())
+  const x = placed.x
+  const y = placed.y
 
   const shouldAnimateAppear = appear && !reducedMotion
   const [appeared, setAppeared] = useState(!shouldAnimateAppear)

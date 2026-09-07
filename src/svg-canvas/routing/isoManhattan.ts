@@ -112,18 +112,9 @@ function mergeCollinear(points: WorldPoint[]): WorldPoint[] {
   return out
 }
 
-function pathLength(points: WorldPoint[]): number {
-  let n = 0
-  for (let i = 1; i < points.length; i++) {
-    n += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
-  }
-  return n
-}
-
 /**
- * Cloudcraft-style geometric route: straight, else one elbow.
- * Does not maze-solve around bystander glyphs (Cloudcraft paints under nodes).
- * `blocked` is unused here; A* / isoElbowFallback still use the obstacle set.
+ * Open-field iso elbow used by the unused `routeIsoManhattan` helper.
+ * Scene routing lives in `routeConnectorScene` (bystander clearance + uncross).
  */
 function cloudcraftElbow(
   source: WorldPoint,
@@ -154,52 +145,45 @@ function cloudcraftElbow(
     return mergeCollinear([source, target])
   }
 
-  // One elbow: lattice corners (iso L) plus screen-aligned midpoints when
-  // the delta allows a clean H-then-V / iso-then-H composition.
+  // One elbow: the two iso-lattice corners. connection-ex diagrams run
+  // along i then j (diamond), never a long screen-H then screen-V tour.
+  // Short H/V appears only as attach stubs, not as the primary run.
   const candidates: IsoPoint[] = [
     { i: start.i, j: goal.j },
     { i: goal.i, j: start.j },
   ]
 
-  // Extra corner: match the shared screen-horizontal row (constant i+j)
-  // or screen-vertical column (constant i-j) when that yields one bend.
-  const sumS = start.i + start.j
-  const sumG = goal.i + goal.j
-  const diffS = start.i - start.j
-  const diffG = goal.i - goal.j
-  // Meet on a horizontal through start, vertical through goal, etc.
-  // Horizontal through start: i+j = sumS. Vertical through goal: i-j = diffG.
-  // Solve i+j=sumS, i-j=diffG → 2i = sumS+diffG.
-  const midHV = {
-    i: (sumS + diffG) / 2,
-    j: (sumS - diffG) / 2,
-  }
-  const midVH = {
-    i: (sumG + diffS) / 2,
-    j: (sumG - diffS) / 2,
-  }
-  for (const m of [midHV, midVH]) {
-    if (Number.isInteger(m.i) && Number.isInteger(m.j)) {
-      candidates.push({ i: m.i, j: m.j })
-    }
-  }
-
+  const toTargetX = target.x - source.x
+  const toTargetY = target.y - source.y
   let best: WorldPoint[] | null = null
   let bestScore = Infinity
+  let fallback: WorldPoint[] | null = null
+  let fallbackLastDot = -Infinity
   for (const corner of candidates) {
     if (corner.i === start.i && corner.j === start.j) continue
     if (corner.i === goal.i && corner.j === goal.j) continue
-    // Ignore bystander blocked cells: edges paint under glyphs (Cloudcraft).
     const mid = isoToScreen(corner.i, corner.j)
+    const lastDot =
+      (target.x - mid.x) * toTargetX + (target.y - mid.y) * toTargetY
     const path = mergeCollinear([source, mid, target])
-    // Prefer fewer points, then shorter length.
-    const score = path.length * 10000 + pathLength(path)
+    if (lastDot > fallbackLastDot) {
+      fallbackLastDot = lastDot
+      fallback = path
+    }
+    // Outer parallelogram vertex sits past the target in screen space; the
+    // last stub then reverses through empty grid (Postgres overshoot).
+    if (lastDot < -1e-6) continue
+    const first = path[1] ?? mid
+    const dot = (first.x - source.x) * toTargetX + (first.y - source.y) * toTargetY
+    // Fewer points, then the first leg that aims at the target (iso parallelogram
+    // sides are equal length — do not use Euclidean total, which prefers CAD H/V).
+    const score = path.length * 1_000_000 - dot
     if (score < bestScore) {
       bestScore = score
       best = path
     }
   }
-  return best
+  return best ?? fallback
 }
 
 function reconstruct(

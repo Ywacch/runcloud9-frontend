@@ -18,9 +18,10 @@ import {
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
 import {
-  devInstanceScopePreviewEnabled,
-  isInstanceScopeViewportMode,
-} from '../lib/devInstanceScopePreview'
+  displayWorldPosition,
+  applySessionLayoutToNodes,
+} from '../lib/sessionLayoutStore'
+import { isInstanceScopeViewportMode } from '../lib/devInstanceScopePreview'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
 import {
@@ -504,7 +505,7 @@ export default function SvgDesignCanvas({
     const svg = svgRef.current
     if (!svg) return
     const world = clientToWorld(svg, e.clientX, e.clientY)
-    const svgNodes = useSvgCanvasStore.getState().nodes
+    const svgNodes = applySessionLayoutToNodes(useSvgCanvasStore.getState().nodes)
     const hitId = findSvgNodeIdAtWorldPoint(svgNodes, world.x, world.y)
     const menuStore = useCanvasContextMenuStore.getState()
     if (hitId) {
@@ -567,7 +568,7 @@ export default function SvgDesignCanvas({
       // Defer select until click: selecting on pointerdown opens the inspector
       // before the user has a chance to drag.
 
-      if (canvas.mode === 'live' || devInstanceScopePreviewEnabled(canvas.mode)) {
+      if (canvas.mode === 'live') {
         selectOnly(nodeId)
         return
       }
@@ -582,9 +583,11 @@ export default function SvgDesignCanvas({
       const origins: Record<string, WorldPoint> = {}
       for (const id of ids) {
         const n = state.nodes.find((x) => x.id === id)
-        if (n) origins[id] = { x: n.x, y: n.y }
+        if (n) {
+          const placed = displayWorldPosition(n)
+          origins[id] = { x: placed.x, y: placed.y }
+        }
       }
-      origins[nodeId] = { x: node.x, y: node.y }
 
       const session: DragSession = {
         primaryId: nodeId,
@@ -922,7 +925,7 @@ export default function SvgDesignCanvas({
         }
         if (m) {
           const ids = anchorsInMarquee(
-            useSvgCanvasStore.getState().nodes,
+            applySessionLayoutToNodes(useSvgCanvasStore.getState().nodes),
             m,
           )
           setSelectedIds(ids)

@@ -40,7 +40,7 @@ export function resolveEdgePaint(
       color: floorTheme === 'dark' ? '#e8e8ea' : '#0a0a0a',
       width: Math.max(EDGE_STROKE_WIDTH, style.width),
       dash: style.dash === 'none' ? undefined : style.dash,
-      showJunctions: true,
+      showJunctions: false,
     }
   }
 
@@ -54,7 +54,7 @@ export function resolveEdgePaint(
     color,
     width: Math.max(EDGE_STROKE_WIDTH, style.width),
     dash: style.dash === 'none' ? undefined : style.dash,
-    showJunctions: true,
+    showJunctions: false,
   }
 }
 

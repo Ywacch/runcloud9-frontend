@@ -268,12 +268,24 @@ export function terminalArrowGeometry(
       const raw = { x: face.x - ux * rx, y: face.y - uy * ry }
       t = (raw.x - from.x) * ux + (raw.y - from.y) * uy
     }
-    // Tip may sit slightly past the attach port when the port is outside the
-    // rim — that's the kiss point. Never place it on the far side of the face.
+    const tAttach = len
+    const fromAlong = (from.x - face.x) * ux + (from.y - face.y) * uy
+    const attachAlong = (attach.x - face.x) * ux + (attach.y - face.y) * uy
+    // Last stub crossed the glyph: park the tip on the attach-side rim, not
+    // the far empty-grid intersection (Worker→Postgres overshoot).
+    let skipFarPull = false
+    if (fromAlong * attachAlong < 0) {
+      const back = rimWireSideT(attach, -ux, -uy, face, rx, ry)
+      if (back != null) {
+        t = tAttach - back
+      }
+      t = Math.max(0, Math.min(t, tAttach))
+      skipFarPull = true
+    }
     const tip = { x: from.x + t * ux, y: from.y + t * uy }
     const towardFace = (tip.x - face.x) * ux + (tip.y - face.y) * uy
     const placed =
-      towardFace > 1e-3
+      !skipFarPull && towardFace > 1e-3
         ? { x: face.x - ux * rx, y: face.y - uy * ry }
         : tip
 

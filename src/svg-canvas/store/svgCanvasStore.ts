@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand'
 import {
+  canMutateCanvasLayout,
   canMutateCanvasTopology,
   isMetricsViewportMode,
   useCanvasStore,
@@ -28,6 +29,12 @@ import {
   canMoveOnCanvas,
   canPlaceOnCanvas,
 } from '../../lib/canvasContextMenuCatalog'
+import {
+  applySessionLayoutToNodes,
+  clearSessionLayout,
+  setSessionLayoutOffsets,
+} from '../../lib/sessionLayoutStore'
+import { isVariationTopologyLocked } from '../../lib/variationTopologyLock'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
 import {
   archetypeToCanvasType,
@@ -37,7 +44,7 @@ import {
   configPatchForShards,
   svgWorldToCanvasPosition,
 } from '../bridge/canvasSvgAdapter'
-import { projectSvgScene } from '../bridge/projectSvgScene'
+import { projectSvgScene, rerouteSvgEdgesForNodes } from '../bridge/projectSvgScene'
 import { mapSvgNodesWithLiveHealth } from '../fx/syncLiveHealth'
 import { HALF_H, HALF_W, snapWorld } from '../math/iso'
 import {
@@ -210,6 +217,14 @@ function syncFromCanvas(): void {
   syncExpandWithSelection(selectedIds, nodes)
 }
 
+function syncSessionLayoutEdges(movedNodeIds: string[]): void {
+  if (movedNodeIds.length === 0) return
+  const prev = useSvgCanvasStore.getState()
+  const placedNodes = applySessionLayoutToNodes(prev.nodes)
+  const edges = rerouteSvgEdgesForNodes(placedNodes, prev.edges, movedNodeIds)
+  useSvgCanvasStore.setState({ edges })
+}
+
 /** Metrics/chaos-only patch — avoids full topology reproject on every sample. */
 function patchLiveHealthVisuals(): void {
   const c = useCanvasStore.getState()
@@ -285,6 +300,7 @@ export function resetCanvasSvgBridgeForTests(): void {
   bridgeInstalled = false
   lastSyncedMode = null
   clipboard = []
+  clearSessionLayout()
   useSvgCanvasStore.setState({
     nodes: [],
     edges: [],
@@ -475,23 +491,42 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     if (updates.length === 0) return
     const canvas = useCanvasStore.getState()
     if (
-      !canMutateCanvasTopology(canvas) ||
+      !canMutateCanvasLayout(canvas) ||
       !canMoveOnCanvas(canvas.movementLocked)
     ) {
       return
     }
+
     const entries: Array<{ id: string; position: [number, number, number] }> =
       []
+    const sessionEntries: Array<{ id: string; dx: number; dy: number }> = []
+    const canonical = get().nodes
     for (const u of updates) {
-      if (!canvas.nodes[u.id]) continue
+      const node = canonical.find((n) => n.id === u.id)
+      if (!node || !canvas.nodes[u.id]) continue
       const snapped = snapWorld(u.x, u.y)
+      if (isVariationTopologyLocked(canvas.loadedVariationId)) {
+        sessionEntries.push({
+          id: u.id,
+          dx: snapped.x - node.x,
+          dy: snapped.y - node.y,
+        })
+        continue
+      }
+      if (!canMutateCanvasTopology(canvas)) continue
       entries.push({
         id: u.id,
         position: svgWorldToCanvasPosition(snapped.x, snapped.y),
       })
     }
-    if (entries.length === 0) return
-    canvas.applyNodePositions(entries)
+
+    if (sessionEntries.length > 0) {
+      setSessionLayoutOffsets(sessionEntries)
+      syncSessionLayoutEdges(sessionEntries.map((e) => e.id))
+    }
+    if (entries.length > 0) {
+      canvas.applyNodePositions(entries)
+    }
   },
 
   rerouteEdgesForNodes: (nodeIds) => {

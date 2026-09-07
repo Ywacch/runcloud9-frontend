@@ -4,6 +4,7 @@ import {
 } from '../compose/resolveDisplayUnits'
 import { syncZoneForNode } from '../compose/syncZoneForNode'
 import type { DragLiveSnapshot } from '../store/dragLiveStore'
+import { displayWorldPosition } from '../../lib/sessionLayoutStore'
 import {
   motionKeyForNode,
 } from '../store/unitMotionStore'
@@ -24,10 +25,9 @@ function placedNode(
   node: SvgNode,
   drag: DragLiveSnapshot | null,
 ): SvgNode {
-  if (!drag?.idSet.has(node.id)) return node
-  const origin = drag.origins[node.id]
-  if (!origin) return node
-  return { ...node, x: origin.x + drag.dx, y: origin.y + drag.dy }
+  const placed = displayWorldPosition(node, drag)
+  if (placed.x === node.x && placed.y === node.y) return node
+  return { ...node, x: placed.x, y: placed.y }
 }
 
 function liveZoneForNode(

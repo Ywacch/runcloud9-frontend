@@ -46,10 +46,9 @@ export function attachExtents(archetype?: Archetype | string): {
     case 'message-queue':
       // Wide tube — ports fan along the long axis, sit further out.
       return { hw: HALF_W * 0.92, hh: HALF_H * 0.42, outset: 14 }
-    case 'database': {
-      const rim = 70
-      return { hw: rim, hh: rim, outset: 2 }
-    }
+    case 'database':
+      // Match glyphRimExtents (45/38) plus a small kiss past the lid ellipse.
+      return { hw: 45, hh: 38, outset: 4 }
     case 'cache':
       return { hw: HALF_W * 0.55, hh: HALF_H * 0.55, outset: 10 }
     case 'load-balancer':
@@ -68,8 +67,8 @@ export type AttachOpts = {
   slotCount?: number
 }
 
-/** Cloudcraft approach axes: 4 iso + screen H/V (unit vectors in world). */
-const CLOUDCRAFT_DIRS: WorldPoint[] = [
+/** Connector approach axes: 4 iso + screen H/V (unit vectors in world). */
+export const CONNECTOR_DIRS: WorldPoint[] = [
   { x: HALF_W, y: HALF_H }, // i+
   { x: -HALF_W, y: -HALF_H }, // i-
   { x: -HALF_W, y: HALF_H }, // j+
@@ -83,10 +82,10 @@ const CLOUDCRAFT_DIRS: WorldPoint[] = [
   return { x: d.x / len, y: d.y / len }
 })
 
-function nearestCloudcraftDir(ux: number, uy: number): WorldPoint {
-  let best = CLOUDCRAFT_DIRS[0]
+function nearestConnectorDir(ux: number, uy: number): WorldPoint {
+  let best = CONNECTOR_DIRS[0]
   let bestDot = -Infinity
-  for (const d of CLOUDCRAFT_DIRS) {
+  for (const d of CONNECTOR_DIRS) {
     const dot = d.x * ux + d.y * uy
     if (dot > bestDot) {
       bestDot = dot
@@ -125,14 +124,19 @@ export function attachPoint(
   // Multi-edge slots share one approach direction so lattice routes can
   // overlap into a Cloudcraft-style trunk (no 45° port fan).
 
-  const dir = nearestCloudcraftDir(ux, uy)
+  const dir = nearestConnectorDir(ux, uy)
   const { hw, hh, outset } = attachExtents(arch)
   // Radial distance: average ellipse extent + outset along the chosen axis.
   const radius = Math.abs(dir.x) * hw + Math.abs(dir.y) * hh + outset
-  return snapToHalfCell({
+  const raw = {
     x: center.x + dir.x * radius,
     y: center.y + dir.y * radius,
-  })
+  }
+  const snapped = snapToHalfCell(raw)
+  const snapDist = Math.hypot(snapped.x - center.x, snapped.y - center.y)
+  // Half-cell snap can jump a tight port (database lid) into empty grid.
+  if (snapDist > radius * 1.2) return raw
+  return snapped
 }
 
 /** Source→target attach pair (each port faces its peer). */

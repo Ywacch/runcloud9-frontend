@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -1 12 12">
+  <!-- Extracted from line-arrow-3.svg (tip at origin, user units). -->
+  <path
+    id="connector-chevron"
+    d="M 0,0 -8.047,4.648 7.242,8.828 3.621,4.414 Z"
+    fill-rule="nonzero"
+  />
+</svg>
