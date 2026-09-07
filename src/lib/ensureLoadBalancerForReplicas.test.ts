@@ -171,7 +171,11 @@ describe('ensureLoadBalancerForReplicas', () => {
     const appToQueueWithoutLb = Math.abs(
       withoutLb.queue.position[2] - withoutLb.app.position[2],
     )
-    expect(appToQueueWithoutLb).not.toBe(appToQueueWithLb)
+    // Bounded fill-grid uses the same major-cell hop for app→queue with or
+    // without the extra LB layer; reflow still shifts absolute positions.
+    expect(appToQueueWithoutLb).toBe(appToQueueWithLb)
+    expect(withoutLb.app.position[2]).not.toBe(withLb.app.position[2])
+    expect(withoutLb.cache.position[2]).not.toBe(withLb.cache.position[2])
   })
 
   it('rewires client-loadgen to the auto LB when present', () => {
