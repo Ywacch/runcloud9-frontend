@@ -137,7 +137,6 @@ export function Sidebar() {
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
-  const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const topologyBanner = useCanvasStore((s) => s.topologyBanner)
   const setTopologyBanner = useCanvasStore((s) => s.setTopologyBanner)
