@@ -1,4 +1,4 @@
-import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   type DeploymentResult,
@@ -39,11 +39,9 @@ import { ApiError } from '../lib/apiError'
 import { ResourceBudgetApiError } from '../lib/resourceBudgetError'
 import {
   explorerComponentLocksActive,
-  isEngineerOnlyNodeType,
 } from '../lib/canvasContextMenuCatalog'
 import {
   SWITCH_TO_FREE_TIER_DESIGN_LABEL,
-  UPGRADE_TO_UNLOCK_TOOLTIP,
 } from '../lib/billingCopy'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import { REQUEST_DEPLOY_EVENT } from '../lib/deployEvents'
@@ -72,7 +70,7 @@ import { applyAutoArrange } from '../lib/applyAutoArrange'
 import {
   CLIENT_LOADGEN_ID,
 } from '../lib/spawnClientNode'
-import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useWalkthroughStore } from '../editor-core/stores/walkthroughStore'
 import { useAuthStore } from '../product/stores/authStore'
@@ -128,27 +126,6 @@ function readSidebarCollapsed(): boolean {
   }
 }
 
-const PALETTE: { type: CanvasNode['type']; title: string; face: string }[] = [
-  { type: 'load_balancer', title: 'Load Balancer', face: 'var(--c9-info)' },
-  { type: 'compute', title: 'App Server', face: 'var(--c9-text-muted)' },
-  { type: 'database', title: 'Database', face: 'var(--c9-text-disabled)' },
-  { type: 'cache', title: 'Cache', face: 'var(--c9-error)' },
-  { type: 'message_queue', title: 'Message Queue', face: 'var(--c9-accent)' },
-  { type: 'worker', title: 'Worker', face: 'var(--c9-accent-hover)' },
-]
-
-let emptyDragImage: HTMLCanvasElement | null = null
-
-function getEmptyDragImage(): HTMLCanvasElement {
-  if (!emptyDragImage) {
-    const c = document.createElement('canvas')
-    c.width = 1
-    c.height = 1
-    emptyDragImage = c
-  }
-  return emptyDragImage
-}
-
 export function Sidebar() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -160,10 +137,6 @@ export function Sidebar() {
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
-  const placingNodeType = useCanvasStore((s) => s.placingNodeType)
-  const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
-  const setPlacingNodeType = useCanvasStore((s) => s.setPlacingNodeType)
-  const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const topologyBanner = useCanvasStore((s) => s.topologyBanner)
   const setTopologyBanner = useCanvasStore((s) => s.setTopologyBanner)
@@ -403,14 +376,9 @@ export function Sidebar() {
             ? 'Could not validate resource quota for this design.'
             : undefined
 
-  const togglePlace = (type: CanvasNode['type']) => {
-    if (useCanvasStore.getState().loadedVariationId) return
-    if (placingNodeType === type) {
-      setPlacingNodeType(null)
-    } else {
-      setDesignTool('select')
-      setPlacingNodeType(type)
-    }
+  const handleAutoArrange = () => {
+    if (!applyAutoArrange()) return
+    setBanner('Auto-arranged by dependency depth.')
   }
 
   const handleTemplateAction = (action: TemplateSelectAction): boolean | void => {
@@ -435,22 +403,6 @@ export function Sidebar() {
     )
     trackEvent('template_selected', { template: action.id, archetype: 'scratch' })
   }
-
-  const handleAutoArrange = () => {
-    if (!applyAutoArrange()) return
-    setBanner('Auto-arranged by dependency depth.')
-  }
-
-  const onDragStart =
-    (type: CanvasNode['type']) => (e: DragEvent) => {
-      if (useCanvasStore.getState().loadedVariationId) {
-        e.preventDefault()
-        return
-      }
-      e.dataTransfer.setData('application/runcloud9-node-type', type)
-      e.dataTransfer.effectAllowed = 'copy'
-      e.dataTransfer.setDragImage(getEmptyDragImage(), 0, 0)
-    }
 
   const trackDeployBlocked = useCallback(
     (reason: DeployBlockedReason, templateId = snapshotTemplateId) => {
@@ -965,7 +917,7 @@ export function Sidebar() {
         />
 
         <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
-          Components
+          Canvas
         </h2>
         <div className="space-y-2 rounded border border-[var(--c9-border)] bg-[var(--c9-surface)]/60 p-2">
           <button
@@ -984,14 +936,6 @@ export function Sidebar() {
             Auto arrange
           </button>
         </div>
-        <p className="text-xs leading-snug text-[var(--c9-muted)]">
-          Drag onto the canvas, or click a component then click the grid. Esc cancels.
-        </p>
-        {placingNodeType ? (
-          <p className="text-xs text-amber-200/90">
-            Placing: click the grid. Press Esc to cancel.
-          </p>
-        ) : null}
         {banner ? (
           <p className="rounded border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1.5 text-xs text-[var(--c9-text)]">
             {banner}
@@ -1011,48 +955,6 @@ export function Sidebar() {
             {graphHonestyIssue}
           </p>
         ) : null}
-        <ul className="space-y-2">
-          {PALETTE.map(({ type, title, face }) => {
-            const placing = placingNodeType === type
-            const tierLocked =
-              explorerComponentLocksActive() &&
-              !isPremiumUser &&
-              isEngineerOnlyNodeType(type)
-            const variationLocked = Boolean(loadedVariationId)
-            const disabled = live || tierLocked || variationLocked
-            const lockTitle = variationLocked
-              ? 'Topology is locked for this lab variation'
-              : tierLocked
-                ? UPGRADE_TO_UNLOCK_TOOLTIP
-                : undefined
-            return (
-              <li key={type}>
-                <button
-                  type="button"
-                  draggable={!disabled}
-                  disabled={disabled}
-                  title={lockTitle}
-                  onDragStart={disabled ? undefined : onDragStart(type)}
-                  onClick={() => {
-                    if (disabled) return
-                    togglePlace(type)
-                  }}
-                  className={`flex w-full items-center gap-3 rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/70 px-3 py-2.5 text-left text-sm text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
-                    placing ? 'ring-2 ring-[var(--c9-accent)] ring-offset-2 ring-offset-[var(--c9-bg)]' : ''
-                  }`}
-                  style={{ borderLeftWidth: 4, borderLeftColor: face }}
-                >
-                  <span
-                    className="h-8 w-8 shrink-0 rounded"
-                    style={{ backgroundColor: face }}
-                    aria-hidden
-                  />
-                  <span className="font-medium">{title}</span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
         {!live ? <PredictionCards /> : null}
       </div>
       <div
