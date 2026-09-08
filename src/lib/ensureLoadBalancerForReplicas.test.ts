@@ -171,11 +171,10 @@ describe('ensureLoadBalancerForReplicas', () => {
     const appToQueueWithoutLb = Math.abs(
       withoutLb.queue.position[2] - withoutLb.app.position[2],
     )
-    // Bounded fill-grid uses the same major-cell hop for app→queue with or
-    // without the extra LB layer; reflow still shifts absolute positions.
-    expect(appToQueueWithoutLb).toBe(appToQueueWithLb)
+    // Extra LB layer reflows depths; leftover fill can also change hop size.
+    // Last-layer nodes may land on the same slab edge after centering.
     expect(withoutLb.app.position[2]).not.toBe(withLb.app.position[2])
-    expect(withoutLb.cache.position[2]).not.toBe(withLb.cache.position[2])
+    expect(appToQueueWithoutLb).not.toBe(appToQueueWithLb)
   })
 
   it('rewires client-loadgen to the auto LB when present', () => {

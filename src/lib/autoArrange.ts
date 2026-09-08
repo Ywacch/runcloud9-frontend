@@ -7,7 +7,8 @@ import { boundedPlacementIsoBounds } from '../svg-canvas/math/iso'
 // which is -j / -store.z. Siblings fan along the perpendicular ±i / store.x.
 // One major cell = iso Δ 2 = store Δ 4. Hops never go below that; few-node
 // graphs stretch toward the visible floor (capped so two cubes do not pin
-// to opposite corners).
+// to opposite corners). Floor-division leftover is redistributed so an extra
+// ingress layer (loadgen) fills the diamond instead of packing the chain.
 const MIN_ISO_STEP = 2
 const MAX_ISO_STEP = 6
 const MQ_EXTRA_WEIGHT = 1
@@ -25,6 +26,33 @@ function isoStepForGaps(gaps: number, avail: number): number {
     MIN_ISO_STEP,
     Math.min(MAX_ISO_STEP, Math.floor(avail / gaps)),
   )
+}
+
+/**
+ * Split `avail` iso cells across weighted hops. Floor-division leftover is
+ * given back one cell at a time so an extra ingress layer (loadgen) does not
+ * leave empty diamond behind a packed chain. Caps at MAX_ISO_STEP per weight.
+ */
+function distributeIsoSpan(weights: number[], avail: number): number[] {
+  if (weights.length === 0) return []
+  const totalW = weights.reduce((sum, w) => sum + w, 0)
+  const unit = isoStepForGaps(totalW, avail)
+  const steps = weights.map((w) => w * unit)
+  const maxSpan = Math.min(avail, totalW * MAX_ISO_STEP)
+  let leftover = maxSpan - steps.reduce((sum, n) => sum + n, 0)
+  let i = 0
+  let guard = 0
+  const guardLimit = leftover + steps.length * MAX_ISO_STEP + 1
+  while (leftover > 0 && guard++ < guardLimit) {
+    const cap = weights[i] * MAX_ISO_STEP
+    if (steps[i] < cap) {
+      steps[i] += 1
+      leftover -= 1
+    }
+    i = (i + 1) % steps.length
+    if (steps.every((step, idx) => step >= weights[idx] * MAX_ISO_STEP)) break
+  }
+  return steps
 }
 
 function storeStepFromIso(isoStep: number): number {
@@ -131,15 +159,18 @@ export function autoArrangeByDependencyLayers(
     }
     hopWeights.push(weight)
   }
-  const totalHopWeight = hopWeights.reduce((sum, w) => sum + w, 0)
-  const layerIsoStep = isoStepForGaps(totalHopWeight, AVAIL_ISO_ROW)
-  const layerStoreUnit = storeStepFromIso(layerIsoStep)
+  const hopIsoSpans = distributeIsoSpan(hopWeights, AVAIL_ISO_ROW)
 
   const maxSiblings = orderedLayers.reduce(
     (max, layer) => Math.max(max, layerBuckets.get(layer)?.length ?? 0),
     0,
   )
-  const siblingIsoStep = isoStepForGaps(Math.max(0, maxSiblings - 1), AVAIL_ISO_COL)
+  const siblingGaps = Math.max(0, maxSiblings - 1)
+  const siblingIsoSpans = distributeIsoSpan(
+    Array.from({ length: siblingGaps }, () => 1),
+    AVAIL_ISO_COL,
+  )
+  const siblingIsoStep = siblingIsoSpans[0] ?? MIN_ISO_STEP
   const siblingStoreStep = storeStepFromIso(siblingIsoStep)
 
   const positions: Record<string, [number, number, number]> = {}
@@ -148,7 +179,7 @@ export function autoArrangeByDependencyLayers(
   for (let i = 0; i < orderedLayers.length; i++) {
     const layer = orderedLayers[i]
     if (i > 0) {
-      depth += hopWeights[i - 1] * layerStoreUnit
+      depth += storeStepFromIso(hopIsoSpans[i - 1] ?? MIN_ISO_STEP)
     }
     layerDepth.set(layer, depth)
 
