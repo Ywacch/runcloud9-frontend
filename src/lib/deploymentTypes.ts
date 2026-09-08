@@ -15,6 +15,8 @@ export interface DeploymentNode {
   type: string
   name: string
   config: Record<string, unknown>
+  /** Canvas lattice position persisted for layout miniviews. */
+  position?: [number, number, number]
 }
 
 export interface DeploymentConn {
@@ -31,4 +33,14 @@ export interface DeploymentDesign {
   connections: DeploymentConn[]
   /** Optional live session length (minutes). Honored for paid tiers only on the API. */
   sessionMinutes?: number
+}
+
+/** Compact layout returned on deployment history list items. */
+export interface DeploymentHistoryTopology {
+  nodes: Array<{
+    id: string
+    type: string
+    position?: [number, number, number]
+  }>
+  connections: DeploymentConn[]
 }

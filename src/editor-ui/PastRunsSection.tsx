@@ -13,9 +13,10 @@ import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { SessionSummaryView } from './SessionSummary'
 import { fmtInt, fmtMs } from '../lib/format'
 import { C9Card } from './c9Primitives'
-import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview'
+import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
+import { IsoTopologyPreview } from '../svg-canvas/components/IsoTopologyPreview'
 import { templatePresetToCanvasSnapshot } from '../lib/templatePresetAdapter'
-import { deploymentDesignToSnapshot } from '../lib/deployPayload'
+import { deploymentDesignToSnapshot, historyTopologyToSnapshot } from '../lib/deployPayload'
 import type { DeploymentDesign } from '../lib/deploymentTypes'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import {
@@ -147,36 +148,30 @@ export function PastRunsSection() {
     [runs, debouncedSearch, statusFilter, dateRange],
   )
 
-  const snapshotByTemplate = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        nodes: { id: string; type: string; position: [number, number, number] }[]
-        edges: { sourceId: string; targetId: string }[]
-      }
-    >()
+  const templateSnapshots = useMemo(() => {
+    const map = new Map<string, CanvasSnapshot>()
     for (const t of templates) {
       const preset = t.preset ?? t.presetLite
       if (!preset) continue
       try {
-        const snap = templatePresetToCanvasSnapshot(preset, t.id)
-        map.set(t.id, {
-          nodes: snap.nodes.map((n) => ({
-            id: n.id,
-            type: n.type,
-            position: n.position,
-          })),
-          edges: snap.edges.map((e) => ({
-            sourceId: e.sourceId,
-            targetId: e.targetId,
-          })),
-        })
+        map.set(t.id, templatePresetToCanvasSnapshot(preset, t.id))
       } catch {
         /* skip broken preset */
       }
     }
     return map
   }, [templates])
+
+  const snapshotForRun = (item: PastRunListItem): CanvasSnapshot | null => {
+    if (item.topology) {
+      try {
+        return historyTopologyToSnapshot(item.topology, item.template)
+      } catch {
+        /* fall through to template preset */
+      }
+    }
+    return templateSnapshots.get(item.template) ?? null
+  }
 
   const handleCardClick = async (item: PastRunListItem) => {
     if (detailLoading) return
@@ -333,8 +328,8 @@ export function PastRunsSection() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((item) => {
-              const topo = snapshotByTemplate.get(item.template)
-              const hasTopo = (topo?.nodes.length ?? 0) > 0
+              const snapshot = snapshotForRun(item)
+              const hasTopo = (snapshot?.nodes.length ?? 0) > 0
               return (
                 <button
                   key={item.id}
@@ -344,12 +339,9 @@ export function PastRunsSection() {
                   onClick={() => void handleCardClick(item)}
                   className="flex flex-col overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] text-left transition-colors hover:border-[var(--c9-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] disabled:opacity-60"
                 >
-                  {hasTopo ? (
+                  {hasTopo && snapshot ? (
                   <div className="aspect-[2.5/1] border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/40 p-3">
-                    <MiniTopologyPreview
-                      nodes={topo?.nodes ?? []}
-                      edges={topo?.edges ?? []}
-                    />
+                    <IsoTopologyPreview snapshot={snapshot} />
                   </div>
                   ) : null}
                   <div className="flex flex-1 flex-col gap-3 p-4">

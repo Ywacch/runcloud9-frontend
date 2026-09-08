@@ -7,7 +7,7 @@ import { refreshCurrentUser } from '../lib/auth'
 import { hasPaidTier, canAccessPremiumTemplates, type UserRecord } from '../lib/userTier'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import type { CanvasSnapshot } from '../editor-core/stores/canvasStore'
-import { MiniTopologyPreview } from '../components/dashboard/MiniTopologyPreview'
+import { IsoTopologyPreview } from '../svg-canvas/components/IsoTopologyPreview'
 import {
   TEMPLATE_COMING_SOON_HINT,
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
@@ -254,7 +254,7 @@ function FamilyCard({
     >
       <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
         {preview ? (
-          <MiniTopologyPreview nodes={preview.snapshot.nodes} edges={preview.snapshot.edges} />
+          <IsoTopologyPreview snapshot={preview.snapshot} />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-gray-500">
             Variations unavailable
@@ -295,7 +295,7 @@ function VariationCard({
   return (
     <div className="relative flex flex-col rounded-xl border border-gray-700 bg-gray-800/50 text-left transition hover:border-gray-600">
       <div className="h-28 rounded-t-xl bg-gray-800/30 p-3">
-        <MiniTopologyPreview nodes={snapshot.nodes} edges={snapshot.edges} />
+        <IsoTopologyPreview snapshot={snapshot} />
       </div>
       <div className="flex flex-1 flex-col p-4">
         <h3 className="text-sm font-semibold text-white">{row.variationLabel}</h3>

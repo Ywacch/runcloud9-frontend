@@ -1,5 +1,7 @@
 export type PastRunStatus = 'running' | 'terminated' | 'failed'
 
+import type { DeploymentHistoryTopology } from '../lib/deploymentTypes'
+
 export type PastRunListItem = {
   id: string
   namespace: string
@@ -10,6 +12,7 @@ export type PastRunListItem = {
   durationSeconds?: number
   peakRps?: number
   peakP99Ms?: number
+  topology?: DeploymentHistoryTopology
 }
 
 export type PastRunStatusFilter = 'all' | PastRunStatus
@@ -77,6 +80,7 @@ export function mergeActiveAndHistory(opts: {
     durationSeconds?: number
     peakRps?: number
     peakP99Ms?: number
+    topology?: DeploymentHistoryTopology
   }>
 }): PastRunListItem[] {
   const historyNs = new Set(opts.history.map((h) => h.namespace))
@@ -101,6 +105,7 @@ export function mergeActiveAndHistory(opts: {
     durationSeconds: h.durationSeconds,
     peakRps: h.peakRps,
     peakP99Ms: h.peakP99Ms,
+    topology: h.topology,
   }))
 
   return [...activeItems, ...historyItems].sort(
