@@ -70,6 +70,7 @@ import { EdgeStylePresetToggle } from './components/EdgeStylePresetToggle'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FloorThemeToggle } from './components/FloorThemeToggle'
+import { DevTemplateLayoutPreview } from './components/DevTemplateLayoutPreview'
 import { FxDemoControls } from './components/FxDemoControls'
 import { GridModeToggle } from './components/GridModeToggle'
 import { GridPatterns } from './components/GridPatterns'
@@ -1119,6 +1120,7 @@ export default function SvgDesignCanvas({
           <ShardsStepper />
           <EngineSelect />
           <FxDemoControls />
+          {import.meta.env.DEV ? <DevTemplateLayoutPreview /> : null}
           <div className="ml-2">
             <GridModeToggle mode={mode} onChange={setGridMode} />
           </div>
@@ -1166,77 +1168,86 @@ export default function SvgDesignCanvas({
           </div>
           <span className="ml-auto text-xs text-zinc-500">{latticeHint}</span>
         </div>
-      ) : devToolsVisible ? (
-        <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-1.5">
-          {debugExtrasVisible ? <FxDemoControls compact /> : null}
-          <GridModeToggle mode={mode} onChange={setGridMode} compact />
-          <FloorThemeToggle
-            theme={floorThemeId}
-            onChange={setFloorTheme}
-            compact
-          />
-          <EdgeStylePresetToggle
-            preset={edgeStylePreset}
-            onChange={setEdgeStylePreset}
-            compact
-          />
-          <div className="pointer-events-auto flex items-center gap-0.5">
+      ) : (
+        <>
+          {import.meta.env.DEV && chromeMode !== 'clean' ? (
+            <div className="pointer-events-none absolute bottom-20 left-3 z-20">
+              <DevTemplateLayoutPreview compact />
+            </div>
+          ) : null}
+          {devToolsVisible ? (
+            <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-1.5">
+              {debugExtrasVisible ? <FxDemoControls compact /> : null}
+              <GridModeToggle mode={mode} onChange={setGridMode} compact />
+              <FloorThemeToggle
+                theme={floorThemeId}
+                onChange={setFloorTheme}
+                compact
+              />
+              <EdgeStylePresetToggle
+                preset={edgeStylePreset}
+                onChange={setEdgeStylePreset}
+                compact
+              />
+              <div className="pointer-events-auto flex items-center gap-0.5">
+                <button
+                  type="button"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
+                  onClick={() => zoomBy(ZOOM_FACTOR)}
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
+                  onClick={() => zoomBy(1 / ZOOM_FACTOR)}
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
+                  onClick={fitDefault}
+                  title="Fit (F)"
+                >
+                  Fit
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)] disabled:opacity-50"
+                  onClick={() => void exportSvg()}
+                  disabled={exporting}
+                  title="Download SVG (bounded board, or design + padding)"
+                >
+                  {exporting ? '…' : 'SVG'}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDevCanvasToolsVisible(false)}
+                title={
+                  import.meta.env.DEV
+                    ? 'Hide view tools. Press ` for clean chrome.'
+                    : 'Hide view tools'
+                }
+                className="pointer-events-auto rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
+              >
+                Hide
+              </button>
+            </div>
+          ) : chromeMode !== 'clean' ? (
             <button
               type="button"
-              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
-              onClick={() => zoomBy(ZOOM_FACTOR)}
-              aria-label="Zoom out"
+              onClick={() => setDevCanvasToolsVisible(true)}
+              className="pointer-events-auto absolute bottom-20 right-3 z-20 rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
             >
-              −
+              View
             </button>
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
-              onClick={() => zoomBy(1 / ZOOM_FACTOR)}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)]"
-              onClick={fitDefault}
-              title="Fit (F)"
-            >
-              Fit
-            </button>
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/80 hover:text-[var(--c9-text)] disabled:opacity-50"
-              onClick={() => void exportSvg()}
-              disabled={exporting}
-              title="Download SVG (bounded board, or design + padding)"
-            >
-              {exporting ? '…' : 'SVG'}
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDevCanvasToolsVisible(false)}
-            title={
-              import.meta.env.DEV
-                ? 'Hide view tools. Press ` for clean chrome.'
-                : 'Hide view tools'
-            }
-            className="pointer-events-auto rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
-          >
-            Hide
-          </button>
-        </div>
-      ) : chromeMounted && chromeMode !== 'clean' ? (
-        <button
-          type="button"
-          onClick={() => setDevCanvasToolsVisible(true)}
-          className="pointer-events-auto absolute bottom-20 right-3 z-20 rounded px-1.5 py-0.5 text-[10px] text-[var(--c9-muted)]/70 hover:text-[var(--c9-text)]"
-        >
-          View
-        </button>
-      ) : null}
+          ) : null}
+        </>
+      )}
 
       <div ref={hostRef} className="relative min-h-0 flex-1">
         <svg
