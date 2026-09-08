@@ -16,9 +16,17 @@ import { isoFootprintDiamond, type WorldPoint } from '../math/iso'
 
 export type ExportViewBox = { x: number; y: number; w: number; h: number }
 
+/** Wide thumb aspect (~2.5:1) shared with dashboard / template cards. */
+export const TOPOLOGY_PREVIEW_VB_W = 250
+export const TOPOLOGY_PREVIEW_VB_H = 100
+export const TOPOLOGY_PREVIEW_ASPECT =
+  TOPOLOGY_PREVIEW_VB_W / TOPOLOGY_PREVIEW_VB_H
+
 const MIN_CONTENT = 240
 const DESIGN_PAD = 280
 const BOUNDED_PAD = 28
+const TOPOLOGY_PREVIEW_PAD = 48
+const TOPOLOGY_PREVIEW_MIN = 80
 
 const BOUNDED_ORIGIN_I = -BOUNDED_MAJOR_COLS + 0.5
 const BOUNDED_ORIGIN_J = -BOUNDED_MAJOR_ROWS + 0.5
@@ -101,6 +109,29 @@ export function resolveExportViewBox(options: {
 
 export function viewBoxAttr(vb: ExportViewBox): string {
   return `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
+}
+
+/** Fit-to-cluster frame for iso miniviews (~2.5:1, independent of live camera). */
+export function topologyPreviewViewBox(
+  points: readonly WorldPoint[],
+  pad = TOPOLOGY_PREVIEW_PAD,
+): ExportViewBox {
+  if (points.length === 0) {
+    return { x: 0, y: 0, w: TOPOLOGY_PREVIEW_VB_W, h: TOPOLOGY_PREVIEW_VB_H }
+  }
+  const box = aabbOf(points)
+  const contentW = Math.max(box.maxX - box.minX, TOPOLOGY_PREVIEW_MIN)
+  const contentH = Math.max(box.maxY - box.minY, TOPOLOGY_PREVIEW_MIN)
+  let w = contentW + pad * 2
+  let h = contentH + pad * 2
+  if (w / h > TOPOLOGY_PREVIEW_ASPECT) {
+    h = w / TOPOLOGY_PREVIEW_ASPECT
+  } else {
+    w = h * TOPOLOGY_PREVIEW_ASPECT
+  }
+  const cx = (box.minX + box.maxX) / 2
+  const cy = (box.minY + box.maxY) / 2
+  return { x: cx - w / 2, y: cy - h / 2, w, h }
 }
 
 /** @deprecated use designExportViewBox */

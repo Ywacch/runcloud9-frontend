@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CanvasNode } from '../editor-core/stores/canvasStore'
-import { deployConfigForNode, deploymentDesignToSnapshot } from './deployPayload'
+import type { CanvasNode, CanvasSnapshot } from '../editor-core/stores/canvasStore'
+import { deployConfigForNode, deploymentDesignToSnapshot, snapshotToDeploymentDesign } from './deployPayload'
 import type { DeploymentDesign } from './deploymentTypes'
 
 function cacheNode(config: CanvasNode['config']): CanvasNode {
@@ -499,5 +499,75 @@ describe('deploymentDesignToSnapshot', () => {
     expect(snapshot.nodes[0]?.type).toBe('compute')
     expect(snapshot.edges).toHaveLength(1)
     expect(snapshot.edges[0]?.sourceId).toBe('app-1')
+  })
+
+  it('round-trips canvas positions through deployment design', () => {
+    const snapshot: CanvasSnapshot = {
+      version: '1.0',
+      templateId: 'url-shortener',
+      nodes: [
+        {
+          id: 'app-1',
+          type: 'compute' as const,
+          label: 'App',
+          position: [4, 0.3, -2] as [number, number, number],
+          config: { replicas: 1 },
+          status: 'idle' as const,
+        },
+        {
+          id: 'db-1',
+          type: 'database' as const,
+          label: 'DB',
+          position: [8, 0.3, 2] as [number, number, number],
+          config: { engine: 'postgresql', readReplicas: 0 },
+          status: 'idle' as const,
+        },
+      ],
+      edges: [
+        {
+          id: 'edge-0',
+          sourceId: 'app-1',
+          targetId: 'db-1',
+          protocol: 'http' as const,
+          animated: false,
+        },
+      ],
+      exportedAt: new Date().toISOString(),
+    }
+
+    const design = snapshotToDeploymentDesign(snapshot, { mutateCanvas: false })
+    expect(design.nodes[0]?.position).toEqual([4, 0.3, -2])
+    expect(design.nodes[1]?.position).toEqual([8, 0.3, 2])
+
+    const restored = deploymentDesignToSnapshot(design, 'url-shortener')
+    expect(restored.nodes[0]?.position).toEqual([4, 0.3, -2])
+    expect(restored.nodes[1]?.position).toEqual([8, 0.3, 2])
+  })
+
+  it('auto-arranges designs that omit stored positions', () => {
+    const design: DeploymentDesign = {
+      version: '1.0',
+      template: 'url-shortener',
+      archetype: 'standard',
+      nodes: [
+        {
+          id: 'app-1',
+          type: 'app-server',
+          name: 'App',
+          config: { replicas: 1 },
+        },
+        {
+          id: 'db-1',
+          type: 'database',
+          name: 'DB',
+          config: { engine: 'postgresql', readReplicas: 0 },
+        },
+      ],
+      connections: [{ sourceId: 'app-1', targetId: 'db-1', protocol: 'http' }],
+    }
+
+    const snapshot = deploymentDesignToSnapshot(design, 'url-shortener')
+    expect(snapshot.nodes[0]?.position).not.toEqual(snapshot.nodes[1]?.position)
+    expect(snapshot.nodes.every((n) => n.position[1] === 0.3)).toBe(true)
   })
 })

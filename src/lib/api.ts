@@ -9,7 +9,7 @@ import {
   shouldUseDevAccountFixtures,
 } from './devAccountPreview'
 import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
-import type { DeploymentDesign, ResourceProfilesResponse } from './deploymentTypes'
+import type { DeploymentDesign, DeploymentHistoryTopology, ResourceProfilesResponse } from './deploymentTypes'
 import { ResourceBudgetApiError } from './resourceBudgetError'
 import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
@@ -18,6 +18,7 @@ import type { TopologyRulesResponse } from './topologyRulesTypes'
 export type {
   DeploymentConn,
   DeploymentDesign,
+  DeploymentHistoryTopology,
   DeploymentNode,
   ResourceLimitsJSON,
   ResourceProfilesResponse,
@@ -440,6 +441,40 @@ export async function listActiveDeployments(): Promise<ActiveDeploymentSummary[]
   }
 }
 
+function parseDeploymentHistoryTopology(
+  raw: unknown,
+): DeploymentHistoryTopology | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const row = raw as Record<string, unknown>
+  if (!Array.isArray(row.nodes) || !Array.isArray(row.connections)) return undefined
+  const nodes = row.nodes
+    .filter((n): n is Record<string, unknown> => Boolean(n) && typeof n === 'object')
+    .map((n) => {
+      const id = String(n.id ?? '')
+      const type = String(n.type ?? '')
+      if (!id || !type) return null
+      let position: [number, number, number] | undefined
+      if (Array.isArray(n.position) && n.position.length === 3) {
+        const nums = n.position.map(Number)
+        if (nums.every((v) => Number.isFinite(v))) {
+          position = [nums[0], nums[1], nums[2]]
+        }
+      }
+      return position ? { id, type, position } : { id, type }
+    })
+    .filter((n): n is NonNullable<typeof n> => n != null)
+  const connections = row.connections
+    .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+    .map((c) => ({
+      sourceId: String(c.sourceId ?? ''),
+      targetId: String(c.targetId ?? ''),
+      protocol: String(c.protocol ?? 'http'),
+    }))
+    .filter((c) => c.sourceId && c.targetId)
+  if (nodes.length === 0) return undefined
+  return { nodes, connections }
+}
+
 /** Past terminated/failed deployments for the signed-in user (newest first). */
 export interface DeploymentHistoryItem {
   id: string
@@ -453,6 +488,8 @@ export interface DeploymentHistoryItem {
   durationSeconds?: number
   peakRps?: number
   peakP99Ms?: number
+  /** Compact layout for miniview cards (nodes + connections only). */
+  topology?: DeploymentHistoryTopology
 }
 
 export async function listDeploymentHistory(
@@ -502,6 +539,8 @@ export async function listDeploymentHistory(
       if (Number.isFinite(peakRps) && peakRps >= 0) item.peakRps = peakRps
       const peakP99 = Number(row.peakP99Ms)
       if (Number.isFinite(peakP99) && peakP99 >= 0) item.peakP99Ms = peakP99
+      const topology = parseDeploymentHistoryTopology(row.topology)
+      if (topology) item.topology = topology
       return item
     })
     .filter((item) => item.id && item.namespace)

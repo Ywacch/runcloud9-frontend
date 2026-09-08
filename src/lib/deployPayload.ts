@@ -6,7 +6,7 @@ import {
 import { backendComponentToCanvasType, canvasToBackend } from './typeMapping'
 import type { CanvasNode, CanvasSnapshot, CanvasEdge } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
-import type { DeploymentDesign } from './api'
+import type { DeploymentDesign, DeploymentHistoryTopology } from './api'
 import {
   ensureLoadBalancerForReplicas,
   ensureLoadBalancerForReplicasInSnapshot,
@@ -39,6 +39,7 @@ import {
   seedEventNameFromConfig,
 } from './purchaseMode'
 import { deployCacheTtlSeconds } from './cacheTtl'
+import { autoArrangeByDependencyLayers } from './autoArrange'
 import { normalizeInstanceSizes } from './instanceSizes'
 
 /**
@@ -190,6 +191,7 @@ export function snapshotToDeploymentDesign(
       type: canvasToBackend[n.type],
       name: n.label,
       config: deployConfigForNode(n, snapshot.templateId),
+      position: [...n.position] as [number, number, number],
     }))
   const connections = snapshot.edges
     .filter(
@@ -222,20 +224,22 @@ export function deploymentDesignToSnapshot(
 ): CanvasSnapshot {
   const now = new Date().toISOString()
 
-  // Simple grid layout: spread nodes horizontally, single row.
-  const nodes: CanvasNode[] = design.nodes.map((n, idx) => {
+  let nodes: CanvasNode[] = design.nodes.map((n) => {
     const type = backendComponentToCanvasType[n.type] ?? 'compute'
-    const x = idx * 2
-    const z = 0
     const raw = { ...n.config } as Record<string, unknown>
     if (type === 'cache' && raw.cacheStrategy == null && raw.strategy != null) {
       raw.cacheStrategy = raw.strategy
     }
+    const hasPosition =
+      Array.isArray(n.position) &&
+      n.position.length === 3 &&
+      n.position.every((v) => Number.isFinite(v))
     return {
       id: n.id,
       type,
-      // Keep baseline elevation consistent with runtime canvas placement.
-      position: [x, 0.3, z],
+      position: hasPosition
+        ? [n.position![0], n.position![1], n.position![2]]
+        : [0, 0.3, 0],
       label: n.name || n.id,
       config: raw,
       status: 'idle',
@@ -246,9 +250,23 @@ export function deploymentDesignToSnapshot(
     id: `edge-${idx}`,
     sourceId: c.sourceId,
     targetId: c.targetId,
-    protocol: 'http',
+    protocol: c.protocol === 'tcp' ? 'tcp' : 'http',
     animated: false,
   }))
+
+  const needsArrange = design.nodes.some(
+    (n) =>
+      !Array.isArray(n.position) ||
+      n.position.length !== 3 ||
+      !n.position.every((v) => Number.isFinite(v)),
+  )
+  if (needsArrange && nodes.length > 0) {
+    const arranged = autoArrangeByDependencyLayers(nodes, edges)
+    nodes = nodes.map((node) => ({
+      ...node,
+      position: arranged[node.id] ?? node.position,
+    }))
+  }
 
   return {
     version: '1.0',
@@ -257,4 +275,24 @@ export function deploymentDesignToSnapshot(
     edges,
     exportedAt: now,
   }
+}
+
+export function historyTopologyToSnapshot(
+  topology: DeploymentHistoryTopology,
+  templateId: string,
+): CanvasSnapshot {
+  const design: DeploymentDesign = {
+    version: '1.0',
+    template: templateId,
+    archetype: 'standard',
+    nodes: topology.nodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      name: n.id,
+      config: {},
+      position: n.position,
+    })),
+    connections: topology.connections,
+  }
+  return deploymentDesignToSnapshot(design, templateId)
 }
