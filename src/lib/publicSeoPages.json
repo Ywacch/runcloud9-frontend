@@ -4,8 +4,8 @@
   "organizationName": "RunCloud9",
   "home": {
     "path": "/",
-    "title": "runcloud9 | Design and deploy live architecture",
-    "description": "Design distributed systems on a canvas, deploy to real Kubernetes, and watch live metrics under load. Free tier included."
+    "title": "runcloud9 | Run real architectures under load",
+    "description": "Pick a runnable architecture, change replicas, CPU, memory, or cache and database settings, and run a nine-minute session on Kubernetes under load. Free tier included."
   },
   "pages": [
     {

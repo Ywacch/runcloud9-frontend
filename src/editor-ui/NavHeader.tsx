@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../product/stores/authStore'
 import { loginPathWithReturnTo } from '../lib/authReturn'
 import { hasDevAccountAccess } from '../lib/devAccountPreview'
+import { RunCloud9Logo } from '../components/brand/RunCloud9Logo'
 
 const linkBase =
   'relative px-2 py-1.5 text-sm transition-colors duration-200 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)]'
@@ -111,9 +112,9 @@ export default function NavHeader() {
     <header className="c9-nav-header fixed top-0 z-50 flex w-full items-center justify-between border-b-2 border-[var(--c9-border-strong)] bg-[var(--c9-bg)] px-6 py-3">
       <Link
         to={accountAccess ? '/dashboard' : '/'}
-        className="text-lg font-semibold tracking-tight text-[var(--c9-text-heading)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)]"
+        className="transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--c9-bg)]"
       >
-        RunCloud9
+        <RunCloud9Logo iconClassName="h-8 w-8" />
       </Link>
       <nav className="flex items-center gap-1 sm:gap-3">
         <HeaderLinks pathname={pathname} accountAccess={accountAccess} />

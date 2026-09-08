@@ -5,9 +5,8 @@ export default function AboutPage() {
   return (
     <LegalPageLayout title="About RunCloud9">
       <p>
-        RunCloud9 is an interactive distributed systems workbench: an architecture lab on a
-        canvas. You place load balancers, app servers, databases, caches, and queues, then
-        deploy them to real Kubernetes for short sessions.
+        RunCloud9 is a lab for software and system architecture. You run canonical designs
+        on real Kubernetes and watch how they behave under load.
       </p>
       <p>
         Each session gets an isolated namespace, seeded data, load traffic, and live metrics.
@@ -22,7 +21,7 @@ export default function AboutPage() {
         <Link to="/login" className="text-[var(--c9-accent)] hover:underline">
           sign in
         </Link>{' '}
-        to deploy your first architecture.
+        to start a session.
       </p>
     </LegalPageLayout>
   )

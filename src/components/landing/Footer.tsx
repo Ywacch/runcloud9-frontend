@@ -1,31 +1,7 @@
 import { Link } from 'react-router-dom'
 import { DISCORD_INVITE_URL } from '../../lib/featureFlags'
 import { requestCookieSettings } from '../../lib/cookieConsent'
-
-function RunCloud9Logo() {
-  return (
-    <div className="flex items-center gap-[0.45rem]">
-      <svg
-        width="28"
-        height="20"
-        viewBox="0 0 28 20"
-        fill="none"
-        aria-hidden
-        className="shrink-0"
-      >
-        <path
-          d="M6.2 16.8h13.4a5 5 0 0 0 .6-9.97 6.8 6.8 0 0 0-13.1 2A4.2 4.2 0 0 0 6.2 16.8Z"
-          fill="color-mix(in srgb, var(--color-c9-400) 42%, transparent)"
-          stroke="var(--color-c9-200)"
-          strokeWidth="1.4"
-        />
-      </svg>
-      <span className="font-sans text-base font-semibold tracking-[-0.02em] text-c9-text-heading">
-        RunCloud9
-      </span>
-    </div>
-  )
-}
+import { RunCloud9Logo } from '../brand/RunCloud9Logo'
 
 const FOOTER_LINKS = [
   { label: 'About', to: '/about' },
