@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../product/stores/authStore'
 import { loginPathWithReturnTo } from '../../lib/authReturn'
 import { hasDevAccountAccess } from '../../lib/devAccountPreview'
+import { RunCloud9Logo } from '../brand/RunCloud9Logo'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -20,7 +21,7 @@ export function Navbar() {
 
   const primaryCta = session
     ? { to: '/dashboard', label: 'Dashboard' }
-    : { to: '/canvas', label: 'Go to Canvas' }
+    : { to: '/canvas', label: 'Start a session' }
 
   return (
     <header
@@ -145,21 +146,5 @@ export function Navbar() {
         </div>
       ) : null}
     </header>
-  )
-}
-
-function RunCloud9Logo() {
-  return (
-    <div className="flex items-center gap-2">
-      <svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden>
-        <path
-          d="M6.2 16.8h13.4a5 5 0 0 0 .6-9.97 6.8 6.8 0 0 0-13.1 2A4.2 4.2 0 0 0 6.2 16.8Z"
-          fill="color-mix(in srgb, var(--color-c9-500) 16%, transparent)"
-          stroke="var(--color-c9-400)"
-          strokeWidth="1.6"
-        />
-      </svg>
-      <span className="font-sans text-base font-medium text-c9-text-heading">RunCloud9</span>
-    </div>
   )
 }

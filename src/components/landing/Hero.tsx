@@ -14,8 +14,8 @@ const HERO_SVG_STYLE = {
 export function Hero() {
   const session = useAuthStore((s) => s.session)
   const primaryHref = session ? '/dashboard' : '/canvas'
-  const primaryLabel = session ? 'Open Dashboard →' : 'Start Building →'
-  const primaryCta = session ? 'open_dashboard' : 'start_building'
+  const primaryLabel = session ? 'Open Dashboard →' : 'Start a session →'
+  const primaryCta = session ? 'open_dashboard' : 'start_session'
 
   return (
     <section
@@ -36,13 +36,14 @@ export function Hero() {
       <div className="relative z-10 mx-auto grid w-full max-w-[1360px] grid-cols-1 items-center gap-16 px-6 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10 lg:px-10 lg:py-24">
         <div className="flex flex-col justify-center gap-6">
           <h1 className="font-serif text-4xl font-medium leading-tight text-c9-text-heading md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
-            Design and deploy live architecture on a canvas.
+            Run real architectures under load.
           </h1>
 
           <p className="max-w-[65ch] font-serif text-lg leading-relaxed text-c9-text-muted">
-            Place load balancers, app servers, databases, caches, and queues on
-            the canvas. One deploy spins up a live stack. Metrics display for
-            each node while traffic runs for 9 minutes.
+            Pick a template and one architecture it can run. Change replica
+            count, CPU and memory, or cache and database settings, then run it
+            on real Kubernetes for nine minutes. Watch latency, cache behavior,
+            and database load on the nodes as traffic and faults hit the system.
           </p>
 
           <div className="flex flex-wrap gap-3">

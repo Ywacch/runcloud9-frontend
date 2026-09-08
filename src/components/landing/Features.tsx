@@ -15,33 +15,33 @@ type FeatureBlockConfig = {
 
 const FEATURE_BLOCKS: FeatureBlockConfig[] = [
   {
-    category: 'Design',
+    category: 'Explore',
     categoryClass: 'text-c9-success',
-    title: 'Lay out the system',
-    body: 'Add components to the canvas. Configure & connect components, and deploy from the same view.',
+    title: 'Pick a topology',
+    body: 'Choose a lesson and one architecture it can run. URL shortener is app and database, cache-aside, or a caching proxy. Social feed is pull vs fan-out. E-commerce is sync checkout vs a queue.',
     bullets: [
-      'Six component types: load balancer, app server, database, cache, message queue, worker',
-      'Draw connections on the canvas to model how traffic should flow',
+      'A handful of architectures per lesson, not an open graph',
+      'Cache TTL, eviction, read policy, and other component settings',
       'Horizontal scaling via replicas; vertical via CPU and memory',
     ],
     screenshotSrc: canvasDesign,
     visualFirst: true,
   },
   {
-    category: 'Deploy',
+    category: 'Run',
     categoryClass: 'text-c9-info',
-    title: 'Deploy the full diagram',
-    body: 'One click provisions the components in your drawing as live services with namespace isolation and resource quotas. The session runs nine minutes, then teardown reclaims the environment.',
+    title: 'Put it under load',
+    body: 'One click provisions that architecture in an isolated namespace, with generated traffic, for nine minutes. Then teardown. Change CPU and memory, replica count, cache and database settings, or trigger a pod kill or cache flush.',
     bullets: [
-      'Deploy the full diagram with one click from the canvas',
+      'Isolated Kubernetes session, then teardown',
       'Templates include seeded database rows for realistic reads',
-      'Teardown runs when the session clock ends',
+      'Knobs and chaos on the same running system',
     ],
     screenshotSrc: canvasDeploy,
     visualFirst: false,
   },
   {
-    category: 'Observe',
+    category: 'Watch',
     categoryClass: 'text-c9-warning',
     title: 'Read metrics on the diagram',
     body: 'Prometheus metrics stream to the nodes on your canvas. You see p99 latency, cache hit rate, database query rate, and errors on the component that produced them. Trigger chaos scenarios during a live session and watch the same metrics move on the nodes that fail.',
@@ -49,7 +49,6 @@ const FEATURE_BLOCKS: FeatureBlockConfig[] = [
       'Per-component CPU, memory, and request rate',
       'Cache flush and pod kill scenarios you trigger from the live session',
       'Cache hit and miss counters',
-      'Threshold events with topology suggestions',
     ],
     screenshotSrc: canvasObserve,
     visualFirst: true,
@@ -135,7 +134,7 @@ function FeatureCopy({
 }
 
 function featureAlt(block: FeatureBlockConfig) {
-  return block.category === 'Design'
+  return block.category === 'Explore'
     ? 'RunCloud9 isometric architecture canvas'
     : `${block.title} preview`
 }
@@ -149,11 +148,12 @@ export function Features() {
       <div className="mx-auto max-w-[1360px]">
         <header className="mb-12 max-w-3xl">
           <h2 className="font-serif text-4xl font-medium tracking-[-0.02em] text-c9-text-heading lg:text-5xl">
-            Live infrastructure from your canvas diagram.
+            Live infrastructure from a canvas diagram.
           </h2>
           <p className="mt-4 max-w-[65ch] font-serif text-lg leading-relaxed text-c9-text-muted">
-            You deploy what you placed on the canvas, run traffic for nine
-            minutes, trigger chaos scenarios, and read metrics on each node.
+            Each lesson ships a small set of topologies that actually run. Pick
+            one, change replica count, sizing, or cache and database settings,
+            and spend nine minutes on live Kubernetes watching what moved.
           </p>
         </header>
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:gap-16">
@@ -192,7 +192,7 @@ export function Features() {
                 <div className="mt-8">
                   <FeatureVisual
                     screenshotSrc={block.screenshotSrc}
-                    framed={block.category !== 'Design'}
+                    framed={block.category !== 'Explore'}
                     alt={featureAlt(block)}
                   />
                 </div>

@@ -9,6 +9,7 @@ export type PublicSeoPage = {
 export const SITE_ORIGIN = seoPages.siteOrigin
 export const SITE_NAME = seoPages.siteName
 export const ORGANIZATION_NAME = seoPages.organizationName
+export const SITE_LOGO_PATH = '/logo.png'
 
 export const HOME_SEO: PublicSeoPage = seoPages.home
 
@@ -50,7 +51,7 @@ export function siteJsonLdGraph(): Record<string, unknown> {
         '@id': `${SITE_ORIGIN}/#organization`,
         name: ORGANIZATION_NAME,
         url: `${SITE_ORIGIN}/`,
-        logo: `${SITE_ORIGIN}/favicon.svg`,
+        logo: `${SITE_ORIGIN}${SITE_LOGO_PATH}`,
       },
       {
         '@type': 'WebSite',
