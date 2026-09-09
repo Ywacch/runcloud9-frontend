@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
+  perReplicaLimit,
   rollup,
+  samplesFromCompute,
   splitByRole,
   tooltipP99Label,
   type InstanceSample,
@@ -44,6 +47,32 @@ describe('rollup', () => {
     ]
     expect(rollup(samples, { idleFloor: 8 }).idle).toBe(true)
     expect(rollup(samples, { idleFloor: 8 }).rps).toBe(7)
+  })
+})
+
+describe('perReplicaLimit', () => {
+  it('splits cluster sum limits across replica count', () => {
+    expect(perReplicaLimit(3 * 1024 * 1024 * 1024, 3)).toBe(1024 * 1024 * 1024)
+  })
+})
+
+describe('samplesFromCompute', () => {
+  it('uses per-pod limits so cluster memory does not round to 0%', () => {
+    const oneGi = 1024 * 1024 * 1024
+    const podMem = 22 * 1024 * 1024
+    const m = {
+      cpuLimit: 0.375,
+      memoryLimit: 3 * oneGi,
+      podReplicas: [
+        { name: 'a', ready: true, requestRate: 0, p99LatencyMs: 0, cpuUsage: 0.02, memoryBytes: podMem },
+        { name: 'b', ready: true, requestRate: 0, p99LatencyMs: 0, cpuUsage: 0.02, memoryBytes: podMem },
+        { name: 'c', ready: true, requestRate: 0, p99LatencyMs: 0, cpuUsage: 0.02, memoryBytes: podMem },
+      ],
+    } as MetricsBucket
+
+    const samples = samplesFromCompute(m)
+    expect(samples.every((s) => s.memPct > 0)).toBe(true)
+    expect(rollup(samples).memPct).toBeGreaterThan(0)
   })
 })
 

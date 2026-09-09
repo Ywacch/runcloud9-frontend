@@ -115,8 +115,8 @@ export function resolveGroupedDisplay(
     const rolled = rollup(samplesFromCompute(metrics))
     return {
       kind: 'single',
-      cpuPct: rolled.cpuPct,
-      memPct: rolled.memPct,
+      cpuPct: metrics.cpuIsEstimated ? 0 : clampPercent(metrics.cpuPercent),
+      memPct: metrics.memIsEstimated ? 0 : clampPercent(metrics.memPercent),
       rps: rolled.rps,
       p99Ms: rolled.p99 != null && rolled.p99 > 0 ? rolled.p99 * 1000 : null,
       idle: false,

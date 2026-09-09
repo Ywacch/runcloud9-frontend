@@ -289,11 +289,42 @@ describe('replicaListRows', () => {
         },
       ],
       'session',
-      { cpuLimitCores: 0.125 },
+      { cpuLimitCores: 0.25 },
     )
     expect(rows[0]?.primaryText).toContain('7,500')
     expect(rows[0]?.primaryText).toContain('75%')
     expect(rows[0]?.cpuPct).toBe(80)
+  })
+
+  it('splits cluster limits across replicas for per-pod CPU and memory', () => {
+    const rows = replicaListRows(
+      [
+        {
+          name: 'app-server-a',
+          ready: true,
+          requestRate: 50,
+          p99LatencyMs: 40,
+          totalRequests: 0,
+          cpuUsage: 0.02,
+          errorRate: 0,
+          memoryBytes: 22 * 1024 * 1024,
+        },
+        {
+          name: 'app-server-b',
+          ready: true,
+          requestRate: 50,
+          p99LatencyMs: 42,
+          totalRequests: 0,
+          cpuUsage: 0.02,
+          errorRate: 0,
+          memoryBytes: 22 * 1024 * 1024,
+        },
+      ],
+      'live',
+      { cpuLimitCores: 0.25, memoryLimitBytes: 2 * 256 * 1024 * 1024 },
+    )
+    expect(rows[0]?.cpuPct).toBe(16)
+    expect(rows[0]?.memPct).toBeGreaterThan(0)
   })
 
   it('uses cpu limit for live replica CPU display', () => {

@@ -606,14 +606,20 @@ export function ComputeInstanceSection({
 }) {
   const tf = view.timeframe
   const quantile = view.latencyQuantile
+  const replicas = m.podReplicas.length > 0 ? m.podReplicas.length : 1
+  const cpuLimitPerPod = m.cpuLimit > 0 ? m.cpuLimit / replicas : 0
+  const memLimitPerPod = m.memoryLimit > 0 ? m.memoryLimit / replicas : 0
+  const memFallbackBytes = 512 * 1024 * 1024
   const cpuPct =
-    m.cpuLimit > 0
-      ? Math.min(100, (pod.cpuUsage / m.cpuLimit) * 100)
+    cpuLimitPerPod > 0
+      ? Math.min(100, (pod.cpuUsage / cpuLimitPerPod) * 100)
       : Math.min(100, pod.cpuUsage * 100)
   const memPct =
-    pod.memoryBytes > 0 && m.memoryLimit > 0
-      ? Math.min(100, (pod.memoryBytes / m.memoryLimit) * 100)
-      : 0
+    pod.memoryBytes > 0 && memLimitPerPod > 0
+      ? Math.min(100, (pod.memoryBytes / memLimitPerPod) * 100)
+      : pod.memoryBytes > 0
+        ? Math.min(100, (pod.memoryBytes / memFallbackBytes) * 100)
+        : 0
   const throughputLabel = tf === 'session' ? sessionThroughputLabel : liveThroughputLabel
   const throughputValue =
     tf === 'session' ? fmtInt(pod.totalRequests ?? 0) : `${fmtRate(pod.requestRate)}/s`
