@@ -401,7 +401,9 @@ export function PastRunsSection() {
       {detail?.kind === 'summary' && (
         <SessionSummaryView
           summary={detail.summary}
-          onDismiss={() => setDetail(null)}
+          onDismiss={() => {
+            setDetail(null)
+          }}
           onOpenCanvas={
             detail.design
               ? () => openDesignInCanvas(detail.design!, detail.template)

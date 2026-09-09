@@ -106,7 +106,9 @@ import {
   categorizeSafeError,
   analyticsPresetModeFromStore,
   trackSessionEndedOnce,
-  sessionEndedDurationSeconds,
+  sessionEndedProperties,
+  getDesignOptionSession,
+  resetDesignOptionSession,
   type DeployBlockedReason,
 } from '../lib/analytics'
 import { loginPathWithReturnTo } from '../lib/authReturn'
@@ -157,6 +159,7 @@ export function Sidebar() {
   const [tearing, setTearing] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
+  const pickerSelectedRef = useRef(false)
   const [deploySteps, setDeploySteps] = useState<DeployStep[]>([])
   const [deployModalOpen, setDeployModalOpen] = useState(false)
   const [deployModalMode, setDeployModalMode] =
@@ -392,7 +395,12 @@ export function Sidebar() {
       st.setLoadedVariationId(action.variationId)
       st.setTemplatePresetMode(null)
       setBanner(`Loaded ${templateTitleForId(action.id) ?? action.id} template`)
-      trackEvent('template_selected', { template: action.id, archetype: 'preset' })
+      trackEvent('template_selected', {
+        template: action.id,
+        archetype: 'preset',
+        variationId: action.variationId,
+      })
+      resetDesignOptionSession()
       return
     }
     st.startFromTemplate(action.id)
@@ -402,6 +410,7 @@ export function Sidebar() {
       `Selected ${templateTitleForId(action.id) ?? action.id} template (blank canvas)`,
     )
     trackEvent('template_selected', { template: action.id, archetype: 'scratch' })
+    resetDesignOptionSession()
   }
 
   const trackDeployBlocked = useCallback(
@@ -591,13 +600,26 @@ export function Sidebar() {
       }
 
       finishDeployCreate(result)
+      const knobSession = getDesignOptionSession()
       const presetMode = analyticsPresetModeFromStore(
         useCanvasStore.getState().templatePresetMode,
       )
+      const variationId = useCanvasStore.getState().loadedVariationId
+      const admitStatus = deployAdmitStatusFromCreate(result.status)
       trackEvent('deployment_requested', {
         ...deploymentAnalyticsProperties(design),
-        admitStatus: deployAdmitStatusFromCreate(result.status),
+        admitStatus,
+        deploymentId: result.deploymentId,
+        knobsChanged: knobSession.knobCount > 0,
+        knobCount: knobSession.knobCount,
         ...(presetMode ? { presetMode } : {}),
+        ...(variationId ? { variationId } : {}),
+      })
+      trackEvent('deployment_running', {
+        template: design.template,
+        deploymentId: result.deploymentId,
+        elapsedSeconds: 0,
+        admitStatus,
       })
     } catch (e) {
       const friendly = mapDeployRequestError(e, {
@@ -673,6 +695,7 @@ export function Sidebar() {
 
     const activeSession = useAuthStore.getState().session
     if (!activeSession) {
+      trackDeployBlocked('auth_required', stCheck.snapshotTemplateId)
       setDeploying(false)
       setPendingDeployAfterAuth(true)
       setDeployModalOpen(true)
@@ -793,11 +816,10 @@ export function Sidebar() {
     try {
       await deleteDeployment(deploymentId)
       const st = useCanvasStore.getState()
-      trackSessionEndedOnce(deploymentId, {
-        template: st.snapshotTemplateId ?? 'unknown',
-        reason: 'user_teardown',
-        durationSeconds: sessionEndedDurationSeconds(st.liveSessionStartedAt),
-      })
+      trackSessionEndedOnce(
+        deploymentId,
+        sessionEndedProperties('user_teardown'),
+      )
       if (st.nodes[CLIENT_LOADGEN_ID]) {
         st.removeNode(CLIENT_LOADGEN_ID)
       }
@@ -889,7 +911,13 @@ export function Sidebar() {
         <button
           type="button"
           disabled={live || simulate}
-          onClick={() => setTemplateModalOpen(true)}
+          onClick={() => {
+            pickerSelectedRef.current = false
+            setTemplateModalOpen(true)
+            trackEvent('template_picker_opened', {
+              template: snapshotTemplateId ?? 'none',
+            })
+          }}
           className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-3 text-left text-sm font-medium text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:opacity-40"
         >
           <span className="text-xs uppercase tracking-wider text-[var(--c9-muted)]">
@@ -904,6 +932,7 @@ export function Sidebar() {
           disabled={live || simulate || !snapshotTemplateId}
           onClick={() => {
             useCanvasStore.getState().setSnapshotTemplateId(null)
+            resetDesignOptionSession()
             setBanner('Template cleared.')
           }}
           className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-4 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -912,8 +941,19 @@ export function Sidebar() {
         </button>
         <TemplateModal
           open={templateModalOpen}
-          onClose={() => setTemplateModalOpen(false)}
-          onSelect={handleTemplateAction}
+          onClose={() => {
+            setTemplateModalOpen(false)
+            trackEvent('template_picker_dismissed', {
+              template:
+                useCanvasStore.getState().snapshotTemplateId ?? 'none',
+              hadSelection: pickerSelectedRef.current,
+            })
+          }}
+          onSelect={(action) => {
+            const result = handleTemplateAction(action)
+            if (result !== false) pickerSelectedRef.current = true
+            return result
+          }}
         />
 
         <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
@@ -1105,16 +1145,18 @@ export function Sidebar() {
             ? () => navigate(loginPathWithReturnTo('/canvas'))
             : deployRequestMessage?.actionLabel === UPGRADE_TO_ENGINEER_LABEL
               ? () => {
-                  void startEngineerCheckout().catch((err: unknown) => {
-                    const msg =
-                      err instanceof Error
-                        ? err.message
-                        : 'Could not start checkout.'
-                    setBanner(msg)
-                    setDeployRequestMessage((prev) =>
-                      prev ? { ...prev, body: msg } : prev,
-                    )
-                  })
+                  void startEngineerCheckout({ source: 'sidebar' }).catch(
+                    (err: unknown) => {
+                      const msg =
+                        err instanceof Error
+                          ? err.message
+                          : 'Could not start checkout.'
+                      setBanner(msg)
+                      setDeployRequestMessage((prev) =>
+                        prev ? { ...prev, body: msg } : prev,
+                      )
+                    },
+                  )
                 }
               : deployRequestMessage?.actionLabel
                 ? () => navigate(loginPathWithReturnTo('/canvas'))

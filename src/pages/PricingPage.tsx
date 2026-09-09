@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { trackEvent } from '../lib/analytics'
 import { Link } from 'react-router-dom'
 import { Footer } from '../components/landing/Footer'
 import { PlanCompareTable } from '../components/pricing/PlanCompareTable'
@@ -50,10 +51,14 @@ export default function PricingPage() {
   const upgradeCta = engineerUpgradeCta(BILLING_ENABLED)
   const loginHref = loginPathWithReturnTo('/pricing')
 
+  useEffect(() => {
+    trackEvent('pricing_viewed', {})
+  }, [])
+
   const handleUpgrade = () => {
     setCheckoutError(null)
     setCheckoutBusy(true)
-    startEngineerUpgrade(setCheckoutError, () => setCheckoutBusy(false))
+    startEngineerUpgrade(setCheckoutError, () => setCheckoutBusy(false), 'pricing')
   }
 
   const engineerPrimary =

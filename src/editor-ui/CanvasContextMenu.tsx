@@ -22,6 +22,7 @@ import { ContextMenuIcon } from './ContextMenuIcon'
 import { trackEvent } from '../lib/analytics'
 import { UPGRADE_TO_UNLOCK_TOOLTIP } from '../lib/billingCopy'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
 import { useAuthStore } from '../product/stores/authStore'
@@ -178,7 +179,12 @@ export function CanvasContextMenu() {
       await triggerChaos(deploymentId, { scenario, targetComponent: target })
       registerChaos(scenario, target)
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-      trackEvent('chaos_injected', { template, chaosKind: scenario, targetComponentType: target })
+      trackEvent('chaos_injected', {
+        template,
+        chaosKind: scenario,
+        targetComponentType: target,
+        loadgenActive: Boolean(useMetricsStore.getState().loadgen?.active),
+      })
       close()
     } catch (e) {
       debugAuthError(e, 'context-menu-chaos')

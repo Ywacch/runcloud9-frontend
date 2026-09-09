@@ -9,6 +9,7 @@ import {
   type ChaosScenario,
 } from '../lib/chaos'
 import { trackEvent } from '../lib/analytics'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import {
   isChaosTrialUsedMessage,
 } from '../lib/stripeCheckout'
@@ -49,7 +50,12 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
       await triggerChaos(deploymentId, { scenario, targetComponent: target })
       registerChaos(scenario, target)
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-      trackEvent('chaos_injected', { template, chaosKind: scenario, targetComponentType: target })
+      trackEvent('chaos_injected', {
+        template,
+        chaosKind: scenario,
+        targetComponentType: target,
+        loadgenActive: Boolean(useMetricsStore.getState().loadgen?.active),
+      })
     } catch (e) {
       debugAuthError(e, 'chaos')
       const raw =

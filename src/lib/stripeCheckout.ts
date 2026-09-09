@@ -1,4 +1,5 @@
 import { getAccessToken } from './auth'
+import { trackEvent, type CheckoutStartedSource } from './analytics'
 import { useAuthStore } from '../product/stores/authStore'
 
 export {
@@ -78,6 +79,7 @@ async function postBillingFunction(
  */
 export async function startEngineerCheckout(opts?: {
   assign?: (url: string) => void
+  source?: CheckoutStartedSource
 }): Promise<void> {
   const session = useAuthStore.getState().session
   const token = getAccessToken()
@@ -103,6 +105,9 @@ export async function startEngineerCheckout(opts?: {
     throw new StripeCheckoutError('Checkout did not return a redirect URL.')
   }
 
+  trackEvent('checkout_started', {
+    source: opts?.source ?? 'unknown',
+  })
   const assign =
     opts?.assign ??
     ((href: string) => {

@@ -76,6 +76,7 @@ export function LiveSessionStrip() {
   const stripVisible = useDevLiveStripVisible()
   const mode = useCanvasStore((s) => s.mode)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const liveSessionStartedAt = useCanvasStore((s) => s.liveSessionStartedAt)
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
@@ -468,8 +469,18 @@ export function LiveSessionStrip() {
   }, [allJourneys.length, snapshotTemplateId])
 
   const closeJourney = useCallback(() => {
-    setJourneyUi({ open: false, overview: false, id: null })
-  }, [])
+    setJourneyUi((prev) => {
+      if (prev.open) {
+        trackEvent('journey_panel_closed', {
+          template: snapshotTemplateId ?? 'unknown',
+          context: 'live',
+          selected: Boolean(prev.id),
+          ...(prev.id ? { journeyId: prev.id } : {}),
+        })
+      }
+      return { open: false, overview: false, id: null }
+    })
+  }, [snapshotTemplateId])
 
   const onStartLoad = useCallback(async () => {
     setLoadgenPrompt(false)
@@ -505,6 +516,15 @@ export function LiveSessionStrip() {
         rps,
         durationSeconds: 0,
         scheduleId: scheduleId || undefined,
+        ...(deploymentId ? { deploymentId } : {}),
+        ...(liveSessionStartedAt
+          ? {
+              time_to_loadgen_ms: Math.max(
+                0,
+                Date.now() - liveSessionStartedAt,
+              ),
+            }
+          : {}),
       })
     } catch (e) {
       debugAuthError(e, 'loadgen-start')
@@ -521,6 +541,7 @@ export function LiveSessionStrip() {
     actorParams,
     session?.access_token,
     snapshotTemplateId,
+    liveSessionStartedAt,
     devDesignPreview,
     mixDistribution,
     buildSessionPrefs,
@@ -551,6 +572,7 @@ export function LiveSessionStrip() {
       trackEvent('loadgen_stopped', {
         template: snapshotTemplateId ?? '',
         liveSeconds,
+        ...(deploymentId ? { deploymentId } : {}),
       })
     } catch (e) {
       debugAuthError(e, 'loadgen-stop')

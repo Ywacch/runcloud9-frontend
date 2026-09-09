@@ -13,6 +13,11 @@ export type UserLine = {
 }
 
 export const PROVISION_FAILED_HEADLINE = "Couldn't start your lab"
+/** Shown while pods are coming up, after the API has admitted the deploy. */
+export const PROVISION_TYPICAL_WAIT =
+  'Usually 2–3 minutes after we start building.'
+export const PROVISION_STILL_WORKING =
+  'Still working — first start can take a few extra minutes.'
 export const DEMO_DATA_ROW_TITLE = 'Demo data'
 export const LOADGEN_ROW_TITLE = 'Load generator'
 export const VALIDATE_STEP_SUBTITLE = 'Design validated'
@@ -288,4 +293,15 @@ export function instanceLabelForNode(
 export function shouldDefaultExpanded(replicaRows: ReplicaWaitRow[]): boolean {
   if (replicaRows.length === 0) return true
   return replicaRows.some((row) => !row.ready)
+}
+
+export function provisionElapsedCaption(opts: {
+  elapsedSeconds: number
+  isQueued: boolean
+  isDoorwayWait: boolean
+  isTerminating: boolean
+}): string | null {
+  if (opts.isQueued || opts.isDoorwayWait || opts.isTerminating) return null
+  if (opts.elapsedSeconds >= 240) return PROVISION_STILL_WORKING
+  return PROVISION_TYPICAL_WAIT
 }

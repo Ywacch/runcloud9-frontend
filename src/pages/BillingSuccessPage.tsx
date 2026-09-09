@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { refreshCurrentUser } from '../lib/auth'
+import { trackEvent } from '../lib/analytics'
 import { C9Card } from '../editor-ui/c9Primitives'
 import { useAuthStore } from '../product/stores/authStore'
 import { displayPlanTierLabel } from '../lib/billingCopy'
@@ -10,6 +11,10 @@ export default function BillingSuccessPage() {
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
   const [refreshing, setRefreshing] = useState(true)
+
+  useEffect(() => {
+    trackEvent('checkout_returned', { outcome: 'success' })
+  }, [])
 
   useEffect(() => {
     if (!session) {

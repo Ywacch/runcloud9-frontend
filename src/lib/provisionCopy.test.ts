@@ -3,7 +3,10 @@ import {
   componentStatusToUserLine,
   DEMO_DATA_ROW_TITLE,
   instanceLabelForNode,
+  PROVISION_STILL_WORKING,
+  PROVISION_TYPICAL_WAIT,
   provisionDetailCodeToSubtitle,
+  provisionElapsedCaption,
   seedReplicaReadyBeforeRestore,
   seedingStatusToUserLine,
   waitCodeToUserLine,
@@ -156,5 +159,61 @@ describe('componentStatusToUserLine', () => {
 describe('DEMO_DATA_ROW_TITLE', () => {
   it('is locked to Demo data', () => {
     expect(DEMO_DATA_ROW_TITLE).toBe('Demo data')
+  })
+})
+
+describe('provision wait copy', () => {
+  it('defines typical and still-working captions without kube jargon', () => {
+    expect(PROVISION_TYPICAL_WAIT).toContain('2–3 minutes')
+    expect(PROVISION_STILL_WORKING).toContain('Still working')
+    expect(JSON.stringify([PROVISION_TYPICAL_WAIT, PROVISION_STILL_WORKING])).not.toMatch(
+      /ImagePull|namespace|pod/i,
+    )
+  })
+
+  it('provisionElapsedCaption returns null for queue, door, and terminating', () => {
+    expect(
+      provisionElapsedCaption({
+        elapsedSeconds: 30,
+        isQueued: true,
+        isDoorwayWait: false,
+        isTerminating: false,
+      }),
+    ).toBeNull()
+    expect(
+      provisionElapsedCaption({
+        elapsedSeconds: 30,
+        isQueued: false,
+        isDoorwayWait: true,
+        isTerminating: false,
+      }),
+    ).toBeNull()
+    expect(
+      provisionElapsedCaption({
+        elapsedSeconds: 30,
+        isQueued: false,
+        isDoorwayWait: false,
+        isTerminating: true,
+      }),
+    ).toBeNull()
+  })
+
+  it('provisionElapsedCaption switches after four minutes while provisioning', () => {
+    expect(
+      provisionElapsedCaption({
+        elapsedSeconds: 120,
+        isQueued: false,
+        isDoorwayWait: false,
+        isTerminating: false,
+      }),
+    ).toBe(PROVISION_TYPICAL_WAIT)
+    expect(
+      provisionElapsedCaption({
+        elapsedSeconds: 240,
+        isQueued: false,
+        isDoorwayWait: false,
+        isTerminating: false,
+      }),
+    ).toBe(PROVISION_STILL_WORKING)
   })
 })

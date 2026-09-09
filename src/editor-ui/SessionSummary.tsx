@@ -10,7 +10,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
-import { trackEvent } from '../lib/analytics'
+import {
+  trackEvent,
+  type SummaryDismissAction,
+} from '../lib/analytics'
 import { dispatchRequestDeploy } from '../lib/deployEvents'
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
 import { HighlightPanel } from './HighlightReel'
@@ -113,7 +116,7 @@ function buildSlides(summary: SessionSummary): SummarySlide[] {
 
 export interface SessionSummaryViewProps {
   summary: SessionSummary
-  onDismiss: () => void
+  onDismiss: (action: SummaryDismissAction) => void
   onRedeploy?: () => void
   onOpenCanvas?: () => void
   title?: string
@@ -135,6 +138,11 @@ export function SessionSummaryView({
   const slides = useMemo(() => buildSlides(summary), [summary])
   const [index, setIndex] = useState(0)
   const panelRef = useRef<HTMLDivElement>(null)
+  const mountTimeRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    mountTimeRef.current = Date.now()
+  }, [summary.template, summary.duration, summary.eventsSummary?.length])
   const slide = slides[Math.min(index, slides.length - 1)] ?? slides[0]
   const groups = useMemo(() => {
     const seen = new Set<SlideGroup>()
@@ -169,6 +177,26 @@ export function SessionSummaryView({
     [slides],
   )
 
+  const fireDismissed = useCallback(
+    (action: SummaryDismissAction) => {
+      const visibleSeconds = mountTimeRef.current
+        ? Math.floor((Date.now() - mountTimeRef.current) / 1000)
+        : 0
+      const deploymentId = useCanvasStore.getState().deploymentId
+      trackEvent('session_summary_dismissed', {
+        template: summary.template ?? 'unknown',
+        visibleSeconds,
+        lastSlideIndex: index,
+        slideCount: slides.length,
+        lastSlideGroup: slide.group,
+        action,
+        ...(deploymentId ? { deploymentId } : {}),
+      })
+      onDismiss(action)
+    },
+    [index, onDismiss, slide.group, slides.length, summary.template],
+  )
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') {
@@ -179,7 +207,7 @@ export function SessionSummaryView({
         setIndex((i) => Math.max(0, i - 1))
       } else if (e.key === 'Escape' && modal) {
         e.preventDefault()
-        onDismiss()
+        fireDismissed('close')
       } else if (e.key === 'Home') {
         e.preventDefault()
         setIndex(0)
@@ -190,7 +218,7 @@ export function SessionSummaryView({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal, onDismiss, slides.length])
+  }, [modal, fireDismissed, slides.length])
 
   const eventSlides = slides.filter((s) => s.group === 'highlights')
   const eventOrdinal =
@@ -303,7 +331,10 @@ export function SessionSummaryView({
           {onOpenCanvas ? (
             <button
               type="button"
-              onClick={onOpenCanvas}
+              onClick={() => {
+                fireDismissed('open_canvas')
+                onOpenCanvas()
+              }}
               className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:border-[var(--c9-border-strong)]"
             >
               Open in canvas
@@ -312,7 +343,10 @@ export function SessionSummaryView({
           {onRedeploy ? (
             <button
               type="button"
-              onClick={onRedeploy}
+              onClick={() => {
+                fireDismissed('redeploy')
+                onRedeploy()
+              }}
               className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-3 py-2 text-sm font-medium text-[var(--c9-text)] transition-colors duration-200 hover:border-[var(--c9-border-strong)]"
             >
               Redeploy
@@ -320,7 +354,7 @@ export function SessionSummaryView({
           ) : null}
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={() => fireDismissed('close')}
             className="rounded-lg bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)]"
           >
             {actionLabel}
@@ -614,18 +648,8 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 export function SessionSummary() {
   const summary = useCanvasStore((s) => s.sessionSummary)
   const restorePredicted = useStorytellingStore((s) => s.restorePersistedPredictions)
-  const mountTimeRef = useRef<number | null>(null)
 
   const dismiss = () => {
-    const visibleSeconds = mountTimeRef.current
-      ? Math.floor((Date.now() - mountTimeRef.current) / 1000)
-      : 0
-    if (summary) {
-      trackEvent('session_summary_dismissed', {
-        template: summary.template ?? 'unknown',
-        visibleSeconds,
-      })
-    }
     useCanvasStore.getState().setSessionSummary(null)
   }
 
@@ -635,11 +659,14 @@ export function SessionSummary() {
 
   useEffect(() => {
     if (!summary) return
-    mountTimeRef.current = Date.now()
+    const deploymentId = useCanvasStore.getState().deploymentId
     trackEvent('session_summary_viewed', {
       template: summary.template ?? 'unknown',
       sessionDuration: summary.duration ?? '',
       usedLoadgen: summary.peakRps > 0 || summary.totalRequests > 0,
+      highlightCount: summary.eventsSummary?.length ?? 0,
+      hadCascade: (summary.eventsSummary ?? []).some((e) => e.type === 'cascade'),
+      ...(deploymentId ? { deploymentId } : {}),
     })
   }, [summary])
 
@@ -653,7 +680,7 @@ export function SessionSummary() {
   return (
     <SessionSummaryView
       summary={summary}
-      onDismiss={dismiss}
+      onDismiss={() => dismiss()}
       onRedeploy={redeploy}
       modal={true}
     />
