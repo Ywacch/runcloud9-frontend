@@ -54,6 +54,12 @@ export function rollup(samples: InstanceSample[], opts?: { idleFloor?: number })
   }
 }
 
+/** Cluster limit from the wire is summed across replicas; divide for per-pod %. */
+export function perReplicaLimit(clusterLimit: number, replicaCount: number): number {
+  if (!(clusterLimit > 0) || replicaCount < 1) return 0
+  return clusterLimit / replicaCount
+}
+
 export function splitByRole(samples: InstanceSample[]): Map<string, InstanceSample[]> {
   const byRole = new Map<string, InstanceSample[]>()
   for (const sample of samples) {
@@ -66,15 +72,22 @@ export function splitByRole(samples: InstanceSample[]): Map<string, InstanceSamp
 }
 
 export function samplesFromCompute(m: MetricsBucket): InstanceSample[] {
+  const replicas = m.podReplicas.length
+  const cpuLimitPerPod = perReplicaLimit(m.cpuLimit, replicas)
+  const memLimitPerPod = perReplicaLimit(m.memoryLimit, replicas)
+  const memFallbackBytes = 512 * 1024 * 1024
+
   return m.podReplicas.map((pod) => {
     const cpuPct =
-      m.cpuLimit > 0
-        ? Math.min(100, (pod.cpuUsage / m.cpuLimit) * 100)
+      cpuLimitPerPod > 0
+        ? Math.min(100, (pod.cpuUsage / cpuLimitPerPod) * 100)
         : Math.min(100, pod.cpuUsage * 100)
     const memPct =
-      pod.memoryBytes > 0 && m.memoryLimit > 0
-        ? Math.min(100, (pod.memoryBytes / m.memoryLimit) * 100)
-        : 0
+      pod.memoryBytes > 0 && memLimitPerPod > 0
+        ? Math.min(100, (pod.memoryBytes / memLimitPerPod) * 100)
+        : pod.memoryBytes > 0
+          ? Math.min(100, (pod.memoryBytes / memFallbackBytes) * 100)
+          : 0
     return {
       id: pod.name,
       rps: pod.requestRate,

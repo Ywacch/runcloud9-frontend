@@ -1,5 +1,6 @@
 import type { PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { ReplicaMetrics } from '../editor-core/domain/simulation/types'
+import { perReplicaLimit } from './instanceRollup'
 
 export function shortPodLabel(name: string, index: number): string {
   const trimmed = name.trim()
@@ -31,17 +32,23 @@ export function replicaBreakdownFromPods(
   cpuLimitCores: number,
   memoryLimitBytes: number,
 ): ReplicaInspectorRow[] {
+  const cpuLimitPerPod = perReplicaLimit(cpuLimitCores, pods.length)
+  const memLimitPerPod = perReplicaLimit(memoryLimitBytes, pods.length)
+  const memFallbackBytes = 512 * 1024 * 1024
+
   return pods.map((p, i) => {
     const cpuPercent =
-      cpuLimitCores > 0
-        ? Math.min(100, (p.cpuUsage / cpuLimitCores) * 100)
+      cpuLimitPerPod > 0
+        ? Math.min(100, (p.cpuUsage / cpuLimitPerPod) * 100)
         : Math.min(100, p.cpuUsage * 100)
     const memoryGb =
       p.memoryBytes > 0 ? p.memoryBytes / (1024 * 1024 * 1024) : 0
     const memPercent =
-      p.memoryBytes > 0 && memoryLimitBytes > 0
-        ? Math.min(100, (p.memoryBytes / memoryLimitBytes) * 100)
-        : 0
+      p.memoryBytes > 0 && memLimitPerPod > 0
+        ? Math.min(100, (p.memoryBytes / memLimitPerPod) * 100)
+        : p.memoryBytes > 0
+          ? Math.min(100, (p.memoryBytes / memFallbackBytes) * 100)
+          : 0
     const util = cpuPercent / 100
     return {
       podName: p.name,

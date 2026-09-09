@@ -60,6 +60,23 @@ describe('resolveGroupedDisplay worker', () => {
     expect(compute?.clusterScope).toBe(true)
   })
 
+  it('uses component cpu/mem percent for multi-replica cluster tooltip', () => {
+    const m = {
+      ...metrics(),
+      cpuPercent: 24,
+      memPercent: 2,
+      podReplicas: [
+        pod('app-a', 5, 40),
+        pod('app-b', 5, 80),
+      ],
+    } as MetricsBucket
+
+    const display = resolveGroupedDisplay(computeNode(), m, false, null)
+    expect(display?.cpuPct).toBe(24)
+    expect(display?.memPct).toBe(2)
+    expect(display?.rps).toBe(10)
+  })
+
   it('matches compute: unit hover shows the pod instance label', () => {
     const display = resolveGroupedDisplay(
       workerNode(),

@@ -280,11 +280,13 @@ export function replicaListRows(
   const maxRate = options.maxRate ?? Math.max(0, ...pods.map((p) => p.requestRate))
   const cpuLimit = options.cpuLimitCores ?? 0
   const memLimit = options.memoryLimitBytes ?? 0
+  const cpuLimitPerPod = cpuLimit > 0 && pods.length > 0 ? cpuLimit / pods.length : 0
+  const memLimitPerPod = memLimit > 0 && pods.length > 0 ? memLimit / pods.length : 0
 
   return pods.map((pod) => {
     const latencyMs = podLatencyMs(pod, quantile, timeframe)
-    const cpuPct = podCpuPercent(pod.cpuUsage, cpuLimit)
-    const memPct = podMemPercent(pod.memoryBytes, memLimit)
+    const cpuPct = podCpuPercent(pod.cpuUsage, cpuLimitPerPod)
+    const memPct = podMemPercent(pod.memoryBytes, memLimitPerPod)
     if (timeframe === 'session') {
       const total = pod.totalRequests ?? 0
       const pct = replicaSharePct(total, sumTotals)

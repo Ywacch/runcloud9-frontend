@@ -192,15 +192,15 @@ export function LiveMetricsTypeSection({
   const tmWorkerRedisWrites = templateMetrics['worker.writes.redis']
   const tmWorkerRedisErrors = templateMetrics['worker.errors.redis']
   const tmFeedPushRate = templateMetrics['feed.push_rate']
-  const computeRollup =
+  const computeTrafficRollup =
     nodeType === 'compute' && m.podReplicas.length > 1
       ? rollup(samplesFromCompute(m))
       : null
-  const clusterCpuPercent = computeRollup?.cpuPct ?? cpuPercent
-  const clusterMemPercent = computeRollup?.memPct ?? memPercent
+  const clusterCpuPercent = cpuPercent
+  const clusterMemPercent = memPercent
   const clusterP99Latency =
-    computeRollup?.p99 != null && computeRollup.p99 > 0
-      ? computeRollup.p99 * 1000
+    computeTrafficRollup?.p99 != null && computeTrafficRollup.p99 > 0
+      ? computeTrafficRollup.p99 * 1000
       : p99Latency
   const resourceLabels = formatResourceLabels(m, clusterCpuPercent, clusterMemPercent)
   const resourceHelp = resourceUsageHelp(m)
