@@ -119,6 +119,11 @@ export function LiveSessionStrip() {
   const lastPatchRef = useRef<{ rps: number; distSnap: string } | null>(null)
   const patchTimerRef = useRef<number | null>(null)
   const loadgenStartedAtRef = useRef<number | null>(null)
+  const prevLiveSessionRef = useRef<{ mode: typeof mode; deploymentId: string | null }>({
+    mode,
+    deploymentId,
+  })
+  const [loadgenPrompt, setLoadgenPrompt] = useState(false)
   const [loadOpen, setLoadOpen] = useState(false)
   const [chipsOpen, setChipsOpen] = useState(readChipsOpen)
   const [previewLoadActive, setPreviewLoadActive] = useState(true)
@@ -221,8 +226,24 @@ export function LiveSessionStrip() {
       setActiveTraceId(null)
       setLoadOpen(false)
       setMetricsDrawerOpen(false)
+      setLoadgenPrompt(false)
     }
   }, [mode, setActiveTraceId, setMetricsDrawerOpen])
+
+  useEffect(() => {
+    const prev = prevLiveSessionRef.current
+    const enteredLive =
+      mode === 'live' &&
+      Boolean(deploymentId) &&
+      (prev.mode !== 'live' || prev.deploymentId !== deploymentId)
+    if (enteredLive && !loadgen?.active) {
+      setLoadgenPrompt(true)
+    }
+    if (mode !== 'live' || loadgen?.active) {
+      setLoadgenPrompt(false)
+    }
+    prevLiveSessionRef.current = { mode, deploymentId }
+  }, [deploymentId, loadgen?.active, mode])
 
   useLayoutEffect(() => {
     if (!loadOpen) {
@@ -451,6 +472,7 @@ export function LiveSessionStrip() {
   }, [])
 
   const onStartLoad = useCallback(async () => {
+    setLoadgenPrompt(false)
     if (devDesignPreview) {
       setPreviewLoadActive(true)
       return
@@ -610,6 +632,8 @@ export function LiveSessionStrip() {
         ? 'Simulation'
         : `${DEV_LIVE_STRIP_PREVIEW.deploymentId} (DEV preview, press \` to hide)`
 
+  const showLoadgenPrompt = loadgenPrompt && showLoad && !loadRunning
+
   const toggleChips = () => {
     setChipsOpen((open) => {
       const next = !open
@@ -699,9 +723,16 @@ export function LiveSessionStrip() {
                 type="button"
                 aria-expanded={loadOpen}
                 aria-haspopup="dialog"
-                aria-label="Load control"
-                onClick={() => setLoadOpen((v) => !v)}
-                className={hudChromeBtn}
+                aria-label={
+                  showLoadgenPrompt
+                    ? 'Start load — deployment is ready'
+                    : 'Load control'
+                }
+                onClick={() => {
+                  if (showLoadgenPrompt) setLoadgenPrompt(false)
+                  setLoadOpen((v) => !v)
+                }}
+                className={`${hudChromeBtn}${showLoadgenPrompt ? ' c9-loadgen-prompt' : ''}`}
               >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <path
@@ -712,6 +743,11 @@ export function LiveSessionStrip() {
                   />
                 </svg>
                 Load
+                {showLoadgenPrompt ? (
+                  <span className="rounded bg-[var(--c9-accent)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                    Start
+                  </span>
+                ) : null}
               </button>
             ) : null}
 
