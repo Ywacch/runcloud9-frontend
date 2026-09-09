@@ -59,10 +59,35 @@ export async function refreshCurrentUser(): Promise<void> {
       const provider = sessionUser
         ? oauthAnalyticsProvider(sessionUser.app_metadata?.provider)
         : undefined
-      identifyAnalyticsUser(supabaseUserId, {
+      const traits: Parameters<typeof identifyAnalyticsUser>[1] = {
         effectiveTier: me.effectiveTier,
         ...(provider ? { provider } : {}),
-      })
+      }
+      if (sessionUser?.email && typeof sessionUser.email === 'string') {
+        const email = sessionUser.email.trim()
+        if (email) {
+          traits.email = email
+          traits.$email = email
+        }
+      }
+      const meta = sessionUser?.user_metadata as
+        | Record<string, unknown>
+        | undefined
+      const nameRaw =
+        typeof meta?.full_name === 'string'
+          ? meta.full_name
+          : typeof meta?.name === 'string'
+            ? meta.name
+            : ''
+      const name = nameRaw.trim()
+      if (name) traits.name = name
+      if (
+        sessionUser?.created_at &&
+        typeof sessionUser.created_at === 'string'
+      ) {
+        traits.created_at = sessionUser.created_at
+      }
+      identifyAnalyticsUser(supabaseUserId, traits)
       trackEvent('auth_succeeded', {
         effectiveTier: me.effectiveTier,
         isNewUser: sessionUser ? isNewOAuthUser(sessionUser) : false,

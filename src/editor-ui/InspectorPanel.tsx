@@ -270,7 +270,12 @@ export function InspectorPanel() {
     if (node.id === prevInspectorNodeIdRef.current) return
     prevInspectorNodeIdRef.current = node.id
     const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-    trackEvent('component_inspector_opened', { template, componentType: node.type })
+    trackEvent('component_inspector_opened', {
+      template,
+      componentType: node.type,
+      componentId: node.id,
+      context: mode === 'live' ? 'live' : 'design',
+    })
   }, [node, mode])
 
   useEffect(() => {

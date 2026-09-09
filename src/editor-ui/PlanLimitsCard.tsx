@@ -10,6 +10,7 @@ import {
   MANAGE_BILLING_HINT_STOP_ONLY,
   STOP_SUBSCRIPTION_LABEL,
 } from '../lib/billingCopy'
+import type { CheckoutStartedSource } from '../lib/analytics'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
 
@@ -312,8 +313,9 @@ export function PlanLimitsCard({
 export function startEngineerUpgrade(
   onError: (message: string) => void,
   onFinally: () => void,
+  source: CheckoutStartedSource = 'plan_card',
 ): void {
-  void startEngineerCheckout()
+  void startEngineerCheckout({ source })
     .catch((err: unknown) => {
       onError(err instanceof Error ? err.message : 'Could not start checkout.')
     })

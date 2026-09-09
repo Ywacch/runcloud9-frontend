@@ -16,6 +16,7 @@ import {
   instanceLabelForNode,
   loadgenStatusToUserLine,
   provisionDetailCodeToSubtitle,
+  provisionElapsedCaption,
   seedingStatusToUserLine,
   shouldDefaultExpanded,
   waitCodeToUserLine,
@@ -380,8 +381,10 @@ const ProvisionInfrastructureList = memo(function ProvisionInfrastructureList({
 
 function VerticalProvisionerStepper({
   provisionSubtitle,
+  liveStepSubtitle,
 }: {
   provisionSubtitle: string
+  liveStepSubtitle: string
 }) {
   return (
     <div className="relative">
@@ -408,7 +411,7 @@ function VerticalProvisionerStepper({
         <div className="relative z-10 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--c9-border)] bg-[var(--c9-bg)]" />
         <div className="min-w-0 leading-snug">
           <h3 className="text-sm font-semibold text-[var(--c9-muted)]">Live Session</h3>
-          <p className="text-[11px] text-[var(--c9-muted)]/85">Waiting for cluster readiness</p>
+          <p className="text-[11px] text-[var(--c9-muted)]/85">{liveStepSubtitle}</p>
         </div>
       </div>
     </div>
@@ -505,6 +508,17 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
       ? doorwayDetail
       : null
 
+  const elapsedCaption = provisionElapsedCaption({
+    elapsedSeconds,
+    isQueued,
+    isDoorwayWait,
+    isTerminating,
+  })
+  const liveStepSubtitle =
+    isQueued || isDoorwayWait || isTerminating
+      ? 'Waiting for cluster readiness'
+      : 'Starts when this finishes'
+
   if (minimized) {
     return (
       <div className="pointer-events-none absolute bottom-3 right-3 z-40 flex max-w-[min(100%,20rem)] justify-end p-0">
@@ -519,6 +533,11 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
             >
               {formatElapsedHMS(elapsedSeconds)}
             </div>
+            {elapsedCaption ? (
+              <p className="mt-0.5 line-clamp-2 text-[10px] text-[var(--c9-muted)]/90">
+                {elapsedCaption}
+              </p>
+            ) : null}
           </div>
           {onExpand ? (
             <button
@@ -564,7 +583,10 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
             <h2 className="mb-3 text-base font-semibold tracking-tight text-[var(--c9-accent)]">
               {panelTitle}
             </h2>
-            <VerticalProvisionerStepper provisionSubtitle={provisionSubtitle} />
+            <VerticalProvisionerStepper
+              provisionSubtitle={provisionSubtitle}
+              liveStepSubtitle={liveStepSubtitle}
+            />
           </div>
           <div className="mt-4 border-t border-[var(--c9-border)] pt-3">
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--c9-accent)]">
@@ -576,6 +598,11 @@ export const ProvisioningOverlay = memo(function ProvisioningOverlay({
             >
               {formatElapsedHMS(elapsedSeconds)}
             </div>
+            {elapsedCaption ? (
+              <p className="mt-1 text-[11px] text-[var(--c9-muted)]">
+                {elapsedCaption}
+              </p>
+            ) : null}
           </div>
         </div>
 

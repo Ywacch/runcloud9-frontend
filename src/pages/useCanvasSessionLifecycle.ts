@@ -37,7 +37,14 @@ import {
 } from '../lib/sessionCapture'
 import { parseRunningAtMs } from '../lib/sessionMinutes'
 import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
-import { trackEvent, analyticsPresetModeFromStore, trackSessionEndedOnce, sessionEndedDurationSeconds } from '../lib/analytics'
+import {
+  trackEvent,
+  analyticsPresetModeFromStore,
+  trackSessionEndedOnce,
+  sessionEndedProperties,
+  optionalJoinFields,
+  type DeployWaitExitStatus,
+} from '../lib/analytics'
 import { useAuthStore } from '../product/stores/authStore'
 import {
   overlayWaitKindFromFlags,
@@ -117,6 +124,8 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   const provisionLingerActiveRef = useRef(false)
   const provisionStartRef = useRef<number>(Date.now())
   const deploymentRunningTrackedRef = useRef<string | null>(null)
+  const lastDeployStatusRef = useRef<string | null>(null)
+  const leftWaitKeysRef = useRef<Set<string>>(new Set())
   const statusBeforeCancelRef = useRef<string | null>(null)
   const activeWaitRef = useRef<{
     kind: DeployWaitKind
@@ -202,6 +211,8 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
       Math.max(0, Math.floor((Date.now() - provisionStartRef.current) / 1000)),
     )
     deploymentRunningTrackedRef.current = null
+    lastDeployStatusRef.current = null
+    leftWaitKeysRef.current = new Set()
     activeWaitRef.current = null
     setOverlayMinimized(false)
     setDeployStatus('provisioning')
@@ -223,30 +234,59 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     const templateName = () =>
       useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
 
+    const mapDeployStatusToExitStatus = (
+      status: string | null,
+    ): DeployWaitExitStatus => {
+      if (
+        status === 'queued' ||
+        status === 'provisioning' ||
+        status === 'running' ||
+        status === 'failed' ||
+        status === 'terminated'
+      ) {
+        return status
+      }
+      return 'unknown'
+    }
+
     const leaveActiveWait = (
-      outcome: 'promoted' | 'cancelled' | 'failed' | 'terminated',
+      outcome:
+        | 'promoted'
+        | 'cancelled'
+        | 'failed'
+        | 'terminated'
+        | 'abandoned',
     ) => {
       const active = activeWaitRef.current
       if (!active) return
+      const waitKey = `${deploymentId}:${active.kind}`
+      if (leftWaitKeysRef.current.has(waitKey)) return
+      const waitDurationMs = Math.max(0, Date.now() - active.enteredAt)
       const props: {
         template: string
         waitKind: DeployWaitKind
         outcome: typeof outcome
         waitSeconds: number
+        wait_duration_ms: number
+        deployment_status_at_exit: DeployWaitExitStatus
+        deploymentId?: string
         queuePosition?: number
       } = {
         template: templateName(),
         waitKind: active.kind,
         outcome,
-        waitSeconds: Math.max(
-          0,
-          Math.floor((Date.now() - active.enteredAt) / 1000),
+        waitSeconds: Math.max(0, Math.floor(waitDurationMs / 1000)),
+        wait_duration_ms: waitDurationMs,
+        deployment_status_at_exit: mapDeployStatusToExitStatus(
+          lastDeployStatusRef.current,
         ),
+        deploymentId,
       }
       if (active.queuePosition != null) {
         props.queuePosition = active.queuePosition
       }
       trackEvent('deploy_wait_left', props)
+      leftWaitKeysRef.current.add(waitKey)
       activeWaitRef.current = null
     }
 
@@ -268,11 +308,13 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           const enterProps: {
             template: string
             waitKind: DeployWaitKind
+            deploymentId?: string
             queuePosition?: number
             estimatedWaitSeconds?: number
           } = {
             template: templateName(),
             waitKind: kind,
+            deploymentId,
           }
           if (fields.queuePosition != null) {
             enterProps.queuePosition = fields.queuePosition
@@ -313,6 +355,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
       try {
         const dep = await getDeployment(deploymentId)
         if (cancelled) return
+        lastDeployStatusRef.current = dep.status
         setDeployStatus(dep.status)
 
         const polled = parseProvisionMetrics(dep.metricsSummary)
@@ -354,12 +397,12 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
         if (dep.status === 'running') {
           if (deploymentRunningTrackedRef.current !== deploymentId) {
             deploymentRunningTrackedRef.current = deploymentId
-            const elapsedSeconds = Math.floor(
-              (Date.now() - provisionStartRef.current) / 1000,
-            )
-            trackEvent('deployment_running', {
+            trackEvent('deployment_succeeded', {
               template: templateName(),
-              elapsedSeconds,
+              deploymentId,
+              duration_ms: Math.max(0, Date.now() - provisionStartRef.current),
+              status: 'success',
+              ...optionalJoinFields(),
             })
           }
           const endsAt = toMs(dep.expiresAt) ?? Date.now() + 9 * 60 * 1000
@@ -418,15 +461,10 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
             template: templateName(),
             phase: 'provision',
             errorCategory: 'server',
+            deploymentId,
+            duration_ms: Math.max(0, Date.now() - provisionStartRef.current),
           })
-          const failSt = useCanvasStore.getState()
-          trackSessionEndedOnce(deploymentId, {
-            template: templateName(),
-            reason: 'failed',
-            durationSeconds: sessionEndedDurationSeconds(
-              failSt.liveSessionStartedAt,
-            ),
-          })
+          trackSessionEndedOnce(deploymentId, sessionEndedProperties('failed'))
           setProvisioningError('Deployment failed during provisioning.')
           setIsTerminating(false)
           stopPolling()
@@ -473,7 +511,14 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
       )
     }, 1000)
 
+    const onPageHide = () => {
+      if (activeWaitRef.current) leaveActiveWait('abandoned')
+    }
+    window.addEventListener('pagehide', onPageHide)
+
     return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      if (activeWaitRef.current) leaveActiveWait('abandoned')
       cancelled = true
       stopPolling()
     }
@@ -619,14 +664,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     setIsTerminating(true)
     setDeployStatus('terminating')
     setTerminationMessage(null)
-    const cancelSt = useCanvasStore.getState()
-    trackSessionEndedOnce(deploymentId, {
-      template: cancelSt.snapshotTemplateId ?? 'unknown',
-      reason: 'user_teardown',
-      durationSeconds: sessionEndedDurationSeconds(
-        cancelSt.liveSessionStartedAt,
-      ),
-    })
+    trackSessionEndedOnce(deploymentId, sessionEndedProperties('user_teardown'))
     void deleteDeployment(deploymentId).catch((err) => {
       const msg =
         err instanceof Error

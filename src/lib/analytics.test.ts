@@ -3,8 +3,10 @@ import {
   __resetAnalyticsForTests,
   __setAnalyticsClientForTests,
   __analyticsInitAttemptedForTests,
+  authStartedTrigger,
   categorizeSafeError,
   deploymentAnalyticsProperties,
+  getDesignOptionSession,
   identifyAnalyticsUser,
   initAnalytics,
   referrerCategory,
@@ -91,10 +93,17 @@ describe('analytics wrappers', () => {
       hasWorker: false,
       appReplicas: 1,
       admitStatus: 'queued',
+      deploymentId: 'dep-1',
+      knobsChanged: false,
+      knobCount: 0,
     })
     expect(capture).toHaveBeenCalledWith(
       'deployment_requested',
-      expect.objectContaining({ admitStatus: 'queued' }),
+      expect.objectContaining({
+        admitStatus: 'queued',
+        deploymentId: 'dep-1',
+        knobCount: 0,
+      }),
     )
 
     trackEvent('deploy_wait_entered', {
@@ -108,6 +117,8 @@ describe('analytics wrappers', () => {
       waitKind: 'door',
       outcome: 'promoted',
       waitSeconds: 12,
+      wait_duration_ms: 12000,
+      deployment_status_at_exit: 'provisioning',
       queuePosition: 1,
     })
     trackEvent('deployment_failed', {
@@ -152,6 +163,10 @@ describe('analytics wrappers', () => {
       template: 'ecommerce',
       reason: 'resource_quota_exceeded',
     })
+    trackEvent('deploy_blocked', {
+      template: 'ecommerce',
+      reason: 'auth_required',
+    })
     trackEvent('deploy_modal_dismissed', {
       template: 'ecommerce',
       mode: 'simulation_recommended',
@@ -165,6 +180,10 @@ describe('analytics wrappers', () => {
       template: 'ecommerce',
       reason: 'resource_quota_exceeded',
     })
+    expect(capture).toHaveBeenCalledWith('deploy_blocked', {
+      template: 'ecommerce',
+      reason: 'auth_required',
+    })
     expect(capture).toHaveBeenCalledWith('deploy_modal_dismissed', {
       template: 'ecommerce',
       mode: 'simulation_recommended',
@@ -176,17 +195,25 @@ describe('analytics wrappers', () => {
     identifyAnalyticsUser('user-123', {
       effectiveTier: 'engineer',
       provider: 'google',
+      email: 'a@b.co',
+      $email: 'a@b.co',
+      name: 'Ada',
+      created_at: '2026-01-01T00:00:00Z',
     })
     resetAnalytics()
     expect(identify).toHaveBeenCalledWith('user-123', {
       effectiveTier: 'engineer',
       provider: 'google',
+      email: 'a@b.co',
+      $email: 'a@b.co',
+      name: 'Ada',
+      created_at: '2026-01-01T00:00:00Z',
     })
     expect(reset).toHaveBeenCalled()
   })
 
   it('captures auth and session lifecycle events', () => {
-    trackEvent('auth_started', { provider: 'github' })
+    trackEvent('auth_started', { provider: 'github', trigger: 'dashboard' })
     trackEvent('auth_succeeded', {
       effectiveTier: 'explorer',
       provider: 'github',
@@ -208,6 +235,16 @@ describe('analytics wrappers', () => {
       template: 'social-feed',
       sessionDuration: '3m 12s',
       usedLoadgen: true,
+      highlightCount: 2,
+      hadCascade: false,
+    })
+    trackEvent('session_summary_dismissed', {
+      template: 'social-feed',
+      visibleSeconds: 12,
+      lastSlideIndex: 1,
+      slideCount: 4,
+      lastSlideGroup: 'outcome',
+      action: 'redeploy',
     })
     trackEvent('journey_panel_opened', {
       template: 'social-feed',
@@ -227,11 +264,21 @@ describe('analytics wrappers', () => {
       journeyId: 'feed-read',
       lastStepIndex: 2,
       stepCount: 5,
+      stepReached: 3,
+    })
+    trackEvent('deployment_succeeded', {
+      template: 'social-feed',
+      deploymentId: 'dep-99',
+      duration_ms: 180000,
+      status: 'success',
     })
     trackEvent('session_ended', {
       template: 'social-feed',
       reason: 'expired',
       durationSeconds: 540,
+      durationMs: 540000,
+      hadLoadgen: true,
+      chaosCount: 1,
     })
     trackEvent('past_run_opened', { template: 'social-feed' })
     trackEvent('preset_mode_switched', {
@@ -239,7 +286,10 @@ describe('analytics wrappers', () => {
       from: 'full',
       to: 'explorer',
     })
-    expect(capture).toHaveBeenCalledWith('auth_started', { provider: 'github' })
+    expect(capture).toHaveBeenCalledWith('auth_started', {
+      provider: 'github',
+      trigger: 'dashboard',
+    })
     expect(capture).toHaveBeenCalledWith(
       'provision_tab_returned',
       expect.objectContaining({ waitKind: 'provisioning' }),
@@ -248,6 +298,56 @@ describe('analytics wrappers', () => {
       'loadgen_stopped',
       expect.objectContaining({ liveSeconds: 42 }),
     )
+  })
+
+  it('captures deploy_wait_left abandoned with wait_duration_ms', () => {
+    trackEvent('deploy_wait_left', {
+      template: 'url-shortener',
+      waitKind: 'provisioning',
+      outcome: 'abandoned',
+      waitSeconds: 45,
+      wait_duration_ms: 45000,
+      deployment_status_at_exit: 'provisioning',
+      deploymentId: 'dep-abandon',
+    })
+    expect(capture).toHaveBeenCalledWith(
+      'deploy_wait_left',
+      expect.objectContaining({
+        outcome: 'abandoned',
+        wait_duration_ms: 45000,
+      }),
+    )
+  })
+
+  it('tracks design_option_changed in session counters', () => {
+    trackEvent('design_option_changed', {
+      template: 'url-shortener',
+      optionName: 'replicas',
+      previousCategory: '1',
+      newCategory: '2',
+    })
+    expect(getDesignOptionSession().knobCount).toBe(1)
+    __resetAnalyticsForTests()
+    setCookieConsent('all')
+    __setAnalyticsClientForTests({
+      init: vi.fn(),
+      capture,
+      identify,
+      reset,
+    })
+    expect(getDesignOptionSession().knobCount).toBe(0)
+  })
+
+  it('authStartedTrigger maps return paths', () => {
+    expect(
+      authStartedTrigger({ pendingDeployAfterAuth: true, authReturnPath: '/dashboard' }),
+    ).toBe('deploy')
+    expect(
+      authStartedTrigger({ pendingDeployAfterAuth: false, authReturnPath: '/dashboard' }),
+    ).toBe('dashboard')
+    expect(
+      authStartedTrigger({ pendingDeployAfterAuth: false, authReturnPath: '/canvas' }),
+    ).toBe('deploy')
   })
 
   it('deploymentAnalyticsProperties allowlists design fields only', () => {

@@ -1,8 +1,9 @@
 import { useState, type ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { mapSupabaseOAuthError } from '../lib/authErrorMessage'
-import { trackEvent } from '../lib/analytics'
-import { primeAuthReturnTo } from '../lib/authReturn'
+import { authStartedTrigger, trackEvent } from '../lib/analytics'
+import { peekAuthReturnTo, primeAuthReturnTo } from '../lib/authReturn'
+import { useAuthStore } from '../product/stores/authStore'
 import {
   OAUTH_PROVIDERS,
   signInWithOAuthProvider,
@@ -83,8 +84,12 @@ export function OAuthProviderButtons({
     if (disabled || busyProvider) return
     setError(null)
     setBusyProvider(provider)
+    const trigger = authStartedTrigger({
+      pendingDeployAfterAuth: useAuthStore.getState().pendingDeployAfterAuth,
+      authReturnPath: peekAuthReturnTo() ?? authReturnPath,
+    })
     primeAuthReturnTo(authReturnPath, { overwrite: overwriteAuthReturnPath })
-    trackEvent('auth_started', { provider })
+    trackEvent('auth_started', { provider, trigger })
     try {
       const { error: oauthError } = await signInWithOAuthProvider(provider)
       if (oauthError) {

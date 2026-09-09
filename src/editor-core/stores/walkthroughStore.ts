@@ -28,6 +28,24 @@ interface WalkthroughState {
   setSpeed: (speed: WalkthroughSpeed) => void
 }
 
+let completedThisRun = false
+
+function maybeCompleteWalkthrough(
+  journey: JourneySpec | null,
+  activeJourneyId: string | null,
+  currentStepIndex: number,
+): void {
+  if (!journey || !activeJourneyId || completedThisRun) return
+  if (currentStepIndex !== journey.steps.length - 1) return
+  const templateId = useCanvasStore.getState().snapshotTemplateId
+  trackEvent('walkthrough_completed', {
+    template: templateId ?? 'unknown',
+    journeyId: activeJourneyId,
+    stepCount: journey.steps.length,
+  })
+  completedThisRun = true
+}
+
 function applyStepToCanvas(
   journey: JourneySpec,
   path: JourneyWalkthroughPath,
@@ -96,6 +114,7 @@ export const useWalkthroughStore = create<WalkthroughState>((set, get) => ({
     )
     if (!journey || journey.steps.length === 0) return
 
+    completedThisRun = false
     clearWalkthroughCanvas()
     canvas.setNarrativeHighlightNodeIds([])
     canvas.setMovementLocked(true)
@@ -120,19 +139,22 @@ export const useWalkthroughStore = create<WalkthroughState>((set, get) => ({
       template: templateId ?? 'unknown',
       journeyId,
     })
+    maybeCompleteWalkthrough(journey, journeyId, 0)
   },
 
   stop: () => {
     const { activeJourneyId, journey, currentStepIndex } = get()
     const templateId = useCanvasStore.getState().snapshotTemplateId
-    if (activeJourneyId && journey) {
+    if (activeJourneyId && journey && !completedThisRun) {
       trackEvent('walkthrough_stopped', {
         template: templateId ?? 'unknown',
         journeyId: activeJourneyId,
         lastStepIndex: currentStepIndex,
         stepCount: journey.steps.length,
+        stepReached: currentStepIndex + 1,
       })
     }
+    completedThisRun = false
     clearWalkthroughCanvas()
     useCanvasStore.getState().setMovementLocked(false)
     set({
@@ -145,16 +167,18 @@ export const useWalkthroughStore = create<WalkthroughState>((set, get) => ({
   },
 
   nextStep: () => {
-    const { journey, path, currentStepIndex, playing } = get()
+    const { journey, path, currentStepIndex, playing, activeJourneyId } = get()
     if (!journey || !path) return
     const max = journey.steps.length - 1
     if (currentStepIndex >= max) {
       if (playing) set({ playing: false })
+      maybeCompleteWalkthrough(journey, activeJourneyId, currentStepIndex)
       return
     }
     const next = currentStepIndex + 1
     set({ currentStepIndex: next })
     applyStepToCanvas(journey, path, next)
+    maybeCompleteWalkthrough(journey, activeJourneyId, next)
   },
 
   prevStep: () => {
@@ -166,11 +190,13 @@ export const useWalkthroughStore = create<WalkthroughState>((set, get) => ({
   },
 
   goToStep: (index) => {
-    const { journey, path } = get()
+    const { journey, path, activeJourneyId } = get()
     if (!journey || !path) return
     const clamped = Math.max(0, Math.min(index, journey.steps.length - 1))
+    if (clamped === 0) completedThisRun = false
     set({ currentStepIndex: clamped })
     applyStepToCanvas(journey, path, clamped)
+    maybeCompleteWalkthrough(journey, activeJourneyId, clamped)
   },
 
   setPlaying: (playing) => set({ playing }),

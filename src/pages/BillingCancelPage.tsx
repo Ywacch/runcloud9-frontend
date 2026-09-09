@@ -1,7 +1,12 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { C9Card } from '../editor-ui/c9Primitives'
+import { trackEvent } from '../lib/analytics'
 
 export default function BillingCancelPage() {
+  useEffect(() => {
+    trackEvent('checkout_returned', { outcome: 'cancel' })
+  }, [])
   return (
     <main className="dot-grid flex min-h-[100dvh] flex-col items-center justify-center bg-[var(--c9-bg)] px-6 pt-20">
       <C9Card className="w-full max-w-md p-6 text-center">

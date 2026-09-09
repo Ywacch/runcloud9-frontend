@@ -1,4 +1,7 @@
 import type { DeploymentDesign } from './deploymentTypes'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
+import { peekAuthReturnTo, sanitizeAuthReturnPath } from './authReturn'
 import { hasAnalyticsConsent } from './cookieConsent'
 
 const DEFAULT_POSTHOG_HOST = 'https://us.i.posthog.com'
@@ -21,6 +24,43 @@ export interface DeploymentAnalyticsProperties {
 
 export type OAuthAnalyticsProvider = 'google' | 'github'
 
+export type IdentifyAnalyticsTraits = {
+  effectiveTier?: string
+  provider?: OAuthAnalyticsProvider
+  email?: string
+  $email?: string
+  name?: string
+  created_at?: string
+}
+
+export type AuthStartedTrigger =
+  | 'landing'
+  | 'deploy'
+  | 'nav'
+  | 'pricing'
+  | 'dashboard'
+  | 'profile'
+  | 'unknown'
+
+export type CheckoutStartedSource =
+  | 'pricing'
+  | 'sidebar'
+  | 'plan_card'
+  | 'profile'
+  | 'unknown'
+
+export type SummaryDismissAction = 'close' | 'redeploy' | 'open_canvas'
+export type SummarySlideGroup = 'highlights' | 'outcome' | 'replay' | 'topology'
+export type JourneyPanelContext = 'design' | 'live'
+export type InspectorContext = 'design' | 'live'
+export type DeployWaitExitStatus =
+  | 'queued'
+  | 'provisioning'
+  | 'running'
+  | 'failed'
+  | 'terminated'
+  | 'unknown'
+
 export type AuthFailedCategory =
   | 'oauth_denied'
   | 'signups_disabled'
@@ -37,7 +77,7 @@ export type AnalyticsEventMap = {
   }
   landing_cta_clicked: { ctaName: string }
   login_viewed: Record<string, never>
-  auth_started: { provider: OAuthAnalyticsProvider }
+  auth_started: { provider: OAuthAnalyticsProvider; trigger: AuthStartedTrigger }
   auth_succeeded: {
     effectiveTier: string
     provider?: OAuthAnalyticsProvider
@@ -49,16 +89,35 @@ export type AnalyticsEventMap = {
     authenticated: boolean
     presetMode?: AnalyticsPresetMode
   }
-  template_selected: { template: string; archetype: string }
+  template_selected: { template: string; archetype: string; variationId?: string }
   deployment_requested: DeploymentAnalyticsProperties & {
     admitStatus: 'provisioning' | 'queued'
+    deploymentId: string
+    knobsChanged: boolean
+    knobCount: number
+    presetMode?: AnalyticsPresetMode
+    variationId?: string
+  }
+  deployment_running: {
+    template: string
+    deploymentId: string
+    elapsedSeconds: number
+    admitStatus: 'provisioning' | 'queued'
+  }
+  deployment_succeeded: {
+    template: string
+    deploymentId: string
+    duration_ms: number
+    status: 'success'
+    variationId?: string
     presetMode?: AnalyticsPresetMode
   }
-  deployment_running: { template: string; elapsedSeconds: number }
   deployment_failed: {
     template: string
     phase: 'request' | 'provision'
     errorCategory: string
+    deploymentId?: string
+    duration_ms?: number
     rejectReason?:
       | 'design_exceeds_cluster'
       | 'queue_full'
@@ -70,14 +129,23 @@ export type AnalyticsEventMap = {
   deploy_wait_entered: {
     template: string
     waitKind: 'room' | 'door' | 'provisioning'
+    deploymentId?: string
     queuePosition?: number
     estimatedWaitSeconds?: number
   }
   deploy_wait_left: {
     template: string
     waitKind: 'room' | 'door' | 'provisioning'
-    outcome: 'promoted' | 'cancelled' | 'failed' | 'terminated'
+    outcome:
+      | 'promoted'
+      | 'cancelled'
+      | 'failed'
+      | 'terminated'
+      | 'abandoned'
     waitSeconds: number
+    wait_duration_ms: number
+    deployment_status_at_exit: DeployWaitExitStatus
+    deploymentId?: string
     queuePosition?: number
   }
   provision_tab_returned: {
@@ -89,15 +157,28 @@ export type AnalyticsEventMap = {
     template: string
     sessionDuration: string
     usedLoadgen: boolean
+    deploymentId?: string
+    highlightCount: number
+    hadCascade: boolean
   }
-  session_summary_dismissed: { template: string; visibleSeconds: number }
+  session_summary_dismissed: {
+    template: string
+    visibleSeconds: number
+    deploymentId?: string
+    lastSlideIndex: number
+    slideCount: number
+    lastSlideGroup: SummarySlideGroup
+    action: SummaryDismissAction
+  }
   loadgen_started: {
     template: string
     rps: number
     durationSeconds: number
     scheduleId?: string
+    deploymentId?: string
+    time_to_loadgen_ms?: number
   }
-  loadgen_stopped: { template: string; liveSeconds: number }
+  loadgen_stopped: { template: string; liveSeconds: number; deploymentId?: string }
   journey_panel_opened: { template: string; context: 'design' | 'live' }
   journey_selected: {
     template: string
@@ -105,16 +186,37 @@ export type AnalyticsEventMap = {
     context: 'design' | 'live'
   }
   walkthrough_started: { template: string; journeyId: string }
+  walkthrough_completed: {
+    template: string
+    journeyId: string
+    stepCount: number
+  }
   walkthrough_stopped: {
     template: string
     journeyId: string
     lastStepIndex: number
     stepCount: number
+    stepReached?: number
   }
+  journey_panel_closed: {
+    template: string
+    context: JourneyPanelContext
+    selected: boolean
+    journeyId?: string
+  }
+  template_picker_opened: { template: string }
+  template_picker_dismissed: { template: string; hadSelection: boolean }
+  pricing_viewed: Record<string, never>
+  checkout_started: { source: CheckoutStartedSource }
+  checkout_returned: { outcome: 'success' | 'cancel' }
   session_ended: {
     template: string
     reason: 'expired' | 'user_teardown' | 'failed'
     durationSeconds: number
+    durationMs: number
+    hadLoadgen: boolean
+    chaosCount: number
+    deploymentId?: string
   }
   past_run_opened: { template: string }
   preset_mode_switched: {
@@ -126,8 +228,14 @@ export type AnalyticsEventMap = {
     template: string
     chaosKind: string
     targetComponentType: string
+    loadgenActive: boolean
   }
-  component_inspector_opened: { template: string; componentType: string }
+  component_inspector_opened: {
+    template: string
+    componentType: string
+    componentId: string
+    context: InspectorContext
+  }
   data_inspector_used: {
     template: string
     componentType: string
@@ -176,6 +284,7 @@ export type DeployBlockedReason =
   | 'resource_quota_exceeded'
   | 'topology_violation'
   | 'monthly_session_limit'
+  | 'auth_required'
 
 export type AnalyticsEventName = keyof AnalyticsEventMap
 
@@ -232,9 +341,39 @@ export async function initAnalytics(): Promise<void> {
   }
 }
 
+let knobCount = 0
+let chaosCount = 0
+let loadgenEverActive = false
+
+export function recordDesignOptionChanged(): void {
+  knobCount += 1
+}
+
+export function recordChaosInjected(): void {
+  chaosCount += 1
+}
+
+export function markLoadgenStarted(): void {
+  loadgenEverActive = true
+}
+
+export function resetDesignOptionSession(): void {
+  knobCount = 0
+  chaosCount = 0
+  loadgenEverActive = false
+}
+
+export function getDesignOptionSession(): {
+  knobCount: number
+  chaosCount: number
+  loadgenEverActive: boolean
+} {
+  return { knobCount, chaosCount, loadgenEverActive }
+}
+
 export function identifyAnalyticsUser(
   userId: string,
-  traits?: { effectiveTier?: string; provider?: OAuthAnalyticsProvider },
+  traits?: IdentifyAnalyticsTraits,
 ): void {
   if (!userId.trim()) return
   if (!hasAnalyticsConsent()) return
@@ -253,6 +392,9 @@ export function trackEvent<E extends AnalyticsEventName>(
   event: E,
   properties: AnalyticsEventMap[E],
 ): void {
+  if (event === 'design_option_changed') recordDesignOptionChanged()
+  if (event === 'chaos_injected') recordChaosInjected()
+  if (event === 'loadgen_started') markLoadgenStarted()
   const props = properties as Record<string, unknown>
   if (!hasAnalyticsConsent()) return
   if (client) client.capture(event, props)
@@ -283,6 +425,66 @@ export function sessionEndedDurationSeconds(
 ): number {
   if (liveSessionStartedAt == null) return 0
   return Math.max(0, Math.floor((Date.now() - liveSessionStartedAt) / 1000))
+}
+
+export function sessionEndedDurationMs(
+  liveSessionStartedAt: number | null,
+): number {
+  if (liveSessionStartedAt == null) return 0
+  return Math.max(0, Date.now() - liveSessionStartedAt)
+}
+
+export function optionalJoinFields(): {
+  deploymentId?: string
+  variationId?: string
+  presetMode?: AnalyticsPresetMode
+} {
+  const st = useCanvasStore.getState()
+  const out: ReturnType<typeof optionalJoinFields> = {}
+  if (st.deploymentId) out.deploymentId = st.deploymentId
+  if (st.loadedVariationId) out.variationId = st.loadedVariationId
+  const presetMode = analyticsPresetModeFromStore(st.templatePresetMode)
+  if (presetMode) out.presetMode = presetMode
+  return out
+}
+
+export function sessionEndedProperties(
+  reason: AnalyticsEventMap['session_ended']['reason'],
+): AnalyticsEventMap['session_ended'] {
+  const st = useCanvasStore.getState()
+  const session = getDesignOptionSession()
+  const durationMs = sessionEndedDurationMs(st.liveSessionStartedAt)
+  const metrics = useMetricsStore.getState()
+  const hadLoadgen =
+    session.loadgenEverActive ||
+    (metrics.loadgen?.totalRequests ?? 0) > 0 ||
+    (metrics.loadgen?.active ?? false)
+  const props: AnalyticsEventMap['session_ended'] = {
+    template: st.snapshotTemplateId ?? 'unknown',
+    reason,
+    durationSeconds: sessionEndedDurationSeconds(st.liveSessionStartedAt),
+    durationMs,
+    hadLoadgen,
+    chaosCount: session.chaosCount,
+  }
+  if (st.deploymentId) props.deploymentId = st.deploymentId
+  return props
+}
+
+export function authStartedTrigger(opts: {
+  pendingDeployAfterAuth: boolean
+  authReturnPath?: string | null
+}): AuthStartedTrigger {
+  if (opts.pendingDeployAfterAuth) return 'deploy'
+  const path = sanitizeAuthReturnPath(
+    opts.authReturnPath ?? peekAuthReturnTo(),
+  )
+  if (path === '/canvas') return 'deploy'
+  if (path === '/dashboard') return 'dashboard'
+  if (path === '/profile') return 'profile'
+  if (path === '/pricing') return 'pricing'
+  if (path === '/about' || path === '/privacy' || path === '/terms') return 'nav'
+  return 'unknown'
 }
 
 /** Allowlisted design summary for deployment_requested — no node IDs or edges. */
@@ -416,6 +618,7 @@ export function __resetAnalyticsForTests(): void {
   client = null
   initAttempted = false
   sessionEndedForDeploymentId = null
+  resetDesignOptionSession()
 }
 
 /** Test helper — whether initAnalytics has marked initialization attempted. */

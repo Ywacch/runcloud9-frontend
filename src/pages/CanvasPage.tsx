@@ -78,7 +78,17 @@ export default function CanvasPage() {
   }, [designJourneyUi, snapshotTemplateId, topology, storytelling])
 
   const closeDesignJourney = useCallback(() => {
-    setDesignJourneyUi({ open: false, overview: false, id: null })
+    setDesignJourneyUi((prev) => {
+      if (prev.open) {
+        trackEvent('journey_panel_closed', {
+          template: useCanvasStore.getState().snapshotTemplateId ?? 'unknown',
+          context: 'design',
+          selected: Boolean(prev.id),
+          ...(prev.id ? { journeyId: prev.id } : {}),
+        })
+      }
+      return { open: false, overview: false, id: null }
+    })
   }, [])
 
   useEffect(() => {

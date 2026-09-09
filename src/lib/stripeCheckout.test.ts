@@ -20,6 +20,13 @@ vi.mock('./supabase', () => ({
   supabase: {},
 }))
 
+const { trackEvent } = vi.hoisted(() => ({
+  trackEvent: vi.fn(),
+}))
+vi.mock('./analytics', () => ({
+  trackEvent,
+}))
+
 import { getAccessToken } from './auth'
 import { useAuthStore } from '../product/stores/authStore'
 
@@ -30,6 +37,7 @@ describe('stripeCheckout', () => {
   beforeEach(() => {
     fetchMock.mockReset()
     assign.mockReset()
+    trackEvent.mockReset()
     vi.stubGlobal('fetch', fetchMock)
     vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-test')
@@ -65,6 +73,9 @@ describe('stripeCheckout', () => {
       }),
     )
     expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay_123')
+    expect(trackEvent).toHaveBeenCalledWith('checkout_started', {
+      source: 'unknown',
+    })
   })
 
   it('posts to create-portal-session and redirects', async () => {
@@ -144,6 +155,7 @@ describe('stripeCheckout', () => {
       StripeCheckoutError,
     )
     expect(assign).not.toHaveBeenCalled()
+    expect(trackEvent).not.toHaveBeenCalled()
   })
 
   it('requires a signed-in session', async () => {

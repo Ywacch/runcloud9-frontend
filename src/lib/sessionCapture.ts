@@ -13,7 +13,7 @@ import {
 import { fmtMemMB, fmtPct } from './format'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 import { DEFAULT_SESSION_MINUTES } from './sessionMinutes'
-import { trackSessionEndedOnce, sessionEndedDurationSeconds } from './analytics'
+import { trackSessionEndedOnce, sessionEndedProperties } from './analytics'
 import { useCanvasStore, type SessionSummary } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
@@ -268,11 +268,7 @@ export function exitLiveSessionDueToRemoteEnd(): void {
 
   const finish = (apiMetricsSummary?: Record<string, unknown>) => {
     captureSessionSummaryWithApi(apiMetricsSummary)
-    trackSessionEndedOnce(deploymentId, {
-      template: st.snapshotTemplateId ?? 'unknown',
-      reason: 'expired',
-      durationSeconds: sessionEndedDurationSeconds(st.liveSessionStartedAt),
-    })
+    trackSessionEndedOnce(deploymentId, sessionEndedProperties('expired'))
     if (deploymentId) discardWsEventsStorage(deploymentId)
     const s = useCanvasStore.getState()
     s.setMode('design')
