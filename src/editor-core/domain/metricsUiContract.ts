@@ -125,11 +125,20 @@ export interface ComponentLayerMetrics {
   freshness?: ComponentFreshness
 }
 
-/** Observer probe status from WS `components.db.consistency` (Wave 3 Phase 2). */
+/** App-traffic + observer status from WS `components.db.consistency`. */
 export interface DbConsistencyStatus {
+  /** Reads served from the primary (db_read_total route=leader). */
+  leaderReads: number
+  /** Reads served from a replica (db_read_total route=replica). */
+  replicaReads: number
+  /** Replica reads served while replay token lagged last write (eventual policy cost). */
+  replicaStaleReads: number
+  /** Who holds the read guarantee: app redirects, db, or none when not requested. */
+  guaranteeHeldBy?: string
   rywViolations: number
   monotonicViolations: number
   cacheDbStale: number
+  /** Observer probe: logical versions replica trails primary (canary, not student RYW). */
   replicaStalenessVersions: number
   lastProbeError?: string
   lastCacheKey?: string
@@ -196,7 +205,12 @@ export function parseStorageIo(raw: unknown): StorageIoMetrics | null {
 export function parseDbConsistency(raw: unknown): DbConsistencyStatus | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
+  const held = str(r.guaranteeHeldBy)
   return {
+    leaderReads: Math.round(num(r.leaderReads)),
+    replicaReads: Math.round(num(r.replicaReads)),
+    replicaStaleReads: Math.round(num(r.replicaStaleReads)),
+    guaranteeHeldBy: held,
     rywViolations: Math.round(num(r.rywViolations)),
     monotonicViolations: Math.round(num(r.monotonicViolations)),
     cacheDbStale: Math.round(num(r.cacheDbStale)),

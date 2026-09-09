@@ -319,6 +319,10 @@ describe('metricsUiContract', () => {
 
   it('parseDbConsistency maps observer status from WS payload', () => {
     const status = parseDbConsistency({
+      leaderReads: 120,
+      replicaReads: 380,
+      replicaStaleReads: 15,
+      guaranteeHeldBy: 'app',
       rywViolations: 2,
       monotonicViolations: 1,
       cacheDbStale: 0,
@@ -326,6 +330,10 @@ describe('metricsUiContract', () => {
       lastProbeError: 'dial primary: timeout',
     })
     expect(status).toEqual({
+      leaderReads: 120,
+      replicaReads: 380,
+      replicaStaleReads: 15,
+      guaranteeHeldBy: 'app',
       rywViolations: 2,
       monotonicViolations: 1,
       cacheDbStale: 0,
@@ -333,6 +341,25 @@ describe('metricsUiContract', () => {
       lastProbeError: 'dial primary: timeout',
     })
     expect(parseDbConsistency(null)).toBeNull()
+  })
+
+  it('parseDbConsistency defaults traffic counters to zero', () => {
+    const status = parseDbConsistency({
+      rywViolations: 0,
+      monotonicViolations: 0,
+      cacheDbStale: 0,
+      replicaStalenessVersions: 0,
+    })
+    expect(status).toEqual({
+      leaderReads: 0,
+      replicaReads: 0,
+      replicaStaleReads: 0,
+      guaranteeHeldBy: undefined,
+      rywViolations: 0,
+      monotonicViolations: 0,
+      cacheDbStale: 0,
+      replicaStalenessVersions: 0,
+    })
   })
 
   it('parseDbConsistency maps cache evidence fields', () => {
@@ -347,6 +374,10 @@ describe('metricsUiContract', () => {
       lastCacheRequestId: 'req-abc',
     })
     expect(status).toEqual({
+      leaderReads: 0,
+      replicaReads: 0,
+      replicaStaleReads: 0,
+      guaranteeHeldBy: undefined,
       rywViolations: 0,
       monotonicViolations: 0,
       cacheDbStale: 1,

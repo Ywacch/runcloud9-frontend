@@ -109,6 +109,10 @@ describe('componentToBucket resource sources', () => {
       },
     })
     expect(bucket.consistency).toEqual({
+      leaderReads: 0,
+      replicaReads: 0,
+      replicaStaleReads: 0,
+      guaranteeHeldBy: undefined,
       rywViolations: 1,
       monotonicViolations: 0,
       cacheDbStale: 0,

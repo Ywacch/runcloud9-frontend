@@ -92,48 +92,70 @@ describe('DbConsistencySection', () => {
     expect(html).toBe('')
   })
 
-  it('renders OK state and zero staleness', () => {
+  it('renders OK state with offload and policy hint', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {
         m: dbBucket({
+          leaderReads: 100,
+          replicaReads: 300,
+          replicaStaleReads: 0,
+          guaranteeHeldBy: 'none',
           rywViolations: 0,
           monotonicViolations: 0,
           cacheDbStale: 0,
           replicaStalenessVersions: 0,
         }),
+        readConsistencyPolicy: 'replica',
       }),
     )
-    expect(html).toContain('Consistency probes')
-    expect(html).toContain('Observer canary for replica lag')
-    expect(html).toContain('sampled student reads')
-    expect(html).not.toContain('when available')
-    expect(html).toContain('Read-your-writes')
-    expect(html).toContain('OK')
+    expect(html).toContain('Read routing tradeoffs')
+    expect(html).toContain('what staying off the leader cost you')
+    expect(html).toContain('Read offload')
+    expect(html).toContain('75% (300 replica · 100 leader)')
+    expect(html).toContain('Stale replica reads')
+    expect(html).toContain('RYW violations')
+    expect(html).toContain('Held by')
+    expect(html).toContain('None requested')
+    expect(html).toContain('Observer canary')
+    expect(html).toContain('Probe replica lag')
     expect(html).toContain('0 versions')
+    expect(html).toContain('stale replica reads are the expected tradeoff')
   })
 
-  it('renders violation counts and probe error', () => {
+  it('renders violation counts, stale reads, and probe error', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {
         m: dbBucket({
+          leaderReads: 50,
+          replicaReads: 150,
+          replicaStaleReads: 12,
+          guaranteeHeldBy: 'app',
           rywViolations: 2,
           monotonicViolations: 1,
           cacheDbStale: 0,
           replicaStalenessVersions: 4,
           lastProbeError: 'dial replica: connection refused',
         }),
+        readConsistencyPolicy: 'ryw',
       }),
     )
+    expect(html).toContain('75% (150 replica · 50 leader)')
+    expect(html).toContain('12 reads')
+    expect(html).toContain('App (redirects)')
     expect(html).toContain('2 violations')
     expect(html).toContain('1 violation')
     expect(html).toContain('4 versions')
     expect(html).toContain('dial replica: connection refused')
+    expect(html).toContain('redirects hold the guarantee')
   })
 
   it('renders cache evidence and view trace when present', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {
         m: dbBucket({
+          leaderReads: 0,
+          replicaReads: 0,
+          replicaStaleReads: 0,
           rywViolations: 0,
           monotonicViolations: 0,
           cacheDbStale: 1,
@@ -155,6 +177,9 @@ describe('DbConsistencySection', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {
         m: dbBucket({
+          leaderReads: 0,
+          replicaReads: 0,
+          replicaStaleReads: 0,
           rywViolations: 0,
           monotonicViolations: 0,
           cacheDbStale: 1,

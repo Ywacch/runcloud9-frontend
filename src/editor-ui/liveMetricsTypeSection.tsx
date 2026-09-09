@@ -39,6 +39,7 @@ import {
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
 import { getTopologyFlags } from '../lib/componentRole'
+import { readConsistencyFromConfig } from '../lib/readConsistency'
 import { lbAlgorithmForDeploy } from '../lib/replicaConfig'
 import { isMetricRelevant } from '../lib/templateKpis'
 import {
@@ -588,7 +589,10 @@ export function LiveMetricsTypeSection({
             history={history}
           />
           <DbReplicaLagSection m={m} />
-          <DbConsistencySection m={m} />
+          <DbConsistencySection
+            m={m}
+            readConsistencyPolicy={readConsistencyFromConfig(node.config.readConsistency)}
+          />
           <DbClusterResourcesSection
             nodeId={nodeId}
             m={m}
