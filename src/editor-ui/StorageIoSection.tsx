@@ -62,6 +62,10 @@ import {
 import { InlineDisclosure } from './InlineDisclosure'
 import { useDbTierCWarmup } from './useDbTierCWarmup'
 import { ViewTraceButton } from './ViewTraceButton'
+import {
+  readConsistencyFromConfig,
+  type ReadConsistencyPolicy,
+} from '../lib/readConsistency'
 
 /** RED — app SQL intent (app-server instrumentation). */
 export function DbActivitySection({
@@ -744,6 +748,46 @@ function fmtStalenessVersions(versions: number): string {
   return fmtInt(versions)
 }
 
+function formatReadOffload(leaderReads: number, replicaReads: number): string {
+  const total = leaderReads + replicaReads
+  if (total <= 0) return '—'
+  const offloadPct = Math.min(100, Math.round((replicaReads / total) * 100))
+  return `${offloadPct}% (${fmtInt(replicaReads)} replica · ${fmtInt(leaderReads)} leader)`
+}
+
+function formatStaleReplicaReads(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return '0'
+  return count === 1 ? '1 read' : `${fmtInt(count)} reads`
+}
+
+function formatGuaranteeHeldBy(held?: string): string {
+  switch (held) {
+    case 'app':
+      return 'App (redirects)'
+    case 'db':
+      return 'Database'
+    case 'none':
+      return 'None requested'
+    default:
+      return held?.trim() || '—'
+  }
+}
+
+function consistencyPolicyHint(policy: ReadConsistencyPolicy): string {
+  switch (policy) {
+    case 'leader-only':
+      return 'Leader-only: all reads hit the primary — no replica offload.'
+    case 'replica':
+      return 'Replica (eventual): reads are offloaded to standbys; stale replica reads are the expected tradeoff.'
+    case 'ryw':
+      return 'Read-your-writes: app redirects hold the guarantee; RYW violations should stay near zero.'
+    case 'monotonic':
+      return 'Monotonic reads: stick to one replica; monotonic violations flag time going backwards.'
+    case 'ryw+monotonic':
+      return 'RYW + monotonic: redirects hold RYW; monotonic violations flag backwards time on a sticky replica.'
+  }
+}
+
 /** Read-replica replay lag when db instance layers are present (Wave 3 PR4). */
 export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   const replicaLayers = m.layers.filter((layer) => layer.role === 'replica')
@@ -798,48 +842,79 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   )
 }
 
-/** Observer RYW / monotonic status when backend ships `components.db.consistency`. */
-export function DbConsistencySection({ m }: { m: MetricsBucket }) {
+/** Read-routing tradeoffs when backend ships `components.db.consistency`. */
+export function DbConsistencySection({
+  m,
+  readConsistencyPolicy,
+}: {
+  m: MetricsBucket
+  readConsistencyPolicy?: ReadConsistencyPolicy
+}) {
   const consistency = m.consistency
   if (!consistency) return null
 
+  const policy = readConsistencyPolicy ?? readConsistencyFromConfig(undefined)
+
   return (
     <PedagogicalSection
-      title="Consistency probes"
-      subtitle="Observer canary for replica lag; cache vs database uses sampled student reads."
+      title="Read routing tradeoffs"
+      subtitle="The guarantee you asked for, and what staying off the leader cost you."
     >
       <StatRow
         left={
           <StatBlock
-            label="Read-your-writes"
-            value={formatConsistencyViolation(consistency.rywViolations)}
-            help="Fires when the replica version lags the version just written on the primary."
+            label="Read offload"
+            value={formatReadOffload(consistency.leaderReads, consistency.replicaReads)}
+            help="Share of app reads served from replicas vs the primary (db_read_total by route)."
           />
         }
         right={
           <StatBlock
-            label="Monotonic reads"
-            value={formatConsistencyViolation(consistency.monotonicViolations)}
-            help="Fires when a later replica read returns a lower version than an earlier one."
+            label="Stale replica reads"
+            value={formatStaleReplicaReads(consistency.replicaStaleReads)}
+            help="Replica reads served while replay lagged the client's last write. Eventual-policy cost — not RYW violations."
           />
         }
       />
       <StatRow
         left={
           <StatBlock
-            label="Cache vs database"
-            value={formatConsistencyViolation(consistency.cacheDbStale)}
-            help="Fires when a sampled cache hit served a different value than the primary (not the platform probe key)."
+            label="RYW violations"
+            value={formatConsistencyViolation(consistency.rywViolations)}
+            help="Promised read-your-writes guarantee failed. Should stay near zero when app redirects are working."
           />
         }
         right={
           <StatBlock
-            label="Replica staleness"
-            value={`${fmtStalenessVersions(consistency.replicaStalenessVersions)} versions`}
-            help="Logical versions the replica trails the latest primary write (0 when caught up)."
+            label="Held by"
+            value={formatGuaranteeHeldBy(consistency.guaranteeHeldBy)}
+            help="Who enforces the read guarantee. None = not requested; app = leader redirects after writes."
           />
         }
       />
+      <PedagogicalCaption>Observer canary (secondary)</PedagogicalCaption>
+      <StatRow
+        left={
+          <StatBlock
+            label="Monotonic reads"
+            value={formatConsistencyViolation(consistency.monotonicViolations)}
+            help="Observer: a later replica read returned a lower version than an earlier one."
+          />
+        }
+        right={
+          <StatBlock
+            label="Cache vs database"
+            value={formatConsistencyViolation(consistency.cacheDbStale)}
+            help="Sampled cache hit served a different value than the primary (not the platform probe key)."
+          />
+        }
+      />
+      <StatBlock
+        label="Probe replica lag"
+        value={`${fmtStalenessVersions(consistency.replicaStalenessVersions)} versions`}
+        help="Observer canary: logical versions the replica trails the latest primary write (lag probe, not student RYW)."
+      />
+      <PedagogicalHint tone="muted">{consistencyPolicyHint(policy)}</PedagogicalHint>
       {consistency.lastCacheKey ? (
         <p className="text-[11px] leading-relaxed text-[var(--c9-muted)]">
           <span className="font-mono text-[var(--c9-text)]">{consistency.lastCacheKey}</span>
