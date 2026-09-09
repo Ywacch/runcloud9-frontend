@@ -157,6 +157,27 @@ body {
   color: var(--c9-text-heading);
 }
 
+@keyframes c9-loadgen-prompt-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--c9-accent-hover) 55%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--c9-accent) 0%, transparent);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px var(--c9-accent-hover),
+      0 0 0 4px color-mix(in srgb, var(--c9-accent) 28%, transparent),
+      0 0 16px color-mix(in srgb, var(--c9-accent-hover) 42%, transparent);
+  }
+}
+
+.c9-loadgen-prompt {
+  border-color: var(--c9-accent-hover);
+  animation: c9-loadgen-prompt-glow 2.2s ease-in-out infinite;
+}
+
 .c9-load-panel {
   display: flex;
   flex-direction: column;
