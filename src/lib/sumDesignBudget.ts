@@ -224,6 +224,24 @@ export function displayQuotaTierLabel(tier: string | undefined | null): string {
   }
 }
 
+/** Canvas-only CPU/RAM cap for a tier (session total minus loadgen). */
+export function canvasCapForTier(tier: string | undefined | null): {
+  cpu: string
+  memory: string
+} {
+  const quotaTier = normalizeResourceTier(tier)
+  const sessionCap = tierResourceCaps(quotaTier)
+  const lg = loadgenLimits(quotaTier)
+  return {
+    cpu: formatCpuMilli(
+      parseCpuMilli(sessionCap.cpu) - parseCpuMilli(lg.cpu),
+    ),
+    memory: formatMemoryBytes(
+      parseMemoryBytes(sessionCap.memory) - parseMemoryBytes(lg.memory),
+    ),
+  }
+}
+
 type CanvasQuotaDisplayInput = Pick<
   ResourceBudgetErrorResponse,
   'tier' | 'requested' | 'cap' | 'breakdown'

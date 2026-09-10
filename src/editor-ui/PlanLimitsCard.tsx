@@ -2,8 +2,6 @@ import type { CurrentUserLimits } from '../lib/api'
 import {
   CANCEL_SUBSCRIPTION_LABEL,
   displayPlanTierLabel,
-  ENGINEER_BENEFIT_ROWS,
-  engineerBenefitIncluded,
   engineerUpgradeCta,
   formatSessionsLeftThisMonth,
   MANAGE_BILLING_HINT,
@@ -11,82 +9,18 @@ import {
   STOP_SUBSCRIPTION_LABEL,
 } from '../lib/billingCopy'
 import type { CheckoutStartedSource } from '../lib/analytics'
+import { canvasCapForTier } from '../lib/sumDesignBudget'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
 
-function PlanMark({ included }: { included: boolean }) {
-  if (!included) {
-    return (
-      <svg
-        viewBox="0 0 16 16"
-        className="mt-0.5 h-4 w-4 shrink-0 text-[var(--c9-muted)]"
-        aria-hidden
-      >
-        <circle
-          cx="8"
-          cy="8"
-          r="5.25"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-      </svg>
-    )
-  }
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300"
-      aria-hidden
-    >
-      <circle cx="8" cy="8" r="6" fill="rgb(16 185 129 / 0.18)" />
-      <path
-        d="M4.6 8.2 7 10.6 11.5 5.6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.65"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function PlanBenefitMarks({
-  limits,
-  isFree,
-  showExplorerNotes,
-  className,
-}: {
-  limits: CurrentUserLimits | undefined
-  isFree: boolean
-  showExplorerNotes: boolean
-  className?: string
-}) {
-  return (
-    <ul className={className}>
-      {ENGINEER_BENEFIT_ROWS.map((row) => {
-        const included = engineerBenefitIncluded(row.id, limits)
-        return (
-          <li key={row.id} className="flex items-start gap-2.5 text-sm">
-            <PlanMark included={included} />
-            <span
-              className={
-                included ? 'text-[var(--c9-text)]' : 'text-[var(--c9-muted)]'
-              }
-            >
-              {row.label}
-              {showExplorerNotes && isFree && row.explorerNote ? (
-                <span className="mt-0.5 block text-xs text-[var(--c9-muted)]">
-                  {row.explorerNote}
-                </span>
-              ) : null}
-            </span>
-          </li>
-        )
-      })}
-    </ul>
-  )
+function sessionLengthDetail(
+  limits: CurrentUserLimits | undefined,
+): string | undefined {
+  const defaultMins = limits?.sessionDefaultMins
+  const capMins = limits?.sessionCapMins
+  if (defaultMins == null || capMins == null) return undefined
+  if (defaultMins === capMins) return undefined
+  return `${defaultMins} min default`
 }
 
 function PlanBillingActions({
@@ -134,8 +68,8 @@ function PlanBillingActions({
         </div>
       ) : null}
       {showPaidBilling && BILLING_ENABLED ? (
-        <div className="space-y-3">
-          <p className="text-xs text-[var(--c9-muted)]">
+        <div className="space-y-3 border-t border-[var(--c9-border)] pt-4">
+          <p className="text-xs leading-relaxed text-[var(--c9-muted)]">
             {canCancelAndRefund
               ? MANAGE_BILLING_HINT
               : MANAGE_BILLING_HINT_STOP_ONLY}
@@ -169,9 +103,36 @@ function PlanBillingActions({
   )
 }
 
+function LimitStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string
+  value: string
+  detail?: string
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--c9-muted)]">
+        {label}
+      </p>
+      <p className="mt-1.5 text-[1.35rem] font-semibold leading-none tracking-[-0.02em] tabular-nums text-[var(--c9-text-heading)]">
+        {value}
+      </p>
+      {detail ? (
+        <p className="mt-1 text-xs leading-relaxed text-[var(--c9-muted)]">
+          {detail}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export function PlanLimitsCard({
   effectiveTier,
   isInternal,
+  quotaTier,
   limits,
   sessionsRemainingThisMonth,
   checkoutBusy,
@@ -185,6 +146,7 @@ export function PlanLimitsCard({
 }: {
   effectiveTier: string | null | undefined
   isInternal: boolean
+  quotaTier: string | undefined
   limits: CurrentUserLimits | undefined
   sessionsRemainingThisMonth: number | null | undefined
   checkoutBusy: boolean
@@ -194,7 +156,6 @@ export function PlanLimitsCard({
   onCancel: () => void
   billingBusy: boolean
   billingError: string | null
-  /** When false, Cancel & refund is hidden (used this Stripe billing period). */
   canCancelAndRefund: boolean
 }) {
   const planLabel = displayPlanTierLabel(effectiveTier)
@@ -203,95 +164,84 @@ export function PlanLimitsCard({
   const upgradeCta = engineerUpgradeCta(BILLING_ENABLED)
   const statusLabel = isFree ? 'Free' : 'Active'
   const statusClass = isFree
-    ? 'bg-zinc-700/50 text-[var(--c9-muted)]'
-    : 'bg-emerald-500/15 text-emerald-300'
-  const quotaRows = [
-    {
-      label: 'Session default',
-      value: `${limits?.sessionDefaultMins ?? '—'} min`,
-    },
-    {
-      label: 'Session cap',
-      value: `${limits?.sessionCapMins ?? '—'} min`,
-    },
-    {
-      label: 'Max concurrent deployments',
-      value: String(limits?.maxConcurrent ?? '—'),
-    },
-    ...(limits?.maxSessionsPerMonth != null &&
-    sessionsRemainingThisMonth != null
-      ? [
-          {
-            label: 'Sessions this month',
-            value: formatSessionsLeftThisMonth(
-              sessionsRemainingThisMonth,
-              limits.maxSessionsPerMonth,
-            ),
-          },
-        ]
-      : []),
-    {
-      label: 'Max app-server & worker replicas',
-      value: String(limits?.maxAppServerReplicas ?? '—'),
-    },
-  ]
+    ? 'border border-[var(--c9-border)] text-[var(--c9-muted)]'
+    : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+
+  const canvasCap = canvasCapForTier(quotaTier)
+  const sizingValue = `${canvasCap.cpu} CPU`
+  const sizingDetail = `${canvasCap.memory} RAM on canvas`
+
+  const maxSessions = limits?.maxSessionsPerMonth
+  const hasSessionCap =
+    maxSessions != null && sessionsRemainingThisMonth != null && !isInternal
+  const sessionsUsed =
+    hasSessionCap ? Math.max(0, maxSessions - sessionsRemainingThisMonth) : 0
+  const sessionsValue = hasSessionCap
+    ? formatSessionsLeftThisMonth(sessionsRemainingThisMonth, maxSessions)
+    : isInternal
+      ? 'Unlimited'
+      : '—'
+  const replicaCap = limits?.maxAppServerReplicas
 
   return (
     <section
-      className="c9-plan-card overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]/90 shadow-xl shadow-black/20"
+      className="overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-surface)]"
       aria-labelledby="c9-plan-card-title"
     >
-      <div className="border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/35 px-[1.2rem] pt-[1.15rem] pb-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--c9-border)] px-5 py-4">
+        <div>
           <h2
             id="c9-plan-card-title"
-            className="text-[1.35rem] font-semibold tracking-[-0.03em] text-[var(--c9-text-heading)]"
+            className="text-lg font-semibold tracking-[-0.02em] text-[var(--c9-text-heading)]"
           >
             {planLabel}
           </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}
-            >
-              {statusLabel}
-            </span>
-          </div>
+          <p className="mt-0.5 text-sm text-[var(--c9-muted)]">
+            Live session limits
+          </p>
         </div>
-        <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-muted)]">
-          {isFree
-            ? 'Your current limits and which features are included.'
-            : 'Plan limits are active on your account.'}
-        </p>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}
+        >
+          {statusLabel}
+        </span>
       </div>
-      <div className="flex flex-col gap-[1.35rem] px-[1.2rem] pt-[1.15rem] pb-5">
-        <div className="flex flex-wrap gap-x-7 gap-y-[1.35rem]">
-          <dl className="min-w-[13.5rem] flex-[0.48_1_13.5rem]">
-            {quotaRows.map((row) => (
-              <div
-                key={row.label}
-                className="flex items-baseline justify-between gap-3 border-b border-[var(--c9-border)] py-[0.7rem] last:border-0"
-              >
-                <dt className="text-sm text-[var(--c9-muted)]">{row.label}</dt>
-                <dd className="text-right text-sm font-medium tabular-nums text-[var(--c9-text)]">
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <div className="min-w-[16rem] flex-[0.52_1_16rem]">
-            {isFree ? (
-              <p className="mb-2.5 text-sm text-[var(--c9-muted)]">
-                Plan features
-              </p>
-            ) : null}
-            <PlanBenefitMarks
-              limits={limits}
-              isFree={isFree}
-              showExplorerNotes={BILLING_ENABLED}
-              className="space-y-2.5"
-            />
-          </div>
-        </div>
+
+      <div className="space-y-5 px-5 py-5">
+        <dl className="grid gap-5 sm:grid-cols-2">
+          <LimitStat
+            label="Sessions this month"
+            value={sessionsValue}
+            detail={
+              hasSessionCap
+                ? `${sessionsUsed} used · resets monthly`
+                : undefined
+            }
+          />
+
+          <LimitStat
+            label="Session length"
+            value={
+              limits?.sessionCapMins != null
+                ? `${limits.sessionCapMins} min`
+                : '—'
+            }
+            detail={sessionLengthDetail(limits)}
+          />
+
+          <LimitStat
+            label="Canvas sizing cap"
+            value={sizingValue}
+            detail={sizingDetail}
+          />
+
+          <LimitStat
+            label="Replica cap"
+            value={replicaCap != null ? String(replicaCap) : '—'}
+            detail="App server & worker pods"
+          />
+        </dl>
+
         <PlanBillingActions
           isFree={isFree}
           showPaidBilling={showPaidBilling}
