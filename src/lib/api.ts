@@ -308,8 +308,13 @@ export async function readApiErrorMessage(res: Response): Promise<string> {
   return text.slice(0, 200)
 }
 
+export type CreateDeploymentOptions = {
+  batchLaunch?: boolean
+}
+
 export async function createDeployment(
-  design: DeploymentDesign
+  design: DeploymentDesign,
+  options?: CreateDeploymentOptions,
 ): Promise<DeploymentResult> {
   const token = getAccessToken()
   const res = await fetch(API_BASE, {
@@ -317,6 +322,7 @@ export async function createDeployment(
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options?.batchLaunch ? { 'X-Cloud9-Batch-Launch': '1' } : {}),
     },
     body: JSON.stringify(design),
   })
