@@ -36,6 +36,7 @@ const engineerProfile = {
     allowMQWorker: true,
     allowProxyCache: true,
     maxInstanceSize: 'large',
+    maxLoadgenRps: 1000,
   },
   sessionsUsedThisMonth: 2,
   sessionsRemainingThisMonth: 18,

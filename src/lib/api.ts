@@ -253,6 +253,7 @@ export interface CurrentUserLimits {
   allowMQWorker: boolean
   allowProxyCache: boolean
   maxInstanceSize: string
+  maxLoadgenRps: number
 }
 
 export interface CurrentUserResponse {

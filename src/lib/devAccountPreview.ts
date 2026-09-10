@@ -44,6 +44,7 @@ export const DEV_ENGINEER_USER: CurrentUserResponse = {
     allowMQWorker: true,
     allowProxyCache: true,
     maxInstanceSize: 'large',
+    maxLoadgenRps: 1000,
   },
   sessionsUsedThisMonth: 4,
   sessionsRemainingThisMonth: 16,

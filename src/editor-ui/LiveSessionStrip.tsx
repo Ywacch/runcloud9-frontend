@@ -52,8 +52,7 @@ import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import {
   clampLoadgenRpsToMax,
-  LOADGEN_RPS_CAP_DEFAULT,
-  LOADGEN_RPS_CAP_INTERNAL,
+  maxLoadgenRpsForUser,
 } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
@@ -87,11 +86,17 @@ export function LiveSessionStrip() {
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
-  const isInternalUser = currentUser?.isInternal === true
-  const maxLoadgenRps = isInternalUser
-    ? LOADGEN_RPS_CAP_INTERNAL
-    : LOADGEN_RPS_CAP_DEFAULT
-  const loadgenSliderMax = LOADGEN_RPS_CAP_DEFAULT
+  const maxLoadgenRps = maxLoadgenRpsForUser(
+    currentUser
+      ? {
+          isInternal: currentUser.isInternal,
+          isPremium: currentUser.isPremium,
+          premiumExpiresAt: currentUser.premiumExpiresAt,
+        }
+      : null,
+    currentUser?.limits,
+  )
+  const loadgenSliderMax = maxLoadgenRps
   const loadgen = useMetricsStore((s) => s.loadgen)
   const streamWarning = useMetricsStore((s) => s.streamWarning)
   const metrics = useMetricsStore((s) => s.metrics)
