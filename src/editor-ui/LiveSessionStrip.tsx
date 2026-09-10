@@ -50,7 +50,11 @@ import { useLogStore } from '../editor-core/stores/logStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
-import { clampLoadgenRps, maxLoadgenRpsForUser } from '../lib/userTier'
+import {
+  clampLoadgenRpsToMax,
+  LOADGEN_RPS_CAP_DEFAULT,
+  LOADGEN_RPS_CAP_INTERNAL,
+} from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
 
@@ -83,14 +87,11 @@ export function LiveSessionStrip() {
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
-  const loadgenUser = currentUser
-    ? {
-        isInternal: currentUser.isInternal,
-        isPremium: currentUser.isPremium,
-        premiumExpiresAt: currentUser.premiumExpiresAt,
-      }
-    : null
-  const maxLoadgenRps = maxLoadgenRpsForUser(loadgenUser)
+  const isInternalUser = currentUser?.isInternal === true
+  const maxLoadgenRps = isInternalUser
+    ? LOADGEN_RPS_CAP_INTERNAL
+    : LOADGEN_RPS_CAP_DEFAULT
+  const loadgenSliderMax = LOADGEN_RPS_CAP_DEFAULT
   const loadgen = useMetricsStore((s) => s.loadgen)
   const streamWarning = useMetricsStore((s) => s.streamWarning)
   const metrics = useMetricsStore((s) => s.metrics)
@@ -175,7 +176,7 @@ export function LiveSessionStrip() {
     const endpoints = cfg?.endpoints ?? []
     const prefs = deploymentId ? readLoadSessionPrefs(deploymentId) : null
     if (prefs) {
-      setRps(clampLoadgenRps(prefs.rps, loadgenUser))
+      setRps(clampLoadgenRpsToMax(prefs.rps, maxLoadgenRps))
       setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
       setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
       if (endpoints.length > 1 && prefs.distribution) {
@@ -190,10 +191,10 @@ export function LiveSessionStrip() {
         : { rps: prefs.rps, distSnap: '' }
       return
     }
-    const defaultRps = clampLoadgenRps(
+    const defaultRps = clampLoadgenRpsToMax(
       cfg?.defaultRps ??
         (devDesignPreview ? DEV_LIVE_STRIP_PREVIEW.targetRps : templateDefaultRps),
-      loadgenUser,
+      maxLoadgenRps,
     )
     setRps(defaultRps)
     setScheduleId(defaultScheduleId(cfg))
@@ -210,12 +211,12 @@ export function LiveSessionStrip() {
     resolvedLoadgenConfig,
     devDesignPreview,
     templateDefaultRps,
-    loadgenUser,
+    maxLoadgenRps,
   ])
 
   useEffect(() => {
-    setRps((value) => clampLoadgenRps(value, loadgenUser))
-  }, [maxLoadgenRps, loadgenUser])
+    setRps((value) => clampLoadgenRpsToMax(value, maxLoadgenRps))
+  }, [maxLoadgenRps])
 
   useEffect(() => {
     if (import.meta.env.DEV && mode === 'design') {
@@ -911,19 +912,21 @@ export function LiveSessionStrip() {
                     value={rps}
                     title={INGRESS_HELP_LIVE}
                     onChange={(e) => {
-                      setRps(clampLoadgenRps(Number(e.target.value), loadgenUser))
+                      setRps(clampLoadgenRpsToMax(Number(e.target.value), maxLoadgenRps))
                     }}
                   />
                   <input
                     type="range"
                     min={1}
-                    max={maxLoadgenRps}
+                    max={loadgenSliderMax}
                     step={1}
-                    value={rps}
+                    value={Math.min(rps, loadgenSliderMax)}
                     aria-label="Base RPS slider"
                     className="c9-load-panel-range"
                     onChange={(e) => {
-                      setRps(clampLoadgenRps(Number(e.target.value), loadgenUser))
+                      setRps(
+                        clampLoadgenRpsToMax(Number(e.target.value), maxLoadgenRps),
+                      )
                     }}
                   />
                 </div>

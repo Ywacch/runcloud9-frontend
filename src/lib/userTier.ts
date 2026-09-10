@@ -121,9 +121,12 @@ export function maxLoadgenRpsForUser(user: UserRecord | null): number {
     : LOADGEN_RPS_CAP_DEFAULT
 }
 
-export function clampLoadgenRps(rps: number, user: UserRecord | null): number {
-  const max = maxLoadgenRpsForUser(user)
+export function clampLoadgenRpsToMax(rps: number, max: number): number {
   const n = Math.floor(Number(rps))
   if (!Number.isFinite(n) || n < 1) return 1
   return Math.min(max, n)
+}
+
+export function clampLoadgenRps(rps: number, user: UserRecord | null): number {
+  return clampLoadgenRpsToMax(rps, maxLoadgenRpsForUser(user))
 }

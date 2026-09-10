@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canAccessPremiumTemplates,
   clampLoadgenRps,
+  clampLoadgenRpsToMax,
   hasPaidTier,
   maxLoadgenRpsForUser,
   resolveEffectiveTier,
@@ -80,6 +81,12 @@ describe('userTier', () => {
 
   it('engineer tier allows proxy cache strategies', () => {
     expect(topologyLimitsForTier('engineer').allowProxyCache).toBe(true)
+  })
+
+  it('clampLoadgenRpsToMax clamps to a numeric ceiling', () => {
+    expect(clampLoadgenRpsToMax(1750, 2000)).toBe(1750)
+    expect(clampLoadgenRpsToMax(2500, 2000)).toBe(2000)
+    expect(clampLoadgenRpsToMax(0, 500)).toBe(1)
   })
 
   it('raises loadgen RPS cap for internal accounts', () => {
