@@ -109,16 +109,31 @@ export function maxAppServerReplicasForUser(user: UserRecord | null): number {
   return topologyLimitsForTier(resolveEffectiveTier(user)).maxAppServerReplicas
 }
 
-/** Default live loadgen RPS ceiling for Explorer / Engineer tiers. */
+/** Free / explorer live loadgen RPS ceiling. */
 export const LOADGEN_RPS_CAP_DEFAULT = 500
+
+/** Cloud9 engineer tier live loadgen RPS ceiling. */
+export const LOADGEN_RPS_CAP_ENGINEER = 1000
 
 /** Internal accounts can run higher load for capacity testing. */
 export const LOADGEN_RPS_CAP_INTERNAL = 2000
 
-export function maxLoadgenRpsForUser(user: UserRecord | null): number {
-  return resolveEffectiveTier(user) === 'internal'
-    ? LOADGEN_RPS_CAP_INTERNAL
-    : LOADGEN_RPS_CAP_DEFAULT
+export function maxLoadgenRpsForUser(
+  user: UserRecord | null,
+  apiLimits?: { maxLoadgenRps?: number } | null,
+): number {
+  const fromApi = apiLimits?.maxLoadgenRps
+  if (typeof fromApi === 'number' && Number.isFinite(fromApi) && fromApi >= 1) {
+    return Math.floor(fromApi)
+  }
+  switch (resolveEffectiveTier(user)) {
+    case 'internal':
+      return LOADGEN_RPS_CAP_INTERNAL
+    case 'engineer':
+      return LOADGEN_RPS_CAP_ENGINEER
+    default:
+      return LOADGEN_RPS_CAP_DEFAULT
+  }
 }
 
 export function clampLoadgenRpsToMax(rps: number, max: number): number {

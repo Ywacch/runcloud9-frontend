@@ -89,22 +89,37 @@ describe('userTier', () => {
     expect(clampLoadgenRpsToMax(0, 500)).toBe(1)
   })
 
-  it('raises loadgen RPS cap for internal accounts', () => {
+  it('caps loadgen RPS by effective tier', () => {
     const internal = {
       isInternal: true,
       isPremium: false,
       premiumExpiresAt: null,
     }
+    const engineer = {
+      isInternal: false,
+      isPremium: true,
+      premiumExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+    }
     expect(maxLoadgenRpsForUser(internal)).toBe(2000)
     expect(clampLoadgenRps(1750, internal)).toBe(1750)
     expect(clampLoadgenRps(2500, internal)).toBe(2000)
+    expect(maxLoadgenRpsForUser(engineer)).toBe(1000)
+    expect(clampLoadgenRps(750, engineer)).toBe(750)
+    expect(clampLoadgenRps(1500, engineer)).toBe(1000)
+    expect(maxLoadgenRpsForUser(null)).toBe(500)
+  })
+
+  it('prefers maxLoadgenRps from GET /me limits', () => {
     expect(
-      maxLoadgenRpsForUser({
-        isInternal: false,
-        isPremium: true,
-        premiumExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-      }),
-    ).toBe(500)
+      maxLoadgenRpsForUser(
+        {
+          isInternal: false,
+          isPremium: true,
+          premiumExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        },
+        { maxLoadgenRps: 750 },
+      ),
+    ).toBe(750)
   })
 
   it('canAccessPremiumTemplates follows allTemplates and paid tier', () => {

@@ -30,8 +30,13 @@ export function loadgenLimits(tier: string | undefined | null): {
   memory: string
 } {
   const normalized = normalizeResourceTier(tier)
-  if (normalized === 'engineer' || normalized === 'internal' || normalized === 'architect') {
-    return { cpu: '500m', memory: '1Gi' }
+  switch (normalized) {
+    case 'internal':
+    case 'architect':
+      return { cpu: '1000m', memory: '1Gi' }
+    case 'engineer':
+      return { cpu: '500m', memory: '512Mi' }
+    default:
+      return { cpu: '250m', memory: '256Mi' }
   }
-  return { cpu: '250m', memory: '512Mi' }
 }
