@@ -108,3 +108,22 @@ export function isInstanceSizePlanLocked(
 export function maxAppServerReplicasForUser(user: UserRecord | null): number {
   return topologyLimitsForTier(resolveEffectiveTier(user)).maxAppServerReplicas
 }
+
+/** Default live loadgen RPS ceiling for Explorer / Engineer tiers. */
+export const LOADGEN_RPS_CAP_DEFAULT = 500
+
+/** Internal accounts can run higher load for capacity testing. */
+export const LOADGEN_RPS_CAP_INTERNAL = 2000
+
+export function maxLoadgenRpsForUser(user: UserRecord | null): number {
+  return resolveEffectiveTier(user) === 'internal'
+    ? LOADGEN_RPS_CAP_INTERNAL
+    : LOADGEN_RPS_CAP_DEFAULT
+}
+
+export function clampLoadgenRps(rps: number, user: UserRecord | null): number {
+  const max = maxLoadgenRpsForUser(user)
+  const n = Math.floor(Number(rps))
+  if (!Number.isFinite(n) || n < 1) return 1
+  return Math.min(max, n)
+}

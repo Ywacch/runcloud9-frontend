@@ -50,6 +50,7 @@ import { useLogStore } from '../editor-core/stores/logStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
+import { clampLoadgenRps, maxLoadgenRpsForUser } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
 
@@ -81,6 +82,15 @@ export function LiveSessionStrip() {
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
   const session = useAuthStore((s) => s.session)
+  const currentUser = useAuthStore((s) => s.currentUser)
+  const loadgenUser = currentUser
+    ? {
+        isInternal: currentUser.isInternal,
+        isPremium: currentUser.isPremium,
+        premiumExpiresAt: currentUser.premiumExpiresAt,
+      }
+    : null
+  const maxLoadgenRps = maxLoadgenRpsForUser(loadgenUser)
   const loadgen = useMetricsStore((s) => s.loadgen)
   const streamWarning = useMetricsStore((s) => s.streamWarning)
   const metrics = useMetricsStore((s) => s.metrics)
@@ -165,7 +175,7 @@ export function LiveSessionStrip() {
     const endpoints = cfg?.endpoints ?? []
     const prefs = deploymentId ? readLoadSessionPrefs(deploymentId) : null
     if (prefs) {
-      setRps(prefs.rps)
+      setRps(clampLoadgenRps(prefs.rps, loadgenUser))
       setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
       setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
       if (endpoints.length > 1 && prefs.distribution) {
@@ -180,9 +190,11 @@ export function LiveSessionStrip() {
         : { rps: prefs.rps, distSnap: '' }
       return
     }
-    const defaultRps =
+    const defaultRps = clampLoadgenRps(
       cfg?.defaultRps ??
-      (devDesignPreview ? DEV_LIVE_STRIP_PREVIEW.targetRps : templateDefaultRps)
+        (devDesignPreview ? DEV_LIVE_STRIP_PREVIEW.targetRps : templateDefaultRps),
+      loadgenUser,
+    )
     setRps(defaultRps)
     setScheduleId(defaultScheduleId(cfg))
     setActorParams(defaultActorParams(cfg))
@@ -198,7 +210,12 @@ export function LiveSessionStrip() {
     resolvedLoadgenConfig,
     devDesignPreview,
     templateDefaultRps,
+    loadgenUser,
   ])
+
+  useEffect(() => {
+    setRps((value) => clampLoadgenRps(value, loadgenUser))
+  }, [maxLoadgenRps, loadgenUser])
 
   useEffect(() => {
     if (import.meta.env.DEV && mode === 'design') {
@@ -877,31 +894,36 @@ export function LiveSessionStrip() {
                 </p>
                 <div className="c9-load-panel-body">
                 <div className="c9-load-panel-field">
-                  <label htmlFor="live-load-rps">Base RPS</label>
+                  <label htmlFor="live-load-rps">
+                    Base RPS
+                    {maxLoadgenRps > 500 ? (
+                      <span className="ml-1 font-normal text-[var(--c9-muted)]">
+                        (max {maxLoadgenRps})
+                      </span>
+                    ) : null}
+                  </label>
                   <input
                     id="live-load-rps"
                     type="number"
                     min={1}
-                    max={500}
+                    max={maxLoadgenRps}
                     autoFocus
                     value={rps}
                     title={INGRESS_HELP_LIVE}
                     onChange={(e) => {
-                      setRps(
-                        Math.min(500, Math.max(1, Number(e.target.value) || 1)),
-                      )
+                      setRps(clampLoadgenRps(Number(e.target.value), loadgenUser))
                     }}
                   />
                   <input
                     type="range"
                     min={1}
-                    max={500}
+                    max={maxLoadgenRps}
                     step={1}
                     value={rps}
                     aria-label="Base RPS slider"
                     className="c9-load-panel-range"
                     onChange={(e) => {
-                      setRps(Number(e.target.value))
+                      setRps(clampLoadgenRps(Number(e.target.value), loadgenUser))
                     }}
                   />
                 </div>

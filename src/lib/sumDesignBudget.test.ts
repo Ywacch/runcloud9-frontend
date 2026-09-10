@@ -3,6 +3,7 @@ import type { DeploymentDesign } from './deploymentTypes'
 import { parseCpuMilli, parseMemoryBytes } from './k8sQuantity'
 import { FALLBACK_RESOURCE_PROFILES } from './resourceProfileCatalogFallback'
 import {
+  canvasCapForTier,
   canvasQuotaForDisplay,
   designExceedsResourceQuota,
   sumDesignBudget,
@@ -375,6 +376,17 @@ describe('canvasQuotaForDisplay', () => {
     expect(
       designExceedsResourceQuota(mediumAppLite, 'explorer', catalog),
     ).toBeNull()
+  })
+
+  it('canvasCapForTier returns canvas-only caps per tier', () => {
+    expect(canvasCapForTier('explorer')).toEqual({
+      cpu: '825m',
+      memory: '1536Mi',
+    })
+    expect(canvasCapForTier('engineer')).toEqual({
+      cpu: '2875m',
+      memory: '5888Mi',
+    })
   })
 
   it('uses engineer and internal canvas caps for paid tiers', () => {

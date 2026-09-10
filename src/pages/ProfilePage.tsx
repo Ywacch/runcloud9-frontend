@@ -163,6 +163,7 @@ export default function ProfilePage() {
               key={`${currentUser.userId}-${currentUser.effectiveTier}`}
               effectiveTier={currentUser.effectiveTier}
               isInternal={currentUser.isInternal}
+              quotaTier={currentUser.quotaTier}
               limits={currentUser.limits}
               sessionsRemainingThisMonth={currentUser.sessionsRemainingThisMonth}
               checkoutBusy={checkoutBusy}

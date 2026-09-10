@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   canAccessPremiumTemplates,
+  clampLoadgenRps,
   hasPaidTier,
+  maxLoadgenRpsForUser,
   resolveEffectiveTier,
   resourceQuotaTier,
   topologyLimitsForTier,
@@ -78,6 +80,24 @@ describe('userTier', () => {
 
   it('engineer tier allows proxy cache strategies', () => {
     expect(topologyLimitsForTier('engineer').allowProxyCache).toBe(true)
+  })
+
+  it('raises loadgen RPS cap for internal accounts', () => {
+    const internal = {
+      isInternal: true,
+      isPremium: false,
+      premiumExpiresAt: null,
+    }
+    expect(maxLoadgenRpsForUser(internal)).toBe(2000)
+    expect(clampLoadgenRps(1750, internal)).toBe(1750)
+    expect(clampLoadgenRps(2500, internal)).toBe(2000)
+    expect(
+      maxLoadgenRpsForUser({
+        isInternal: false,
+        isPremium: true,
+        premiumExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      }),
+    ).toBe(500)
   })
 
   it('canAccessPremiumTemplates follows allTemplates and paid tier', () => {
