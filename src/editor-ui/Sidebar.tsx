@@ -186,6 +186,11 @@ export function Sidebar() {
   const sessionLengthConfigurable = canPickSessionLength(sessionLimits)
   const [sessionMinutesChoice, setSessionMinutesChoice] = useState(sessionDefaultMins)
   const pendingDeployResultRef = useRef<DeploymentResult | null>(null)
+  const deployLockRef = useRef(false)
+  const releaseDeployLock = useCallback(() => {
+    deployLockRef.current = false
+    setDeploying(false)
+  }, [])
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [templateInfoById, setTemplateInfoById] = useState<
     Record<string, TemplateInfo>
@@ -279,8 +284,8 @@ export function Sidebar() {
     setDeployModalMode('progress')
     setDeployRequestMessage(null)
     setDeployResourceBudget(null)
-    setDeploying(false)
-  }, [])
+    releaseDeployLock()
+  }, [releaseDeployLock])
 
   useEffect(() => {
     const pref = readSessionMinutesPref()
@@ -451,7 +456,7 @@ export function Sidebar() {
       new ResourceBudgetApiError(quotaPreview),
       { isFreeUser: !isPremiumUser, quotaTier },
     )
-    setDeploying(false)
+    releaseDeployLock()
     setDeployModalOpen(true)
     setDeployModalMode('request_rejected')
     setDeployRequestMessage(friendly)
@@ -464,7 +469,7 @@ export function Sidebar() {
           : step,
       ),
     )
-  }, [isPremiumUser, quotaPreview, quotaTier])
+  }, [isPremiumUser, quotaPreview, quotaTier, releaseDeployLock])
 
   const trackDeployModalDismissed = useCallback(
     (
@@ -488,15 +493,19 @@ export function Sidebar() {
         setDeployWarnings(warnings)
         setDeployModalMode('deploy_warnings')
         setDeployModalOpen(true)
-        setDeploying(false)
+        releaseDeployLock()
         return
       }
       proceedWithDeployResult(result)
     },
-    [proceedWithDeployResult],
+    [proceedWithDeployResult, releaseDeployLock],
   )
 
   const executeDeploy = useCallback(async () => {
+    if (deployLockRef.current) return
+    deployLockRef.current = true
+    setDeploying(true)
+
     if (quotaPreview) {
       trackDeployBlocked(
         'resource_quota_exceeded',
@@ -505,8 +514,6 @@ export function Sidebar() {
       showResourceQuotaRejected()
       return
     }
-
-    setDeploying(true)
     setBanner(null)
     setDeployModalOpen(true)
     setDeployModalMode('progress')
@@ -595,7 +602,7 @@ export function Sidebar() {
                 : step,
           ),
         )
-        setDeploying(false)
+        releaseDeployLock()
         return
       }
 
@@ -651,13 +658,14 @@ export function Sidebar() {
             : step,
         ),
       )
-      setDeploying(false)
+      releaseDeployLock()
     }
   }, [
     finishDeployCreate,
     isPremiumUser,
     quotaPreview,
     quotaTier,
+    releaseDeployLock,
     sessionMinutesChoice,
     setPendingDeployAfterAuth,
     showResourceQuotaRejected,
@@ -696,7 +704,7 @@ export function Sidebar() {
     const activeSession = useAuthStore.getState().session
     if (!activeSession) {
       trackDeployBlocked('auth_required', stCheck.snapshotTemplateId)
-      setDeploying(false)
+      releaseDeployLock()
       setPendingDeployAfterAuth(true)
       setDeployModalOpen(true)
       setDeployModalMode('auth_required')
@@ -716,7 +724,7 @@ export function Sidebar() {
         ),
         { isFreeUser: me?.effectiveTier === 'free' },
       )
-      setDeploying(false)
+      releaseDeployLock()
       setDeployModalOpen(true)
       setDeployModalMode('request_rejected')
       setDeployRequestMessage(friendly)
@@ -764,6 +772,7 @@ export function Sidebar() {
     live,
     nodeCount,
     quotaPreview,
+    releaseDeployLock,
     selectedTemplate,
     executeDeploy,
     setPendingDeployAfterAuth,
@@ -806,8 +815,8 @@ export function Sidebar() {
     setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
     setDeployResourceBudget(null)
-    setDeploying(false)
-  }, [setPendingDeployAfterAuth])
+    releaseDeployLock()
+  }, [releaseDeployLock, setPendingDeployAfterAuth])
 
   const handleTeardown = async () => {
     if (!live || tearing || !deploymentId) return
@@ -1210,7 +1219,7 @@ export function Sidebar() {
           setDeployDecorativeMessage(null)
           setDeployWarnings([])
           pendingDeployResultRef.current = null
-          setDeploying(false)
+          releaseDeployLock()
         }}
         onSimulateDesign={() => {
           trackDeployModalDismissed('simulation_recommended', 'simulate')
@@ -1223,7 +1232,7 @@ export function Sidebar() {
           setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
           setDeployResourceBudget(null)
-          setDeploying(false)
+          releaseDeployLock()
         }}
         onModifyDesign={() => {
           trackDeployModalDismissed('simulation_recommended', 'modify')
@@ -1232,7 +1241,7 @@ export function Sidebar() {
           setDeployRequestMessage(null)
           setDeploySimulationMessage(null)
           setDeployResourceBudget(null)
-          setDeploying(false)
+          releaseDeployLock()
         }}
       />
     </aside>

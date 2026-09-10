@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildWsBaseForApi,
+  createDeployment,
   deleteDeployment,
   getDeployment,
   getMe,
@@ -379,6 +380,55 @@ describe('dev account preview deployments', () => {
     expect(rec.template).toBe('url-shortener')
     expect(rec.metricsSummary).toMatchObject({ peak_rps: 86 })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('createDeployment', () => {
+  const design = {
+    version: '1.0',
+    template: 'url-shortener',
+    archetype: 'standard',
+    nodes: [],
+    connections: [],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('POSTs without X-Cloud9-Batch-Launch by default', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('dep-tok')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ deploymentId: 'dep-1', status: 'running' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createDeployment(design)
+
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
+      string,
+      string
+    >
+    expect(headers['X-Cloud9-Batch-Launch']).toBeUndefined()
+    expect(headers.Authorization).toBe('Bearer dep-tok')
+  })
+
+  it('sends X-Cloud9-Batch-Launch when batchLaunch is true', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('dep-tok')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ deploymentId: 'dep-2', status: 'running' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createDeployment(design, { batchLaunch: true })
+
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
+      string,
+      string
+    >
+    expect(headers['X-Cloud9-Batch-Launch']).toBe('1')
   })
 })
 

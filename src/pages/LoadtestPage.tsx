@@ -191,7 +191,7 @@ export default function LoadtestPage() {
     const design = buildDesignForTemplate(selectedTemplate, userRecord)
     await runWithConcurrency(safeCount, safeConcurrency, async (index) => {
       try {
-        const result = await createDeployment(design)
+        const result = await createDeployment(design, { batchLaunch: true })
         setLaunchResults((prev) => [
           ...prev,
           {
