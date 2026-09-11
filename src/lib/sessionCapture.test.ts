@@ -1,16 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { isTerminalDeploymentStatus } from './sessionCapture'
 
 vi.mock('./api', () => ({
   getDeployment: vi.fn(),
 }))
-
-let isTerminalDeploymentStatus: (
-  status: string | null | undefined,
-) => boolean
-
-beforeAll(async () => {
-  ;({ isTerminalDeploymentStatus } = await import('./sessionCapture'))
-})
 
 describe('isTerminalDeploymentStatus', () => {
   it('returns true only for terminal statuses', () => {

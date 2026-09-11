@@ -51,9 +51,14 @@ import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   APP_SERVER_REPLICA_MIN,
   LIVE_LB_ALGORITHMS,
+  REPLICATION_MODES,
+  SYNC_COMMIT_LEVELS,
   clampAppServerReplicas,
   clampReadReplicas,
   lbAlgorithmForDeploy,
+  replicationModeFromConfig,
+  requiresSynchronousReplication,
+  syncCommitLevelFromConfig,
 } from '../lib/replicaConfig'
 import {
   READ_CONSISTENCY_CLAMP_HINT,
@@ -1510,6 +1515,9 @@ function TypeFields({
     case 'database': {
       const readReplicas = clampReadReplicas(c.readReplicas)
       const dbInstanceCount = 1 + readReplicas
+      const replicationMode = replicationModeFromConfig(c.replicationMode)
+      const syncCommitLevel = syncCommitLevelFromConfig(c.syncCommitLevel)
+      const showSyncCommitLevel = requiresSynchronousReplication(replicationMode)
       const readConsistency = readConsistencyFromConfig(c.readConsistency)
       const showReadConsistencyClampHint =
         readConsistencyRequiresMultipleReplicas(readConsistency) &&
@@ -1641,24 +1649,69 @@ function TypeFields({
                 <select
                   id="db-replication-mode"
                   className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-                  value={
-                    String(c.replicationMode ?? 'async') === 'sync'
-                      ? 'sync'
-                      : 'async'
-                  }
+                  value={replicationMode}
                   disabled={readOnly}
                   onChange={(e) => {
                     if (readOnly) return
-                    updateConfig({ replicationMode: e.target.value })
+                    const next = replicationModeFromConfig(e.target.value)
+                    const patch: Record<string, unknown> = {
+                      replicationMode: next,
+                    }
+                    if (!requiresSynchronousReplication(next)) {
+                      patch.syncCommitLevel = undefined
+                    }
+                    updateConfig(patch)
                   }}
                 >
-                  <option value="async">Async</option>
-                  <option value="sync">Sync</option>
+                  {REPLICATION_MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {mode === 'async'
+                        ? 'Async'
+                        : mode === 'semi-sync'
+                          ? 'Semi-sync'
+                          : 'Sync'}
+                    </option>
+                  ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  Async: replica may lag. Sync: commits wait for standby.
+                  Async: replica may lag. Semi-sync: commit waits for any one
+                  standby. Sync: commit waits for all standbys.
                 </p>
               </div>
+              {showSyncCommitLevel ? (
+                <div>
+                  <label className={labelClass} htmlFor="db-sync-commit-level">
+                    <span className="inline-flex items-center gap-1">
+                      Synchronous commit
+                      <InfoTooltip
+                        text="Postgres synchronous_commit level. Remote apply holds read-your-writes at the database layer."
+                      />
+                    </span>
+                  </label>
+                  <select
+                    id="db-sync-commit-level"
+                    className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                    value={syncCommitLevel}
+                    disabled={readOnly}
+                    onChange={(e) => {
+                      if (readOnly) return
+                      updateConfig({
+                        syncCommitLevel: syncCommitLevelFromConfig(e.target.value),
+                      })
+                    }}
+                  >
+                    {SYNC_COMMIT_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {level === 'remote_write'
+                          ? 'Remote write'
+                          : level === 'remote_apply'
+                            ? 'Remote apply (db-layer RYW)'
+                            : 'On (default)'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </>
           ) : null}
           {simulationMode ? (

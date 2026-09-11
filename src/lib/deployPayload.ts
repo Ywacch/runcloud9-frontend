@@ -18,6 +18,7 @@ import {
   clampWorkerReplicas,
   lbAlgorithmForDeploy,
   normalizeReplicationModeForDeploy,
+  normalizeSyncCommitLevelForDeploy,
 } from './replicaConfig'
 import { normalizeRedisEvictionPolicy } from './redisEvictionPolicy'
 import {
@@ -98,9 +99,14 @@ export function deployConfigForNode(
     const sizes = normalizeInstanceSizes(config, 1 + readReplicas)
     config.instanceSizes = sizes
     config.instanceSize = sizes[0]
-    config.replicationMode = normalizeReplicationModeForDeploy(
+    const replicationMode = normalizeReplicationModeForDeploy(
       config.replicationMode,
       readReplicas,
+    )
+    config.replicationMode = replicationMode
+    config.syncCommitLevel = normalizeSyncCommitLevelForDeploy(
+      config.syncCommitLevel,
+      replicationMode,
     )
     config.readConsistency = normalizeReadConsistencyForDeploy(
       config.readConsistency,
