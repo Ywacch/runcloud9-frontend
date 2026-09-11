@@ -17,14 +17,50 @@ export function clampReadReplicas(raw: unknown): number {
   )
 }
 
+export const REPLICATION_MODES = ['async', 'semi-sync', 'sync'] as const
+export type ReplicationMode = (typeof REPLICATION_MODES)[number]
+
+export const SYNC_COMMIT_LEVELS = [
+  'remote_write',
+  'on',
+  'remote_apply',
+] as const
+export type SyncCommitLevel = (typeof SYNC_COMMIT_LEVELS)[number]
+
+export function replicationModeFromConfig(raw: unknown): ReplicationMode {
+  const mode = String(raw ?? 'async').trim().toLowerCase()
+  if (mode === 'semi-sync' || mode === 'semi_sync' || mode === 'semisync') {
+    return 'semi-sync'
+  }
+  if (mode === 'sync' || mode === 'synchronous') return 'sync'
+  return 'async'
+}
+
+export function syncCommitLevelFromConfig(raw: unknown): SyncCommitLevel {
+  const level = String(raw ?? 'on').trim().toLowerCase()
+  if (level === 'remote_write') return 'remote_write'
+  if (level === 'remote_apply') return 'remote_apply'
+  return 'on'
+}
+
+export function requiresSynchronousReplication(mode: ReplicationMode): boolean {
+  return mode === 'semi-sync' || mode === 'sync'
+}
+
 export function normalizeReplicationModeForDeploy(
   raw: unknown,
   readReplicas: number,
-): 'async' | 'sync' {
+): ReplicationMode {
   if (readReplicas <= 0) return 'async'
-  const mode = String(raw ?? 'async').trim().toLowerCase()
-  if (mode === 'sync' || mode === 'synchronous') return 'sync'
-  return 'async'
+  return replicationModeFromConfig(raw)
+}
+
+export function normalizeSyncCommitLevelForDeploy(
+  raw: unknown,
+  replicationMode: ReplicationMode,
+): SyncCommitLevel {
+  if (!requiresSynchronousReplication(replicationMode)) return 'on'
+  return syncCommitLevelFromConfig(raw)
 }
 
 export function clampAppServerReplicas(

@@ -249,6 +249,39 @@ describe('deployConfigForNode', () => {
     })
     expect(dbSync.readReplicas).toBe(1)
     expect(dbSync.replicationMode).toBe('sync')
+    expect(dbSync.syncCommitLevel).toBe('on')
+
+    const dbSemiSync = deployConfigForNode({
+      id: 'db-semi',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: {
+        engine: 'postgresql',
+        readReplicas: 2,
+        replicationMode: 'semi-sync',
+        syncCommitLevel: 'remote_apply',
+      },
+      status: 'idle',
+    })
+    expect(dbSemiSync.replicationMode).toBe('semi-sync')
+    expect(dbSemiSync.syncCommitLevel).toBe('remote_apply')
+
+    const dbAsyncClearsSyncLevel = deployConfigForNode({
+      id: 'db-async-clear',
+      type: 'database',
+      label: 'DB',
+      position: [0, 0, 0],
+      config: {
+        engine: 'postgresql',
+        readReplicas: 1,
+        replicationMode: 'async',
+        syncCommitLevel: 'remote_apply',
+      },
+      status: 'idle',
+    })
+    expect(dbAsyncClearsSyncLevel.replicationMode).toBe('async')
+    expect(dbAsyncClearsSyncLevel.syncCommitLevel).toBe('on')
 
     const dbMixedSizes = deployConfigForNode({
       id: 'db-mixed',

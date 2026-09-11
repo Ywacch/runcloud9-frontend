@@ -1,17 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { sessionSummaryFromApiMetrics } from './sessionCapture'
 
 vi.mock('./api', () => ({
   getDeployment: vi.fn(),
 }))
-
-let sessionSummaryFromApiMetrics: (
-  template: string,
-  apiMetricsSummary: Record<string, unknown> | undefined,
-) => import('../editor-core/stores/canvasStore').SessionSummary
-
-beforeAll(async () => {
-  ;({ sessionSummaryFromApiMetrics } = await import('./sessionCapture'))
-})
 
 describe('sessionSummaryFromApiMetrics — pure adapter, no store access', () => {
   it('returns base zeros when metrics is undefined', () => {
