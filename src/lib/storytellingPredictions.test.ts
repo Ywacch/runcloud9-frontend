@@ -76,7 +76,7 @@ describe('storytellingPredictions', () => {
     ).toBe('Rate is … posts/s today.')
   })
 
-  it('includes consistency invariant predictions when read replicas are present', () => {
+  it('includes RYW prediction with one read replica', () => {
     const cards = consistencyInvariantPredictions({
       hasLB: false,
       hasMQ: false,
@@ -87,7 +87,33 @@ describe('storytellingPredictions', () => {
       readConsistency: 'leader-only',
       cacheStrategy: 'cache-aside',
     })
-    expect(cards.map((c) => c.id)).toEqual([
+    expect(cards.map((c) => c.id)).toEqual(['ryw_violation'])
+  })
+
+  it('includes monotonic prediction only with two or more read replicas', () => {
+    const oneReplica = consistencyInvariantPredictions({
+      hasLB: false,
+      hasMQ: false,
+      hasWorker: false,
+      hasCache: false,
+      hasDB: true,
+      dbReadReplicas: 1,
+      readConsistency: 'monotonic',
+      cacheStrategy: 'cache-aside',
+    })
+    expect(oneReplica.some((c) => c.id === 'monotonic_violation')).toBe(false)
+
+    const twoReplicas = consistencyInvariantPredictions({
+      hasLB: false,
+      hasMQ: false,
+      hasWorker: false,
+      hasCache: false,
+      hasDB: true,
+      dbReadReplicas: 2,
+      readConsistency: 'monotonic',
+      cacheStrategy: 'cache-aside',
+    })
+    expect(twoReplicas.map((c) => c.id)).toEqual([
       'ryw_violation',
       'monotonic_violation',
     ])
