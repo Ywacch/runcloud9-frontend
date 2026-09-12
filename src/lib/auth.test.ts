@@ -85,15 +85,25 @@ describe('refreshCurrentUser', () => {
     }
   })
 
-  it('clears session on failed to load user from GET /me', async () => {
+  it('keeps the last profile when GET /me cannot load the user row', async () => {
+    useAuthStore.setState({
+      currentUser: engineerProfile,
+      userRecord: {
+        isInternal: false,
+        isPremium: true,
+        premiumExpiresAt: engineerProfile.premiumExpiresAt,
+      },
+      isPremium: true,
+    })
     vi.mocked(getMe).mockRejectedValue(new ApiError(500, 'failed to load user'))
     await refreshCurrentUser()
 
-    expect(useAuthStore.getState().session).toBeNull()
-    expect(supabase.auth.signOut).toHaveBeenCalled()
+    expect(useAuthStore.getState().session).not.toBeNull()
+    expect(supabase.auth.signOut).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().currentUser).toEqual(engineerProfile)
   })
 
-  it('falls back to null currentUser on other errors', async () => {
+  it('falls back to null currentUser on other errors when no profile is loaded', async () => {
     vi.mocked(getMe).mockRejectedValue(new Error('network'))
     await refreshCurrentUser()
 

@@ -84,8 +84,7 @@ import {
 } from '../lib/connectionSemantics'
 import { assessGraphConstraints } from '../lib/graphConstraints'
 import {
-  resolveEffectiveTier,
-  resourceQuotaTier,
+  quotaTierFromAuth,
   topologyLimitsForTier,
   topologyLimitsFromApi,
 } from '../lib/userTier'
@@ -309,15 +308,18 @@ export function Sidebar() {
   const nodeCount = Object.keys(nodes).length
   const live = mode === 'live'
   const simulate = mode === 'simulate'
-  const effectiveTier =
-    currentUser?.effectiveTier ?? resolveEffectiveTier(userRecord)
-  const quotaTier = currentUser?.quotaTier ?? resourceQuotaTier(effectiveTier)
+  const quotaTier = quotaTierFromAuth(
+    currentUser,
+    userRecord,
+    Boolean(session),
+  )
   const topologyLimits = currentUser
     ? topologyLimitsFromApi(currentUser.limits)
-    : topologyLimitsForTier(effectiveTier)
+    : topologyLimitsForTier(session ? 'internal' : 'free')
 
   const quotaPreview = useMemo(() => {
-    if (live || simulate || !snapshotTemplateId || nodeCount === 0) return null
+    if (live || simulate || !snapshotTemplateId || nodeCount === 0 || !quotaTier)
+      return null
     try {
       const design = snapshotToDeploymentDesign(
         useCanvasStore.getState().exportJSON(),
@@ -350,11 +352,19 @@ export function Sidebar() {
   )
 
   const topologyViolations = useMemo(() => {
-    if (live || simulate || isPremiumUser) return []
+    if (live || simulate || isPremiumUser || (session && !currentUser)) return []
     // DEV: allow placing Engineer-only nodes without the free-tier banner.
     if (!explorerComponentLocksActive()) return []
     return findTopologyViolations(nodes, topologyLimits)
-  }, [live, simulate, isPremiumUser, nodes, topologyLimits])
+  }, [
+    live,
+    simulate,
+    isPremiumUser,
+    session,
+    currentUser,
+    nodes,
+    topologyLimits,
+  ])
   const simRunning = useSimulationStore((s) => s.running)
   const selectedTemplate = snapshotTemplateId
     ? templateInfoById[snapshotTemplateId]
