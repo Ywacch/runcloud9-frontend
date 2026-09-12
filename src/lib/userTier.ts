@@ -53,7 +53,7 @@ export function resourceQuotaTier(effectiveTier: EffectiveTier): string {
 
 /**
  * Canvas quota tier for UI gates.
- * Null when a session exists but GET /me has not loaded — do not assume explorer/Free.
+ * Undefined when a session exists but GET /me has not loaded — do not assume explorer/Free.
  */
 export function quotaTierFromAuth(
   currentUser: {
@@ -62,7 +62,7 @@ export function quotaTierFromAuth(
   } | null,
   userRecord: UserRecord | null,
   hasSession: boolean,
-): string | null {
+): string | undefined {
   const quota = String(currentUser?.quotaTier ?? '').trim()
   if (quota) return quota
   const effective = currentUser?.effectiveTier
@@ -75,7 +75,7 @@ export function quotaTierFromAuth(
   }
   if (userRecord) return resourceQuotaTier(resolveEffectiveTier(userRecord))
   if (!hasSession) return resourceQuotaTier('free')
-  return null
+  return undefined
 }
 
 /** Map GET /me limits to topology guard shape. */

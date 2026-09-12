@@ -20,7 +20,7 @@ describe('userTier', () => {
   })
 
   it('does not assume Free canvas quota while a session is hydrating', () => {
-    expect(quotaTierFromAuth(null, null, true)).toBeNull()
+    expect(quotaTierFromAuth(null, null, true)).toBeUndefined()
     expect(quotaTierFromAuth(null, null, false)).toBe('explorer')
     expect(
       quotaTierFromAuth(
