@@ -11,7 +11,13 @@ import {
   type CanvasMode,
   type CanvasNode,
 } from '../editor-core'
-import { deleteDeployment, getDeployment } from '../lib/api'
+import {
+  deleteDeployment,
+  getDeployment,
+  listActiveChaosPartitions,
+} from '../lib/api'
+import { isPartitionChaosScenario } from '../lib/chaos'
+import { useChaosStore } from '../editor-core/stores/chaosStore'
 import {
   isWaitingForProvisionSlot,
   normalizeComponentProvisionState,
@@ -152,6 +158,25 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   const realtimeDeploymentId = mode === 'live' ? deploymentId : null
   useMetricsSync(realtimeDeploymentId)
   useLogSync(realtimeDeploymentId)
+
+  useEffect(() => {
+    if (mode !== 'live' || !deploymentId) {
+      useChaosStore.getState().clear()
+      return
+    }
+    let cancelled = false
+    void listActiveChaosPartitions(deploymentId)
+      .then((partitions) => {
+        if (cancelled || partitions.length === 0) return
+        const part = partitions[0]
+        if (!isPartitionChaosScenario(part.scenario)) return
+        useChaosStore.getState().register(part.scenario, part.targetComponent)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [mode, deploymentId])
 
   // Own effect so poll cleanup on mode → live cannot kill the 1s checklist hold.
   useEffect(() => {

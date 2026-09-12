@@ -8,7 +8,11 @@ import {
   shouldFallbackToDevAccountFixtures,
   shouldUseDevAccountFixtures,
 } from './devAccountPreview'
-import type { ChaosAppliedResponse, ChaosRequest } from './chaos'
+import type {
+  ActiveChaosPartition,
+  ChaosAppliedResponse,
+  ChaosRequest,
+} from './chaos'
 import type { DeploymentDesign, DeploymentHistoryTopology, ResourceProfilesResponse } from './deploymentTypes'
 import { ResourceBudgetApiError } from './resourceBudgetError'
 import { isResourceBudgetErrorResponse } from './sumDesignBudget'
@@ -631,6 +635,37 @@ export async function triggerChaos(
     throw new ApiError(res.status, message)
   }
   return res.json() as Promise<ChaosAppliedResponse>
+}
+
+export async function healChaos(deploymentId: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/${encodeURIComponent(deploymentId)}/chaos`,
+    {
+      method: 'DELETE',
+      headers: authHeader() ?? {},
+    },
+  )
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
+}
+
+export async function listActiveChaosPartitions(
+  deploymentId: string,
+): Promise<ActiveChaosPartition[]> {
+  const res = await fetch(
+    `${API_BASE}/${encodeURIComponent(deploymentId)}/chaos`,
+    {
+      headers: authHeader() ?? {},
+    },
+  )
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res)
+    throw new ApiError(res.status, message)
+  }
+  const data = (await res.json()) as { partitions?: ActiveChaosPartition[] }
+  return data.partitions ?? []
 }
 
 /**

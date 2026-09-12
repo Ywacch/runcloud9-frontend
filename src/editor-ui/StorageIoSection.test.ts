@@ -173,6 +173,97 @@ describe('DbConsistencySection', () => {
     expect(html).toContain('View trace')
   })
 
+  it('renders partition CAP readout for async stale reads', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 10,
+          replicaReads: 40,
+          replicaStaleReads: 5,
+          rywViolations: 2,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+          guaranteeHeldBy: 'none',
+        }),
+        replicationMode: 'async',
+        readReplicas: 2,
+        partitionCapEvent: {
+          timestamp: 't',
+          type: 'invariant',
+          source: 'detector',
+          title: 'Consistency degraded under partition',
+          description: '',
+          rule: 'partition_stale_reads',
+        },
+      }),
+    )
+    expect(html).toContain('Under partition')
+    expect(html).toContain('Stale replica reads')
+    expect(html).toContain('replica reads went stale')
+  })
+
+  it('renders semi-sync remote_apply note while guarantee held by db', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 5,
+          replicaReads: 20,
+          replicaStaleReads: 3,
+          rywViolations: 1,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+          guaranteeHeldBy: 'db',
+        }),
+        replicationMode: 'semi-sync',
+        readReplicas: 2,
+        syncCommitLevel: 'remote_apply',
+        activePartitionScenario: 'stall_replica',
+        partitionCapEvent: {
+          timestamp: 't',
+          type: 'invariant',
+          source: 'detector',
+          title: 'Consistency degraded under partition',
+          description: '',
+          rule: 'partition_stale_reads',
+        },
+      }),
+    )
+    expect(html).toContain('acked standby')
+    expect(html).toContain('Database')
+    expect(html).toContain('ANY 1')
+  })
+
+  it('renders sync write stall CAP readout', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 0,
+          replicaReads: 0,
+          replicaStaleReads: 0,
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+          guaranteeHeldBy: 'none',
+        }),
+        replicationMode: 'sync',
+        readReplicas: 2,
+        partitionCapEvent: {
+          timestamp: 't',
+          type: 'invariant',
+          source: 'detector',
+          title: 'Writes stalling under partition',
+          description: '',
+          rule: 'partition_write_stall',
+        },
+      }),
+    )
+    expect(html).toContain('Writes stalling')
+    expect(html).toContain('Writes stalled while the database waited on replication.')
+  })
+
   it('hides cache evidence line when key is absent', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {

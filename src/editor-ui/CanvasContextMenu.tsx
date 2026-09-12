@@ -111,8 +111,12 @@ export function CanvasContextMenu() {
   const node = menu?.kind === 'node' ? nodes[menu.nodeId] : null
   const chaosTarget = node ? chaosTargetForNode(node.type) : null
   const chaosTargetBusy = Boolean(
-    activeChaos && chaosTarget && activeChaos.targetComponent === chaosTarget,
+    activeChaos &&
+      chaosTarget &&
+      activeChaos.targetComponent === chaosTarget &&
+      !activeChaos.stateful,
   )
+  const chaosPartitionActive = useChaosStore((s) => s.hasActivePartition())
 
   const nodeActions = useMemo(() => {
     if (!node) return []
@@ -121,9 +125,10 @@ export function CanvasContextMenu() {
       mode,
       deploymentId,
       chaosTargetBusy,
+      chaosPartitionActive,
       loadedVariationId,
     })
-  }, [node, mode, deploymentId, chaosTargetBusy, loadedVariationId])
+  }, [node, mode, deploymentId, chaosTargetBusy, chaosPartitionActive, loadedVariationId])
 
   const filteredRoot = useMemo(
     () => filterCreateMenuItems(CREATE_MENU_ROOT, query),
