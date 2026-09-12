@@ -2,6 +2,10 @@ import type { Session } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import type { CurrentUserResponse } from '../../lib/api'
 import {
+  clearCachedCurrentUser,
+  writeCachedCurrentUser,
+} from '../../lib/currentUserCache'
+import {
   canAccessPremiumTemplates,
   type UserRecord,
 } from '../../lib/userTier'
@@ -34,20 +38,25 @@ export const useAuthStore = create<AuthState>((set) => ({
   userRecord: null,
   isPremium: false,
   pendingDeployAfterAuth: false,
-  setSession: (s) =>
-    set({
-      session: s,
-      ...(s == null
-        ? {
-            currentUser: null,
-            userRecord: null,
-            isPremium: false,
-            pendingDeployAfterAuth: false,
-          }
-        : {}),
-    }),
+  setSession: (s) => {
+    if (s == null) {
+      clearCachedCurrentUser()
+      set({
+        session: null,
+        currentUser: null,
+        userRecord: null,
+        isPremium: false,
+        pendingDeployAfterAuth: false,
+      })
+      return
+    }
+    set({ session: s })
+  },
   setCurrentUser: (currentUser) => {
     const userRecord = currentUser ? userRecordFromMe(currentUser) : null
+    if (currentUser) {
+      writeCachedCurrentUser(currentUser.userId, currentUser)
+    }
     set({
       currentUser,
       userRecord,

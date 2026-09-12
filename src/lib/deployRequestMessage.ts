@@ -1,4 +1,4 @@
-import { ApiError, isMissingUserRecordError } from './apiError'
+import { ApiError } from './apiError'
 import { isResourceBudgetApiError } from './resourceBudgetError'
 import {
   canvasQuotaForDisplay,
@@ -50,7 +50,7 @@ export function mapDeployRequestError(
     const raw = error.rawMessage || error.message
     const normalized = raw.toLowerCase()
 
-    if (error.status === 401 || isMissingUserRecordError(error)) {
+    if (error.status === 401) {
       return {
         title: 'Session expired',
         body: 'Please sign in again to deploy infrastructure.',

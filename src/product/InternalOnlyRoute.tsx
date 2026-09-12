@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { refreshCurrentUser } from '../lib/auth'
+import { hydrateCachedCurrentUser, refreshCurrentUser } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from './stores/authStore'
 
@@ -27,6 +27,7 @@ export function InternalOnlyRoute({ children }: Props) {
       const next = data.session
       useAuthStore.getState().setSession(next)
       if (next?.user?.id) {
+        hydrateCachedCurrentUser(next.user.id)
         await refreshCurrentUser()
       }
       if (!cancelled) setReady(true)

@@ -71,7 +71,7 @@ import {
 } from '../lib/readConsistency'
 import { syncAutoLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
-import { maxAppServerReplicasForUser, maxInstanceSizeForUser, resolveEffectiveTier, resourceQuotaTier, topologyLimitsForTier, type InstanceSize } from '../lib/userTier'
+import { maxAppServerReplicasForUser, maxInstanceSizeForUser, quotaTierFromAuth, resolveEffectiveTier, topologyLimitsForTier, type InstanceSize } from '../lib/userTier'
 import { snapshotToDeploymentDesign } from '../lib/deployPayload'
 import {
   canvasQuotaForDisplay,
@@ -178,12 +178,14 @@ export function InspectorPanel() {
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
-  const isPremiumUser = useAuthStore((s) => s.isPremium)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
-  const effectiveTier =
-    currentUser?.effectiveTier ?? resolveEffectiveTier(userRecord)
-  const quotaTier = currentUser?.quotaTier ?? resourceQuotaTier(effectiveTier)
+  const session = useAuthStore((s) => s.session)
+  const quotaTier = quotaTierFromAuth(
+    currentUser,
+    userRecord,
+    Boolean(session),
+  )
   const templateInfo = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId] : undefined,
   )
@@ -219,12 +221,14 @@ export function InspectorPanel() {
     node != null &&
     isEngineerPreviewLocked({
       nodeType: node.type,
-      isFreeUser: !isPremiumUser,
+      isFreeUser: currentUser
+        ? currentUser.effectiveTier === 'free'
+        : !session,
       mode: templatePresetMode,
     })
   const variationTopologyLocked = isVariationTopologyLocked(loadedVariationId)
   const quotaDisplay = useMemo(() => {
-    if (liveMode || simulationMode || !snapshotTemplateId) return null
+    if (liveMode || simulationMode || !snapshotTemplateId || !quotaTier) return null
     try {
       const design = snapshotToDeploymentDesign(
         useCanvasStore.getState().exportJSON(),

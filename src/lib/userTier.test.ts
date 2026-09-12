@@ -9,6 +9,7 @@ import {
   resourceQuotaTier,
   topologyLimitsForTier,
   maxInstanceSizeForUser,
+  quotaTierFromAuth,
 } from './userTier'
 
 describe('userTier', () => {
@@ -16,6 +17,18 @@ describe('userTier', () => {
     expect(resolveEffectiveTier(null)).toBe('free')
     expect(hasPaidTier(null)).toBe(false)
     expect(resourceQuotaTier('free')).toBe('explorer')
+  })
+
+  it('does not assume Free canvas quota while a session is hydrating', () => {
+    expect(quotaTierFromAuth(null, null, true)).toBeNull()
+    expect(quotaTierFromAuth(null, null, false)).toBe('explorer')
+    expect(
+      quotaTierFromAuth(
+        { quotaTier: 'internal', effectiveTier: 'internal' },
+        { isInternal: true, isPremium: false, premiumExpiresAt: null },
+        true,
+      ),
+    ).toBe('internal')
   })
 
   it('requires premium expiry in the future', () => {

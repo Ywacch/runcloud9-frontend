@@ -1,5 +1,5 @@
 import { getMe } from './api'
-import { ApiError, isMissingUserRecordError } from './apiError'
+import { ApiError } from './apiError'
 import {
   categorizeSafeError,
   identifyAnalyticsUser,
@@ -15,8 +15,29 @@ import {
   DEV_ENGINEER_USER,
   isDevAccountPreviewEnabled,
 } from './devAccountPreview'
+import {
+  clearCachedCurrentUser,
+  readCachedCurrentUser,
+} from './currentUserCache'
 import { supabase } from './supabase'
 import { useAuthStore } from '../product/stores/authStore'
+
+function restoreCachedCurrentUser(userId: string): void {
+  const current = useAuthStore.getState().currentUser
+  if (current?.userId === userId) return
+  const cached = readCachedCurrentUser(userId)
+  if (cached) {
+    useAuthStore.getState().setCurrentUser(cached)
+    return
+  }
+  if (current && current.userId !== userId) {
+    useAuthStore.getState().setCurrentUser(null)
+  }
+}
+
+export function hydrateCachedCurrentUser(userId: string): void {
+  restoreCachedCurrentUser(userId)
+}
 
 /** Avoid repeat auth_succeeded on every tab refresh for the same user. */
 let identifiedUserId: string | null = null
@@ -26,6 +47,7 @@ export function initAuth(): void {
   void supabase.auth.getSession().then(({ data: { session } }) => {
     useAuthStore.getState().setSession(session)
     if (session?.user?.id) {
+      restoreCachedCurrentUser(session.user.id)
       void refreshCurrentUser()
     } else {
       applyDevAccountPreviewUser(
@@ -37,10 +59,12 @@ export function initAuth(): void {
   supabase.auth.onAuthStateChange((_event, session) => {
     useAuthStore.getState().setSession(session)
     if (session?.user?.id) {
+      restoreCachedCurrentUser(session.user.id)
       void refreshCurrentUser()
     } else {
       identifiedUserId = null
       resetAnalytics()
+      clearCachedCurrentUser()
       applyDevAccountPreviewUser(
         useAuthStore.getState().setCurrentUser,
         session,
@@ -96,10 +120,7 @@ export async function refreshCurrentUser(): Promise<void> {
       identifiedUserId = supabaseUserId
     }
   } catch (err) {
-    if (
-      err instanceof ApiError &&
-      (err.status === 401 || isMissingUserRecordError(err))
-    ) {
+    if (err instanceof ApiError && err.status === 401) {
       useAuthStore.getState().setSession(null)
       void supabase.auth.signOut()
       applyDevAccountPreviewUser(useAuthStore.getState().setCurrentUser, null)
@@ -107,6 +128,9 @@ export async function refreshCurrentUser(): Promise<void> {
       return
     }
     console.warn('refreshCurrentUser:', err)
+    if (useAuthStore.getState().currentUser) {
+      return
+    }
     if (isDevAccountPreviewEnabled()) {
       useAuthStore.getState().setCurrentUser(DEV_ENGINEER_USER)
       return

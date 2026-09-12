@@ -73,12 +73,12 @@ describe('mapDeployRequestError', () => {
     expect(msg.actionLabel).toBe('Sign in')
   })
 
-  it('maps failed to load user 500 as session expired', () => {
+  it('maps failed to load user 500 as a server error, not sign-out', () => {
     const err = new ApiError(500, 'failed to load user')
     const msg = mapDeployRequestError(err)
-    expect(msg.title).toBe('Session expired')
-    expect(msg.body).toContain('sign in again')
-    expect(msg.actionLabel).toBe('Sign in')
+    expect(msg.title).toBe('Deployment request was not accepted')
+    expect(msg.body).toContain('server error')
+    expect(msg.actionLabel).toBeUndefined()
   })
 
   it('maps email_unconfirmed 403 without sign-in CTA', () => {
