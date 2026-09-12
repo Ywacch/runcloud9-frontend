@@ -22,7 +22,11 @@ function formatTime(iso: string): string {
 }
 
 function pillClass(event: WsEvent): string {
-  if (event.kind === 'chaos_inject' || event.source === 'chaos')
+  if (
+    event.kind === 'chaos_inject' ||
+    event.kind === 'chaos_heal' ||
+    event.source === 'chaos'
+  )
     return 'bg-violet-950/80 text-violet-100 ring-violet-700/50'
   if (event.kind === 'loadgen_start')
     return 'bg-emerald-950/80 text-emerald-100 ring-emerald-700/50'
@@ -52,6 +56,8 @@ function workloadAnchorLabel(event: WsEvent): string | null {
       return 'mix change'
     case 'chaos_inject':
       return 'chaos'
+    case 'chaos_heal':
+      return 'heal'
     default:
       return null
   }

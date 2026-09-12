@@ -1,8 +1,10 @@
 import type { CanvasMode, CanvasNode } from '../editor-core/stores/canvasStore'
 import {
+  chaosContextForNode,
   chaosScenarioLabel,
   chaosScenariosForTarget,
   chaosTargetForNode,
+  isPartitionChaosScenario,
   type ChaosScenario,
 } from './chaos'
 
@@ -171,9 +173,17 @@ export function nodeMenuActions(params: {
   mode: CanvasMode
   deploymentId: string | null
   chaosTargetBusy: boolean
+  chaosPartitionActive?: boolean
   loadedVariationId?: string | null
 }): NodeMenuAction[] {
-  const { node, mode, deploymentId, chaosTargetBusy, loadedVariationId } = params
+  const {
+    node,
+    mode,
+    deploymentId,
+    chaosTargetBusy,
+    chaosPartitionActive = false,
+    loadedVariationId,
+  } = params
   const actions: NodeMenuAction[] = [
     { kind: 'open_inspector', label: 'Open inspector' },
   ]
@@ -203,17 +213,24 @@ export function nodeMenuActions(params: {
     const target = chaosTargetForNode(node.type)
     if (target) {
       const ready = Boolean(deploymentId)
-      for (const scenario of chaosScenariosForTarget(target)) {
+      for (const scenario of chaosScenariosForTarget(
+        target,
+        chaosContextForNode(node),
+      )) {
+        const partitionBlocked =
+          chaosPartitionActive && isPartitionChaosScenario(scenario)
         actions.push({
           kind: 'chaos',
           label: chaosScenarioLabel(scenario),
           scenario,
-          disabled: !ready || chaosTargetBusy,
+          disabled: !ready || chaosTargetBusy || partitionBlocked,
           reason: !ready
             ? 'Available when the deployment is running'
-            : chaosTargetBusy
-              ? 'Chaos already in progress on this component'
-              : undefined,
+            : partitionBlocked
+              ? 'Another partition is active — Heal it first'
+              : chaosTargetBusy
+                ? 'Chaos already in progress on this component'
+                : undefined,
         })
       }
     }

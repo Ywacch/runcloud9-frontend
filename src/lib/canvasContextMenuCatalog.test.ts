@@ -74,6 +74,25 @@ describe('canvasContextMenuCatalog', () => {
     expect(explorerComponentLocksActive()).toBe(false)
   })
 
+  it('includes db partition scenarios when readReplicas >= 1', () => {
+    const dbNode: CanvasNode = {
+      ...node('database'),
+      type: 'database',
+      config: { readReplicas: 2 },
+    }
+    const live = nodeMenuActions({
+      node: dbNode,
+      mode: 'live',
+      deploymentId: 'dep-1',
+      chaosTargetBusy: false,
+    })
+    const chaos = live
+      .filter((a): a is Extract<typeof a, { kind: 'chaos' }> => a.kind === 'chaos')
+      .map((a) => a.scenario)
+    expect(chaos).toContain('stall_replica')
+    expect(chaos).toContain('split_primary_replica')
+  })
+
   it('nodeMenuActions includes chaos only in live', () => {
     const design = nodeMenuActions({
       node: node('cache'),
@@ -93,7 +112,7 @@ describe('canvasContextMenuCatalog', () => {
     const chaos = live
       .filter((a): a is Extract<typeof a, { kind: 'chaos' }> => a.kind === 'chaos')
       .map((a) => a.scenario)
-    expect(chaos).toEqual(['pod_kill', 'cache_flush'])
+    expect(chaos).toEqual(['pod_kill', 'cache_flush', 'split_app_store'])
   })
 
   it('disables chaos when target busy', () => {

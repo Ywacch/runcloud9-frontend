@@ -1,5 +1,8 @@
 import { idleClientLoadgenBucket } from '../../lib/clientMetrics'
-import { chaosOverlayFromWsEvent } from '../../lib/chaos'
+import {
+  chaosHealFromWsEvent,
+  chaosOverlayFromWsEvent,
+} from '../../lib/chaos'
 import { parseComponentFreshness } from '../../lib/metricsFreshness'
 import { parseDbQuerySource } from '../../lib/storageIoDisplay'
 import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
@@ -172,7 +175,8 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       e.kind === 'loadgen_stop' ||
       e.kind === 'loadgen_rate' ||
       e.kind === 'loadgen_mix' ||
-      e.kind === 'chaos_inject'
+      e.kind === 'chaos_inject' ||
+      e.kind === 'chaos_heal'
         ? e.kind
         : undefined
     const detail =
@@ -276,8 +280,15 @@ export function nodeBucketsFromPayload(
 
 export function registerChaosFromEvents(ev: WsEvent[]): void {
   const chaosState = useChaosStore.getState()
-  const active = chaosState.active
+  let active = chaosState.active
   for (const e of ev) {
+    if (chaosHealFromWsEvent(e)) {
+      if (active?.stateful) {
+        chaosState.clear()
+        active = null
+      }
+      continue
+    }
     const overlay = chaosOverlayFromWsEvent(e)
     if (!overlay) continue
     if (
@@ -292,6 +303,7 @@ export function registerChaosFromEvents(ev: WsEvent[]): void {
       overlay.targetComponent,
       overlay.startedAt,
     )
+    active = chaosState.active
     break
   }
 }

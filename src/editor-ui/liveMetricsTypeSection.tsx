@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   fmtBytes,
   fmtErrorRate,
@@ -40,7 +40,15 @@ import {
 } from '../lib/metricTimeframe'
 import { getTopologyFlags } from '../lib/componentRole'
 import { readConsistencyFromConfig } from '../lib/readConsistency'
-import { lbAlgorithmForDeploy } from '../lib/replicaConfig'
+import {
+  clampReadReplicas,
+  lbAlgorithmForDeploy,
+  replicationModeFromConfig,
+  syncCommitLevelFromConfig,
+} from '../lib/replicaConfig'
+import { latestPartitionCapEvent } from '../lib/chaos'
+import { useChaosStore } from '../editor-core/stores/chaosStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { isMetricRelevant } from '../lib/templateKpis'
 import {
   distributionHasLatency,
@@ -208,6 +216,12 @@ export function LiveMetricsTypeSection({
   const memHelp = memoryUsageHelp(m, clusterMemPercent)
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const metricsEvents = useMetricsStore((s) => s.events)
+  const activeChaos = useChaosStore((s) => s.active)
+  const partitionCapEvent = useMemo(
+    () => latestPartitionCapEvent(metricsEvents),
+    [metricsEvents],
+  )
   const panelPrefix =
     m.runtimeHealth && m.runtimeHealth.pods.length > 0 ? (
       <RuntimeHealthSection
@@ -592,6 +606,15 @@ export function LiveMetricsTypeSection({
           <DbConsistencySection
             m={m}
             readConsistencyPolicy={readConsistencyFromConfig(node.config.readConsistency)}
+            replicationMode={replicationModeFromConfig(node.config.replicationMode)}
+            readReplicas={clampReadReplicas(node.config.readReplicas)}
+            syncCommitLevel={syncCommitLevelFromConfig(node.config.syncCommitLevel)}
+            activePartitionScenario={
+              activeChaos?.stateful && activeChaos.targetComponent === 'db'
+                ? activeChaos.scenario
+                : null
+            }
+            partitionCapEvent={partitionCapEvent}
           />
           <DbClusterResourcesSection
             nodeId={nodeId}

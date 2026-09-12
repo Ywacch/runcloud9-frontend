@@ -33,7 +33,13 @@ import {
   isBackingCacheLayer,
   isLayeredCache,
 } from '../lib/cacheLayerDisplay'
-import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import type { MetricsBucket, WsEvent } from '../editor-core/stores/metricsStore'
+import {
+  partitionActiveHint,
+  partitionCapSummary,
+  type ChaosScenario,
+} from '../lib/chaos'
+import type { ReplicationMode, SyncCommitLevel } from '../lib/replicaConfig'
 import { InspectorDisclosure } from './InspectorDisclosure'
 import {
   CapacityBar,
@@ -842,24 +848,68 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   )
 }
 
+function formatPartitionCapRule(rule?: string): string {
+  if (rule === 'partition_stale_reads') return 'Stale replica reads'
+  if (rule === 'partition_write_stall') return 'Writes stalling'
+  return '—'
+}
+
 /** Read-routing tradeoffs when backend ships `components.db.consistency`. */
 export function DbConsistencySection({
   m,
   readConsistencyPolicy,
+  replicationMode = 'async',
+  readReplicas = 0,
+  syncCommitLevel = 'on',
+  activePartitionScenario,
+  partitionCapEvent,
 }: {
   m: MetricsBucket
   readConsistencyPolicy?: ReadConsistencyPolicy
+  replicationMode?: ReplicationMode
+  readReplicas?: number
+  syncCommitLevel?: SyncCommitLevel
+  activePartitionScenario?: ChaosScenario | null
+  partitionCapEvent?: WsEvent | null
 }) {
   const consistency = m.consistency
   if (!consistency) return null
 
   const policy = readConsistencyPolicy ?? readConsistencyFromConfig(undefined)
+  const capSummary = partitionCapSummary(
+    partitionCapEvent ?? null,
+    replicationMode,
+    readReplicas,
+    syncCommitLevel,
+    consistency.guaranteeHeldBy,
+  )
+  const partitionHint = activePartitionScenario
+    ? partitionActiveHint(activePartitionScenario, replicationMode, readReplicas)
+    : null
 
   return (
     <PedagogicalSection
       title="Read routing tradeoffs"
       subtitle="The guarantee you asked for, and what staying off the leader cost you."
     >
+      {partitionCapEvent || partitionHint ? (
+        <>
+          <PedagogicalCaption>Under partition</PedagogicalCaption>
+          {partitionCapEvent ? (
+            <StatBlock
+              label="What broke"
+              value={formatPartitionCapRule(partitionCapEvent.rule)}
+              help={capSummary ?? partitionCapEvent.title}
+            />
+          ) : null}
+          {partitionHint ? (
+            <PedagogicalHint tone="muted">{partitionHint}</PedagogicalHint>
+          ) : null}
+          {capSummary && partitionCapEvent ? (
+            <PedagogicalHint>{capSummary}</PedagogicalHint>
+          ) : null}
+        </>
+      ) : null}
       <StatRow
         left={
           <StatBlock
