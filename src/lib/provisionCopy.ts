@@ -17,7 +17,7 @@ export const PROVISION_FAILED_HEADLINE = "Couldn't start your lab"
 export const PROVISION_TYPICAL_WAIT =
   'Usually 2–3 minutes after we start building.'
 export const PROVISION_STILL_WORKING =
-  'Still working — first start can take a few extra minutes.'
+  'Still working. First start can take a few extra minutes.'
 export const DEMO_DATA_ROW_TITLE = 'Demo data'
 export const LOADGEN_ROW_TITLE = 'Load generator'
 export const VALIDATE_STEP_SUBTITLE = 'Design validated'

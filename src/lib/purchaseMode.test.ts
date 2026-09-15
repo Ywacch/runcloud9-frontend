@@ -37,7 +37,7 @@ describe('purchaseMode', () => {
   })
 
   it('normalizes seed event fields', () => {
-    expect(seedEventNameFromConfig({})).toBe('Midnight Arena — Floor')
+    expect(seedEventNameFromConfig({})).toBe('Midnight Arena - Floor')
     expect(seedEventNameFromConfig({ seedEventName: '  Arena  ' })).toBe('Arena')
     expect(seedEventCapacityFromConfig({ seedEventCapacity: 50 })).toBe(50)
     expect(seedEventCapacityFromConfig({})).toBe(100)

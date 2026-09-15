@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { FMT_EMPTY, fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import type { ReplicaMetrics, SimNodeInspector } from '../editor-core/domain/simulation/types'
 import {
   replicaBreakdownFromPods,
@@ -365,7 +365,7 @@ function SimulationInspectorSection({
                       </td>
                       <td className="px-2 py-1 text-right">{fmtInt(e.hitCount)}</td>
                       <td className="px-2 py-1 text-right">
-                        {e.ttlRemaining != null ? `${fmtInt(e.ttlRemaining)}s` : '—'}
+                        {e.ttlRemaining != null ? `${fmtInt(e.ttlRemaining)}s` : FMT_EMPTY}
                       </td>
                       <td className="px-2 py-1 text-right">
                         {e.isHotKey ? 'HOT' : ''}

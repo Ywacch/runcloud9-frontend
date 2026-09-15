@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { deploymentProxyUrl } from '../lib/api'
 import { cacheHasBrowserHttpProxy } from '../lib/proxyTargets'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { FMT_EMPTY } from '../lib/format'
 
 /** Whether the response was proxied through the API (supports legacy header name). */
 function getProxiedHeaderValue(res: Response): string | null {
@@ -207,7 +208,7 @@ export function DeploymentPlayground() {
                     {' '}
                     ·{' '}
                     <span className="font-mono text-[var(--c9-text)]">
-                      {PROXIED_HEADER_LABEL}: {lastProxied || '—'}
+                      {PROXIED_HEADER_LABEL}: {lastProxied || FMT_EMPTY}
                     </span>
                   </>
                 ) : null}

@@ -770,7 +770,7 @@ export function LiveSessionStrip() {
                 aria-haspopup="dialog"
                 aria-label={
                   showLoadgenPrompt
-                    ? 'Start load — deployment is ready'
+                    ? 'Start load: deployment is ready'
                     : 'Load control'
                 }
                 onClick={() => {

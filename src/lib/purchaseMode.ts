@@ -6,7 +6,7 @@ export const PURCHASE_MODE_DEFAULT: PurchaseMode = 'unsafe'
 export const PURCHASE_MODE_HELP =
   'Where inventory is checked: app read-then-write (oversell), row lock (FOR UPDATE), or conditional UPDATE in the database.'
 
-export const DEFAULT_SEED_EVENT_NAME = 'Midnight Arena — Floor'
+export const DEFAULT_SEED_EVENT_NAME = 'Midnight Arena - Floor'
 export const DEFAULT_SEED_EVENT_CAPACITY = 100
 export const SEED_EVENT_CAPACITY_MIN = 1
 export const SEED_EVENT_CAPACITY_MAX = 10_000
@@ -65,7 +65,7 @@ export function purchasePathInfo(mode: PurchaseMode): PurchasePathInfo {
     case 'optimistic':
       return {
         label: purchaseModeLabel(mode),
-        layer: 'Database predicate — no explicit row lock.',
+        layer: 'Database predicate: no explicit row lock.',
         sql: [
           'UPDATE events SET sold = sold + $qty',
           'WHERE id = $1 AND sold + $qty <= capacity',
@@ -77,7 +77,7 @@ export function purchasePathInfo(mode: PurchaseMode): PurchasePathInfo {
     default:
       return {
         label: purchaseModeLabel(mode),
-        layer: 'App server — check is advisory only.',
+        layer: 'App server: check is advisory only.',
         sql: [
           'SELECT capacity; SELECT SUM(qty) FROM purchases',
           'INSERT INTO purchases (ignores capacity)',

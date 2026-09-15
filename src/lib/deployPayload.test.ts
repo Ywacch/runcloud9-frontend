@@ -451,7 +451,7 @@ describe('deployConfigForNode', () => {
       'ticket-drop',
     )
     expect(optimistic.purchaseMode).toBe('optimistic')
-    expect(optimistic.seedEventName).toBe('Midnight Arena — Floor')
+    expect(optimistic.seedEventName).toBe('Midnight Arena - Floor')
     expect(optimistic.seedEventCapacity).toBe(100)
 
     const seeded = deployConfigForNode(

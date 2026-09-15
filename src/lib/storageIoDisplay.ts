@@ -1,5 +1,5 @@
 import type { StorageIoMetrics } from '../editor-core/domain/metricsUiContract'
-import { fmtRate } from './format'
+import { FMT_EMPTY, fmtRate } from './format'
 
 export type DbQuerySource = 'app' | 'none' | ''
 
@@ -124,7 +124,7 @@ export function formatDbQueriesPerSec(
   ) {
     return 'No app queries'
   }
-  if (dbQueryRate === 0 && !loadgenActive) return '—'
+  if (dbQueryRate === 0 && !loadgenActive) return FMT_EMPTY
   if (dbQueryRate === 0) return `${fmtRate(0)}/s`
   return `${fmtRate(dbQueryRate)}/s`
 }

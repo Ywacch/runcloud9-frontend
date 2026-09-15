@@ -523,7 +523,7 @@ describe('DbInstanceLayerSection timeframe', () => {
       }),
     )
     expect(html).toContain('Query rate')
-    expect(html).toMatch(/>—</)
+    expect(html).toMatch(/>-</)
   })
 })
 

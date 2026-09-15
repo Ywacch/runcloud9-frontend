@@ -37,7 +37,7 @@ describe('rollup', () => {
   it('returns null p99 when no sample defines it', () => {
     const samples: InstanceSample[] = [{ id: 'a', cpuPct: 5, memPct: 5, rps: 1 }]
     expect(rollup(samples).p99).toBeNull()
-    expect(tooltipP99Label(rollup(samples).p99)).toBe('—')
+    expect(tooltipP99Label(rollup(samples).p99)).toBe('-')
   })
 
   it('marks idle when summed rps is below the database floor', () => {

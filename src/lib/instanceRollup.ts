@@ -1,6 +1,6 @@
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
-import { fmtMs } from './format'
+import { FMT_EMPTY, fmtMs } from './format'
 
 export type InstanceSample = {
   id: string
@@ -114,6 +114,6 @@ export function samplesFromLayers(m: MetricsBucket): InstanceSample[] {
 
 /** Canvas tooltip p99: missing or non-positive → em dash. */
 export function tooltipP99Label(p99Seconds: number | null | undefined): string {
-  if (p99Seconds == null || p99Seconds <= 0) return '—'
+  if (p99Seconds == null || p99Seconds <= 0) return FMT_EMPTY
   return fmtMs(p99Seconds * 1000)
 }

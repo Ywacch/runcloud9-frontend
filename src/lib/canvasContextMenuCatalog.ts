@@ -227,7 +227,7 @@ export function nodeMenuActions(params: {
           reason: !ready
             ? 'Available when the deployment is running'
             : partitionBlocked
-              ? 'Another partition is active — Heal it first'
+              ? 'Another partition is active. Heal it first.'
               : chaosTargetBusy
                 ? 'Chaos already in progress on this component'
                 : undefined,

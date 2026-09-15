@@ -16,6 +16,7 @@ import {
   type SelectedInstanceId,
 } from '../lib/dbInstanceScope'
 import { trackEvent } from '../lib/analytics'
+import { FMT_EMPTY } from '../lib/format'
 
 const PAGE_LIMIT = 50
 const CELL_MAX = 120
@@ -434,7 +435,7 @@ export function DataBrowser({
                                   className="max-w-[min(12rem,40vw)] truncate px-2 py-1 text-[var(--c9-text)]"
                                   title={full.length > CELL_MAX ? full : undefined}
                                 >
-                                  {text || '—'}
+                                  {text || FMT_EMPTY}
                                 </td>
                               )
                             })}
