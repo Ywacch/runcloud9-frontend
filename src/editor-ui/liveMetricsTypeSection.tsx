@@ -46,7 +46,11 @@ import {
   replicationModeFromConfig,
   syncCommitLevelFromConfig,
 } from '../lib/replicaConfig'
-import { latestPartitionCapEvent } from '../lib/chaos'
+import {
+  latestFailoverWriteLossEvent,
+  latestPartitionCapEvent,
+  latestPromotionChaosInjectEvent,
+} from '../lib/chaos'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { isMetricRelevant } from '../lib/templateKpis'
@@ -220,6 +224,14 @@ export function LiveMetricsTypeSection({
   const activeChaos = useChaosStore((s) => s.active)
   const partitionCapEvent = useMemo(
     () => latestPartitionCapEvent(metricsEvents),
+    [metricsEvents],
+  )
+  const promotionChaosEvent = useMemo(
+    () => latestPromotionChaosInjectEvent(metricsEvents),
+    [metricsEvents],
+  )
+  const failoverWriteLossEvent = useMemo(
+    () => latestFailoverWriteLossEvent(metricsEvents),
     [metricsEvents],
   )
   const panelPrefix =
@@ -615,6 +627,8 @@ export function LiveMetricsTypeSection({
                 : null
             }
             partitionCapEvent={partitionCapEvent}
+            promotionChaosEvent={promotionChaosEvent}
+            failoverWriteLossEvent={failoverWriteLossEvent}
           />
           <DbClusterResourcesSection
             nodeId={nodeId}

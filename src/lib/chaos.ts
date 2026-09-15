@@ -13,6 +13,9 @@ export type ChaosScenario =
   | 'stall_replica'
   | 'split_primary_replica'
   | 'split_app_store'
+  | 'promote_replica'
+  | 'promote_lagging_replica'
+  | 'kill_replica'
 
 export type ChaosTargetComponent =
   | 'app-server'
@@ -71,6 +74,14 @@ const ALL_SCENARIOS: ChaosScenario[] = [
   'stall_replica',
   'split_primary_replica',
   'split_app_store',
+  'promote_replica',
+  'promote_lagging_replica',
+  'kill_replica',
+]
+
+export const PROMOTION_CHAOS_SCENARIOS: ChaosScenario[] = [
+  'promote_replica',
+  'promote_lagging_replica',
 ]
 
 export function isPartitionChaosScenario(
@@ -105,7 +116,14 @@ export function chaosScenariosForTarget(
     case 'db': {
       const scenarios: ChaosScenario[] = ['pod_kill']
       if (clampReadReplicas(ctx.readReplicas) >= 1) {
-        scenarios.push('stall_replica', 'split_primary_replica', 'split_app_store')
+        scenarios.push(
+          'stall_replica',
+          'split_primary_replica',
+          'split_app_store',
+          'promote_replica',
+          'promote_lagging_replica',
+          'kill_replica',
+        )
       }
       return scenarios
     }
@@ -126,6 +144,12 @@ export function chaosScenarioLabel(scenario: ChaosScenario): string {
       return 'Split primary from replicas'
     case 'split_app_store':
       return 'Split app from store'
+    case 'promote_replica':
+      return 'Promote replica'
+    case 'promote_lagging_replica':
+      return 'Promote lagging replica'
+    case 'kill_replica':
+      return 'Kill replica'
   }
 }
 
@@ -144,6 +168,12 @@ export function chaosScenarioSubtitle(
       return target === 'cache'
         ? 'Blocks app-server from reaching Redis'
         : 'Blocks app-server from reaching the database'
+    case 'promote_replica':
+      return 'Fences the primary and promotes the most up-to-date standby'
+    case 'promote_lagging_replica':
+      return 'Promotes the farthest-behind standby — measures write loss'
+    case 'kill_replica':
+      return 'Deletes a replica pod — recovery requires a full re-clone'
     default:
       return 'Restarts one pod for this component'
   }
@@ -164,6 +194,15 @@ export function chaosScenarioConfirm(
   }
   if (scenario === 'split_app_store') {
     return `Adds a network partition between app-server pods and ${target}. Traffic recovers after Heal.`
+  }
+  if (scenario === 'promote_replica') {
+    return 'Promotes the most up-to-date standby to primary, scales the old primary Deployment to 0, and repoints the db Service. This cannot be undone in this session — the old primary will not come back.'
+  }
+  if (scenario === 'promote_lagging_replica') {
+    return 'Promotes the farthest-behind standby to primary (not the most current). This cannot be undone in this session — the old primary will not come back, and commits the client already saw may be lost.'
+  }
+  if (scenario === 'kill_replica') {
+    return 'Deletes one postgres-replica pod. Kubernetes replaces it with a full pg_basebackup re-clone — unlike stall_replica + Heal, which catches up from the standby\'s own log. Expect a longer recovery.'
   }
   if (target === 'app-server') {
     return 'Deletes one running app-server pod. Kubernetes replaces it. With multiple replicas, only one pod is removed.'
@@ -282,6 +321,83 @@ export function partitionCapSummary(
     return 'Writes stalled while the database waited on replication.'
   }
   return capEvent.description || capEvent.title
+}
+
+export function isPromotionChaosScenario(scenario: ChaosScenario): boolean {
+  return PROMOTION_CHAOS_SCENARIOS.includes(scenario)
+}
+
+export function latestPromotionChaosInjectEvent(
+  events: WsEvent[],
+): WsEvent | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    if (e.source !== 'chaos' || e.kind !== 'chaos_inject') continue
+    const scenario =
+      parseChaosScenario(e.description) ??
+      parseChaosScenario(e.detail?.scenario)
+    if (scenario && isPromotionChaosScenario(scenario)) return e
+  }
+  return null
+}
+
+export function latestFailoverWriteLossEvent(
+  events: WsEvent[],
+): WsEvent | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].rule === 'failover_write_loss') return events[i]
+  }
+  return null
+}
+
+export function promotionWalBytesLost(detail?: Record<string, string>): number {
+  const raw = detail?.walBytesLost
+  if (!raw) return 0
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+export function failoverReadoutSummary(
+  promotionEvent: WsEvent | null,
+  lossEvent: WsEvent | null,
+  replicationMode: ReplicationMode,
+  syncCommitLevel: SyncCommitLevel,
+): string | null {
+  if (!promotionEvent) return null
+  const walBytesLost = promotionWalBytesLost(promotionEvent.detail)
+  const syncState =
+    promotionEvent.detail?.candidateSyncState ??
+    lossEvent?.detail?.syncState ??
+    ''
+  const scenario =
+    promotionEvent.detail?.scenario ?? promotionEvent.description ?? ''
+
+  if (lossEvent || walBytesLost > 0) {
+    if (scenario === 'promote_lagging_replica') {
+      return 'You promoted the farthest-behind standby — commits the primary had already acked may be gone.'
+    }
+    return 'You promoted a standby behind the fenced primary; commits the client already saw may be gone.'
+  }
+
+  if (replicationMode === 'semi-sync' && syncCommitLevel === 'remote_apply') {
+    if (syncState === 'sync' || syncState === 'quorum') {
+      return 'Semi-sync with remote_apply: you promoted an acked standby, so nothing the client already saw was lost.'
+    }
+    return 'Semi-sync with remote_apply waits for standby replay before commit returns — the promoted standby was caught up.'
+  }
+  if (replicationMode === 'async') {
+    return 'Async replication only waits for local WAL flush on commit — remote_apply would have waited for standby replay before the client saw success.'
+  }
+  if (syncState === 'sync' || syncState === 'quorum') {
+    return 'You promoted an acked standby; nothing the client already saw was lost.'
+  }
+  return 'Promotion completed with zero measured WAL loss.'
+}
+
+export function failoverLossEscalation(lossEvent: WsEvent | null): string | null {
+  if (!lossEvent) return null
+  const text = lossEvent.description?.trim() || lossEvent.title?.trim()
+  return text || null
 }
 
 export function partitionActiveHint(
