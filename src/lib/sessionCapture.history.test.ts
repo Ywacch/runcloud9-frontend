@@ -9,7 +9,7 @@ describe('sessionSummaryFromApiMetrics — pure adapter, no store access', () =>
   it('returns base zeros when metrics is undefined', () => {
     const s = sessionSummaryFromApiMetrics('url-shortener', undefined)
     expect(s.template).toBe('url-shortener')
-    expect(s.duration).toBe('—')
+    expect(s.duration).toBe('-')
     expect(s.peakRps).toBe(0)
     expect(s.peakP99).toBe(0)
     expect(s.componentSummaries).toEqual({})

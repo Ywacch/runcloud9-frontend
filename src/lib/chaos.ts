@@ -161,7 +161,7 @@ export function chaosScenarioSubtitle(
     case 'cache_flush':
       return 'Wipes Redis data (cache miss spike)'
     case 'stall_replica':
-      return 'Blocks replication to one standby — lag climbs on that replica'
+      return 'Blocks replication to one standby. Lag climbs on that replica.'
     case 'split_primary_replica':
       return 'Cuts all replica traffic to the primary'
     case 'split_app_store':
@@ -171,9 +171,9 @@ export function chaosScenarioSubtitle(
     case 'promote_replica':
       return 'Fences the primary and promotes the most up-to-date standby'
     case 'promote_lagging_replica':
-      return 'Promotes the farthest-behind standby — measures write loss'
+      return 'Promotes the farthest-behind standby to measure write loss.'
     case 'kill_replica':
-      return 'Deletes a replica pod — recovery requires a full re-clone'
+      return 'Deletes a replica pod. Recovery requires a full re-clone.'
     default:
       return 'Restarts one pod for this component'
   }
@@ -196,13 +196,13 @@ export function chaosScenarioConfirm(
     return `Adds a network partition between app-server pods and ${target}. Traffic recovers after Heal.`
   }
   if (scenario === 'promote_replica') {
-    return 'Promotes the most up-to-date standby to primary, scales the old primary Deployment to 0, and repoints the db Service. This cannot be undone in this session — the old primary will not come back.'
+    return 'Promotes the most up-to-date standby to primary, scales the old primary Deployment to 0, and repoints the db Service. This cannot be undone in this session. The old primary will not come back.'
   }
   if (scenario === 'promote_lagging_replica') {
-    return 'Promotes the farthest-behind standby to primary (not the most current). This cannot be undone in this session — the old primary will not come back, and commits the client already saw may be lost.'
+    return 'Promotes the farthest-behind standby to primary (not the most current). This cannot be undone in this session. The old primary will not come back, and commits the client already saw may be lost.'
   }
   if (scenario === 'kill_replica') {
-    return 'Deletes one postgres-replica pod. Kubernetes replaces it with a full pg_basebackup re-clone — unlike stall_replica + Heal, which catches up from the standby\'s own log. Expect a longer recovery.'
+    return 'Deletes one postgres-replica pod. Kubernetes replaces it with a full pg_basebackup re-clone, unlike stall_replica + Heal, which catches up from the standby\'s own log. Expect a longer recovery.'
   }
   if (target === 'app-server') {
     return 'Deletes one running app-server pod. Kubernetes replaces it. With multiple replicas, only one pod is removed.'
@@ -307,7 +307,7 @@ export function partitionCapSummary(
     }
     if (syncCommitLevel === 'remote_apply' && guaranteeHeldBy === 'db') {
       line +=
-        ' Database-layer read-your-writes can still show on the acked standby — durability quorum is not the replica you read.'
+        ' Database-layer read-your-writes can still show on the acked standby. Durability quorum is not the replica you read.'
     }
     return line
   }
@@ -374,7 +374,7 @@ export function failoverReadoutSummary(
 
   if (lossEvent || walBytesLost > 0) {
     if (scenario === 'promote_lagging_replica') {
-      return 'You promoted the farthest-behind standby — commits the primary had already acked may be gone.'
+      return 'You promoted the farthest-behind standby. Commits the primary had already acked may be gone.'
     }
     return 'You promoted a standby behind the fenced primary; commits the client already saw may be gone.'
   }
@@ -383,10 +383,10 @@ export function failoverReadoutSummary(
     if (syncState === 'sync' || syncState === 'quorum') {
       return 'Semi-sync with remote_apply: you promoted an acked standby, so nothing the client already saw was lost.'
     }
-    return 'Semi-sync with remote_apply waits for standby replay before commit returns — the promoted standby was caught up.'
+    return 'Semi-sync with remote_apply waits for standby replay before commit returns. The promoted standby was caught up.'
   }
   if (replicationMode === 'async') {
-    return 'Async replication only waits for local WAL flush on commit — remote_apply would have waited for standby replay before the client saw success.'
+    return 'Async replication only waits for local WAL flush on commit. remote_apply would have waited for standby replay before the client saw success.'
   }
   if (syncState === 'sync' || syncState === 'quorum') {
     return 'You promoted an acked standby; nothing the client already saw was lost.'

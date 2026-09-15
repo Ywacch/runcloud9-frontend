@@ -19,7 +19,7 @@ import {
   storageIoThroughputFields,
   type CacheHeadlineFields,
 } from '../lib/metricTimeframe'
-import { fmtBytes, fmtInt, fmtRate } from '../lib/format'
+import { FMT_EMPTY, fmtBytes, fmtInt, fmtRate } from '../lib/format'
 import {
   storageReadTileLabel,
   storageWriteTileLabel,
@@ -117,7 +117,7 @@ export function CacheTimelinePerformanceSection({
 }) {
   const pushRate = Number.isFinite(tmFeedPushRate) ? (tmFeedPushRate as number) : 0
   const feedHead = feedPushHeadline(m, view.timeframe, pushRate, fmtRate)
-  const hasTraffic = feedHead.display !== '—' && feedHead.display !== '0/s'
+  const hasTraffic = feedHead.display !== FMT_EMPTY && feedHead.display !== '0/s'
   return (
     <PedagogicalSection title="Feed delivery" subtitle="Push-model timeline reads">
       <StatRow

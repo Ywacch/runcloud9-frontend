@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { clampPercent, fmtMs, fmtRate } from '../lib/format'
+import { clampPercent, FMT_EMPTY, fmtMs, fmtRate } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import { usesPodReplicaScope } from '../lib/dbInstanceScope'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
@@ -200,10 +200,10 @@ export function NodeTooltip({
     grouped?.kind === 'single'
       ? grouped.p99Ms != null
         ? fmtMs(grouped.p99Ms)
-        : '—'
+        : FMT_EMPTY
       : metrics?.p99Latency != null && metrics.p99Latency > 0
         ? fmtMs(metrics.p99Latency)
-        : '—'
+        : FMT_EMPTY
 
   const rpsClass = idleRps
     ? 'text-zinc-400'

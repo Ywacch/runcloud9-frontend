@@ -76,7 +76,7 @@ export function LatencyQuantileLabel({
                 } ${disabled ? 'cursor-not-allowed text-gray-600' : 'hover:bg-gray-800'}`}
               >
                 {option}
-                {disabled ? ' —' : ''}
+                {disabled ? ' (n/a)' : ''}
               </button>
             )
           })}

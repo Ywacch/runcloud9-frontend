@@ -12,6 +12,7 @@ import type { CheckoutStartedSource } from '../lib/analytics'
 import { canvasCapForTier } from '../lib/sumDesignBudget'
 import { startEngineerCheckout } from '../lib/stripeCheckout'
 import { BILLING_ENABLED } from '../lib/featureFlags'
+import { FMT_EMPTY } from '../lib/format'
 
 function sessionLengthDetail(
   limits: CurrentUserLimits | undefined,
@@ -180,7 +181,7 @@ export function PlanLimitsCard({
     ? formatSessionsLeftThisMonth(sessionsRemainingThisMonth, maxSessions)
     : isInternal
       ? 'Unlimited'
-      : '—'
+      : FMT_EMPTY
   const replicaCap = limits?.maxAppServerReplicas
 
   return (
@@ -224,7 +225,7 @@ export function PlanLimitsCard({
             value={
               limits?.sessionCapMins != null
                 ? `${limits.sessionCapMins} min`
-                : '—'
+                : FMT_EMPTY
             }
             detail={sessionLengthDetail(limits)}
           />
@@ -237,7 +238,7 @@ export function PlanLimitsCard({
 
           <LimitStat
             label="Replica cap"
-            value={replicaCap != null ? String(replicaCap) : '—'}
+            value={replicaCap != null ? String(replicaCap) : FMT_EMPTY}
             detail="App server & worker pods"
           />
         </dl>

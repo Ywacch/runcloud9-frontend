@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { fmtBytes, fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { FMT_EMPTY, fmtBytes, fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import {
   fanoutScanModelEstimate,
   formatDbQueriesPerSec,
@@ -161,7 +161,7 @@ export function DbActivitySection({
       />
       <StatBlock
         label="Latency (p99)"
-        value={latencyMs > 0 ? fmtMs(latencyMs) : '—'}
+        value={latencyMs > 0 ? fmtMs(latencyMs) : FMT_EMPTY}
         help={dbRateHelp}
         graph={
           latencySeries.some((v) => v > 0) ? (
@@ -402,7 +402,7 @@ export function DbInstanceLayerSection({
       ? fmtInt(appSql.sessionTotal)
       : appSql.liveRate > 0
         ? `${fmtRate(appSql.liveRate)}/s`
-        : '—'
+        : FMT_EMPTY
   const appSqlLatencyMs = layerLatencyMs(layer, quantile, tf)
   const appSqlRateSeries = dbLayerHistorySeries(
     history,
@@ -473,7 +473,7 @@ export function DbInstanceLayerSection({
                 onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
               />
             }
-            value={appSqlLatencyMs > 0 ? fmtMs(appSqlLatencyMs) : '—'}
+            value={appSqlLatencyMs > 0 ? fmtMs(appSqlLatencyMs) : FMT_EMPTY}
             help={tf === 'session' ? SESSION_LATENCY_P99_HELP : LATENCY_HELP}
             graph={
               <MetricSeriesGraph
@@ -512,7 +512,7 @@ export function DbInstanceLayerSection({
             value={
               layer.dbActiveConnections != null && layer.dbActiveConnections > 0
                 ? fmtInt(layer.dbActiveConnections)
-                : '—'
+                : FMT_EMPTY
             }
             help="Backends in active state on this instance's postgres pod."
           />
@@ -560,13 +560,13 @@ export function DbInstanceLayerSection({
         left={
           <StatBlock
             label="CPU utilization"
-            value={layer.cpuIsEstimated ? '—' : fmtPct(cpuPercent)}
+            value={layer.cpuIsEstimated ? FMT_EMPTY : fmtPct(cpuPercent)}
           />
         }
         right={
           <StatBlock
             label="Memory usage"
-            value={layer.memIsEstimated ? '—' : fmtPct(memPercent)}
+            value={layer.memIsEstimated ? FMT_EMPTY : fmtPct(memPercent)}
           />
         }
       />
@@ -682,7 +682,7 @@ export function ComputeInstanceSection({
                 onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
               />
             }
-            value={latencyMs > 0 ? fmtMs(latencyMs) : '—'}
+            value={latencyMs > 0 ? fmtMs(latencyMs) : FMT_EMPTY}
             help={tf === 'session' ? SESSION_LATENCY_P99_HELP : LATENCY_HELP}
             graph={
               <MetricSeriesGraph
@@ -734,21 +734,21 @@ export function ComputeInstanceSection({
       />
       <StatBlock
         label="Memory usage"
-        value={memPct > 0 ? fmtPct(memPct) : '—'}
+        value={memPct > 0 ? fmtPct(memPct) : FMT_EMPTY}
       />
     </PedagogicalSection>
   )
 }
 
 function fmtReplicationLagSeconds(seconds: number | undefined): string {
-  if (seconds === undefined || !Number.isFinite(seconds)) return '—'
+  if (seconds === undefined || !Number.isFinite(seconds)) return FMT_EMPTY
   if (seconds < 0.01) return '0 s'
   if (seconds < 10) return `${seconds.toFixed(2)} s`
   return `${seconds.toFixed(1)} s`
 }
 
 function fmtLagBytes(bytes: number | undefined): string {
-  if (bytes === undefined || !Number.isFinite(bytes)) return '—'
+  if (bytes === undefined || !Number.isFinite(bytes)) return FMT_EMPTY
   if (bytes === 0) return '0 B'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
@@ -772,7 +772,7 @@ function fmtStalenessVersions(versions: number): string {
 
 function formatReadOffload(leaderReads: number, replicaReads: number): string {
   const total = leaderReads + replicaReads
-  if (total <= 0) return '—'
+  if (total <= 0) return FMT_EMPTY
   const offloadPct = Math.min(100, Math.round((replicaReads / total) * 100))
   return `${offloadPct}% (${fmtInt(replicaReads)} replica · ${fmtInt(leaderReads)} leader)`
 }
@@ -791,14 +791,14 @@ function formatGuaranteeHeldBy(held?: string): string {
     case 'none':
       return 'None requested'
     default:
-      return held?.trim() || '—'
+      return held?.trim() || FMT_EMPTY
   }
 }
 
 function consistencyPolicyHint(policy: ReadConsistencyPolicy): string {
   switch (policy) {
     case 'leader-only':
-      return 'Leader-only: all reads hit the primary — no replica offload.'
+      return 'Leader-only: all reads hit the primary; no replica offload.'
     case 'replica':
       return 'Replica (eventual): reads are offloaded to standbys; stale replica reads are the expected tradeoff.'
     case 'ryw':
@@ -904,7 +904,7 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
 function formatPartitionCapRule(rule?: string): string {
   if (rule === 'partition_stale_reads') return 'Stale replica reads'
   if (rule === 'partition_write_stall') return 'Writes stalling'
-  return '—'
+  return FMT_EMPTY
 }
 
 /** Read-routing tradeoffs when backend ships `components.db.consistency`. */
@@ -992,7 +992,7 @@ export function DbConsistencySection({
             right={
               <StatBlock
                 label="Promoted pod"
-                value={promotedPod || '—'}
+                value={promotedPod || FMT_EMPTY}
                 help="Standby pod promoted to primary and wired to the db Service."
               />
             }
@@ -1033,7 +1033,7 @@ export function DbConsistencySection({
           <StatBlock
             label="Stale replica reads"
             value={formatStaleReplicaReads(consistency.replicaStaleReads)}
-            help="Replica reads served while replay lagged the client's last write. Eventual-policy cost — not RYW violations."
+            help="Replica reads served while replay lagged the client's last write. Eventual-policy cost, not RYW violations."
           />
         }
       />
@@ -1080,9 +1080,9 @@ export function DbConsistencySection({
         <p className="text-[11px] leading-relaxed text-[var(--c9-muted)]">
           <span className="font-mono text-[var(--c9-text)]">{consistency.lastCacheKey}</span>
           {' served '}
-          {consistency.lastCacheServed ?? '—'}
+          {consistency.lastCacheServed ?? FMT_EMPTY}
           {' · db '}
-          {consistency.lastCacheTruth ?? '—'}
+          {consistency.lastCacheTruth ?? FMT_EMPTY}
           {consistency.lastCacheRequestID ? (
             <>
               {' · '}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  FMT_EMPTY,
   fmtBytes,
   fmtErrorRate,
   fmtInt,
@@ -335,7 +336,7 @@ export function LiveMetricsTypeSection({
                       onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
                     />
                   }
-                  value={red.latencyMs > 0 ? fmtMs(red.latencyMs) : '—'}
+                  value={red.latencyMs > 0 ? fmtMs(red.latencyMs) : FMT_EMPTY}
                   help={
                     view.timeframe === 'session'
                       ? SESSION_LATENCY_P99_HELP
@@ -401,7 +402,7 @@ export function LiveMetricsTypeSection({
           {perOpDistributions.length > 0 ? (
             <PedagogicalSection
               title="Per-operation latency"
-              subtitle="Latency for one request type — not blended app traffic."
+              subtitle="Latency for one request type, not blended app traffic."
             >
               <div className="space-y-3">
                 {perOpDistributions.map((d) => (
@@ -723,7 +724,7 @@ export function LiveMetricsTypeSection({
                         onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
                       />
                     }
-                    value={red.latencyMs > 0 ? fmtMs(red.latencyMs) : '—'}
+                    value={red.latencyMs > 0 ? fmtMs(red.latencyMs) : FMT_EMPTY}
                     help={SESSION_LATENCY_P99_HELP}
                   />
                 ) : (
@@ -759,7 +760,7 @@ export function LiveMetricsTypeSection({
                     <CapacityBar pct={connPct} warnAt={75} criticalAt={90} />
                   </div>
                 ) : (
-                  <StatBlock label="Connections" value="—" />
+                  <StatBlock label="Connections" value={FMT_EMPTY} />
                 )
               }
             />
@@ -894,7 +895,7 @@ export function LiveMetricsTypeSection({
                     <CapacityBar pct={memPct} />
                   </div>
                 ) : (
-                  <StatBlock label="Memory usage" value="—" />
+                  <StatBlock label="Memory usage" value={FMT_EMPTY} />
                 )
               }
             />
@@ -1025,7 +1026,7 @@ export function LiveMetricsTypeSection({
                       onChange={(q) => onPanelViewChange?.({ latencyQuantile: q })}
                     />
                   }
-                  value={workerRed.latencyMs > 0 ? fmtMs(workerRed.latencyMs) : '—'}
+                  value={workerRed.latencyMs > 0 ? fmtMs(workerRed.latencyMs) : FMT_EMPTY}
                   help={
                     view.timeframe === 'session'
                       ? SESSION_LATENCY_P99_HELP

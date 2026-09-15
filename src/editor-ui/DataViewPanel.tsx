@@ -4,6 +4,7 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useLogStore, type LogLine } from '../editor-core/stores/logStore'
 import { templateTitleForId } from './TemplateModal'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
+import { FMT_EMPTY } from '../lib/format'
 
 const PROXY_COMPONENT = 'app-server'
 
@@ -351,7 +352,7 @@ function parseCatalogProducts(body: unknown): CatalogProductRow[] {
           : null
     if (id == null) continue
     const name = typeof p.name === 'string' ? p.name : `Product ${id}`
-    let price = '—'
+    let price = FMT_EMPTY
     if (typeof p.price === 'number' && Number.isFinite(p.price)) {
       price = p.price.toFixed(2)
     } else if (typeof p.price === 'string') {
@@ -1424,7 +1425,7 @@ export function DataViewPanel({ open, onClose }: DataViewPanelProps) {
             <p className="mb-1 text-[11px] text-[var(--c9-muted)]">
               Trace:{' '}
               <span className="font-mono text-[var(--c9-text)]">
-                {activeTrace ? `${activeTrace.slice(0, 8)}…` : '—'}
+                {activeTrace ? `${activeTrace.slice(0, 8)}…` : FMT_EMPTY}
               </span>
             </p>
             <p className="mb-2 text-[10px] leading-snug text-[var(--c9-muted)]">

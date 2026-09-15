@@ -87,7 +87,7 @@ describe('storageIoDisplay', () => {
   })
 
   it('formatDbQueriesPerSec handles idle and backfill', () => {
-    expect(formatDbQueriesPerSec(0, '', 0, false)).toBe('—')
+    expect(formatDbQueriesPerSec(0, '', 0, false)).toBe('-')
     expect(formatDbQueriesPerSec(0, 'none', 0, false)).toBe('No app queries')
     expect(formatDbQueriesPerSec(6, '', 0, false)).toBe('No app queries')
     expect(formatDbQueriesPerSec(50, 'app', 1000, true)).toBe('50/s')

@@ -1,7 +1,7 @@
 import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { bucketLatencyField, podLatencyMs, type LatencyQuantile } from './latencyQuantile'
-import { fmtInt, fmtPct } from './format'
+import { FMT_EMPTY, fmtInt, fmtPct } from './format'
 import {
   SESSION_CACHE_HIT_RATE_LABEL,
   SESSION_CACHE_QUERIES_LABEL,
@@ -110,7 +110,7 @@ export function cacheHeadlines(
 }
 
 export function cacheHitRateDisplay(hitRatePct: number | null): string {
-  return hitRatePct != null ? fmtPct(hitRatePct) : '—'
+  return hitRatePct != null ? fmtPct(hitRatePct) : FMT_EMPTY
 }
 
 export function dbQueryHeadline(
@@ -204,7 +204,7 @@ export function feedPushHeadline(
   const liveQueries = m.cacheHits + m.cacheMisses
   return {
     label: 'Feed reads (push)',
-    display: liveQueries > 0 ? `${formatRate(liveQueries)}/s` : '—',
+    display: liveQueries > 0 ? `${formatRate(liveQueries)}/s` : FMT_EMPTY,
   }
 }
 
@@ -218,7 +218,7 @@ export function storageIoThroughputFields(
 ): StorageIoTileFields {
   const io = m.storageIo
   if (!io) {
-    return { readLabel, readValue: '—', writeLabel, writeValue: '—' }
+    return { readLabel, readValue: FMT_EMPTY, writeLabel, writeValue: FMT_EMPTY }
   }
   if (timeframe === 'session') {
     const readTotal = io.readTotal9m ?? cacheQueryTotal9m(m)
@@ -227,7 +227,7 @@ export function storageIoThroughputFields(
       readLabel,
       readValue: fmtInt(readTotal),
       writeLabel,
-      writeValue: writeTotal != null && writeTotal > 0 ? fmtInt(writeTotal) : '—',
+      writeValue: writeTotal != null && writeTotal > 0 ? fmtInt(writeTotal) : FMT_EMPTY,
     }
   }
   return {

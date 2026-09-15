@@ -2,7 +2,7 @@ import type { TopologyFlags } from './componentRole'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { LiveLoadgenState, MetricsBucket } from '../editor-core/stores/metricsStore'
 import type { SimNodeInspector } from '../editor-core/domain/simulation/types'
-import { fmtInt, fmtMs, fmtRate } from './format'
+import { FMT_EMPTY, fmtInt, fmtMs, fmtRate } from './format'
 import { readWriteFractions } from '../editor-core/domain/simulation/workload'
 import { workloadProfileForTemplate } from '../editor-core/domain/simulation/workloadProfiles'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
@@ -60,7 +60,7 @@ const urlShortenerKpis: TemplateKpi[] = [
 ]
 
 /** Shown when the template has no matching `templateMetrics` key yet. */
-const TELEMETRY_PENDING = '—'
+const TELEMETRY_PENDING = FMT_EMPTY
 
 const ecommerceKpis: TemplateKpi[] = [
   {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { fmtInt, fmtMs, fmtRate } from '../lib/format'
+import { FMT_EMPTY, fmtInt, fmtMs, fmtRate } from '../lib/format'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 
 const TEMPLATE_METRIC_LABELS: Record<string, string> = {
@@ -71,7 +71,7 @@ export function TemplateMetricsSnippet({
 }
 
 function formatTemplateMetricValue(key: string, v: number): string {
-  if (!Number.isFinite(v)) return '—'
+  if (!Number.isFinite(v)) return FMT_EMPTY
   if (key === 'mq.saturation_ratio') return `${v.toFixed(2)}×`
   if (key === 'redis.avg_latency') return fmtMs(v * 1000)
   if (

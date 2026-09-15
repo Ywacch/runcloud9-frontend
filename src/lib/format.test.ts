@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { fmtMs } from './format'
+import { FMT_EMPTY, fmtMs } from './format'
 
 describe('fmtMs', () => {
-  it('shows em dash for zero and invalid values', () => {
-    expect(fmtMs(0)).toBe('—')
-    expect(fmtMs(undefined)).toBe('—')
+  it('shows empty placeholder for zero and invalid values', () => {
+    expect(fmtMs(0)).toBe(FMT_EMPTY)
+    expect(fmtMs(undefined)).toBe(FMT_EMPTY)
   })
 
   it('shows sub-millisecond values accurately', () => {

@@ -10,7 +10,7 @@ import {
   parseSessionHistory,
   parseSteadyState,
 } from '../editor-core/domain/sessionHistoryFromApi'
-import { fmtMemMB, fmtPct } from './format'
+import { FMT_EMPTY, fmtMemMB, fmtPct } from './format'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 import { DEFAULT_SESSION_MINUTES } from './sessionMinutes'
 import { trackSessionEndedOnce, sessionEndedProperties } from './analytics'
@@ -212,7 +212,7 @@ export function sessionSummaryFromApiMetrics(
   opts?: { status?: string },
 ): SessionSummary {
   const peaks = parsePeakFieldsFromMetricsSummary(apiMetricsSummary ?? {})
-  let duration = '—'
+  let duration = FMT_EMPTY
   if (peaks.durationSeconds != null && peaks.durationSeconds > 0) {
     const dur = peaks.durationSeconds
     duration = `${Math.floor(dur / 60)}m ${dur % 60}s`
