@@ -16,6 +16,14 @@ describe('chaosStore', () => {
     expect(useChaosStore.getState().active).toBeNull()
   })
 
+  it('keeps promotion overlays non-stateful', () => {
+    useChaosStore.getState().register('promote_replica', 'db')
+    const active = useChaosStore.getState().active
+    expect(active?.stateful).toBe(false)
+    useChaosStore.getState().tick()
+    expect(useChaosStore.getState().active).not.toBeNull()
+  })
+
   it('expires ephemeral pod_kill overlays', () => {
     const now = Date.now()
     useChaosStore.getState().register('pod_kill', 'db', now)

@@ -35,8 +35,11 @@ import {
 } from '../lib/cacheLayerDisplay'
 import type { MetricsBucket, WsEvent } from '../editor-core/stores/metricsStore'
 import {
+  failoverLossEscalation,
+  failoverReadoutSummary,
   partitionActiveHint,
   partitionCapSummary,
+  promotionWalBytesLost,
   type ChaosScenario,
 } from '../lib/chaos'
 import type { ReplicationMode, SyncCommitLevel } from '../lib/replicaConfig'
@@ -863,6 +866,8 @@ export function DbConsistencySection({
   syncCommitLevel = 'on',
   activePartitionScenario,
   partitionCapEvent,
+  promotionChaosEvent,
+  failoverWriteLossEvent,
 }: {
   m: MetricsBucket
   readConsistencyPolicy?: ReadConsistencyPolicy
@@ -871,6 +876,8 @@ export function DbConsistencySection({
   syncCommitLevel?: SyncCommitLevel
   activePartitionScenario?: ChaosScenario | null
   partitionCapEvent?: WsEvent | null
+  promotionChaosEvent?: WsEvent | null
+  failoverWriteLossEvent?: WsEvent | null
 }) {
   const consistency = m.consistency
   if (!consistency) return null
@@ -886,6 +893,17 @@ export function DbConsistencySection({
   const partitionHint = activePartitionScenario
     ? partitionActiveHint(activePartitionScenario, replicationMode, readReplicas)
     : null
+  const failoverSummary = failoverReadoutSummary(
+    promotionChaosEvent ?? null,
+    failoverWriteLossEvent ?? null,
+    replicationMode,
+    syncCommitLevel,
+  )
+  const failoverEscalation = failoverLossEscalation(failoverWriteLossEvent ?? null)
+  const walBytesLost = promotionWalBytesLost(promotionChaosEvent?.detail)
+  const promotedPod = promotionChaosEvent?.detail?.promotedPod?.trim()
+  const candidateSyncState = promotionChaosEvent?.detail?.candidateSyncState?.trim()
+  const candidateLagBytes = Number(promotionChaosEvent?.detail?.candidateLagBytes ?? '')
 
   return (
     <PedagogicalSection
@@ -907,6 +925,49 @@ export function DbConsistencySection({
           ) : null}
           {capSummary && partitionCapEvent ? (
             <PedagogicalHint>{capSummary}</PedagogicalHint>
+          ) : null}
+        </>
+      ) : null}
+      {promotionChaosEvent ? (
+        <>
+          <PedagogicalCaption>After failover</PedagogicalCaption>
+          <StatRow
+            left={
+              <StatBlock
+                label="WAL bytes lost"
+                value={walBytesLost > 0 ? fmtBytes(walBytesLost) : '0 B'}
+                help="Bytes on the fenced primary that never reached the promoted standby."
+              />
+            }
+            right={
+              <StatBlock
+                label="Promoted pod"
+                value={promotedPod || '—'}
+                help="Standby pod promoted to primary and wired to the db Service."
+              />
+            }
+          />
+          <StatRow
+            left={
+              <StatBlock
+                label="Candidate sync state"
+                value={candidateSyncState || 'async'}
+                help="sync_state from pg_stat_replication when the candidate was chosen."
+              />
+            }
+            right={
+              Number.isFinite(candidateLagBytes) && candidateLagBytes >= 0 ? (
+                <StatBlock
+                  label="Lag at selection"
+                  value={fmtBytes(candidateLagBytes)}
+                  help="Byte distance behind the fenced primary when the candidate was chosen."
+                />
+              ) : null
+            }
+          />
+          {failoverSummary ? <PedagogicalHint>{failoverSummary}</PedagogicalHint> : null}
+          {failoverEscalation ? (
+            <PedagogicalHint>{failoverEscalation}</PedagogicalHint>
           ) : null}
         </>
       ) : null}

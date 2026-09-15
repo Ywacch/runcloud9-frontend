@@ -264,6 +264,107 @@ describe('DbConsistencySection', () => {
     expect(html).toContain('Writes stalled while the database waited on replication.')
   })
 
+  it('renders zero-loss promotion readout from chaos_inject', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 10,
+          replicaReads: 40,
+          replicaStaleReads: 0,
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+          guaranteeHeldBy: 'none',
+        }),
+        replicationMode: 'semi-sync',
+        syncCommitLevel: 'remote_apply',
+        promotionChaosEvent: {
+          timestamp: 't',
+          type: 'action',
+          source: 'chaos',
+          kind: 'chaos_inject',
+          component: 'db',
+          title: 'Promote replica',
+          description: 'promote_replica',
+          detail: {
+            scenario: 'promote_replica',
+            promotedPod: 'postgres-replica-0',
+            candidateSyncState: 'sync',
+            candidateLagBytes: '0',
+            walBytesLost: '0',
+            replicationMode: 'semi-sync',
+            syncCommitLevel: 'remote_apply',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('After failover')
+    expect(html).toContain('WAL bytes lost')
+    expect(html).toContain('0 B')
+    expect(html).toContain('postgres-replica-0')
+    expect(html).toContain('remote_apply')
+    expect(html).toContain('nothing the client already saw was lost')
+    expect(html).not.toContain('Failover write loss')
+  })
+
+  it('renders lossy promotion readout with invariant escalation', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 0,
+          replicaReads: 0,
+          replicaStaleReads: 0,
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+          guaranteeHeldBy: 'none',
+        }),
+        replicationMode: 'async',
+        promotionChaosEvent: {
+          timestamp: 't',
+          type: 'action',
+          source: 'chaos',
+          kind: 'chaos_inject',
+          component: 'db',
+          title: 'Promote lagging replica',
+          description: 'promote_lagging_replica',
+          detail: {
+            scenario: 'promote_lagging_replica',
+            promotedPod: 'postgres-replica-1',
+            candidateSyncState: 'async',
+            candidateLagBytes: '4096',
+            walBytesLost: '4096',
+            replicationMode: 'async',
+            syncCommitLevel: 'on',
+          },
+        },
+        failoverWriteLossEvent: {
+          timestamp: 't2',
+          type: 'invariant',
+          source: 'chaos',
+          component: 'db',
+          title: 'Failover write loss',
+          description:
+            'Promoted postgres-replica-1 was 4096 bytes behind the fenced primary; commits the client already saw may be gone',
+          rule: 'failover_write_loss',
+          detail: {
+            scenario: 'promote_lagging_replica',
+            promotedPod: 'postgres-replica-1',
+            syncState: 'async',
+            walBytesLost: '4096',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('After failover')
+    expect(html).toContain('4.0 KB')
+    expect(html).toContain('postgres-replica-1')
+    expect(html).toContain('farthest-behind standby')
+    expect(html).toContain('commits the client already saw may be gone')
+  })
+
   it('hides cache evidence line when key is absent', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {
