@@ -241,6 +241,24 @@ describe('metricsUiContract', () => {
     expect(layers[1].replicationLagSeconds).toBe(0.05)
   })
 
+  it('parseComponentLayers maps promotion preview fields on replica layers', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'postgres-replica-1',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0,
+        memoryUsage: 0,
+        syncState: 'sync',
+        lagBytes: 0,
+        promotionCandidate: true,
+      },
+    ])
+    expect(layers[0]?.syncState).toBe('sync')
+    expect(layers[0]?.lagBytes).toBe(0)
+    expect(layers[0]?.promotionCandidate).toBe(true)
+  })
+
   it('parseComponentLayers preserves zero replication lag', () => {
     const layers = parseComponentLayers([
       {

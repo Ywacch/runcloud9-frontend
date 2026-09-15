@@ -8,6 +8,7 @@ import {
   DbConsistencySection,
   DbInstanceLayerSection,
   DbLoadSection,
+  DbReplicaLagSection,
   formatConsistencyViolation,
 } from './StorageIoSection'
 
@@ -579,5 +580,93 @@ describe('DbLoadSection', () => {
     expect(html).not.toContain('27,216/s')
     expect(html).not.toContain('10s · /s')
     expect(html).not.toContain('Why reads look high')
+  })
+})
+
+describe('DbReplicaLagSection promotion preview', () => {
+  it('marks the most-current standby and shows sync state with lag bytes', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres',
+              role: 'primary',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+            },
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              replicationLagSeconds: 0.5,
+              syncState: 'async',
+              lagBytes: 8192,
+            },
+            {
+              id: 'postgres-replica-1',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              replicationLagSeconds: 0,
+              syncState: 'sync',
+              lagBytes: 0,
+              promotionCandidate: true,
+            },
+          ],
+          backendReplicas: { desired: 2, ready: 2 },
+        }),
+      }),
+    )
+    expect(html).toContain('promote_replica')
+    expect(html).toContain('postgres-replica-1')
+    expect(html).toContain('promote pick')
+    expect(html).toContain('sync')
+    expect(html).toContain('8.0 KiB')
+    expect(html).toContain('0 B')
+  })
+
+  it('degrades to async when sync state is absent on a single replica', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              replicationLagSeconds: 0.2,
+              syncState: 'async',
+              lagBytes: 0,
+              promotionCandidate: true,
+            },
+          ],
+        }),
+      }),
+    )
+    expect(html).toContain('async')
+    expect(html).toContain('0 B behind')
   })
 })

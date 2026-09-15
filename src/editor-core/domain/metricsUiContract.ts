@@ -102,6 +102,12 @@ export interface ComponentLayerMetrics {
   restartCount?: number
   /** Primary-side replay lag in seconds (Postgres replica layers only). */
   replicationLagSeconds?: number
+  /** pg_stat_replication.sync_state from the primary ("async" when not streaming). */
+  syncState?: string
+  /** Primary-side WAL bytes behind for this standby. */
+  lagBytes?: number
+  /** True when promote_replica would pick this standby (mostCurrent ordering). */
+  promotionCandidate?: boolean
   /** Per-layer PostgreSQL transaction throughput (xact/s) when present. */
   requestRate?: number
   /** Session sum of pg xact commit+rollback for this layer. */
@@ -397,6 +403,12 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const evictions = num(r.evictionsPerSec)
     const expirations = num(r.expirationsPerSec)
     const replicationLag = num(r.replicationLagSeconds)
+    const syncState = typeof r.syncState === 'string' ? r.syncState.trim() : ''
+    const lagBytesRaw = r.lagBytes
+    const lagBytes =
+      typeof lagBytesRaw === 'number' && Number.isFinite(lagBytesRaw)
+        ? Math.round(lagBytesRaw)
+        : undefined
     const requestRate = num(r.requestRate)
     const totalRequests = Math.round(num(r.totalRequests))
     const dbActiveConnections = Math.round(num(r.dbActiveConnections))
@@ -429,6 +441,9 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       restartCount: restartCount > 0 ? restartCount : undefined,
       replicationLagSeconds:
         replicationLag > 0 || r.replicationLagSeconds === 0 ? replicationLag : undefined,
+      syncState: syncState || undefined,
+      lagBytes: lagBytes !== undefined ? lagBytes : undefined,
+      promotionCandidate: r.promotionCandidate === true ? true : undefined,
       requestRate: requestRate > 0 ? requestRate : undefined,
       totalRequests: totalRequests > 0 ? totalRequests : undefined,
       dbActiveConnections: dbActiveConnections > 0 ? dbActiveConnections : undefined,

@@ -747,6 +747,19 @@ function fmtReplicationLagSeconds(seconds: number | undefined): string {
   return `${seconds.toFixed(1)} s`
 }
 
+function fmtLagBytes(bytes: number | undefined): string {
+  if (bytes === undefined || !Number.isFinite(bytes)) return '—'
+  if (bytes === 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+}
+
+function fmtReplicaSyncState(syncState: string | undefined): string {
+  const state = syncState?.trim()
+  return state ? state : 'async'
+}
+
 export function formatConsistencyViolation(count: number): string {
   if (!Number.isFinite(count) || count <= 0) return 'OK'
   return count === 1 ? '1 violation' : `${fmtInt(count)} violations`
@@ -805,11 +818,19 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   const br = m.backendReplicas
   const single = replicaLayers.length === 1 ? replicaLayers[0] : null
   const maxLag = Math.max(...replicaLayers.map((layer) => layer.replicationLagSeconds ?? 0))
+  const promotionCandidate = replicaLayers.find((layer) => layer.promotionCandidate)
+  const showPromotionPreview = replicaLayers.some(
+    (layer) => layer.syncState !== undefined || layer.lagBytes !== undefined || layer.promotionCandidate,
+  )
 
   return (
     <PedagogicalSection
       title="Read replicas"
-      subtitle="Primary-side replay lag per streaming standby"
+      subtitle={
+        showPromotionPreview
+          ? 'Replay lag, sync state, and which standby promote_replica would pick'
+          : 'Primary-side replay lag per streaming standby'
+      }
     >
       <StatRow
         left={
@@ -832,19 +853,48 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
           />
         }
       />
+      {showPromotionPreview && promotionCandidate ? (
+        <PedagogicalHint>
+          <span className="font-mono">{promotionCandidate.id}</span> would be promoted by{' '}
+          <span className="font-mono">promote_replica</span>
+          {promotionCandidate.lagBytes !== undefined
+            ? ` (${fmtLagBytes(promotionCandidate.lagBytes)} behind, ${fmtReplicaSyncState(promotionCandidate.syncState)})`
+            : ` (${fmtReplicaSyncState(promotionCandidate.syncState)})`}
+          . Use <span className="font-mono">promote_lagging_replica</span> to deliberately pick a
+          farther-behind standby.
+        </PedagogicalHint>
+      ) : null}
       {replicaLayers.length > 1 ? (
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-            Per-replica lag
+            {showPromotionPreview ? 'Per-replica promotion preview' : 'Per-replica lag'}
           </p>
           <ul className="space-y-1 font-mono text-[11px] text-gray-300">
             {replicaLayers.map((layer) => (
-              <li key={layer.id} className="flex justify-between gap-2">
-                <span className="truncate">{layer.id}</span>
-                <span>{fmtReplicationLagSeconds(layer.replicationLagSeconds)}</span>
+              <li key={layer.id} className="flex flex-col gap-0.5">
+                <div className="flex justify-between gap-2">
+                  <span className="truncate">
+                    {layer.id}
+                    {layer.promotionCandidate ? ' · promote pick' : ''}
+                  </span>
+                  <span>{fmtReplicationLagSeconds(layer.replicationLagSeconds)}</span>
+                </div>
+                {showPromotionPreview ? (
+                  <div className="flex justify-between gap-2 text-[10px] text-gray-500">
+                    <span>{fmtReplicaSyncState(layer.syncState)}</span>
+                    <span>{fmtLagBytes(layer.lagBytes)} behind</span>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
+        </div>
+      ) : showPromotionPreview && single ? (
+        <div className="space-y-1 font-mono text-[11px] text-gray-300">
+          <div className="flex justify-between gap-2">
+            <span>{fmtReplicaSyncState(single.syncState)}</span>
+            <span>{fmtLagBytes(single.lagBytes)} behind</span>
+          </div>
         </div>
       ) : null}
     </PedagogicalSection>
