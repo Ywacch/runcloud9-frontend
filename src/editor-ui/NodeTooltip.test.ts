@@ -51,12 +51,12 @@ function metrics(): MetricsBucket {
 
 describe('resolveGroupedDisplay worker', () => {
   it('matches compute: cluster hover shows Cluster, not a generic node tooltip', () => {
-    const clustered = resolveGroupedDisplay(workerNode(), metrics(), false, 'cluster')
+    const clustered = resolveGroupedDisplay(workerNode(), metrics(), 'cluster')
     expect(clustered?.clusterScope).toBe(true)
     expect(clustered?.instanceLabel).toBeUndefined()
     expect(clustered?.rps).toBe(10)
 
-    const compute = resolveGroupedDisplay(computeNode(), metrics(), false, null)
+    const compute = resolveGroupedDisplay(computeNode(), metrics(), null)
     expect(compute?.clusterScope).toBe(true)
   })
 
@@ -71,7 +71,7 @@ describe('resolveGroupedDisplay worker', () => {
       ],
     } as MetricsBucket
 
-    const display = resolveGroupedDisplay(computeNode(), m, false, null)
+    const display = resolveGroupedDisplay(computeNode(), m, null)
     expect(display?.cpuPct).toBe(24)
     expect(display?.memPct).toBe(2)
     expect(display?.rps).toBe(10)
@@ -81,12 +81,77 @@ describe('resolveGroupedDisplay worker', () => {
     const display = resolveGroupedDisplay(
       workerNode(),
       metrics(),
-      false,
       'worker-roll-b',
     )
     expect(display?.clusterScope).toBeUndefined()
     expect(display?.instanceLabel).toBe('roll-b')
     expect(display?.rps).toBe(6)
     expect(display?.p99Ms).toBe(80)
+  })
+})
+
+function dbNode(): CanvasNode {
+  return {
+    id: 'db',
+    type: 'database',
+    label: 'PostgreSQL',
+    position: [0, 0, 0],
+    status: 'healthy',
+    config: { readReplicas: 2 },
+  }
+}
+
+function dbLayer(
+  id: string,
+  role: string,
+  cpuUsage: number,
+  memoryBytes: number,
+  requestRate: number,
+) {
+  return {
+    id,
+    role,
+    engine: 'postgresql',
+    cpuUsage,
+    cpuLimit: 0.25,
+    memoryBytes,
+    memoryLimit: 256 * 1024 * 1024,
+    cpuIsEstimated: false,
+    memIsEstimated: false,
+    requestRate,
+  }
+}
+
+describe('resolveGroupedDisplay database', () => {
+  const bucket = {
+    cpuPercent: 12,
+    memPercent: 41,
+    cpuIsEstimated: false,
+    memIsEstimated: false,
+    dbQueryRate: 6,
+    requestRate: 6,
+    layers: [
+      dbLayer('postgres', 'primary', 0.03, 80 * 1024 * 1024, 4),
+      dbLayer('postgres-replica-1', 'replica', 0.01, 70 * 1024 * 1024, 1),
+      dbLayer('postgres-replica-2', 'replica', 0.01, 70 * 1024 * 1024, 1),
+    ],
+  } as MetricsBucket
+
+  it('uses component cpu/mem for cluster hover, not a zeroed layer average', () => {
+    const display = resolveGroupedDisplay(dbNode(), bucket, 'cluster')
+    expect(display?.clusterScope).toBe(true)
+    expect(display?.instanceLabel).toBeUndefined()
+    expect(display?.cpuPct).toBe(12)
+    expect(display?.memPct).toBe(41)
+    expect(display?.rps).toBe(6)
+  })
+
+  it('maps replica unit hover to that replica, not primary', () => {
+    const display = resolveGroupedDisplay(dbNode(), bucket, 'postgres-replica-1')
+    expect(display?.clusterScope).toBeUndefined()
+    expect(display?.instanceLabel).toBe('replica-1')
+    expect(display?.rps).toBe(1)
+    expect(display?.cpuPct).toBeGreaterThan(0)
+    expect(display?.memPct).toBeGreaterThan(0)
   })
 })

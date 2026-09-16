@@ -6,6 +6,7 @@ import {
   instanceIdForUnitIndex,
   metricsInstancePickKey,
   sortedCanvasInstanceIds,
+  unitIndexFromMotionId,
   unitPickEnabledForDisplay,
 } from './canvasInstanceScope'
 import { DB_LAYER_ID_POSTGRES_PRIMARY } from './dbInstanceScope'
@@ -160,6 +161,23 @@ describe('instanceIdForUnitIndex', () => {
       ],
     })
     expect(instanceIdForUnitIndex(node, bucket, 1, 2)).toBe('pod-b')
+  })
+})
+
+describe('unitIndexFromMotionId', () => {
+  it('uses array index for layer ids, not uN parsing', () => {
+    const units = [
+      { id: 'postgres' },
+      { id: 'postgres-replica-1' },
+      { id: 'postgres-replica-2' },
+    ]
+    expect(unitIndexFromMotionId(units, 'postgres')).toBe(0)
+    expect(unitIndexFromMotionId(units, 'postgres-replica-1')).toBe(1)
+    expect(unitIndexFromMotionId(units, 'postgres-replica-2')).toBe(2)
+  })
+
+  it('still parses uN ids', () => {
+    expect(unitIndexFromMotionId([{ id: 'u0' }, { id: 'u1' }], 'u1')).toBe(1)
   })
 })
 

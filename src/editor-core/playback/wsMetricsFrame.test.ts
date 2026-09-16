@@ -33,6 +33,17 @@ describe('componentToBucket resource sources', () => {
     expect(bucket.memSource).toBe('metrics_api')
   })
 
+  it('keeps sub-1% cpu instead of rounding idle millicores to 0', () => {
+    const bucket = componentToBucket({
+      cpuUsage: 0.015,
+      cpuLimit: 2,
+      memoryBytes: 80 * 1024 * 1024,
+      memoryLimit: 2 * 1024 * 1024 * 1024,
+    })
+    expect(bucket.cpuPercent).toBe(0.8)
+    expect(bucket.memPercent).toBeGreaterThan(0)
+  })
+
   it('maps cache layers from WS component payload', () => {
     const bucket = componentToBucket({
       cacheMetricMode: 'layered',

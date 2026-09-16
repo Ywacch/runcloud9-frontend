@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  layerResourcePercents,
   parseCrashContext,
   parseComponentLayers,
   parseDbConsistency,
@@ -405,5 +406,21 @@ describe('metricsUiContract', () => {
       lastCacheTruth: '2',
       lastCacheRequestID: 'req-abc',
     })
+  })
+
+  it('layerResourcePercents keeps idle millicores instead of rounding to 0%', () => {
+    const { cpuPercent, memPercent } = layerResourcePercents({
+      id: 'postgres',
+      role: 'primary',
+      engine: 'postgresql',
+      cpuUsage: 0.015,
+      cpuLimit: 2,
+      memoryBytes: 80 * 1024 * 1024,
+      memoryLimit: 2 * 1024 * 1024 * 1024,
+      cpuIsEstimated: false,
+      memIsEstimated: false,
+    })
+    expect(cpuPercent).toBe(0.8)
+    expect(memPercent).toBeGreaterThan(0)
   })
 })

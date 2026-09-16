@@ -15,7 +15,11 @@ import {
 } from '../lib/metricHelp'
 import { containerFreshnessHint } from '../lib/metricsFreshness'
 import type { MetricsBucket, ResourceUsageSource } from '../editor-core/stores/metricsStore'
-import type { PodRuntimeHealth, RuntimeHealthSummary } from '../editor-core/domain/metricsUiContract'
+import type {
+  ComponentLayerMetrics,
+  PodRuntimeHealth,
+  RuntimeHealthSummary,
+} from '../editor-core/domain/metricsUiContract'
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import type { LatencyQuantile } from '../lib/latencyQuantile'
 import { MetricChart } from './MetricChart'
@@ -487,6 +491,25 @@ export function formatDbClusterResourceLabels(
   _warmingUp: boolean,
 ): { cpu: string; mem: string } {
   return formatResourceLabels(m, cpuPercent, memPercent)
+}
+
+/** Overlay a db instance layer onto the cluster bucket for tooltip CPU/memory labels. */
+export function tooltipResourceBucket(
+  metrics: MetricsBucket,
+  layer: ComponentLayerMetrics | undefined,
+): MetricsBucket {
+  if (!layer) return metrics
+  return {
+    ...metrics,
+    cpuUsage: layer.cpuUsage,
+    memoryBytes: layer.memoryBytes,
+    cpuLimit: layer.cpuLimit,
+    memoryLimit: layer.memoryLimit,
+    cpuIsEstimated: layer.cpuIsEstimated,
+    memIsEstimated: layer.memIsEstimated,
+    cpuSource: layer.cpuSource,
+    memSource: layer.memSource,
+  }
 }
 
 export function formatResourceLabels(

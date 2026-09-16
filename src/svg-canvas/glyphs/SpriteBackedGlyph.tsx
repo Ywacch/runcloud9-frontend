@@ -2,6 +2,8 @@ import { useId } from 'react'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import type { MotionUnit } from '../store/unitMotionStore'
 import { compareUnitPaintOrder } from '../compose/composePacking'
+import { HALF_H, HALF_W } from '../math/iso'
+import { unitIndexFromMotionId } from '../../lib/canvasInstanceScope'
 import {
   resolveRimStyle,
   usePulsingAlpha,
@@ -20,6 +22,46 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 export type { SpriteKind }
 
 const SPRITES = SPRITE_METRICS
+
+function UnitPickHit({
+  spec,
+  onPointerDown,
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  spec: (typeof SPRITE_METRICS)[SpriteKind]
+  onPointerDown: (e: ReactPointerEvent<SVGElement>) => void
+  onPointerEnter: () => void
+  onPointerLeave: () => void
+}) {
+  const { cx, cy, size, shape } = spec.faceLogo
+  const rx = size * 0.36
+  const ry = rx * (HALF_H / HALF_W)
+  const common = {
+    fill: 'transparent' as const,
+    style: { pointerEvents: 'fill' as const },
+    onPointerDown,
+    onPointerEnter,
+    onPointerLeave,
+  }
+  if (shape === 'ellipse') {
+    return (
+      <ellipse
+        cx={cx}
+        cy={cy + ry * 0.45}
+        rx={rx}
+        ry={ry * 1.45}
+        {...common}
+      />
+    )
+  }
+  return (
+    <polygon
+      points={`${cx},${cy - ry} ${cx + rx},${cy} ${cx},${cy + ry + 14} ${cx - rx},${cy}`}
+      {...common}
+    />
+  )
+}
 
 type SpriteBackedGlyphProps = {
   kind: SpriteKind
@@ -69,10 +111,7 @@ export function SpriteBackedGlyph({
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
   const unitPick = ordered.length > 1 && onUnitPointerDown != null
-  const unitIndexFromId = (id: string): number => {
-    const n = Number(id.replace(/^u/, ''))
-    return Number.isFinite(n) ? n : 0
-  }
+  const pickIndex = (id: string): number => unitIndexFromMotionId(units, id)
   // Multi-unit nodes use SvgZone for group chrome — not per-unit selection boxes.
   const perUnitSelect = selected && ordered.length <= 1
   const stroke = perUnitSelect ? '#3b82f6' : 'transparent'
@@ -117,32 +156,29 @@ export function SpriteBackedGlyph({
       >
         {ordered.map((u) => (
           <g key={u.id} transform={`translate(${u.dx} ${u.dy}) scale(${u.scale})`} opacity={u.opacity}>
-            <rect
-              x={-spec.tipX}
-              y={-spec.tipY}
-              width={spec.w}
-              height={spec.h}
-              fill="transparent"
-              style={{ pointerEvents: interactive ? 'fill' : 'none' }}
-              onPointerDown={
-                interactive && unitPick
-                  ? (e) => {
-                      e.stopPropagation()
-                      onUnitPointerDown?.(unitIndexFromId(u.id), e)
-                    }
-                  : undefined
-              }
-              onPointerEnter={
-                interactive && unitPick
-                  ? () => onUnitPointerEnter?.(unitIndexFromId(u.id))
-                  : undefined
-              }
-              onPointerLeave={
-                interactive && unitPick
-                  ? () => onUnitPointerLeave?.(unitIndexFromId(u.id))
-                  : undefined
-              }
-            />
+            {interactive && unitPick ? (
+              <UnitPickHit
+                spec={spec}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onUnitPointerDown?.(
+                    pickIndex(u.id),
+                    e as ReactPointerEvent<SVGGElement>,
+                  )
+                }}
+                onPointerEnter={() => onUnitPointerEnter?.(pickIndex(u.id))}
+                onPointerLeave={() => onUnitPointerLeave?.(pickIndex(u.id))}
+              />
+            ) : interactive ? (
+              <rect
+                x={-spec.tipX}
+                y={-spec.tipY}
+                width={spec.w}
+                height={spec.h}
+                fill="transparent"
+                style={{ pointerEvents: 'fill' }}
+              />
+            ) : null}
             {/* Silhouette rim from dilated sprite alpha (shared feMorphology). */}
             {mountRim && rimFilter ? (
               <image

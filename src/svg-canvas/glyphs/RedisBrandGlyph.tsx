@@ -7,6 +7,7 @@ import {
 } from '../compose/cloudcraftRedisBrand'
 import type { MotionUnit } from '../store/unitMotionStore'
 import { compareUnitPaintOrder } from '../compose/composePacking'
+import { unitIndexFromMotionId } from '../../lib/canvasInstanceScope'
 import {
   resolveRimStyle,
   usePulsingAlpha,
@@ -119,10 +120,7 @@ export function RedisBrandGlyph({
   // Multi-replica nest uses ZoneLayer for cluster selection; per-mark hits when wired.
   const multi = units.length > 1
   const unitPick = multi && onUnitPointerDown != null
-  const unitIndexFromId = (id: string): number => {
-    const n = Number(id.replace(/^u/, ''))
-    return Number.isFinite(n) ? n : 0
-  }
+  const pickIndex = (id: string): number => unitIndexFromMotionId(units, id)
   const stroke = selected && !multi ? '#3b82f6' : '#2b0908'
   const strokeWidth = selected && !multi ? 2 : 1
   const rimStyle = resolveRimStyle(healthVisual)
@@ -162,10 +160,10 @@ export function RedisBrandGlyph({
                 style={{ pointerEvents: 'fill' }}
                 onPointerDown={(e) => {
                   e.stopPropagation()
-                  onUnitPointerDown?.(unitIndexFromId(u.id), e)
+                  onUnitPointerDown?.(pickIndex(u.id), e)
                 }}
-                onPointerEnter={() => onUnitPointerEnter?.(unitIndexFromId(u.id))}
-                onPointerLeave={() => onUnitPointerLeave?.(unitIndexFromId(u.id))}
+                onPointerEnter={() => onUnitPointerEnter?.(pickIndex(u.id))}
+                onPointerLeave={() => onUnitPointerLeave?.(pickIndex(u.id))}
               />
             ) : null}
             <RedisMark

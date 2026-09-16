@@ -27,7 +27,6 @@ import {
 } from '../lib/latencyQuantile'
 import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
-import { rollup, samplesFromLayers } from '../lib/instanceRollup'
 import {
   cacheLayerSectionLabels,
   isBackingCacheLayer,
@@ -308,10 +307,8 @@ export function DbClusterResourcesSection({
 }) {
   const warmingUp = useDbTierCWarmup(nodeId, m)
 
-  const hasReplicaLayers = m.layers.some((layer) => layer.role === 'replica')
-  const layerRollup = hasReplicaLayers ? rollup(samplesFromLayers(m)) : null
-  const clusterCpuPercent = layerRollup?.cpuPct ?? cpuPercent
-  const clusterMemPercent = layerRollup?.memPct ?? memPercent
+  const clusterCpuPercent = cpuPercent
+  const clusterMemPercent = memPercent
 
   const labels = formatDbClusterResourceLabels(
     m,

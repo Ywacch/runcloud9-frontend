@@ -49,6 +49,20 @@ export function instanceIdForUnitIndex(
   return ids[unitIndex] ?? null
 }
 
+/**
+ * Map a painted motion-unit id back to the compose/index used by
+ * `instanceIdForUnitIndex`. Layer ids (`postgres`, pod names) are not `uN`.
+ */
+export function unitIndexFromMotionId(
+  units: ReadonlyArray<{ id: string }>,
+  id: string,
+): number {
+  const fromUnits = units.findIndex((unit) => unit.id === id)
+  if (fromUnits >= 0) return fromUnits
+  const n = Number(id.replace(/^u/, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
 export function canvasUnitPickEnabled(
   node: CanvasNode,
   metrics: MetricsBucket | undefined,
