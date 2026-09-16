@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { clearPlaybackSession } from '../playback/playbackLoop'
 import { clearTierCWarmupSession } from '../../lib/tierCWarmupSession'
+import { capWsEvents } from '../../lib/chaos'
 import { loadWsEventsJson } from '../../lib/wsEventsPersist'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
@@ -377,7 +378,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   pushEvents: (incoming) =>
     set((s) => {
       if (!incoming?.length) return s
-      const merged = [...s.events, ...incoming].slice(-MAX_EVENTS)
+      const merged = capWsEvents([...s.events, ...incoming], MAX_EVENTS)
       let cascadeToast = s.cascadeToast
       let invariantToast = s.invariantToast
       for (const e of incoming) {
@@ -422,6 +423,6 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       if (!json) return s
       const events = parsePersistedWsEvents(json)
       if (!events.length) return s
-      return { events: events.slice(-MAX_EVENTS) }
+      return { events: capWsEvents(events, MAX_EVENTS) }
     }),
 }))
