@@ -23,6 +23,8 @@ import { resolveSkin } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../../editor-core/stores/metricsStore'
+import { sortedCanvasInstanceIds } from '../../lib/canvasInstanceScope'
 import { ClientLoadgenGlyph } from './ClientLoadgenGlyph'
 import { RedisBrandGlyph } from './RedisBrandGlyph'
 import { SpriteBackedGlyph } from './SpriteBackedGlyph'
@@ -67,6 +69,8 @@ function NodeGlyphInner({
   onUnitPointerLeave,
 }: NodeGlyphProps) {
   const canvasMode = useCanvasStore((s) => s.mode)
+  const canvasNode = useCanvasStore((s) => s.nodes[node.id])
+  const nodeMetrics = useMetricsStore((s) => s.metrics[node.id])
   const stableHealthRim = canvasMode === 'live'
   const skin = resolveSkin(node.archetype, node.engine)
   const expanded = useExpanded(node)
@@ -83,26 +87,36 @@ function NodeGlyphInner({
     ],
   )
   const unitsKey = resolved.units.map((u) => `${u.dx},${u.dy}`).join('|')
-  const topologyKey = `${node.topology.replicas}:${node.topology.shards}:${node.topology.packing}:${expanded ? 1 : 0}`
+  const layerUnitIds = useMemo(
+    () =>
+      canvasNode
+        ? sortedCanvasInstanceIds(canvasNode, nodeMetrics, resolved.units.length)
+        : [],
+    [canvasNode, nodeMetrics, resolved.units.length],
+  )
+  const layerIdsKey = layerUnitIds.join(',')
+  const topologyKey = `${node.topology.replicas}:${node.topology.shards}:${node.topology.packing}:${expanded ? 1 : 0}:${layerIdsKey}`
   const prevTopologyKeyRef = useRef(topologyKey)
   const staticUnits: MotionUnit[] = useMemo(
     () =>
       resolved.units.map((u, i) => ({
-        id: `u${i}`,
+        id: layerUnitIds[i] ?? `u${i}`,
         dx: u.dx,
         dy: u.dy,
         opacity: 1,
         scale: 1,
       })),
-    [unitsKey],
+    [unitsKey, layerIdsKey],
   )
 
   useEffect(() => {
     const topologyChanged = prevTopologyKeyRef.current !== topologyKey
     prevTopologyKeyRef.current = topologyKey
     const animateSpawn = canvasMode !== 'live' || topologyChanged
-    retarget(node.id, resolved.units, { dx: 0, dy: 0 }, { animateSpawn })
-  }, [node.id, unitsKey, topologyKey, resolved.units, canvasMode])
+    const targetIds =
+      layerUnitIds.length === resolved.units.length ? layerUnitIds : undefined
+    retarget(node.id, resolved.units, { dx: 0, dy: 0 }, { animateSpawn, targetIds })
+  }, [node.id, unitsKey, topologyKey, layerIdsKey, resolved.units, canvasMode, layerUnitIds])
 
   const motionKey = useSyncExternalStore(
     subscribeUnitMotion,

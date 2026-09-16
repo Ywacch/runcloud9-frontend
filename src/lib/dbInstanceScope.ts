@@ -13,6 +13,11 @@ export function dbHasReplicaLayers(layers: ComponentLayerMetrics[]): boolean {
   return layers.some((layer) => layer.role === 'replica')
 }
 
+/** Replica layer ids from live metrics (for Primary log scoping after promote). */
+export function dbReplicaLayerIds(layers: ComponentLayerMetrics[]): string[] {
+  return layers.filter((layer) => layer.role === 'replica').map((layer) => layer.id)
+}
+
 /** App-server and worker share podReplica instance ids (not DB layers). */
 export function usesPodReplicaScope(node: CanvasNode | null | undefined): boolean {
   return node?.type === 'compute' || node?.type === 'worker'
@@ -112,11 +117,15 @@ const POSTGRES_REPLICA_POD_PREFIX = 'postgres-replica'
 export function logLineMatchesInstance(
   pod: string | undefined,
   instanceId: SelectedInstanceId,
+  options: { replicaLayerIds?: string[] } = {},
 ): boolean {
   if (!instanceId || instanceId === 'cluster') return true
   if (!pod) return false
   if (pod === instanceId) return true
   if (instanceId === DB_LAYER_ID_POSTGRES_PRIMARY) {
+    if (options.replicaLayerIds) {
+      return !options.replicaLayerIds.includes(pod)
+    }
     return (
       pod === DB_LAYER_ID_POSTGRES_PRIMARY ||
       (pod.startsWith(`${DB_LAYER_ID_POSTGRES_PRIMARY}-`) &&

@@ -236,6 +236,58 @@ describe('dbInstanceScope', () => {
     )
   })
 
+  it('builds tabs for post-promote two-layer topology', () => {
+    const layers: ComponentLayerMetrics[] = [
+      {
+        id: DB_LAYER_ID_POSTGRES_PRIMARY,
+        role: 'primary',
+        engine: 'postgresql',
+        cpuUsage: 0.1,
+        memoryBytes: 1,
+        cpuLimit: 1,
+        memoryLimit: 1,
+        cpuIsEstimated: false,
+        memIsEstimated: false,
+      },
+      {
+        id: 'postgres-replica-1',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0.02,
+        memoryBytes: 1,
+        cpuLimit: 1,
+        memoryLimit: 1,
+        cpuIsEstimated: false,
+        memIsEstimated: false,
+        replicationLagSeconds: 0.05,
+      },
+    ]
+    expect(dbInstanceTabs(layers).map((tab) => tab.label)).toEqual([
+      'Cluster',
+      'Primary',
+      'replica-1',
+    ])
+  })
+
+  it('matches promoted primary writer pod logs on Primary tab', () => {
+    const replicaIds = ['postgres-replica-1']
+    expect(
+      logLineMatchesInstance('postgres-replica-0', DB_LAYER_ID_POSTGRES_PRIMARY, {
+        replicaLayerIds: replicaIds,
+      }),
+    ).toBe(true)
+    expect(
+      logLineMatchesInstance('postgres-replica-1', DB_LAYER_ID_POSTGRES_PRIMARY, {
+        replicaLayerIds: replicaIds,
+      }),
+    ).toBe(false)
+    expect(
+      logLineMatchesInstance('postgres-replica-1', 'postgres-replica-1', {
+        replicaLayerIds: replicaIds,
+      }),
+    ).toBe(true)
+  })
+
   it('matches log pods to the selected instance without mixing postgres roles', () => {
     expect(logLineMatchesInstance('app-server-roll-abc', 'cluster')).toBe(true)
     expect(logLineMatchesInstance('app-server-roll-abc', null)).toBe(true)

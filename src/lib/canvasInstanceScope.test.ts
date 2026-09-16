@@ -96,6 +96,40 @@ describe('sortedCanvasInstanceIds', () => {
     ).toEqual([])
   })
 
+  it('aligns database ids with post-promote two-layer topology', () => {
+    const ids = sortedCanvasInstanceIds(
+      dbNode(),
+      metrics({
+        layers: [
+          {
+            id: DB_LAYER_ID_POSTGRES_PRIMARY,
+            role: 'primary',
+            engine: 'postgresql',
+            cpuUsage: 0,
+            cpuLimit: 1,
+            memoryBytes: 0,
+            memoryLimit: 1,
+            cpuIsEstimated: false,
+            memIsEstimated: false,
+          },
+          {
+            id: 'postgres-replica-1',
+            role: 'replica',
+            engine: 'postgresql',
+            cpuUsage: 0,
+            cpuLimit: 1,
+            memoryBytes: 0,
+            memoryLimit: 1,
+            cpuIsEstimated: false,
+            memIsEstimated: false,
+          },
+        ],
+      }),
+      2,
+    )
+    expect(ids).toEqual([DB_LAYER_ID_POSTGRES_PRIMARY, 'postgres-replica-1'])
+  })
+
   it('orders database layers primary first then replicas by id', () => {
     const ids = sortedCanvasInstanceIds(
       dbNode(),

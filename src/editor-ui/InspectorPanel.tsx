@@ -96,6 +96,7 @@ import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistry
 import { DbInstanceTabBar } from './DbInstanceTabBar'
 import {
   dbHasReplicaLayers,
+  dbReplicaLayerIds,
   instanceTabsForNode,
 } from '../lib/dbInstanceScope'
 import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
@@ -199,7 +200,19 @@ export function InspectorPanel() {
     node ? s.metrics[node.id] : undefined,
   )
   const instanceTabs = instanceTabsForNode(node, nodeMetrics)
+  const replicaLayerIds = useMemo(
+    () => (nodeMetrics ? dbReplicaLayerIds(nodeMetrics.layers) : []),
+    [nodeMetrics],
+  )
   const showInstanceTabs = instanceTabs.length > 0
+
+  useEffect(() => {
+    if (!selectedInstanceId || selectedInstanceId === 'cluster') return
+    const tabIds = instanceTabs.map((tab) => tab.id)
+    if (!tabIds.includes(selectedInstanceId)) {
+      setSelectedInstanceId('cluster')
+    }
+  }, [instanceTabs, selectedInstanceId, setSelectedInstanceId])
   const showDbDataInstanceTabs =
     node?.type === 'database' &&
     nodeMetrics != null &&
@@ -463,6 +476,9 @@ export function InspectorPanel() {
                     key={node.id}
                     node={node}
                     instanceId={selectedInstanceId}
+                    replicaLayerIds={
+                      node.type === 'database' ? replicaLayerIds : undefined
+                    }
                   />
                 ) : null}
                 {liveTab === 'config' ? (
