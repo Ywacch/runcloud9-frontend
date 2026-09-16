@@ -1,6 +1,6 @@
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
-import { FMT_EMPTY, fmtMs } from './format'
+import { FMT_EMPTY, fmtMs, utilizationPercent } from './format'
 
 export type InstanceSample = {
   id: string
@@ -80,14 +80,13 @@ export function samplesFromCompute(m: MetricsBucket): InstanceSample[] {
   return m.podReplicas.map((pod) => {
     const cpuPct =
       cpuLimitPerPod > 0
-        ? Math.min(100, (pod.cpuUsage / cpuLimitPerPod) * 100)
-        : Math.min(100, pod.cpuUsage * 100)
-    const memPct =
-      pod.memoryBytes > 0 && memLimitPerPod > 0
-        ? Math.min(100, (pod.memoryBytes / memLimitPerPod) * 100)
-        : pod.memoryBytes > 0
-          ? Math.min(100, (pod.memoryBytes / memFallbackBytes) * 100)
-          : 0
+        ? utilizationPercent(pod.cpuUsage, cpuLimitPerPod)
+        : utilizationPercent(pod.cpuUsage, 0, 1)
+    const memPct = utilizationPercent(
+      pod.memoryBytes,
+      memLimitPerPod,
+      memFallbackBytes,
+    )
     return {
       id: pod.name,
       rps: pod.requestRate,

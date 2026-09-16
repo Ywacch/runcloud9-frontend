@@ -24,10 +24,31 @@ export function fmtMs(v: number | undefined | null): string {
   return `${Math.round(v)}ms`
 }
 
-/** Whole-number percent for bars and labels (MetricsBucket cpuPercent/memPercent are 0–100). */
+/**
+ * Percent for bars and labels (0–100).
+ * Whole numbers at ≥1%; one decimal below 1% so idle Postgres does not round to 0%.
+ */
 export function clampPercent(v: number | undefined | null): number {
   if (v == null || !Number.isFinite(v)) return 0
-  return Math.max(0, Math.min(100, Math.round(v)))
+  const x = Math.max(0, Math.min(100, v))
+  if (x > 0 && x < 1) return Math.round(x * 10) / 10
+  return Math.round(x)
+}
+
+/** Usage vs limit (cores or bytes). Keeps sub-1% when usage is positive. */
+export function utilizationPercent(
+  usage: number,
+  limit: number,
+  fallbackDivisor?: number,
+): number {
+  if (!Number.isFinite(usage) || usage <= 0) return 0
+  if (limit > 0 && Number.isFinite(limit)) {
+    return clampPercent((usage / limit) * 100)
+  }
+  if (fallbackDivisor != null && fallbackDivisor > 0 && Number.isFinite(fallbackDivisor)) {
+    return clampPercent((usage / fallbackDivisor) * 100)
+  }
+  return 0
 }
 
 /** Percentage — clamped 0–100; whole numbers without “.0” */

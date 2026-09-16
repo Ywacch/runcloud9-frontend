@@ -4,6 +4,7 @@
 
 import { parseComponentFreshness } from '../../lib/metricsFreshness'
 import type { ComponentFreshness } from '../../lib/metricsFreshness'
+import { utilizationPercent } from '../../lib/format'
 
 export interface LoadgenIntervalBucket {
   t: string
@@ -374,16 +375,15 @@ export function layerResourcePercents(layer: ComponentLayerMetrics): {
   cpuPercent: number
   memPercent: number
 } {
-  const cpuLimit = layer.cpuLimit
-  const memLimit = layer.memoryLimit
   const cpuPercent =
-    cpuLimit > 0
-      ? Math.min(100, Math.round((layer.cpuUsage / cpuLimit) * 100))
-      : Math.min(100, Math.round(layer.cpuUsage * 100))
-  const memPercent =
-    memLimit > 0
-      ? Math.min(100, Math.round((layer.memoryBytes / memLimit) * 100))
-      : Math.min(100, Math.round((layer.memoryBytes / (512 * 1024 * 1024)) * 100))
+    layer.cpuLimit > 0
+      ? utilizationPercent(layer.cpuUsage, layer.cpuLimit)
+      : utilizationPercent(layer.cpuUsage, 0, 1)
+  const memPercent = utilizationPercent(
+    layer.memoryBytes,
+    layer.memoryLimit,
+    512 * 1024 * 1024,
+  )
   return { cpuPercent, memPercent }
 }
 

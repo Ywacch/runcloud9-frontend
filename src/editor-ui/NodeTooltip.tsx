@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { clampPercent, FMT_EMPTY, fmtMs, fmtRate } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
-import { usesPodReplicaScope } from '../lib/dbInstanceScope'
+import { usesPodReplicaScope, findDbLayer } from '../lib/dbInstanceScope'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
   rollup,
@@ -20,6 +20,7 @@ import {
   formatResourceLabels,
   resourceUsageHelp,
   tooltipMemoryDisplay,
+  tooltipResourceBucket,
 } from './inspectorPanelUi'
 
 interface NodeTooltipProps {
@@ -49,7 +50,6 @@ function compactInstanceLabel(id: string): string {
 export function resolveGroupedDisplay(
   node: CanvasNode,
   metrics: MetricsBucket | undefined,
-  dbWarmingUp: boolean,
   instanceScopeId: string | null,
 ): SingleRollupDisplay | null {
   if (!metrics) return null
@@ -65,17 +65,13 @@ export function resolveGroupedDisplay(
       const rolled = rollup([sample], {
         idleFloor: node.type === 'database' ? DB_IDLE_RPS_FLOOR : undefined,
       })
-      const warmed =
-        node.type === 'database' && dbWarmingUp
-          ? { ...rolled, cpuPct: 0, memPct: 0 }
-          : rolled
       return {
         kind: 'single',
-        cpuPct: warmed.cpuPct,
-        memPct: warmed.memPct,
-        rps: warmed.rps,
-        p99Ms: warmed.p99 != null && warmed.p99 > 0 ? warmed.p99 * 1000 : null,
-        idle: warmed.idle,
+        cpuPct: rolled.cpuPct,
+        memPct: rolled.memPct,
+        rps: rolled.rps,
+        p99Ms: rolled.p99 != null && rolled.p99 > 0 ? rolled.p99 * 1000 : null,
+        idle: rolled.idle,
         instanceLabel:
           usesPodReplicaScope(node)
             ? compactInstanceLabel(sample.id)
@@ -91,20 +87,18 @@ export function resolveGroupedDisplay(
     const hasReplicas = samples.some((sample) => sample.role === 'replica')
     if (hasReplicas && samples.length > 0) {
       const rolled = rollup(samples, { idleFloor: DB_IDLE_RPS_FLOOR })
-      const warmed =
-        dbWarmingUp ? { ...rolled, cpuPct: 0, memPct: 0 } : rolled
       const rps =
-        warmed.rps > 0
-          ? warmed.rps
+        rolled.rps > 0
+          ? rolled.rps
           : metrics.dbQueryRate > 0
             ? metrics.dbQueryRate
             : metrics.requestRate
       return {
         kind: 'single',
-        cpuPct: warmed.cpuPct,
-        memPct: warmed.memPct,
+        cpuPct: metrics.cpuIsEstimated ? 0 : clampPercent(metrics.cpuPercent),
+        memPct: metrics.memIsEstimated ? 0 : clampPercent(metrics.memPercent),
         rps,
-        p99Ms: warmed.p99 != null && warmed.p99 > 0 ? warmed.p99 * 1000 : null,
+        p99Ms: rolled.p99 != null && rolled.p99 > 0 ? rolled.p99 * 1000 : null,
         idle: rps < DB_IDLE_RPS_FLOOR,
         clusterScope: true,
       }
@@ -135,8 +129,6 @@ export function NodeTooltip({
 }: NodeTooltipProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const hoveredInstanceId = useCanvasStore((s) => s.hoveredInstanceId)
-  const selectedId = useCanvasStore((s) => s.selectedId)
-  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
@@ -152,42 +144,45 @@ export function NodeTooltip({
       ? syncDbTierCWarmup(node.id, metrics, Date.now())
       : false
 
-  const instanceScopeId =
-    hoveredInstanceId ??
-    (selectedId === node.id ? selectedInstanceId : null)
+  const instanceScopeId = hoveredInstanceId
 
   const grouped = useMemo(
-    () => resolveGroupedDisplay(node, metrics, dbWarmingUp, instanceScopeId),
-    [node, metrics, dbWarmingUp, instanceScopeId],
+    () => resolveGroupedDisplay(node, metrics, instanceScopeId),
+    [node, metrics, instanceScopeId],
   )
+
+  const tooltipMetrics =
+    metrics && node.type === 'database' && instanceScopeId && instanceScopeId !== 'cluster'
+      ? tooltipResourceBucket(metrics, findDbLayer(metrics.layers, instanceScopeId))
+      : metrics
 
   const cpuPct =
     grouped?.kind === 'single'
       ? grouped.cpuPct
-      : metrics?.cpuIsEstimated
+      : tooltipMetrics?.cpuIsEstimated
         ? 0
-        : clampPercent(metrics?.cpuPercent)
+        : clampPercent(tooltipMetrics?.cpuPercent)
   const memPct =
     grouped?.kind === 'single'
       ? grouped.memPct
-      : metrics?.memIsEstimated
+      : tooltipMetrics?.memIsEstimated
         ? 0
-        : clampPercent(metrics?.memPercent)
-  const labels = metrics
+        : clampPercent(tooltipMetrics?.memPercent)
+  const labels = tooltipMetrics
     ? node.type === 'database'
-      ? formatDbClusterResourceLabels(metrics, cpuPct, memPct, dbWarmingUp)
-      : formatResourceLabels(metrics, cpuPct, memPct)
+      ? formatDbClusterResourceLabels(tooltipMetrics, cpuPct, memPct, dbWarmingUp)
+      : formatResourceLabels(tooltipMetrics, cpuPct, memPct)
     : { cpu: '-', mem: '-' }
-  const resourceHelp = metrics
+  const resourceHelp = tooltipMetrics
     ? node.type === 'database'
-      ? dbClusterResourceHelp(metrics, dbWarmingUp)
-      : resourceUsageHelp(metrics)
+      ? dbClusterResourceHelp(tooltipMetrics, dbWarmingUp)
+      : resourceUsageHelp(tooltipMetrics)
     : undefined
-  const memDisplay = metrics
-    ? tooltipMemoryDisplay(metrics, memPct, labels.mem)
+  const memDisplay = tooltipMetrics
+    ? tooltipMemoryDisplay(tooltipMetrics, memPct, labels.mem)
     : labels.mem
   const memTitle =
-    metrics && !metrics.memIsEstimated && labels.mem !== '-'
+    tooltipMetrics && !tooltipMetrics.memIsEstimated && labels.mem !== '-'
       ? labels.mem
       : undefined
 

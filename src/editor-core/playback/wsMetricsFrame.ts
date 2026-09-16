@@ -1,4 +1,5 @@
 import { idleClientLoadgenBucket } from '../../lib/clientMetrics'
+import { utilizationPercent } from '../../lib/format'
 import {
   chaosHealFromWsEvent,
   chaosOverlayFromWsEvent,
@@ -54,8 +55,7 @@ function nodeIdsForBackendKey(
 }
 
 function pctFromLimit(usage: number, limit: number): number {
-  if (limit <= 0 || !Number.isFinite(limit)) return 0
-  return Math.min(100, Math.round((usage / limit) * 100))
+  return utilizationPercent(usage, limit)
 }
 
 export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
@@ -73,11 +73,11 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
   const cpuPercent =
     cpuLimit > 0
       ? pctFromLimit(cpu, cpuLimit)
-      : Math.min(100, Math.round(cpu * 100))
+      : utilizationPercent(cpu, 0, 1)
   const memPercent =
     memLimit > 0
       ? pctFromLimit(mem, memLimit)
-      : Math.min(100, Math.round((mem / (512 * 1024 * 1024)) * 100))
+      : utilizationPercent(mem, 0, 512 * 1024 * 1024)
 
   return {
     cpuUsage: cpu,

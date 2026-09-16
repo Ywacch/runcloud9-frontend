@@ -717,7 +717,7 @@ export default function SvgDesignCanvas({
   const onUnitPointerLeave = useCallback((nodeId: string) => {
     const state = useCanvasStore.getState()
     if (state.hoveredNodeId === nodeId) {
-      state.setHoveredInstanceId(null)
+      state.setHoveredInstanceId('cluster')
     }
   }, [])
 
