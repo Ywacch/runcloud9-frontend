@@ -253,7 +253,9 @@ export function chaosOverlayFromWsEvent(e: {
   targetComponent: ChaosTargetComponent
   startedAt: number
 } | null {
-  if (e.source !== 'chaos' || e.kind === 'chaos_heal') return null
+  if (e.source !== 'chaos' || e.kind === 'chaos_heal' || e.kind === 'standby_reclone') {
+    return null
+  }
   const scenario =
     parseChaosScenario(e.description) ??
     parseChaosScenario(e.detail?.scenario)
@@ -339,6 +341,44 @@ export function latestPromotionChaosInjectEvent(
     if (scenario && isPromotionChaosScenario(scenario)) return e
   }
   return null
+}
+
+export function latestStandbyRecloneEvent(events: WsEvent[]): WsEvent | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    if (e.source === 'chaos' && e.kind === 'standby_reclone') return e
+  }
+  return null
+}
+
+function parseStandbyPodList(raw: string | undefined): string[] {
+  if (!raw?.trim()) return []
+  return raw
+    .split(',')
+    .map((pod) => pod.trim())
+    .filter(Boolean)
+}
+
+/** Copy lines for leftover standbys after promote (status=followed yields none). */
+export function standbyRecloneHints(event: WsEvent | null): string[] {
+  if (!event?.detail) return []
+  if (event.detail.status?.trim() === 'followed') return []
+
+  const hints: string[] = []
+  const reclonedPods = parseStandbyPodList(event.detail.reclonedPods)
+  const pendingPods = parseStandbyPodList(event.detail.pendingPods)
+
+  if (reclonedPods.length > 0) {
+    hints.push(
+      `${reclonedPods.join(', ')} were ahead of the new primary and had to be rebuilt from db.`,
+    )
+  }
+  if (pendingPods.length > 0) {
+    hints.push(
+      `${pendingPods.join(', ')} are still rebuilding; lag will stay high until streaming.`,
+    )
+  }
+  return hints
 }
 
 export function latestFailoverWriteLossEvent(

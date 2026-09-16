@@ -366,6 +366,64 @@ describe('DbConsistencySection', () => {
     expect(html).toContain('commits the client already saw may be gone')
   })
 
+  it('renders standby reclone hints after failover', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 10,
+          replicaReads: 40,
+          replicaStaleReads: 0,
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+          guaranteeHeldBy: 'none',
+        }),
+        replicationMode: 'semi-sync',
+        syncCommitLevel: 'remote_apply',
+        promotionChaosEvent: {
+          timestamp: 't',
+          type: 'action',
+          source: 'chaos',
+          kind: 'chaos_inject',
+          component: 'db',
+          title: 'Promote replica',
+          description: 'promote_replica',
+          detail: {
+            scenario: 'promote_replica',
+            promotedPod: 'postgres-replica-0',
+            candidateSyncState: 'sync',
+            candidateLagBytes: '0',
+            walBytesLost: '0',
+          },
+        },
+        standbyRecloneEvent: {
+          timestamp: 't2',
+          type: 'action',
+          source: 'chaos',
+          kind: 'standby_reclone',
+          component: 'db',
+          audience: 'both',
+          title: 'Standby rebuilt after timeline fork',
+          description: 'standby_reclone',
+          detail: {
+            status: 'partial',
+            promotedPod: 'postgres-replica-0',
+            reclonedPods: 'postgres-replica-1',
+            pendingPods: 'postgres-replica-2',
+          },
+        },
+      }),
+    )
+    expect(html).toContain('After failover')
+    expect(html).toContain(
+      'postgres-replica-1 were ahead of the new primary and had to be rebuilt from db.',
+    )
+    expect(html).toContain(
+      'postgres-replica-2 are still rebuilding; lag will stay high until streaming.',
+    )
+  })
+
   it('hides cache evidence line when key is absent', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {

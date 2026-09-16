@@ -51,6 +51,7 @@ import {
   latestFailoverWriteLossEvent,
   latestPartitionCapEvent,
   latestPromotionChaosInjectEvent,
+  latestStandbyRecloneEvent,
 } from '../lib/chaos'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
@@ -233,6 +234,10 @@ export function LiveMetricsTypeSection({
   )
   const failoverWriteLossEvent = useMemo(
     () => latestFailoverWriteLossEvent(metricsEvents),
+    [metricsEvents],
+  )
+  const standbyRecloneEvent = useMemo(
+    () => latestStandbyRecloneEvent(metricsEvents),
     [metricsEvents],
   )
   const panelPrefix =
@@ -630,6 +635,7 @@ export function LiveMetricsTypeSection({
             partitionCapEvent={partitionCapEvent}
             promotionChaosEvent={promotionChaosEvent}
             failoverWriteLossEvent={failoverWriteLossEvent}
+            standbyRecloneEvent={standbyRecloneEvent}
           />
           <DbClusterResourcesSection
             nodeId={nodeId}
