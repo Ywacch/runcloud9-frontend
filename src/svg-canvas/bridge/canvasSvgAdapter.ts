@@ -3,7 +3,9 @@
  * Lattice indices are shared: canvas `[x,y,z]` uses col=x/2, row=z/2
  * (see `canvas/utils/positionAdapter`); SVG world uses the Cloudcraft iso projector.
  */
+import type { ComponentLayerMetrics } from '../../editor-core/domain/metricsUiContract'
 import type { CanvasNode } from '../../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../../editor-core/stores/metricsStore'
 import { isoToNode, nodeToIso } from '../../canvas/utils/positionAdapter'
 import {
   isoToScreen,
@@ -81,6 +83,45 @@ export function engineFromCanvasNode(node: CanvasNode): string {
     default:
       return 'generic'
   }
+}
+
+/** Live db layers from metrics (primary + replica roles only). */
+export function liveDbLayersFromMetrics(
+  metrics: MetricsBucket | undefined,
+): ComponentLayerMetrics[] {
+  if (!metrics) return []
+  return metrics.layers.filter(
+    (layer) => layer.role === 'primary' || layer.role === 'replica',
+  )
+}
+
+/** Canvas unit count from live metrics when db layers exist; otherwise null. */
+export function liveDbUnitCountFromMetrics(
+  metrics: MetricsBucket | undefined,
+): number | null {
+  const layers = liveDbLayersFromMetrics(metrics)
+  return layers.length >= 1 ? layers.length : null
+}
+
+/** Overlay topology.replicas from live db layers without mutating canvas config. */
+export function overlayLiveDbUnitCount(
+  nodes: SvgNode[],
+  canvasNodes: Record<string, CanvasNode>,
+  metrics: Record<string, MetricsBucket | undefined>,
+): SvgNode[] {
+  let changed = false
+  const next = nodes.map((n) => {
+    const canvas = canvasNodes[n.id]
+    if (canvas?.type !== 'database') return n
+    const count = liveDbUnitCountFromMetrics(metrics[canvas.id])
+    if (count == null || n.topology.replicas === count) return n
+    changed = true
+    return {
+      ...n,
+      topology: { ...n.topology, replicas: count },
+    }
+  })
+  return changed ? next : nodes
 }
 
 export function replicasFromCanvasNode(node: CanvasNode): number {

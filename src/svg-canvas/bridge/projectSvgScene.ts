@@ -1,8 +1,9 @@
 import type { CanvasEdge, CanvasNode } from '../../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../../editor-core/stores/metricsStore'
 import { syncZoneForNode } from '../compose/syncZoneForNode'
 import { routeConnectorScene } from '../routing/connectorSegments'
 import { defaultEdgeStyle, type SvgEdge, type SvgNode, type SvgZone } from '../store/svgTypes'
-import { canvasNodeToSvgNode } from './canvasSvgAdapter'
+import { canvasNodeToSvgNode, overlayLiveDbUnitCount } from './canvasSvgAdapter'
 
 export function rebuildZones(nodes: SvgNode[]): SvgZone[] {
   const zones: SvgZone[] = []
@@ -23,8 +24,12 @@ export type ProjectedSvgScene = {
 export function projectSvgScene(
   canvasNodes: Record<string, CanvasNode>,
   canvasEdges: Record<string, CanvasEdge>,
+  metrics?: Record<string, MetricsBucket | undefined>,
 ): ProjectedSvgScene {
-  const nodes = Object.values(canvasNodes).map(canvasNodeToSvgNode)
+  const projected = Object.values(canvasNodes).map(canvasNodeToSvgNode)
+  const nodes = metrics
+    ? overlayLiveDbUnitCount(projected, canvasNodes, metrics)
+    : projected
   const byId = new Set(nodes.map((n) => n.id))
   const zones = rebuildZones(nodes)
   const edgeList = Object.values(canvasEdges)

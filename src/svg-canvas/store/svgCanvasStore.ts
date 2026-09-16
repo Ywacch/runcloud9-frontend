@@ -177,7 +177,8 @@ function bridgeFieldsFrom(
 
 function syncFromCanvas(): void {
   const c = useCanvasStore.getState()
-  const projected = projectSvgScene(c.nodes, c.edges)
+  const metrics = useMetricsStore.getState().metrics
+  const projected = projectSvgScene(c.nodes, c.edges, metrics)
   const prev = useSvgCanvasStore.getState()
   const prevHealth = new Map(
     prev.nodes.map((n) => [n.id, n.healthVisual] as const),
@@ -187,8 +188,6 @@ function syncFromCanvas(): void {
     isMetricsViewportMode(lastSyncedMode) &&
     !isMetricsViewportMode(c.mode)
   lastSyncedMode = c.mode
-
-  const metrics = useMetricsStore.getState().metrics
   const isTargetActive = useChaosStore.getState().isTargetActive
   const nodes = mapSvgNodesWithLiveHealth(
     projected.nodes,
@@ -282,7 +281,10 @@ export function installCanvasSvgBridge(): void {
     prev = next
   })
   unsubscribeMetrics = useMetricsStore.subscribe((state, prevMetrics) => {
-    if (state.metrics !== prevMetrics.metrics) patchLiveHealthVisuals()
+    if (state.metrics !== prevMetrics.metrics) {
+      const c = useCanvasStore.getState()
+      if (isMetricsViewportMode(c.mode)) syncFromCanvas()
+    }
   })
   unsubscribeChaos = useChaosStore.subscribe(() => {
     patchLiveHealthVisuals()

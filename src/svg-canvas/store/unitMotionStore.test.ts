@@ -19,6 +19,23 @@ describe('unitMotionStore helpers', () => {
     expect(units[1].opacity).toBe(0)
   })
 
+  it('planUnitTransition shrink keeps stable layer ids on promote', () => {
+    const current = [
+      { id: 'postgres', dx: 0, dy: 0, opacity: 1, scale: 1 },
+      { id: 'postgres-replica-0', dx: 10, dy: 0, opacity: 1, scale: 1 },
+      { id: 'postgres-replica-1', dx: 20, dy: 0, opacity: 1, scale: 1 },
+    ]
+    const target = [{ dx: 0, dy: 0 }, { dx: 10, dy: 0 }]
+    const targetIds = ['postgres', 'postgres-replica-1']
+    const { anims } = planUnitTransition(current, target, { dx: 0, dy: 0 }, 0, {
+      targetIds,
+    })
+    const removed = anims.find((a) => a.id === 'postgres-replica-0')
+    const kept = anims.find((a) => a.id === 'postgres-replica-1')
+    expect(removed?.removeAtEnd).toBe(true)
+    expect(kept?.removeAtEnd).not.toBe(true)
+  })
+
   it('planUnitTransition can snap new units without spawn fade', () => {
     const { units, anims } = planUnitTransition(
       [{ id: 'u0', dx: 0, dy: 0, opacity: 1, scale: 1 }],

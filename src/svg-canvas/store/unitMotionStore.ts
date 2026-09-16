@@ -59,14 +59,23 @@ export function motionKeyForNode(nodeId: string): string {
     .join('|')
 }
 
+function resolveTargetId(
+  index: number,
+  targetIds: string[] | undefined,
+): string {
+  const id = targetIds?.[index]
+  return id && id.length > 0 ? id : unitId(index)
+}
+
 export function planUnitTransition(
   current: MotionUnit[],
   target: UnitOffset[],
   primarySeat: UnitOffset = { dx: 0, dy: 0 },
   now = 0,
-  options: { animateSpawn?: boolean } = {},
+  options: { animateSpawn?: boolean; targetIds?: string[] } = {},
 ): { units: MotionUnit[]; anims: UnitAnim[] } {
   const animateSpawn = options.animateSpawn !== false
+  const targetIds = options.targetIds
   const anims: UnitAnim[] = []
   const nextUnits: MotionUnit[] = []
 
@@ -74,7 +83,7 @@ export function planUnitTransition(
     for (let i = 0; i < target.length; i++) {
       const c = current[i]
       const t = target[i]
-      const id = c?.id ?? unitId(i)
+      const id = c?.id ?? resolveTargetId(i, targetIds)
       const fromDx = c?.dx ?? t.dx
       const fromDy = c?.dy ?? t.dy
       const fromO = c?.opacity ?? 1
@@ -103,7 +112,7 @@ export function planUnitTransition(
     const existingById = new Map(current.map((u) => [u.id, u]))
     for (let i = 0; i < target.length; i++) {
       const t = target[i]
-      const id = unitId(i)
+      const id = resolveTargetId(i, targetIds)
       const prev = existingById.get(id)
       const isNew = !prev
       if (isNew && !animateSpawn) {
@@ -132,9 +141,11 @@ export function planUnitTransition(
     return { units: nextUnits, anims }
   }
 
-  const targetIds = new Set(target.map((_, i) => unitId(i)))
+  const survivingIds = new Set(
+    target.map((_, i) => resolveTargetId(i, targetIds)),
+  )
   for (const c of current) {
-    if (!targetIds.has(c.id)) {
+    if (!survivingIds.has(c.id)) {
       if (!animateSpawn) continue
       nextUnits.push({ ...c })
       anims.push({
@@ -154,7 +165,7 @@ export function planUnitTransition(
   }
   for (let i = 0; i < target.length; i++) {
     const t = target[i]
-    const id = unitId(i)
+    const id = resolveTargetId(i, targetIds)
     const prev = current.find((u) => u.id === id)
     const fromDx = prev?.dx ?? t.dx
     const fromDy = prev?.dy ?? t.dy
@@ -274,7 +285,7 @@ export function retarget(
   nodeId: string,
   target: UnitOffset[],
   primarySeat: UnitOffset = { dx: 0, dy: 0 },
-  options: { animateSpawn?: boolean } = {},
+  options: { animateSpawn?: boolean; targetIds?: string[] } = {},
 ): void {
   const current = nodes.get(nodeId)?.units ?? []
   const now = performance.now()

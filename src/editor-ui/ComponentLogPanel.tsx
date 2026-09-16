@@ -68,9 +68,11 @@ function matchesSearch(
 export function ComponentLogPanel({
   node,
   instanceId = null,
+  replicaLayerIds,
 }: {
   node: CanvasNode
   instanceId?: SelectedInstanceId
+  replicaLayerIds?: string[]
 }) {
   const logs = useLogStore((s) => s.logs)
   const activeTraceId = useLogStore((s) => s.activeTraceId)
@@ -87,13 +89,15 @@ export function ComponentLogPanel({
   const displayed = useMemo(() => {
     const base = logs
       .filter((l) => l.component === component)
-      .filter((l) => logLineMatchesInstance(l.pod, instanceId))
+      .filter((l) =>
+        logLineMatchesInstance(l.pod, instanceId, { replicaLayerIds }),
+      )
       .filter((l) => matchesSearch(l.message, l.fields, searchQuery, l.pod))
     if (activeTraceId) {
       return base.filter((l) => l.fields?.request_id === activeTraceId)
     }
     return base.slice(-MAX_COMPONENT_LOGS)
-  }, [logs, component, searchQuery, activeTraceId, instanceId])
+  }, [logs, component, searchQuery, activeTraceId, instanceId, replicaLayerIds])
 
   const traceMatchCount = useMemo(() => {
     if (!activeTraceId) return 0

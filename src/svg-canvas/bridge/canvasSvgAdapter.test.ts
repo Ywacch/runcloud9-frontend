@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasNode } from '../../editor-core/stores/canvasStore'
 import { isoToNode } from '../../canvas/utils/positionAdapter'
+import type { MetricsBucket } from '../../editor-core/stores/metricsStore'
 import {
   archetypeToCanvasType,
   canvasNodeToSvgNode,
@@ -9,10 +10,20 @@ import {
   configPatchForEngine,
   configPatchForReplicas,
   engineFromCanvasNode,
+  liveDbUnitCountFromMetrics,
+  overlayLiveDbUnitCount,
   replicasFromCanvasNode,
   shardsFromCanvasNode,
   svgWorldToCanvasPosition,
 } from './canvasSvgAdapter'
+
+function metricsBucket(overrides: Partial<MetricsBucket> = {}): MetricsBucket {
+  return {
+    podReplicas: [],
+    layers: [],
+    ...overrides,
+  } as MetricsBucket
+}
 
 function node(
   partial: Partial<CanvasNode> & Pick<CanvasNode, 'type'>,
@@ -144,6 +155,74 @@ describe('canvasSvgAdapter config projection', () => {
     expect(svg.engine).toBe('redis')
     expect(svg.topology.replicas).toBe(2)
     expect(svg.x).toBe(canvasPositionToSvgWorld(isoToNode(1, 0)).x)
+  })
+
+  it('counts live db units from primary and replica layers', () => {
+    const bucket = metricsBucket({
+      layers: [
+        {
+          id: 'postgres',
+          role: 'primary',
+          engine: 'postgresql',
+          cpuUsage: 0,
+          memoryBytes: 0,
+          cpuLimit: 1,
+          memoryLimit: 1,
+          cpuIsEstimated: false,
+          memIsEstimated: false,
+        },
+        {
+          id: 'postgres-replica-1',
+          role: 'replica',
+          engine: 'postgresql',
+          cpuUsage: 0,
+          memoryBytes: 0,
+          cpuLimit: 1,
+          memoryLimit: 1,
+          cpuIsEstimated: false,
+          memIsEstimated: false,
+        },
+      ],
+    })
+    expect(liveDbUnitCountFromMetrics(bucket)).toBe(2)
+    expect(liveDbUnitCountFromMetrics(undefined)).toBeNull()
+  })
+
+  it('overlays live db unit count without mutating canvas config', () => {
+    const canvas = node({ type: 'database', config: { readReplicas: 2 } })
+    const svg = canvasNodeToSvgNode(canvas)
+    expect(svg.topology.replicas).toBe(3)
+    const metricsByNode = {
+      [canvas.id]: metricsBucket({
+        layers: [
+          {
+            id: 'postgres',
+            role: 'primary',
+            engine: 'postgresql',
+            cpuUsage: 0,
+            memoryBytes: 0,
+            cpuLimit: 1,
+            memoryLimit: 1,
+            cpuIsEstimated: false,
+            memIsEstimated: false,
+          },
+          {
+            id: 'postgres-replica-1',
+            role: 'replica',
+            engine: 'postgresql',
+            cpuUsage: 0,
+            memoryBytes: 0,
+            cpuLimit: 1,
+            memoryLimit: 1,
+            cpuIsEstimated: false,
+            memIsEstimated: false,
+          },
+        ],
+      }),
+    }
+    const overlaid = overlayLiveDbUnitCount([svg], { [canvas.id]: canvas }, metricsByNode)
+    expect(overlaid[0].topology.replicas).toBe(2)
+    expect(canvas.config.readReplicas).toBe(2)
   })
 
   it('projects the traffic-source client into archetype client', () => {
