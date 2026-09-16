@@ -329,6 +329,31 @@ export function isPromotionChaosScenario(scenario: ChaosScenario): boolean {
   return PROMOTION_CHAOS_SCENARIOS.includes(scenario)
 }
 
+export function isPinnedFailoverWsEvent(e: WsEvent): boolean {
+  if (e.rule === 'failover_write_loss') return true
+  if (e.source === 'chaos' && e.kind === 'standby_reclone') return true
+  if (e.source !== 'chaos' || e.kind !== 'chaos_inject') return false
+  const scenario =
+    parseChaosScenario(e.description) ?? parseChaosScenario(e.detail?.scenario)
+  return scenario != null && isPromotionChaosScenario(scenario)
+}
+
+/** Keep promotion / reclone / write-loss events when the WS event ring overflows. */
+export function capWsEvents(events: WsEvent[], max: number): WsEvent[] {
+  if (max <= 0) return []
+  if (events.length <= max) return events
+
+  const pinned: WsEvent[] = []
+  const rest: WsEvent[] = []
+  for (const e of events) {
+    if (isPinnedFailoverWsEvent(e)) pinned.push(e)
+    else rest.push(e)
+  }
+  if (pinned.length >= max) return pinned.slice(-max)
+  const kept = new Set<WsEvent>([...pinned, ...rest.slice(-(max - pinned.length))])
+  return events.filter((e) => kept.has(e))
+}
+
 export function latestPromotionChaosInjectEvent(
   events: WsEvent[],
 ): WsEvent | null {

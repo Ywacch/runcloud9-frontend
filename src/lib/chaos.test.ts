@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  capWsEvents,
   chaosHealFromWsEvent,
   chaosOverlayFromWsEvent,
   chaosScenarioConfirm,
   chaosScenariosForTarget,
   failoverReadoutSummary,
   isPartitionChaosScenario,
+  isPinnedFailoverWsEvent,
   isPromotionChaosScenario,
   latestFailoverWriteLossEvent,
   latestPartitionCapEvent,
@@ -340,5 +342,80 @@ describe('standby reclone helpers', () => {
         detail: { status: 'followed', promotedPod: 'postgres-replica-0' },
       }),
     ).toEqual([])
+  })
+})
+
+describe('capWsEvents', () => {
+  const noise = (n: number): WsEvent[] =>
+    Array.from({ length: n }, (_, i) => ({
+      timestamp: `t-noise-${i}`,
+      type: 'action',
+      source: 'runtime',
+      title: `noise ${i}`,
+      description: '',
+    }))
+
+  const promote: WsEvent = {
+    timestamp: 't-promote',
+    type: 'action',
+    source: 'chaos',
+    kind: 'chaos_inject',
+    component: 'db',
+    title: 'Promote replica',
+    description: 'promote_replica',
+    detail: { scenario: 'promote_replica', walBytesLost: '0' },
+  }
+
+  const reclone: WsEvent = {
+    timestamp: 't-reclone',
+    type: 'action',
+    source: 'chaos',
+    kind: 'standby_reclone',
+    component: 'db',
+    title: 'Standby rebuilt after timeline fork',
+    description: 'standby_reclone',
+    detail: { status: 'recloned', reclonedPods: 'postgres-replica-1' },
+  }
+
+  const loss: WsEvent = {
+    timestamp: 't-loss',
+    type: 'invariant',
+    source: 'chaos',
+    rule: 'failover_write_loss',
+    title: 'Failover write loss',
+    description: '4096 bytes behind',
+    detail: { walBytesLost: '4096' },
+  }
+
+  it('pins promote inject, reclone, and write-loss past the cap', () => {
+    const capped = capWsEvents([promote, reclone, loss, ...noise(100)], 100)
+    expect(capped).toHaveLength(100)
+    expect(latestPromotionChaosInjectEvent(capped)?.description).toBe('promote_replica')
+    expect(latestStandbyRecloneEvent(capped)?.kind).toBe('standby_reclone')
+    expect(latestFailoverWriteLossEvent(capped)?.rule).toBe('failover_write_loss')
+    expect(capped[0]).toBe(promote)
+    expect(capped[1]).toBe(reclone)
+    expect(capped[2]).toBe(loss)
+  })
+
+  it('does not pin pod_kill inject', () => {
+    const kill: WsEvent = {
+      timestamp: 't-kill',
+      type: 'action',
+      source: 'chaos',
+      kind: 'chaos_inject',
+      title: 'Kill pod',
+      description: 'pod_kill',
+    }
+    expect(isPinnedFailoverWsEvent(kill)).toBe(false)
+    expect(isPinnedFailoverWsEvent(promote)).toBe(true)
+    const capped = capWsEvents([kill, ...noise(100)], 100)
+    expect(capped).toHaveLength(100)
+    expect(capped.some((e) => e.description === 'pod_kill')).toBe(false)
+  })
+
+  it('returns the same array when under the cap', () => {
+    const events = [promote, ...noise(3)]
+    expect(capWsEvents(events, 100)).toBe(events)
   })
 })
