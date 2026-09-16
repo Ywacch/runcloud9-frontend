@@ -258,6 +258,30 @@ describe('normalizeWsEvents workload anchors', () => {
     })
   })
 
+  it('keeps kind standby_reclone from chaos follow-up events', () => {
+    const [event] = normalizeWsEvents([
+      {
+        timestamp: '2026-05-01T12:02:00Z',
+        type: 'action',
+        source: 'chaos',
+        kind: 'standby_reclone',
+        audience: 'both',
+        component: 'db',
+        title: 'Standby rebuilt after timeline fork',
+        description: 'standby_reclone',
+        detail: {
+          status: 'recloned',
+          promotedPod: 'postgres-replica-0',
+          reclonedPods: 'postgres-replica-1',
+        },
+      },
+    ])
+
+    expect(event.kind).toBe('standby_reclone')
+    expect(event.description).toBe('standby_reclone')
+    expect(event.audience).toBe('both')
+  })
+
   it('keeps a legacy runtime action unchanged when kind is missing', () => {
     const [event] = normalizeWsEvents([
       {

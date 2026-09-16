@@ -10,8 +10,10 @@ import {
   latestFailoverWriteLossEvent,
   latestPartitionCapEvent,
   latestPromotionChaosInjectEvent,
+  latestStandbyRecloneEvent,
   partitionCapSummary,
   promotionWalBytesLost,
+  standbyRecloneHints,
 } from './chaos'
 import type { WsEvent } from '../editor-core/stores/metricsStore'
 
@@ -67,6 +69,21 @@ describe('chaosOverlayFromWsEvent', () => {
         kind: 'chaos_heal',
         component: 'db',
         description: 'stall_replica',
+      }),
+    ).toBeNull()
+  })
+
+  it('ignores standby_reclone events', () => {
+    expect(
+      chaosOverlayFromWsEvent({
+        source: 'chaos',
+        kind: 'standby_reclone',
+        component: 'db',
+        description: 'standby_reclone',
+        detail: {
+          status: 'recloned',
+          reclonedPods: 'postgres-replica-1',
+        },
       }),
     ).toBeNull()
   })
@@ -272,5 +289,56 @@ describe('isPromotionChaosScenario', () => {
     expect(isPromotionChaosScenario('promote_replica')).toBe(true)
     expect(isPromotionChaosScenario('promote_lagging_replica')).toBe(true)
     expect(isPromotionChaosScenario('kill_replica')).toBe(false)
+  })
+})
+
+describe('standby reclone helpers', () => {
+  const recloneEvent: WsEvent = {
+    timestamp: 't-reclone',
+    type: 'action',
+    source: 'chaos',
+    kind: 'standby_reclone',
+    component: 'db',
+    audience: 'both',
+    title: 'Standby rebuilt after timeline fork',
+    description: 'standby_reclone',
+    detail: {
+      status: 'partial',
+      promotedPod: 'postgres-replica-0',
+      reclonedPods: 'postgres-replica-1',
+      pendingPods: 'postgres-replica-2',
+    },
+  }
+
+  it('finds latest standby_reclone event', () => {
+    const events: WsEvent[] = [
+      {
+        timestamp: 't-promote',
+        type: 'action',
+        source: 'chaos',
+        kind: 'chaos_inject',
+        title: 'Promote replica',
+        description: 'promote_replica',
+      },
+      recloneEvent,
+    ]
+    expect(latestStandbyRecloneEvent(events)?.kind).toBe('standby_reclone')
+    expect(latestStandbyRecloneEvent(events)?.description).toBe('standby_reclone')
+  })
+
+  it('builds recloned and pending copy lines', () => {
+    expect(standbyRecloneHints(recloneEvent)).toEqual([
+      'postgres-replica-1 were ahead of the new primary and had to be rebuilt from db.',
+      'postgres-replica-2 are still rebuilding; lag will stay high until streaming.',
+    ])
+  })
+
+  it('returns no hints when leftovers followed without reclone', () => {
+    expect(
+      standbyRecloneHints({
+        ...recloneEvent,
+        detail: { status: 'followed', promotedPod: 'postgres-replica-0' },
+      }),
+    ).toEqual([])
   })
 })

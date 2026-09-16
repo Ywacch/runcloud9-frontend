@@ -12,6 +12,7 @@ export type WorkloadEventKind =
   | 'loadgen_mix'
   | 'chaos_inject'
   | 'chaos_heal'
+  | 'standby_reclone'
 export type EventAudience = 'user' | 'ai' | 'both'
 
 /** Event from backend metrics stream (threshold, cascade, workload/runtime actions). */
@@ -229,7 +230,8 @@ function parsePersistedWsEvents(raw: string): WsEvent[] {
         r.kind === 'loadgen_rate' ||
         r.kind === 'loadgen_mix' ||
         r.kind === 'chaos_inject' ||
-        r.kind === 'chaos_heal'
+        r.kind === 'chaos_heal' ||
+        r.kind === 'standby_reclone'
           ? r.kind
           : undefined,
       detail:

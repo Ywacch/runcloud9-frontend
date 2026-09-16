@@ -39,6 +39,7 @@ import {
   partitionActiveHint,
   partitionCapSummary,
   promotionWalBytesLost,
+  standbyRecloneHints,
   type ChaosScenario,
 } from '../lib/chaos'
 import type { ReplicationMode, SyncCommitLevel } from '../lib/replicaConfig'
@@ -915,6 +916,7 @@ export function DbConsistencySection({
   partitionCapEvent,
   promotionChaosEvent,
   failoverWriteLossEvent,
+  standbyRecloneEvent,
 }: {
   m: MetricsBucket
   readConsistencyPolicy?: ReadConsistencyPolicy
@@ -925,6 +927,7 @@ export function DbConsistencySection({
   partitionCapEvent?: WsEvent | null
   promotionChaosEvent?: WsEvent | null
   failoverWriteLossEvent?: WsEvent | null
+  standbyRecloneEvent?: WsEvent | null
 }) {
   const consistency = m.consistency
   if (!consistency) return null
@@ -951,6 +954,7 @@ export function DbConsistencySection({
   const promotedPod = promotionChaosEvent?.detail?.promotedPod?.trim()
   const candidateSyncState = promotionChaosEvent?.detail?.candidateSyncState?.trim()
   const candidateLagBytes = Number(promotionChaosEvent?.detail?.candidateLagBytes ?? '')
+  const recloneHints = standbyRecloneHints(standbyRecloneEvent ?? null)
 
   return (
     <PedagogicalSection
@@ -1016,6 +1020,9 @@ export function DbConsistencySection({
           {failoverEscalation ? (
             <PedagogicalHint>{failoverEscalation}</PedagogicalHint>
           ) : null}
+          {recloneHints.map((hint) => (
+            <PedagogicalHint key={hint}>{hint}</PedagogicalHint>
+          ))}
         </>
       ) : null}
       <StatRow
