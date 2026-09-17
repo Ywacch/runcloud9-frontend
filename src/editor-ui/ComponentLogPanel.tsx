@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
+import { logComponentMatches } from '../lib/logComponent'
 import { canvasToBackend } from '../lib/typeMapping'
 import { openTrace } from '../lib/openTrace'
 import {
@@ -88,7 +89,7 @@ export function ComponentLogPanel({
 
   const displayed = useMemo(() => {
     const base = logs
-      .filter((l) => l.component === component)
+      .filter((l) => logComponentMatches(l.component, component))
       .filter((l) =>
         logLineMatchesInstance(l.pod, instanceId, { replicaLayerIds }),
       )
@@ -107,7 +108,9 @@ export function ComponentLogPanel({
   const traceMatchCountHere = useMemo(() => {
     if (!activeTraceId) return 0
     return logs.filter(
-      (l) => l.component === component && l.fields?.request_id === activeTraceId,
+      (l) =>
+        logComponentMatches(l.component, component) &&
+        l.fields?.request_id === activeTraceId,
     ).length
   }, [logs, activeTraceId, component])
 
