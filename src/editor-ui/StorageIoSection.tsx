@@ -758,6 +758,22 @@ function fmtReplicaSyncState(syncState: string | undefined): string {
   return state ? state : 'async'
 }
 
+const REPLICA_NOT_REPORTING = 'not reporting'
+
+function isReplicaConnectedOnPrimary(layer: ComponentLayerMetrics): boolean {
+  return layer.connectedOnPrimary !== false
+}
+
+function maxConnectedReplicationLagSeconds(
+  layers: ComponentLayerMetrics[],
+): number | undefined {
+  const lagValues = layers
+    .filter(isReplicaConnectedOnPrimary)
+    .map((layer) => layer.replicationLagSeconds)
+    .filter((seconds): seconds is number => seconds !== undefined && Number.isFinite(seconds))
+  return lagValues.length > 0 ? Math.max(...lagValues) : undefined
+}
+
 export function formatConsistencyViolation(count: number): string {
   if (!Number.isFinite(count) || count <= 0) return 'OK'
   return count === 1 ? '1 violation' : `${fmtInt(count)} violations`
@@ -815,9 +831,10 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
 
   const br = m.backendReplicas
   const single = replicaLayers.length === 1 ? replicaLayers[0] : null
-  const maxLag = Math.max(...replicaLayers.map((layer) => layer.replicationLagSeconds ?? 0))
-  const promotionCandidate = replicaLayers.find((layer) => layer.promotionCandidate)
-  const showPromotionPreview = replicaLayers.some(
+  const connectedReplicaLayers = replicaLayers.filter(isReplicaConnectedOnPrimary)
+  const maxLag = maxConnectedReplicationLagSeconds(replicaLayers)
+  const promotionCandidate = connectedReplicaLayers.find((layer) => layer.promotionCandidate)
+  const showPromotionPreview = connectedReplicaLayers.some(
     (layer) => layer.syncState !== undefined || layer.lagBytes !== undefined || layer.promotionCandidate,
   )
 
@@ -845,7 +862,11 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
           <StatBlock
             label={single ? 'Replay lag' : 'Max replay lag'}
             value={fmtReplicationLagSeconds(
-              single ? single.replicationLagSeconds : maxLag,
+              single
+                ? isReplicaConnectedOnPrimary(single)
+                  ? single.replicationLagSeconds
+                  : undefined
+                : maxLag,
             )}
             help="Seconds between primary commit and replay on the standby (~0 when caught up)."
           />
@@ -868,30 +889,54 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
             {showPromotionPreview ? 'Per-replica promotion preview' : 'Per-replica lag'}
           </p>
           <ul className="space-y-1 font-mono text-[11px] text-gray-300">
-            {replicaLayers.map((layer) => (
-              <li key={layer.id} className="flex flex-col gap-0.5">
-                <div className="flex justify-between gap-2">
-                  <span className="truncate">
-                    {layer.id}
-                    {layer.promotionCandidate ? ' · promote pick' : ''}
-                  </span>
-                  <span>{fmtReplicationLagSeconds(layer.replicationLagSeconds)}</span>
-                </div>
-                {showPromotionPreview ? (
-                  <div className="flex justify-between gap-2 text-[10px] text-gray-500">
-                    <span>{fmtReplicaSyncState(layer.syncState)}</span>
-                    <span>{fmtLagBytes(layer.lagBytes)} behind</span>
+            {replicaLayers.map((layer) => {
+              const disconnected = !isReplicaConnectedOnPrimary(layer)
+              return (
+                <li key={layer.id} className="flex flex-col gap-0.5">
+                  <div className="flex justify-between gap-2">
+                    <span className="truncate">
+                      {layer.id}
+                      {layer.promotionCandidate && !disconnected ? ' · promote pick' : ''}
+                    </span>
+                    <span>
+                      {disconnected
+                        ? REPLICA_NOT_REPORTING
+                        : fmtReplicationLagSeconds(layer.replicationLagSeconds)}
+                    </span>
                   </div>
-                ) : null}
-              </li>
-            ))}
+                  {showPromotionPreview ? (
+                    <div className="flex justify-between gap-2 text-[10px] text-gray-500">
+                      <span>
+                        {disconnected
+                          ? REPLICA_NOT_REPORTING
+                          : fmtReplicaSyncState(layer.syncState)}
+                      </span>
+                      <span>
+                        {disconnected
+                          ? REPLICA_NOT_REPORTING
+                          : `${fmtLagBytes(layer.lagBytes)} behind`}
+                      </span>
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
           </ul>
         </div>
       ) : showPromotionPreview && single ? (
         <div className="space-y-1 font-mono text-[11px] text-gray-300">
           <div className="flex justify-between gap-2">
-            <span>{fmtReplicaSyncState(single.syncState)}</span>
-            <span>{fmtLagBytes(single.lagBytes)} behind</span>
+            {isReplicaConnectedOnPrimary(single) ? (
+              <>
+                <span>{fmtReplicaSyncState(single.syncState)}</span>
+                <span>{fmtLagBytes(single.lagBytes)} behind</span>
+              </>
+            ) : (
+              <>
+                <span>{REPLICA_NOT_REPORTING}</span>
+                <span>{REPLICA_NOT_REPORTING}</span>
+              </>
+            )}
           </div>
         </div>
       ) : null}

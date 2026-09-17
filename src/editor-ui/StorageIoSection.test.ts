@@ -700,6 +700,57 @@ describe('DbReplicaLagSection promotion preview', () => {
     expect(html).toContain('0 B')
   })
 
+  it('shows not reporting for disconnected replica and max lag from connected sibling', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: false,
+              replicationLagSeconds: 0,
+              syncState: 'async',
+              promotionCandidate: false,
+            },
+            {
+              id: 'postgres-replica-1',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: true,
+              replicationLagSeconds: 0,
+              syncState: 'sync',
+              lagBytes: 0,
+              promotionCandidate: true,
+            },
+          ],
+          backendReplicas: { desired: 2, ready: 2 },
+        }),
+      }),
+    )
+    const replica0Match = html.match(/<li[^>]*>[\s\S]*?postgres-replica-0[\s\S]*?<\/li>/)
+    expect(replica0Match?.[0]).toContain('not reporting')
+    expect(replica0Match?.[0]).not.toContain('0 B behind')
+    expect(replica0Match?.[0]).not.toContain('0 s')
+    expect(html).toContain('postgres-replica-1')
+    expect(html).toContain('promote pick')
+    expect(html).toContain('0 B behind')
+    expect(html).toContain('0 s')
+  })
+
   it('degrades to async when sync state is absent on a single replica', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {

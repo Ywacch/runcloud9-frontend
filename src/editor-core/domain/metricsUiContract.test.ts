@@ -274,6 +274,37 @@ describe('metricsUiContract', () => {
     expect(layers[0]?.replicationLagSeconds).toBe(0)
   })
 
+  it('parseComponentLayers maps connectedOnPrimary false on disconnected replica', () => {
+    const layers = parseComponentLayers([
+      {
+        id: 'postgres-replica-0',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0,
+        memoryUsage: 0,
+        connectedOnPrimary: false,
+        promotionCandidate: false,
+      },
+      {
+        id: 'postgres-replica-1',
+        role: 'replica',
+        engine: 'postgresql',
+        cpuUsage: 0,
+        memoryUsage: 0,
+        connectedOnPrimary: true,
+        replicationLagSeconds: 0,
+        lagBytes: 0,
+        syncState: 'sync',
+        promotionCandidate: true,
+      },
+    ])
+    expect(layers[0]?.connectedOnPrimary).toBe(false)
+    expect(layers[0]?.promotionCandidate).toBeUndefined()
+    expect(layers[1]?.connectedOnPrimary).toBe(true)
+    expect(layers[1]?.replicationLagSeconds).toBe(0)
+    expect(layers[1]?.promotionCandidate).toBe(true)
+  })
+
   it('parseComponentLayers maps db layer engine totals and storageIo', () => {
     const layers = parseComponentLayers([
       {
