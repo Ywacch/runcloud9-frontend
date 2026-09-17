@@ -1,4 +1,5 @@
 import { getAccessToken } from './auth'
+import { apiFetch } from './apiFetch'
 import { ApiError } from './apiError'
 import {
   DEV_ENGINEER_USER,
@@ -281,19 +282,17 @@ export async function getMe(): Promise<CurrentUserResponse> {
   }
   try {
     const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
-    const res = await fetch(`${base}/me`, {
+    const res = await apiFetch(`${base}/me`, {
       headers: authHeader() ?? {},
     })
-    if (!res.ok) {
-      if (shouldFallbackToDevAccountFixtures(res.status)) {
-        return DEV_ENGINEER_USER
-      }
-      const message = await readApiErrorMessage(res)
-      throw new ApiError(res.status, message)
-    }
     return res.json() as Promise<CurrentUserResponse>
   } catch (err) {
-    if (err instanceof ApiError) throw err
+    if (err instanceof ApiError) {
+      if (shouldFallbackToDevAccountFixtures(err.status)) {
+        return DEV_ENGINEER_USER
+      }
+      throw err
+    }
     if (shouldFallbackToDevAccountFixtures()) return DEV_ENGINEER_USER
     throw err
   }
@@ -392,7 +391,10 @@ export interface DeploymentRecord {
   design?: DeploymentDesign
 }
 
-export async function getDeployment(id: string): Promise<DeploymentRecord> {
+export async function getDeployment(
+  id: string,
+  options?: { signal?: AbortSignal },
+): Promise<DeploymentRecord> {
   const token = getAccessToken()
   if (shouldUseDevAccountFixtures(token)) {
     const rec = devDeploymentRecord(id)
@@ -400,18 +402,19 @@ export async function getDeployment(id: string): Promise<DeploymentRecord> {
     return rec
   }
   try {
-    const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
+    const res = await apiFetch(`${API_BASE}/${encodeURIComponent(id)}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      signal: options?.signal,
     })
-    if (!res.ok) {
-      const preview = shouldFallbackToDevAccountFixtures(res.status)
+    return res.json() as Promise<DeploymentRecord>
+  } catch (err) {
+    if (err instanceof ApiError) {
+      const preview = shouldFallbackToDevAccountFixtures(err.status)
         ? devDeploymentRecord(id)
         : null
       if (preview) return preview
-      throw new Error(await readApiErrorMessage(res))
+      throw err
     }
-    return res.json() as Promise<DeploymentRecord>
-  } catch (err) {
     if (shouldFallbackToDevAccountFixtures()) {
       const preview = devDeploymentRecord(id)
       if (preview) return preview
