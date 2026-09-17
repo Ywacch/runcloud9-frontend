@@ -10,6 +10,9 @@ import {
   type CanvasNode,
   CanvasRoot,
 } from '../editor-core'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+
+const EMPTY_METRICS: Record<string, MetricsBucket> = {}
 import {
   CanvasErrorBoundary,
   DesignToolStrip,
@@ -52,7 +55,9 @@ export default function CanvasPage() {
   const mode = session.mode
   const nodes = session.nodes
   const snapshotTemplateId = session.snapshotTemplateId
-  const metrics = useMetricsStore((s) => s.metrics)
+  const designMetrics = useMetricsStore((s) =>
+    mode === 'design' ? s.metrics : EMPTY_METRICS,
+  )
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
   )
@@ -176,7 +181,7 @@ export default function CanvasPage() {
             journey={designActiveJourney}
             allJourneys={designJourneys}
             nodes={nodes}
-            metrics={metrics}
+            metrics={designMetrics}
             template={snapshotTemplateId ?? 'unknown'}
             context="design"
             onClose={closeDesignJourney}

@@ -29,6 +29,9 @@ import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { trackEvent } from '../lib/analytics'
 import SvgDesignCanvas from '../svg-canvas/SvgDesignCanvas'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+
+const EMPTY_METRICS: Record<string, MetricsBucket> = {}
 import { CanvasSessionOverlays } from './CanvasSessionOverlays'
 import { useCanvasSessionLifecycle } from './useCanvasSessionLifecycle'
 
@@ -59,7 +62,9 @@ export default function SvgCanvasPage() {
   const mode = session.mode
   const nodes = session.nodes
   const snapshotTemplateId = session.snapshotTemplateId
-  const metrics = useMetricsStore((s) => s.metrics)
+  const designMetrics = useMetricsStore((s) =>
+    mode === 'design' ? s.metrics : EMPTY_METRICS,
+  )
   const storytelling = useTemplateRegistryStore((s) =>
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
   )
@@ -211,7 +216,7 @@ export default function SvgCanvasPage() {
             journey={designActiveJourney}
             allJourneys={designJourneys}
             nodes={nodes}
-            metrics={metrics}
+            metrics={designMetrics}
             template={snapshotTemplateId ?? 'unknown'}
             context="design"
             onClose={closeDesignJourney}

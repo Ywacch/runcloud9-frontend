@@ -99,6 +99,7 @@ export function LiveSessionStrip() {
   const loadgenSliderMax = maxLoadgenRps
   const loadgen = useMetricsStore((s) => s.loadgen)
   const streamWarning = useMetricsStore((s) => s.streamWarning)
+  // Live/sim aggregates still need the full metrics map; loadgen no-ops when unchanged.
   const metrics = useMetricsStore((s) => s.metrics)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
   const lastInspector = useSimulationStore((s) => s.lastInspector)
