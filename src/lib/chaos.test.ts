@@ -4,6 +4,7 @@ import {
   chaosHealFromWsEvent,
   chaosOverlayFromWsEvent,
   chaosScenarioConfirm,
+  chaosScenarioLabel,
   chaosScenariosForTarget,
   failoverReadoutSummary,
   isPartitionChaosScenario,
@@ -15,9 +16,40 @@ import {
   latestStandbyRecloneEvent,
   partitionCapSummary,
   promotionWalBytesLost,
+  stallTargetPodForInstance,
   standbyRecloneHints,
 } from './chaos'
 import type { WsEvent } from '../editor-core/stores/metricsStore'
+
+describe('stallTargetPodForInstance', () => {
+  it('omits cluster and primary tabs', () => {
+    expect(stallTargetPodForInstance('cluster')).toBeUndefined()
+    expect(stallTargetPodForInstance(null)).toBeUndefined()
+    expect(stallTargetPodForInstance('postgres')).toBeUndefined()
+  })
+
+  it('returns the replica layer id', () => {
+    expect(stallTargetPodForInstance('postgres-replica-1')).toBe(
+      'postgres-replica-1',
+    )
+    expect(stallTargetPodForInstance('postgres-replica-small-0')).toBe(
+      'postgres-replica-small-0',
+    )
+  })
+
+  it('ignores non-replica instance ids', () => {
+    expect(stallTargetPodForInstance('app-server-roll-abc')).toBeUndefined()
+  })
+})
+
+describe('chaosScenarioLabel', () => {
+  it('names the replica on a replica tab', () => {
+    expect(chaosScenarioLabel('stall_replica')).toBe('Stall one replica')
+    expect(
+      chaosScenarioLabel('stall_replica', { targetPod: 'postgres-replica-1' }),
+    ).toBe('Stall replica-1')
+  })
+})
 
 describe('chaosScenariosForTarget', () => {
   it('gates db replica scenarios behind readReplicas', () => {
@@ -283,6 +315,17 @@ describe('promotion confirm copy', () => {
   it('names re-clone cost for kill_replica', () => {
     expect(chaosScenarioConfirm('kill_replica', 'db')).toContain('pg_basebackup')
     expect(chaosScenarioConfirm('kill_replica', 'db')).toContain('stall_replica')
+  })
+
+  it('names the replica when stall is targeted', () => {
+    expect(
+      chaosScenarioConfirm('stall_replica', 'db', {
+        targetPod: 'postgres-replica-1',
+      }),
+    ).toContain('postgres-replica-1')
+    expect(chaosScenarioConfirm('stall_replica', 'db')).toContain(
+      'the API picks a running replica',
+    )
   })
 })
 
