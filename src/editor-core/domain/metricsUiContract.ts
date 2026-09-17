@@ -107,6 +107,8 @@ export interface ComponentLayerMetrics {
   syncState?: string
   /** Primary-side WAL bytes behind for this standby. */
   lagBytes?: number
+  /** False when the primary no longer reports this standby in pg_stat_replication. */
+  connectedOnPrimary?: boolean
   /** True when promote_replica would pick this standby (mostCurrent ordering). */
   promotionCandidate?: boolean
   /** Per-layer PostgreSQL transaction throughput (xact/s) when present. */
@@ -443,6 +445,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
         replicationLag > 0 || r.replicationLagSeconds === 0 ? replicationLag : undefined,
       syncState: syncState || undefined,
       lagBytes: lagBytes !== undefined ? lagBytes : undefined,
+      connectedOnPrimary:
+        typeof r.connectedOnPrimary === 'boolean' ? r.connectedOnPrimary : undefined,
       promotionCandidate: r.promotionCandidate === true ? true : undefined,
       requestRate: requestRate > 0 ? requestRate : undefined,
       totalRequests: totalRequests > 0 ? totalRequests : undefined,
