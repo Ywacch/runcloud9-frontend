@@ -119,13 +119,15 @@ function advancePlaybackFrame(now: number): void {
   const stale = isStreamStale(now)
   if (stale) {
     store.setStreamWarning('Connection stale. Metrics may be outdated')
+  } else if (store.streamWarning === 'Connection stale. Metrics may be outdated') {
+    store.setStreamWarning(null)
   }
 
   firePlaybackEventsUpTo(playheadMs)
 
   const underrunFrozen = buffer.isFrozen(playheadMs)
-  // Chart series come from WS frames directly; freeze only reflects stream health
-  // for delay/reconnect UI — not whether interpolated history can be written.
+  // Chart series come from WS frames directly; freeze only reflects transport
+  // silence (no wall frames), not snapshot age while ticks still arrive.
   store.setChartFrozen(stale || reconnectCatchUp)
 
   if (underrunFrozen || reconnectCatchUp) return

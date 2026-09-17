@@ -1,4 +1,7 @@
-import { WS_STALE_RECONNECT_MS } from '../playback/playbackConfig'
+import {
+  WS_DATA_DEGRADED_MS,
+  WS_TRANSPORT_DEAD_MS,
+} from '../playback/playbackConfig'
 
 export const WS_STALE_CHECK_INTERVAL_MS = 2_000
 
@@ -16,7 +19,7 @@ export function isWsConnectionStale(
   now: number,
   options: WsStaleOptions = {},
 ): boolean {
-  const staleThresholdMs = options.staleThresholdMs ?? WS_STALE_RECONNECT_MS
+  const staleThresholdMs = options.staleThresholdMs ?? WS_TRANSPORT_DEAD_MS
   if (readyState !== WEBSOCKET_OPEN) return false
   if (lastFrameAt > 0) {
     return now - lastFrameAt > staleThresholdMs
@@ -24,6 +27,14 @@ export function isWsConnectionStale(
   const connectedAt = options.connectedAt
   if (connectedAt == null || connectedAt <= 0) return false
   return now - connectedAt > staleThresholdMs
+}
+
+export function isMetricsDataDegraded(
+  snapshotAgeMs: number,
+  collectPending: boolean,
+  nowThreshold = WS_DATA_DEGRADED_MS,
+): boolean {
+  return !collectPending && snapshotAgeMs > nowThreshold
 }
 
 export function wsReconnectDelayMs(

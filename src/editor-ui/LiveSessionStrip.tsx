@@ -99,6 +99,7 @@ export function LiveSessionStrip() {
   const loadgenSliderMax = maxLoadgenRps
   const loadgen = useMetricsStore((s) => s.loadgen)
   const streamWarning = useMetricsStore((s) => s.streamWarning)
+  const metricsDegraded = useMetricsStore((s) => s.metricsDegraded)
   // Live/sim aggregates still need the full metrics map; loadgen no-ops when unchanged.
   const metrics = useMetricsStore((s) => s.metrics)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
@@ -873,6 +874,11 @@ export function LiveSessionStrip() {
         {streamWarning ? (
           <p className="border-b border-amber-700/40 bg-amber-950/65 px-3 py-1.5 text-xs font-medium text-amber-100">
             {streamWarning}
+          </p>
+        ) : null}
+        {metricsDegraded && !streamWarning ? (
+          <p className="border-b border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-3 py-0.5 text-[10px] text-[var(--c9-muted)]">
+            Metrics delayed
           </p>
         ) : null}
       </div>

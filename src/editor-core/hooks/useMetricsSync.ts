@@ -7,9 +7,13 @@ import {
 import { saveWsEventsJson } from '../../lib/wsEventsPersist'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useMetricsStore } from '../stores/metricsStore'
-import { isMetricsPlaybackEnabled } from '../playback/playbackConfig'
+import {
+  isMetricsPlaybackEnabled,
+  WS_TRANSPORT_DEAD_MS,
+} from '../playback/playbackConfig'
 import {
   WS_STALE_CHECK_INTERVAL_MS,
+  isMetricsDataDegraded,
   isWsConnectionStale,
   wsReconnectDelayMs,
 } from './wsStaleWatchdog'
@@ -25,6 +29,9 @@ import {
   parseServerTimestamp,
 } from '../playback/wsMetricsFrame'
 import type { WsDeploymentMetrics } from '../playback/wsMetricsTypes'
+
+const TRANSPORT_RECONNECT_WARNING =
+  'Live metrics connection dropped. Reconnecting...'
 
 function ingestWsFrame(payload: WsDeploymentMetrics): void {
   const playback = isMetricsPlaybackEnabled()
@@ -58,12 +65,14 @@ export function useMetricsSync(deploymentId: string | null): void {
   const connectedAtRef = useRef(0)
   const staleCloseRef = useRef(false)
   const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastPayloadRef = useRef({ snapshotAgeMs: 0, collectPending: false })
 
   useEffect(() => {
     retryRef.current = 0
     lastFrameAtRef.current = 0
     connectedAtRef.current = 0
     staleCloseRef.current = false
+    lastPayloadRef.current = { snapshotAgeMs: 0, collectPending: false }
 
     const clearPersistTimer = () => {
       if (persistTimerRef.current) {
@@ -93,17 +102,32 @@ export function useMetricsSync(deploymentId: string | null): void {
       staleCheckRef.current = setInterval(() => {
         const ws = wsRef.current
         if (!ws) return
+        const store = useMetricsStore.getState()
+        const now = Date.now()
         if (
-          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now(), {
+          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, now, {
             connectedAt: connectedAtRef.current,
+            staleThresholdMs: WS_TRANSPORT_DEAD_MS,
           })
         ) {
-          useMetricsStore
-            .getState()
-            .setStreamWarning('Reconnecting live metrics…')
+          store.setStreamWarning(TRANSPORT_RECONNECT_WARNING)
           staleCloseRef.current = true
           retryRef.current = 0
           ws.close()
+          return
+        }
+        const { snapshotAgeMs, collectPending } = lastPayloadRef.current
+        if (isMetricsDataDegraded(snapshotAgeMs, collectPending)) {
+          store.setMetricsDegraded(true)
+          return
+        }
+        store.setMetricsDegraded(false)
+        const warning = store.streamWarning
+        if (
+          warning === TRANSPORT_RECONNECT_WARNING ||
+          warning === 'Reconnecting live metrics…'
+        ) {
+          store.setStreamWarning(null)
         }
       }, WS_STALE_CHECK_INTERVAL_MS)
     }
@@ -169,13 +193,16 @@ export function useMetricsSync(deploymentId: string | null): void {
       ws.onmessage = (ev) => {
         retryRef.current = 0
         lastFrameAtRef.current = Date.now()
-        useMetricsStore.getState().setStreamWarning(null)
         try {
           const data = JSON.parse(ev.data as string) as WsDeploymentMetrics
+          lastPayloadRef.current = {
+            snapshotAgeMs: Number(data.snapshotAgeMs ?? 0),
+            collectPending: Boolean(data.collectPending),
+          }
           ingestWsFrame(data)
           schedulePersistWsEvents()
         } catch {
-          /* ignore bad frame */
+          /* ignore bad frame; transport liveness still updated above */
         }
       }
 
@@ -200,7 +227,7 @@ export function useMetricsSync(deploymentId: string | null): void {
         if (retryRef.current >= maxRetries) {
           useMetricsStore
             .getState()
-            .setStreamWarning('Live metrics connection dropped. Reconnecting...')
+            .setStreamWarning(TRANSPORT_RECONNECT_WARNING)
           void getDeployment(deploymentId)
             .then((dep) => {
               if (isTerminalDeploymentStatus(dep.status)) {

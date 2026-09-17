@@ -371,10 +371,18 @@ export function applyWsFrameToStore(
 
   const lg = payload.loadgen
   if (lg) {
+    const prev = useMetricsStore.getState().loadgen
+    const frameActive = Boolean(lg.active)
+    const isStale = Boolean(lg.stale)
+    let active = frameActive
+    if (isStale && !frameActive && prev?.active) {
+      active = true
+    }
     const targetRps = Number(lg.targetRps ?? lg.currentRps ?? 0)
     const actualRps = Number(lg.actualRps ?? lg.currentRps ?? 0)
     useMetricsStore.getState().setLoadgen({
-      active: Boolean(lg.active),
+      active,
+      stale: isStale,
       targetRps,
       currentRps: targetRps,
       actualRps,
