@@ -143,6 +143,94 @@ describe('canvasSvgBridge', () => {
     expect(svg?.label).toBe('Renamed')
   })
 
+  it('patches health rims without re-routing edges on metrics ticks', () => {
+    const node = createCanvasNode('compute', isoToNode(0, 0), {})
+    const db = createCanvasNode('database', isoToNode(2, 0), {})
+    node.status = 'healthy'
+    db.status = 'healthy'
+    useCanvasStore.getState().addNode(node)
+    useCanvasStore.getState().addNode(db)
+    const edge = {
+      id: crypto.randomUUID(),
+      sourceId: node.id,
+      targetId: db.id,
+      protocol: 'http' as const,
+      animated: false,
+    }
+    useCanvasStore.getState().addEdge(edge)
+    installCanvasSvgBridge()
+    useCanvasStore.getState().setMode('simulate')
+    const waypointsBefore =
+      useSvgCanvasStore.getState().edges[0]?.waypoints ?? []
+    useMetricsStore.getState().setLatestMetrics(node.id, highCpuMetrics())
+    const waypointsAfter =
+      useSvgCanvasStore.getState().edges[0]?.waypoints ?? []
+    expect(waypointsAfter).toBe(waypointsBefore)
+    expect(
+      useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+        ?.healthVisual,
+    ).toBe('warning')
+  })
+
+  it('reprojects database replica count when layer count changes', () => {
+    const node = createCanvasNode('database', isoToNode(0, 0), {})
+    node.status = 'healthy'
+    useCanvasStore.getState().addNode(node)
+    installCanvasSvgBridge()
+    useCanvasStore.getState().setMode('simulate')
+    useMetricsStore.getState().setLatestMetrics(node.id, {
+      ...highCpuMetrics(),
+      layers: [
+        {
+          id: 'postgres',
+          role: 'primary',
+          engine: 'postgresql',
+          cpuUsage: 0,
+          memoryBytes: 0,
+          cpuLimit: 1,
+          memoryLimit: 1,
+          cpuIsEstimated: false,
+          memIsEstimated: false,
+        },
+      ],
+    })
+    expect(
+      useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+        ?.topology.replicas,
+    ).toBe(1)
+    useMetricsStore.getState().setLatestMetrics(node.id, {
+      ...highCpuMetrics(),
+      layers: [
+        {
+          id: 'postgres',
+          role: 'primary',
+          engine: 'postgresql',
+          cpuUsage: 0,
+          memoryBytes: 0,
+          cpuLimit: 1,
+          memoryLimit: 1,
+          cpuIsEstimated: false,
+          memIsEstimated: false,
+        },
+        {
+          id: 'postgres-replica-1',
+          role: 'replica',
+          engine: 'postgresql',
+          cpuUsage: 0,
+          memoryBytes: 0,
+          cpuLimit: 1,
+          memoryLimit: 1,
+          cpuIsEstimated: false,
+          memIsEstimated: false,
+        },
+      ],
+    })
+    expect(
+      useSvgCanvasStore.getState().nodes.find((n) => n.id === node.id)
+        ?.topology.replicas,
+    ).toBe(2)
+  })
+
   it('drives healthVisual from metrics in simulate mode', () => {
     const node = createCanvasNode('compute', isoToNode(0, 0), {})
     node.status = 'healthy'

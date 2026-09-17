@@ -187,6 +187,8 @@ interface CanvasState {
   updateNodeConfig: (id: string, config: Partial<CanvasNode['config']>) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNodeStatus: (id: string, status: CanvasNode['status']) => void
+  /** One set() for many status updates — skips unchanged statuses. */
+  updateNodeStatuses: (patch: Record<string, CanvasNode['status']>) => void
   removeNode: (id: string) => void
   removeSelectedNodes: () => void
   addEdge: (edge: CanvasEdge) => void
@@ -341,7 +343,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((s) => {
       const n = s.nodes[id]
       if (!n) return s
+      if (n.status === status) return s
       return { nodes: { ...s.nodes, [id]: { ...n, status } } }
+    }),
+
+  updateNodeStatuses: (patch) =>
+    set((s) => {
+      let changed = false
+      const nodes = { ...s.nodes }
+      for (const [id, status] of Object.entries(patch)) {
+        const n = s.nodes[id]
+        if (!n || n.status === status) continue
+        changed = true
+        nodes[id] = { ...n, status }
+      }
+      if (!changed) return s
+      return { nodes }
     }),
 
   removeNode: (id) =>

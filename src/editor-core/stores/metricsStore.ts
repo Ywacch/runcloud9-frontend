@@ -201,6 +201,33 @@ const MAX_SYSTEM_SAMPLES = 90
 
 const MAX_EVENTS = 100
 
+function loadgenPayloadEqual(
+  a: LiveLoadgenState | null,
+  b: LiveLoadgenState | null,
+): boolean {
+  if (a === b) return true
+  if (a === null || b === null) return false
+  return (
+    a.active === b.active &&
+    a.targetRps === b.targetRps &&
+    a.currentRps === b.currentRps &&
+    a.actualRps === b.actualRps &&
+    a.intervalActualRps === b.intervalActualRps &&
+    a.intervalP99Ms === b.intervalP99Ms &&
+    a.totalRequests === b.totalRequests &&
+    a.successRate === b.successRate &&
+    a.durationSeconds === b.durationSeconds &&
+    a.elapsedSeconds === b.elapsedSeconds &&
+    a.scheduleId === b.scheduleId &&
+    a.currentPhase === b.currentPhase &&
+    a.phaseIndex === b.phaseIndex &&
+    a.recentIntervals === b.recentIntervals &&
+    a.recentLatenciesMs === b.recentLatenciesMs &&
+    a.distribution === b.distribution &&
+    a.statusCodes === b.statusCodes
+  )
+}
+
 function parsePersistedWsEvents(raw: string): WsEvent[] {
   let parsed: unknown
   try {
@@ -289,6 +316,11 @@ interface MetricsState {
   /** Latest raw WS bucket (headlines / tooltips). Does not append chart history. */
   setLatestMetrics: (nodeId: string, data: MetricsBucket) => void
   updateMetrics: (nodeId: string, data: MetricsBucket) => void
+  /** One set() for many buckets (WS frame batching). */
+  applyMetricsBuckets: (
+    next: Record<string, MetricsBucket>,
+    opts: { appendHistory: boolean },
+  ) => void
   setLoadgen: (data: LiveLoadgenState | null) => void
   pushSystemSample: (sample: SystemMetricsSample) => void
   /** Playhead-interpolated chart point (replaces tail when commitKey matches). */
@@ -338,7 +370,24 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       }
     }),
 
-  setLoadgen: (loadgen) => set({ loadgen }),
+  applyMetricsBuckets: (next, { appendHistory }) =>
+    set((s) => {
+      if (Object.keys(next).length === 0) return s
+      const metrics = { ...s.metrics, ...next }
+      if (!appendHistory) return { metrics }
+      const history = { ...s.history }
+      for (const [id, bucket] of Object.entries(next)) {
+        const prev = s.history[id] ?? []
+        history[id] = [...prev.slice(-29), bucket]
+      }
+      return { metrics, history }
+    }),
+
+  setLoadgen: (loadgen) =>
+    set((s) => {
+      if (loadgenPayloadEqual(s.loadgen, loadgen)) return s
+      return { loadgen }
+    }),
 
   pushSystemSample: (sample) =>
     set((s) => ({

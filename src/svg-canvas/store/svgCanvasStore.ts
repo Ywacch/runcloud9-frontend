@@ -55,6 +55,7 @@ import {
   type SvgZone,
 } from './svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
+import { metricsSvgProjectPickKey } from '../../lib/canvasInstanceScope'
 import { syncExpandWithSelection } from './expandStore'
 
 export type { Archetype, SvgEdge, SvgNode, SvgZone } from './svgTypes'
@@ -66,6 +67,8 @@ let unsubscribeMetrics: (() => void) | null = null
 let unsubscribeChaos: (() => void) | null = null
 /** Last canvas mode seen by syncFromCanvas — used to clear rims leaving live/sim. */
 let lastSyncedMode: CanvasMode | null = null
+/** Last instance-pick key — full project only when pod/layer counts change. */
+let prevMetricsPickKey: string | null = null
 
 type SvgCanvasState = {
   nodes: SvgNode[]
@@ -214,6 +217,14 @@ function syncFromCanvas(): void {
     connectSourceId: c.pendingSourceId,
   })
   syncExpandWithSelection(selectedIds, nodes)
+  refreshMetricsPickKey()
+}
+
+function refreshMetricsPickKey(): void {
+  prevMetricsPickKey = metricsSvgProjectPickKey(
+    useMetricsStore.getState().metrics,
+    useCanvasStore.getState().nodes,
+  )
 }
 
 function syncSessionLayoutEdges(movedNodeIds: string[]): void {
@@ -257,6 +268,7 @@ export function installCanvasSvgBridge(): void {
   }
   bridgeInstalled = true
   syncFromCanvas()
+  refreshMetricsPickKey()
   let prev = bridgeFieldsFrom(useCanvasStore.getState())
   unsubscribeCanvas = useCanvasStore.subscribe((state) => {
     const next = bridgeFieldsFrom(state)
@@ -283,7 +295,14 @@ export function installCanvasSvgBridge(): void {
   unsubscribeMetrics = useMetricsStore.subscribe((state, prevMetrics) => {
     if (state.metrics !== prevMetrics.metrics) {
       const c = useCanvasStore.getState()
-      if (isMetricsViewportMode(c.mode)) syncFromCanvas()
+      if (!isMetricsViewportMode(c.mode)) return
+      const pickKey = metricsSvgProjectPickKey(state.metrics, c.nodes)
+      if (pickKey === prevMetricsPickKey) {
+        patchLiveHealthVisuals()
+      } else {
+        prevMetricsPickKey = pickKey
+        syncFromCanvas()
+      }
     }
   })
   unsubscribeChaos = useChaosStore.subscribe(() => {
@@ -301,6 +320,7 @@ export function resetCanvasSvgBridgeForTests(): void {
   unsubscribeChaos = null
   bridgeInstalled = false
   lastSyncedMode = null
+  prevMetricsPickKey = null
   clipboard = []
   clearSessionLayout()
   useSvgCanvasStore.setState({

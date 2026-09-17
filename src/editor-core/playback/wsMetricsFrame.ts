@@ -326,12 +326,10 @@ export function applyWsFrameToStore(
 ): WsEvent[] {
   const { appendCharts = true, pushEvents = true } = options
   const nodes = useCanvasStore.getState().nodes
-  const setLatestMetrics = useMetricsStore.getState().setLatestMetrics
-  const updateMetrics = useMetricsStore.getState().updateMetrics
-  const updateNodeStatus = useCanvasStore.getState().updateNodeStatus
+  const applyMetricsBuckets = useMetricsStore.getState().applyMetricsBuckets
+  const updateNodeStatuses = useCanvasStore.getState().updateNodeStatuses
   const pushEventsFn = useMetricsStore.getState().pushEvents
   const setTemplateMetrics = useMetricsStore.getState().setTemplateMetrics
-  const writeMetrics = appendCharts ? updateMetrics : setLatestMetrics
 
   if (payload.templateMetrics && Object.keys(payload.templateMetrics).length > 0) {
     setTemplateMetrics(payload.templateMetrics)
@@ -345,6 +343,8 @@ export function applyWsFrameToStore(
 
   const nodeBuckets = nodeBucketsFromPayload(payload, nodes)
   const components = payload.components ?? {}
+  const metricsPatch: Record<string, MetricsBucket> = {}
+  const statusPatch: Record<string, CanvasNode['status']> = {}
 
   for (const [backendKey, cm] of Object.entries(components)) {
     if (!cm) continue
@@ -352,9 +352,16 @@ export function applyWsFrameToStore(
     for (const id of ids) {
       const bucket = nodeBuckets[id]
       if (!bucket) continue
-      writeMetrics(id, bucket)
-      updateNodeStatus(id, nodeStatusFromMetrics(bucket))
+      metricsPatch[id] = bucket
+      statusPatch[id] = nodeStatusFromMetrics(bucket)
     }
+  }
+
+  if (Object.keys(metricsPatch).length > 0) {
+    applyMetricsBuckets(metricsPatch, { appendHistory: appendCharts })
+  }
+  if (Object.keys(statusPatch).length > 0) {
+    updateNodeStatuses(statusPatch)
   }
 
   const lg = payload.loadgen

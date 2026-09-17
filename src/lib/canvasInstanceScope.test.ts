@@ -5,6 +5,7 @@ import {
   canvasUnitPickEnabled,
   instanceIdForUnitIndex,
   metricsInstancePickKey,
+  metricsSvgProjectPickKey,
   sortedCanvasInstanceIds,
   unitIndexFromMotionId,
   unitPickEnabledForDisplay,
@@ -220,6 +221,69 @@ describe('metricsInstancePickKey', () => {
     )
     expect(empty).not.toBe(withPods)
     expect(withPods).toContain('worker:3:0')
+  })
+})
+
+describe('metricsSvgProjectPickKey', () => {
+  it('changes when database layer count changes even without read replicas', () => {
+    const nodes = {
+      db: {
+        ...dbNode(),
+        config: { readReplicas: 0 },
+      },
+    }
+    const oneLayer = metricsSvgProjectPickKey(
+      {
+        db: metrics({
+          layers: [
+            {
+              id: DB_LAYER_ID_POSTGRES_PRIMARY,
+              role: 'primary',
+              engine: 'postgresql',
+              cpuUsage: 0,
+              memoryBytes: 0,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+            },
+          ],
+        }),
+      },
+      nodes,
+    )
+    const twoLayers = metricsSvgProjectPickKey(
+      {
+        db: metrics({
+          layers: [
+            {
+              id: DB_LAYER_ID_POSTGRES_PRIMARY,
+              role: 'primary',
+              engine: 'postgresql',
+              cpuUsage: 0,
+              memoryBytes: 0,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+            },
+            {
+              id: 'postgres-replica-1',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0,
+              memoryBytes: 0,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+            },
+          ],
+        }),
+      },
+      nodes,
+    )
+    expect(oneLayer).not.toBe(twoLayers)
   })
 })
 

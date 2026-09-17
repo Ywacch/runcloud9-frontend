@@ -20,7 +20,9 @@ export function CanvasNodeTooltipOverlay() {
   const mode = useCanvasStore((s) => s.mode)
   const hoveredNodeId = useCanvasStore((s) => s.hoveredNodeId)
   const nodes = useCanvasStore((s) => s.nodes)
-  const metrics = useMetricsStore((s) => s.metrics)
+  const bucket = useMetricsStore((s) =>
+    hoveredNodeId ? s.metrics[hoveredNodeId] : undefined,
+  )
   const [, refresh] = useState(0)
 
   useEffect(() => {
@@ -43,7 +45,6 @@ export function CanvasNodeTooltipOverlay() {
   )
   if (!screen) return null
 
-  const bucket = metrics[hoveredNodeId]
   const health = computeHealthState(bucket, node.status)
   const align = node.position[0] > 0 ? 'left' : 'right'
 

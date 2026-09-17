@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseRecentLatenciesMs, parseResourceUsageSource } from '../domain/metricsUiContract'
 import {
   applyWsFrameToStore,
@@ -368,6 +368,56 @@ describe('applyWsFrameToStore loadgen latencies', () => {
       'GET /feed/{userId}': 60,
       'POST /post': 30,
     })
+  })
+})
+
+describe('applyWsFrameToStore batching', () => {
+  beforeEach(() => {
+    useMetricsStore.setState({ metrics: {}, history: {} })
+    useCanvasStore.setState({
+      nodes: {
+        'n-app': {
+          id: 'n-app',
+          type: 'compute',
+          position: [0, 0, 0],
+          label: 'App Server',
+          config: {},
+          status: 'healthy',
+        },
+        'n-db': {
+          id: 'n-db',
+          type: 'database',
+          position: [1, 0, 0],
+          label: 'Database',
+          config: {},
+          status: 'healthy',
+        },
+      },
+    })
+  })
+
+  it('applies component metrics and statuses in one store write each', () => {
+    const metricsSpy = vi.fn()
+    const canvasSpy = vi.fn()
+    const unsubMetrics = useMetricsStore.subscribe(metricsSpy)
+    const unsubCanvas = useCanvasStore.subscribe(canvasSpy)
+    applyWsFrameToStore(
+      {
+        timestamp: new Date().toISOString(),
+        components: {
+          'app-server': { requestRate: 10, errorRate: 0.5 },
+          db: { dbQueryRate: 5 },
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    unsubMetrics()
+    unsubCanvas()
+    expect(metricsSpy).toHaveBeenCalledTimes(1)
+    expect(canvasSpy).toHaveBeenCalledTimes(1)
+    expect(useMetricsStore.getState().metrics['n-app']?.requestRate).toBe(10)
+    expect(useMetricsStore.getState().metrics['n-db']?.dbQueryRate).toBe(5)
+    expect(useCanvasStore.getState().nodes['n-app'].status).toBe('degraded')
   })
 })
 

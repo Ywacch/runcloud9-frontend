@@ -96,3 +96,23 @@ export function metricsInstancePickKey(
   }
   return parts.sort().join('|')
 }
+
+/** When SVG routing / db fan must reproject (overlayLiveDbUnitCount + instance pick). */
+export function metricsSvgProjectPickKey(
+  metrics: Record<string, MetricsBucket | undefined>,
+  nodes: Record<string, CanvasNode>,
+): string {
+  const parts: string[] = []
+  for (const node of Object.values(nodes)) {
+    const m = metrics[node.id]
+    if (node.type === 'database') {
+      parts.push(`db:${node.id}:${m?.layers?.length ?? 0}`)
+      continue
+    }
+    if (!nodeSupportsInstanceScope(node)) continue
+    parts.push(
+      `pod:${node.id}:${m?.podReplicas?.length ?? 0}:${m?.layers?.length ?? 0}`,
+    )
+  }
+  return parts.sort().join('|')
+}

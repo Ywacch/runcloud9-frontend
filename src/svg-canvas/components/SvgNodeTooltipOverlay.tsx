@@ -22,7 +22,9 @@ export function SvgNodeTooltipOverlay() {
   const hoveredNodeId = useCanvasStore((s) => s.hoveredNodeId)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const svgNodes = useSvgCanvasStore((s) => s.nodes)
-  const metrics = useMetricsStore((s) => s.metrics)
+  const bucket = useMetricsStore((s) =>
+    hoveredNodeId ? s.metrics[hoveredNodeId] : undefined,
+  )
   const [, refresh] = useState(0)
 
   useEffect(() => {
@@ -46,7 +48,6 @@ export function SvgNodeTooltipOverlay() {
   )
   if (!screen) return null
 
-  const bucket = metrics[hoveredNodeId]
   const health = computeHealthState(bucket, node.status)
   const align = node.position[0] > 0 ? 'left' : 'right'
 
