@@ -3,6 +3,10 @@ import { connectLogsWS } from '../../lib/api'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useLogStore, type RawLogLine } from '../stores/logStore'
 import {
+  scheduleWsReconnectAfterMaxRetries,
+  shouldVerifyDeploymentAfterWsRetries,
+} from './wsMaxRetryReconnect'
+import {
   WS_STALE_CHECK_INTERVAL_MS,
   isWsConnectionStale,
   wsReconnectDelayMs,
@@ -41,12 +45,14 @@ export function useLogSync(deploymentId: string | null): void {
   const wsRef = useRef<WebSocket | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFrameAtRef = useRef(0)
+  const connectedAtRef = useRef(0)
   const staleCloseRef = useRef(false)
   const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     retryRef.current = 0
     lastFrameAtRef.current = 0
+    connectedAtRef.current = 0
     staleCloseRef.current = false
 
     const clearTimer = () => {
@@ -66,11 +72,14 @@ export function useLogSync(deploymentId: string | null): void {
     const startStaleCheck = () => {
       clearStaleCheck()
       lastFrameAtRef.current = 0
+      connectedAtRef.current = Date.now()
       staleCheckRef.current = setInterval(() => {
         const ws = wsRef.current
         if (!ws) return
         if (
-          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now())
+          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now(), {
+            connectedAt: connectedAtRef.current,
+          })
         ) {
           staleCloseRef.current = true
           retryRef.current = 0
@@ -136,7 +145,16 @@ export function useLogSync(deploymentId: string | null): void {
           )
           return
         }
-        if (retryRef.current >= 5) return
+        if (shouldVerifyDeploymentAfterWsRetries(retryRef.current)) {
+          scheduleWsReconnectAfterMaxRetries({
+            deploymentId,
+            warningMessage: 'Live logs connection dropped. Reconnecting...',
+            retryRef,
+            timerRef,
+            connect,
+          })
+          return
+        }
         const delay = wsReconnectDelayMs(retryRef.current, false)
         retryRef.current += 1
         timerRef.current = setTimeout(connect, delay)

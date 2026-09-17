@@ -55,12 +55,14 @@ export function useMetricsSync(deploymentId: string | null): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFrameAtRef = useRef(0)
+  const connectedAtRef = useRef(0)
   const staleCloseRef = useRef(false)
   const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     retryRef.current = 0
     lastFrameAtRef.current = 0
+    connectedAtRef.current = 0
     staleCloseRef.current = false
 
     const clearPersistTimer = () => {
@@ -87,11 +89,14 @@ export function useMetricsSync(deploymentId: string | null): void {
     const startStaleCheck = () => {
       clearStaleCheck()
       lastFrameAtRef.current = 0
+      connectedAtRef.current = Date.now()
       staleCheckRef.current = setInterval(() => {
         const ws = wsRef.current
         if (!ws) return
         if (
-          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now())
+          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now(), {
+            connectedAt: connectedAtRef.current,
+          })
         ) {
           useMetricsStore
             .getState()

@@ -44,6 +44,12 @@ import {
 import { parseRunningAtMs } from '../lib/sessionMinutes'
 import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import {
+  clearProvisionPollErrorOnSuccess,
+  isAbortError,
+  nextProvisionPollError,
+  PROVISION_FAILED_MESSAGE,
+} from './provisionPollError'
+import {
   trackEvent,
   analyticsPresetModeFromStore,
   trackSessionEndedOnce,
@@ -220,6 +226,8 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     let stopped = false
     let pollId: number | null = null
     let timerId: number | null = null
+    let consecutiveFailures = 0
+    let pollAbort: AbortController | null = null
     const stopPolling = () => {
       if (stopped) return
       stopped = true
@@ -377,9 +385,15 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     }
 
     const pollOnce = async () => {
+      pollAbort?.abort()
+      pollAbort = new AbortController()
       try {
-        const dep = await getDeployment(deploymentId)
+        const dep = await getDeployment(deploymentId, {
+          signal: pollAbort.signal,
+        })
         if (cancelled) return
+        consecutiveFailures = 0
+        setProvisioningError((prev) => clearProvisionPollErrorOnSuccess(prev))
         lastDeployStatusRef.current = dep.status
         setDeployStatus(dep.status)
 
@@ -490,7 +504,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
             duration_ms: Math.max(0, Date.now() - provisionStartRef.current),
           })
           trackSessionEndedOnce(deploymentId, sessionEndedProperties('failed'))
-          setProvisioningError('Deployment failed during provisioning.')
+          setProvisioningError(PROVISION_FAILED_MESSAGE)
           setIsTerminating(false)
           stopPolling()
           return
@@ -521,8 +535,12 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           stopPolling()
           return
         }
-      } catch {
-        // Transient errors are ignored; next interval retries.
+      } catch (err) {
+        if (cancelled || isAbortError(err)) return
+        consecutiveFailures += 1
+        setProvisioningError((prev) =>
+          nextProvisionPollError(consecutiveFailures, prev),
+        )
       }
     }
 
@@ -545,6 +563,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
       window.removeEventListener('pagehide', onPageHide)
       if (activeWaitRef.current) leaveActiveWait('abandoned')
       cancelled = true
+      pollAbort?.abort()
       stopPolling()
     }
   }, [deploymentId, mode])

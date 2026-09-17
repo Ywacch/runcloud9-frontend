@@ -6,15 +6,25 @@ export const WS_STALE_FAST_RECONNECT_MS = 500
 /** WebSocket.OPEN — inlined so tests do not need a WebSocket impl. */
 export const WEBSOCKET_OPEN = 1
 
+export type WsStaleOptions = {
+  connectedAt?: number
+  staleThresholdMs?: number
+}
+
 export function isWsConnectionStale(
   readyState: number,
   lastFrameAt: number,
   now: number,
-  staleThresholdMs: number = WS_STALE_RECONNECT_MS,
+  options: WsStaleOptions = {},
 ): boolean {
+  const staleThresholdMs = options.staleThresholdMs ?? WS_STALE_RECONNECT_MS
   if (readyState !== WEBSOCKET_OPEN) return false
-  if (lastFrameAt <= 0) return false
-  return now - lastFrameAt > staleThresholdMs
+  if (lastFrameAt > 0) {
+    return now - lastFrameAt > staleThresholdMs
+  }
+  const connectedAt = options.connectedAt
+  if (connectedAt == null || connectedAt <= 0) return false
+  return now - connectedAt > staleThresholdMs
 }
 
 export function wsReconnectDelayMs(

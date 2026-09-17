@@ -177,9 +177,13 @@ describe('getMe', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(getMe()).resolves.toEqual(profile)
-    expect(fetchMock).toHaveBeenCalledWith('/me', {
-      headers: { Authorization: 'Bearer tok-me' },
-    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/me',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer tok-me' },
+        signal: expect.any(AbortSignal),
+      }),
+    )
   })
 
   it('returns the dev preview user when /me is down in Vite dev', async () => {
