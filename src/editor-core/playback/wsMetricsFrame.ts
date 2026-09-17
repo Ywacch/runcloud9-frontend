@@ -357,6 +357,11 @@ export function applyWsFrameToStore(
     }
   }
 
+  const clientBucket = nodeBuckets[CLIENT_LOADGEN_ID]
+  if (clientBucket) {
+    metricsPatch[CLIENT_LOADGEN_ID] = clientBucket
+  }
+
   if (Object.keys(metricsPatch).length > 0) {
     applyMetricsBuckets(metricsPatch, { appendHistory: appendCharts })
   }
@@ -394,11 +399,6 @@ export function applyWsFrameToStore(
     if (systemSample) {
       useMetricsStore.getState().pushSystemSample(systemSample)
     }
-  }
-
-  const clientBucket = nodeBuckets[CLIENT_LOADGEN_ID]
-  if (clientBucket) {
-    writeMetrics(CLIENT_LOADGEN_ID, clientBucket)
   }
 
   return ev
