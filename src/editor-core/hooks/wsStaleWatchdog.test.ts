@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { WS_STALE_RECONNECT_MS } from '../playback/playbackConfig'
 import {
   WEBSOCKET_OPEN,
-  WS_STALE_FAST_RECONNECT_MS,
   isWsConnectionStale,
   wsReconnectDelayMs,
 } from './wsStaleWatchdog'
@@ -54,11 +53,8 @@ describe('isWsConnectionStale', () => {
 })
 
 describe('wsReconnectDelayMs', () => {
-  it('uses a fast reconnect after an intentional stale close', () => {
-    expect(wsReconnectDelayMs(4, true)).toBe(WS_STALE_FAST_RECONNECT_MS)
-  })
-
-  it('uses exponential backoff for normal closes', () => {
+  it('uses exponential backoff for stale and normal closes', () => {
+    expect(wsReconnectDelayMs(0, true)).toBe(1000)
     expect(wsReconnectDelayMs(0, false)).toBe(1000)
     expect(wsReconnectDelayMs(1, false)).toBe(2000)
     expect(wsReconnectDelayMs(5, false)).toBe(30_000)
