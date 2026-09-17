@@ -53,10 +53,16 @@ export function LiveMetricsDrawer() {
   const series = useMetricsStore((s) => s.systemSeries)
   const chartFrozen = useMetricsStore((s) => s.chartFrozen)
   const catchingUp = useMetricsStore((s) => s.playbackCatchingUp)
+  const streamWarning = useMetricsStore((s) => s.streamWarning)
   const [flowOpen, setFlowOpen] = useState(false)
   const [dataViewOpen, setDataViewOpen] = useState(false)
 
   const devPreview = import.meta.env.DEV && mode === 'design'
+  const transportReconnecting =
+    streamWarning === 'Live metrics connection dropped. Reconnecting...' ||
+    streamWarning === 'Reconnecting live metrics…'
+  const showReconnectStatus =
+    catchingUp || (chartFrozen && transportReconnecting)
   const visible =
     open &&
     stripVisible &&
@@ -243,7 +249,7 @@ export function LiveMetricsDrawer() {
           <ChevronRight />
         </button>
       </div>
-      {chartFrozen && !devPreview ? (
+      {showReconnectStatus && !devPreview ? (
         <p className="px-3 pt-2 text-[10px] text-amber-400/90">
           {catchingUp ? 'Catching up…' : 'Reconnecting'}
         </p>

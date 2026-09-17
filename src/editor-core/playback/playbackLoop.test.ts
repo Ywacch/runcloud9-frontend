@@ -90,6 +90,17 @@ describe('playbackLoop stale stream', () => {
     expect(useMetricsStore.getState().streamWarning).toContain('stale')
     expect(useMetricsStore.getState().chartFrozen).toBe(true)
   })
+
+  it('does not warn when wall frames keep arriving within the stale window', () => {
+    const wall = 600_000
+    for (let i = 0; i < 10; i++) {
+      pushBufferedSample(sample(wall + i * 2000))
+    }
+    runPlaybackTickForTest(wall + 18_000)
+
+    expect(useMetricsStore.getState().streamWarning).toBeNull()
+    expect(useMetricsStore.getState().chartFrozen).toBe(false)
+  })
 })
 
 describe('playbackLoop chart underrun', () => {

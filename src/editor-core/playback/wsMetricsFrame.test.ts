@@ -369,6 +369,73 @@ describe('applyWsFrameToStore loadgen latencies', () => {
       'POST /post': 30,
     })
   })
+
+  it('keeps loadgen active when stale frame reports inactive after a live run', () => {
+    useMetricsStore.setState({
+      loadgen: {
+        active: true,
+        targetRps: 50,
+        currentRps: 50,
+        actualRps: 48,
+        intervalActualRps: 48,
+        intervalP99Ms: 12,
+        recentIntervals: [],
+        recentLatenciesMs: [],
+        totalRequests: 100,
+        successRate: 1,
+        durationSeconds: 0,
+        elapsedSeconds: 10,
+        statusCodes: {},
+      },
+    })
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: false,
+          stale: true,
+          targetRps: 50,
+          actualRps: 48,
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    const lg = useMetricsStore.getState().loadgen
+    expect(lg?.active).toBe(true)
+    expect(lg?.stale).toBe(true)
+    expect(lg?.actualRps).toBe(48)
+  })
+
+  it('trusts inactive loadgen when stale is false', () => {
+    useMetricsStore.setState({
+      loadgen: {
+        active: true,
+        targetRps: 50,
+        currentRps: 50,
+        actualRps: 48,
+        intervalActualRps: 48,
+        intervalP99Ms: 12,
+        recentIntervals: [],
+        recentLatenciesMs: [],
+        totalRequests: 100,
+        successRate: 1,
+        durationSeconds: 0,
+        elapsedSeconds: 10,
+        statusCodes: {},
+      },
+    })
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: false,
+          stale: false,
+          targetRps: 0,
+          actualRps: 0,
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    expect(useMetricsStore.getState().loadgen?.active).toBe(false)
+  })
 })
 
 describe('applyWsFrameToStore batching', () => {

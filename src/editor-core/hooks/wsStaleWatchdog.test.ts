@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { WS_STALE_RECONNECT_MS } from '../playback/playbackConfig'
+import {
+  WS_DATA_DEGRADED_MS,
+  WS_TRANSPORT_DEAD_MS,
+} from '../playback/playbackConfig'
 import {
   WEBSOCKET_OPEN,
+  isMetricsDataDegraded,
   isWsConnectionStale,
   wsReconnectDelayMs,
 } from './wsStaleWatchdog'
@@ -20,7 +24,7 @@ describe('isWsConnectionStale', () => {
   it('returns true when OPEN with no first frame past the threshold', () => {
     expect(
       isWsConnectionStale(WEBSOCKET_OPEN, 0, now, {
-        connectedAt: now - WS_STALE_RECONNECT_MS - 1,
+        connectedAt: now - WS_TRANSPORT_DEAD_MS - 1,
       }),
     ).toBe(true)
   })
@@ -29,7 +33,7 @@ describe('isWsConnectionStale', () => {
     expect(
       isWsConnectionStale(
         WEBSOCKET_OPEN,
-        now - WS_STALE_RECONNECT_MS,
+        now - WS_TRANSPORT_DEAD_MS,
         now,
       ),
     ).toBe(false)
@@ -39,7 +43,7 @@ describe('isWsConnectionStale', () => {
     expect(
       isWsConnectionStale(
         WEBSOCKET_OPEN,
-        now - WS_STALE_RECONNECT_MS - 1,
+        now - WS_TRANSPORT_DEAD_MS - 1,
         now,
       ),
     ).toBe(true)
@@ -47,8 +51,23 @@ describe('isWsConnectionStale', () => {
 
   it('returns false when the socket is not open', () => {
     expect(
-      isWsConnectionStale(0, now - WS_STALE_RECONNECT_MS - 1, now),
+      isWsConnectionStale(0, now - WS_TRANSPORT_DEAD_MS - 1, now),
     ).toBe(false)
+  })
+})
+
+describe('isMetricsDataDegraded', () => {
+  it('returns false while collect is pending', () => {
+    expect(isMetricsDataDegraded(WS_DATA_DEGRADED_MS + 1, true)).toBe(false)
+  })
+
+  it('returns false when snapshot age is within the degraded window', () => {
+    expect(isMetricsDataDegraded(WS_DATA_DEGRADED_MS, false)).toBe(false)
+    expect(isMetricsDataDegraded(1000, false)).toBe(false)
+  })
+
+  it('returns true when snapshot age exceeds the degraded window', () => {
+    expect(isMetricsDataDegraded(WS_DATA_DEGRADED_MS + 1, false)).toBe(true)
   })
 })
 

@@ -98,11 +98,14 @@ export interface WsEventPayload {
 export interface WsDeploymentMetrics {
   timestamp?: string
   namespace?: string
+  snapshotAgeMs?: number
+  collectPending?: boolean
   components?: Record<string, WsComponentMetrics>
   templateMetrics?: Record<string, number>
   events?: WsEventPayload[]
   loadgen?: {
     active?: boolean
+    stale?: boolean
     targetRps?: number
     currentRps?: number
     actualRps?: number

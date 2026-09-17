@@ -180,6 +180,8 @@ export interface LiveLoadgenState {
   elapsedSeconds: number
   /** HTTP status code → count for the run (e.g. "200", "499", "500"). */
   statusCodes: Record<string, number>
+  /** True when GetStats timed out but last-known stats were returned. */
+  stale?: boolean
   scheduleId?: string
   currentPhase?: string
   phaseIndex?: number
@@ -224,7 +226,8 @@ function loadgenPayloadEqual(
     a.recentIntervals === b.recentIntervals &&
     a.recentLatenciesMs === b.recentLatenciesMs &&
     a.distribution === b.distribution &&
-    a.statusCodes === b.statusCodes
+    a.statusCodes === b.statusCodes &&
+    a.stale === b.stale
   )
 }
 
@@ -308,6 +311,8 @@ interface MetricsState {
   invariantToast: WsEvent | null
   /** Non-fatal transport/polling issue while live session remains active. */
   streamWarning: string | null
+  /** Cached metrics snapshot is aging but the WS transport is still alive. */
+  metricsDegraded: boolean
   /** True when playback cannot bracket the playhead (underrun / stale / reconnect). */
   chartFrozen: boolean
   /** True after WS reconnect until the buffer refills. */
@@ -337,6 +342,7 @@ interface MetricsState {
   dismissCascadeToast: () => void
   dismissInvariantToast: () => void
   setStreamWarning: (msg: string | null) => void
+  setMetricsDegraded: (degraded: boolean) => void
   clearMetrics: () => void
   /** Hydrate timeline from sessionStorage (same-tab refresh / rejoin). */
   restorePersistedWsEvents: (deploymentId: string) => void
@@ -352,6 +358,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   cascadeToast: null,
   invariantToast: null,
   streamWarning: null,
+  metricsDegraded: false,
   chartFrozen: false,
   playbackCatchingUp: false,
 
@@ -446,6 +453,8 @@ export const useMetricsStore = create<MetricsState>((set) => ({
 
   setStreamWarning: (streamWarning) => set({ streamWarning }),
 
+  setMetricsDegraded: (metricsDegraded) => set({ metricsDegraded }),
+
   clearMetrics: () => {
     useCanvasStore.getState().setNarrativeHighlightNodeIds([])
     useChaosStore.getState().clear()
@@ -461,6 +470,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       cascadeToast: null,
       invariantToast: null,
       streamWarning: null,
+      metricsDegraded: false,
       chartFrozen: false,
       playbackCatchingUp: false,
     })
