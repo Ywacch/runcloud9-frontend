@@ -759,9 +759,18 @@ function fmtReplicaSyncState(syncState: string | undefined): string {
 }
 
 const REPLICA_NOT_REPORTING = 'not reporting'
+const REPLICA_PARTITIONED = 'partitioned'
+const REPLICA_NOT_REPORTING_ON_PRIMARY = 'not reporting on primary'
 
 function isReplicaConnectedOnPrimary(layer: ComponentLayerMetrics): boolean {
   return layer.connectedOnPrimary !== false
+}
+
+function replicaPartitionBytesCopy(layer: ComponentLayerMetrics): string {
+  if (layer.lagBytes !== undefined) {
+    return `${fmtLagBytes(layer.lagBytes)} behind`
+  }
+  return REPLICA_NOT_REPORTING
 }
 
 function maxConnectedReplicationLagSeconds(
@@ -837,14 +846,21 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   const showPromotionPreview = connectedReplicaLayers.some(
     (layer) => layer.syncState !== undefined || layer.lagBytes !== undefined || layer.promotionCandidate,
   )
+  const hasPartitionedStandby = replicaLayers.some((layer) => !isReplicaConnectedOnPrimary(layer))
+  const showPerReplicaDetail = showPromotionPreview || hasPartitionedStandby
+  const hasClimbingPartitionLag = replicaLayers.some(
+    (layer) => !isReplicaConnectedOnPrimary(layer) && layer.lagBytes !== undefined,
+  )
 
   return (
     <PedagogicalSection
       title="Read replicas"
       subtitle={
-        showPromotionPreview
-          ? 'Replay lag, sync state, and which standby promote_replica would pick'
-          : 'Primary-side replay lag per streaming standby'
+        hasPartitionedStandby
+          ? 'Streaming lag from pg_stat_replication; partitioned standbys use primary LSN minus frozen replay LSN'
+          : showPromotionPreview
+            ? 'Replay lag, sync state, and which standby promote_replica would pick'
+            : 'Primary-side replay lag per streaming standby'
       }
     >
       <StatRow
@@ -868,7 +884,7 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
                   : undefined
                 : maxLag,
             )}
-            help="Seconds between primary commit and replay on the standby (~0 when caught up)."
+            help="Seconds between primary commit and replay on the standby (~0 when caught up). Partitioned standbys are omitted."
           />
         }
       />
@@ -881,6 +897,13 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
             : ` (${fmtReplicaSyncState(promotionCandidate.syncState)})`}
           . Use <span className="font-mono">promote_lagging_replica</span> to deliberately pick a
           farther-behind standby.
+        </PedagogicalHint>
+      ) : null}
+      {hasClimbingPartitionLag ? (
+        <PedagogicalHint tone="muted">
+          Partitioned standbys show how far the writer ran after they dropped off{' '}
+          <span className="font-mono">pg_stat_replication</span> (primary WAL LSN minus frozen
+          replay LSN).
         </PedagogicalHint>
       ) : null}
       {replicaLayers.length > 1 ? (
@@ -900,20 +923,20 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
                     </span>
                     <span>
                       {disconnected
-                        ? REPLICA_NOT_REPORTING
+                        ? REPLICA_PARTITIONED
                         : fmtReplicationLagSeconds(layer.replicationLagSeconds)}
                     </span>
                   </div>
-                  {showPromotionPreview ? (
+                  {showPerReplicaDetail ? (
                     <div className="flex justify-between gap-2 text-[10px] text-gray-500">
                       <span>
                         {disconnected
-                          ? REPLICA_NOT_REPORTING
+                          ? REPLICA_NOT_REPORTING_ON_PRIMARY
                           : fmtReplicaSyncState(layer.syncState)}
                       </span>
                       <span>
                         {disconnected
-                          ? REPLICA_NOT_REPORTING
+                          ? replicaPartitionBytesCopy(layer)
                           : `${fmtLagBytes(layer.lagBytes)} behind`}
                       </span>
                     </div>
@@ -923,7 +946,7 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
             })}
           </ul>
         </div>
-      ) : showPromotionPreview && single ? (
+      ) : showPerReplicaDetail && single ? (
         <div className="space-y-1 font-mono text-[11px] text-gray-300">
           <div className="flex justify-between gap-2">
             {isReplicaConnectedOnPrimary(single) ? (
@@ -933,8 +956,8 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
               </>
             ) : (
               <>
-                <span>{REPLICA_NOT_REPORTING}</span>
-                <span>{REPLICA_NOT_REPORTING}</span>
+                <span>{REPLICA_NOT_REPORTING_ON_PRIMARY}</span>
+                <span>{replicaPartitionBytesCopy(single)}</span>
               </>
             )}
           </div>
