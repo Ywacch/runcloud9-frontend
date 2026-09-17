@@ -5,14 +5,6 @@ import {
 } from '../../lib/sessionCapture'
 import { useMetricsStore } from '../stores/metricsStore'
 
-export const WS_MAX_RETRY_ATTEMPTS = 5
-
-export function shouldVerifyDeploymentAfterWsRetries(
-  retryCount: number,
-): boolean {
-  return retryCount >= WS_MAX_RETRY_ATTEMPTS
-}
-
 type TimerRef = { current: ReturnType<typeof setTimeout> | null }
 type RetryRef = { current: number }
 

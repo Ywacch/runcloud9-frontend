@@ -2,10 +2,8 @@ import { useEffect, useRef } from 'react'
 import { connectLogsWS } from '../../lib/api'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useLogStore, type RawLogLine } from '../stores/logStore'
-import {
-  scheduleWsReconnectAfterMaxRetries,
-  shouldVerifyDeploymentAfterWsRetries,
-} from './wsMaxRetryReconnect'
+import { shouldVerifyDeploymentAfterWsRetries } from './wsMaxRetryPolicy'
+import { scheduleWsReconnectAfterMaxRetries } from './wsMaxRetryReconnect'
 import {
   WS_STALE_CHECK_INTERVAL_MS,
   isWsConnectionStale,
