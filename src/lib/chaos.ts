@@ -6,6 +6,11 @@ import {
   type SyncCommitLevel,
 } from './replicaConfig'
 import { canvasToBackend } from './typeMapping'
+import {
+  DB_LAYER_ID_POSTGRES_PRIMARY,
+  type SelectedInstanceId,
+} from './dbInstanceScope'
+import { compactPodName } from './replicaMetricsDisplay'
 
 export type ChaosScenario =
   | 'pod_kill'
@@ -41,18 +46,21 @@ export type PartitionCapRule = (typeof PARTITION_CAP_RULES)[number]
 export interface ChaosRequest {
   scenario: ChaosScenario
   targetComponent: ChaosTargetComponent
+  targetPod?: string
 }
 
 export interface ChaosAppliedResponse {
   status: 'applied'
   scenario: ChaosScenario
   targetComponent: ChaosTargetComponent
+  targetPod?: string
 }
 
 export interface ActiveChaosPartition {
   scenario: ChaosScenario
   targetComponent: ChaosTargetComponent
   expiresAt?: string
+  targetPod?: string
 }
 
 export interface ChaosScenarioContext {
@@ -132,14 +140,35 @@ export function chaosScenariosForTarget(
   }
 }
 
-export function chaosScenarioLabel(scenario: ChaosScenario): string {
+export function stallTargetPodForInstance(
+  instanceId: SelectedInstanceId,
+): string | undefined {
+  if (!instanceId || instanceId === 'cluster' || instanceId === DB_LAYER_ID_POSTGRES_PRIMARY) {
+    return undefined
+  }
+  if (!instanceId.startsWith('postgres-replica')) {
+    return undefined
+  }
+  return instanceId
+}
+
+export type ChaosScenarioCopyOpts = {
+  targetPod?: string
+}
+
+export function chaosScenarioLabel(
+  scenario: ChaosScenario,
+  opts?: ChaosScenarioCopyOpts,
+): string {
   switch (scenario) {
     case 'pod_kill':
       return 'Kill pod'
     case 'cache_flush':
       return 'Flush cache'
     case 'stall_replica':
-      return 'Stall one replica'
+      return opts?.targetPod
+        ? `Stall ${compactPodName(opts.targetPod) || opts.targetPod}`
+        : 'Stall one replica'
     case 'split_primary_replica':
       return 'Split primary from replicas'
     case 'split_app_store':
@@ -156,12 +185,15 @@ export function chaosScenarioLabel(scenario: ChaosScenario): string {
 export function chaosScenarioSubtitle(
   scenario: ChaosScenario,
   target: ChaosTargetComponent,
+  opts?: ChaosScenarioCopyOpts,
 ): string {
   switch (scenario) {
     case 'cache_flush':
       return 'Wipes Redis data (cache miss spike)'
     case 'stall_replica':
-      return 'Blocks replication to one standby. Lag climbs on that replica.'
+      return opts?.targetPod
+        ? `Blocks replication to ${opts.targetPod}. Lag climbs on that replica.`
+        : 'Blocks replication to one standby. Lag climbs on that replica.'
     case 'split_primary_replica':
       return 'Cuts all replica traffic to the primary'
     case 'split_app_store':
@@ -182,12 +214,16 @@ export function chaosScenarioSubtitle(
 export function chaosScenarioConfirm(
   scenario: ChaosScenario,
   target: ChaosTargetComponent,
+  opts?: ChaosScenarioCopyOpts,
 ): string {
   if (scenario === 'cache_flush') {
     return 'Runs FLUSHALL on the Redis pod for this cache. Expect a miss spike on the database.'
   }
   if (scenario === 'stall_replica') {
-    return 'Adds a network partition to one read replica. With two replicas and semi-sync, writes can continue while the cut replica goes stale. Heal removes the policy.'
+    if (opts?.targetPod) {
+      return `Stops replication on ${opts.targetPod}. Other standbys keep streaming. Heal restores this replica's connection to the primary.`
+    }
+    return 'Stops replication on one standby (the API picks a running replica). Other standbys keep streaming. Heal restores that replica\'s connection to the primary.'
   }
   if (scenario === 'split_primary_replica') {
     return 'Adds a network partition between the primary and every replica. Writes may stall when replication must wait on standbys. Heal removes the policy.'

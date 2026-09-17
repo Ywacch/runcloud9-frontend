@@ -9,6 +9,8 @@ import {
   chaosScenariosForTarget,
   chaosTargetForNode,
   isPartitionChaosScenario,
+  stallTargetPodForInstance,
+  type ChaosRequest,
   type ChaosScenario,
 } from '../lib/chaos'
 import { trackEvent } from '../lib/analytics'
@@ -24,6 +26,7 @@ import { useChaosStore } from '../editor-core/stores/chaosStore'
 export function ChaosActions({ node }: { node: CanvasNode }) {
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const mode = useCanvasStore((s) => s.mode)
+  const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const registerChaos = useChaosStore((s) => s.register)
   const clearChaos = useChaosStore((s) => s.clear)
   const activeChaos = useChaosStore((s) => s.active)
@@ -53,16 +56,25 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
 
   if (!target || scenarios.length === 0) return null
 
+  const stallPod =
+    node.type === 'database'
+      ? stallTargetPodForInstance(selectedInstanceId)
+      : undefined
+
   const run = async (scenario: ChaosScenario) => {
     if (!deploymentId || !target) return
+    const targetPod = scenario === 'stall_replica' ? stallPod : undefined
+    const copyOpts = targetPod ? { targetPod } : undefined
     const ok = window.confirm(
-      `${chaosScenarioLabel(scenario)} on ${target}?\n\n${chaosScenarioConfirm(scenario, target)}`,
+      `${chaosScenarioLabel(scenario, copyOpts)} on ${target}?\n\n${chaosScenarioConfirm(scenario, target, copyOpts)}`,
     )
     if (!ok) return
     setBusy(scenario)
     setError(null)
     try {
-      await triggerChaos(deploymentId, { scenario, targetComponent: target })
+      const body: ChaosRequest = { scenario, targetComponent: target }
+      if (targetPod) body.targetPod = targetPod
+      await triggerChaos(deploymentId, body)
       registerChaos(scenario, target)
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
       trackEvent('chaos_injected', {
@@ -139,6 +151,10 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
           {scenarios.map((scenario) => {
             const partitionBlocked =
               partitionActive && isPartitionChaosScenario(scenario)
+            const copyOpts =
+              scenario === 'stall_replica' && stallPod
+                ? { targetPod: stallPod }
+                : undefined
             return (
               <button
                 key={scenario}
@@ -147,9 +163,11 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
                 onClick={() => void run(scenario)}
                 className="rounded border border-[var(--c9-border-strong)] bg-[var(--c9-bg)] px-3 py-2 text-left text-xs text-[var(--c9-text)] transition-colors hover:border-[var(--c9-accent)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="font-medium">{chaosScenarioLabel(scenario)}</span>
+                <span className="font-medium">
+                  {chaosScenarioLabel(scenario, copyOpts)}
+                </span>
                 <span className="mt-0.5 block text-[10px] text-[var(--c9-muted)]">
-                  {chaosScenarioSubtitle(scenario, target)}
+                  {chaosScenarioSubtitle(scenario, target, copyOpts)}
                 </span>
               </button>
             )
