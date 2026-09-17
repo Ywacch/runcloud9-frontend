@@ -136,11 +136,9 @@ export function useLogSync(deploymentId: string | null): void {
         staleCloseRef.current = false
         if (useCanvasStore.getState().deploymentId !== deploymentId) return
         if (wasStaleClose) {
-          retryRef.current = 0
-          timerRef.current = setTimeout(
-            connect,
-            wsReconnectDelayMs(0, true),
-          )
+          const delay = wsReconnectDelayMs(retryRef.current)
+          retryRef.current += 1
+          timerRef.current = setTimeout(connect, delay)
           return
         }
         if (shouldVerifyDeploymentAfterWsRetries(retryRef.current)) {

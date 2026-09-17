@@ -191,11 +191,9 @@ export function useMetricsSync(deploymentId: string | null): void {
         const st = useCanvasStore.getState()
         if (st.deploymentId !== deploymentId) return
         if (wasStaleClose) {
-          retryRef.current = 0
-          timerRef.current = setTimeout(
-            connect,
-            wsReconnectDelayMs(0, true),
-          )
+          const delay = wsReconnectDelayMs(retryRef.current)
+          retryRef.current += 1
+          timerRef.current = setTimeout(connect, delay)
           return
         }
         const maxRetries = 5
