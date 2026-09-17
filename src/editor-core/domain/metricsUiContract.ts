@@ -105,7 +105,7 @@ export interface ComponentLayerMetrics {
   replicationLagSeconds?: number
   /** pg_stat_replication.sync_state from the primary ("async" when not streaming). */
   syncState?: string
-  /** Primary-side WAL bytes behind for this standby. */
+  /** WAL bytes behind. From pg_stat_replication when connected; else primary LSN minus frozen replay LSN. */
   lagBytes?: number
   /** False when the primary no longer reports this standby in pg_stat_replication. */
   connectedOnPrimary?: boolean
