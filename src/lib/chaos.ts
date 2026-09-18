@@ -412,7 +412,7 @@ export function latestStandbyRecloneEvent(events: WsEvent[]): WsEvent | null {
   return null
 }
 
-function parseStandbyPodList(raw: string | undefined): string[] {
+export function parseStandbyPodList(raw: string | undefined): string[] {
   if (!raw?.trim()) return []
   return raw
     .split(',')
@@ -507,7 +507,7 @@ export function partitionActiveHint(
   readReplicas: number,
 ): string {
   if (scenario === 'stall_replica' && replicationMode === 'semi-sync' && readReplicas >= 2) {
-    return 'Partition active: one replica is cut off. Writes can continue on ANY 1; the stalled replica may serve stale reads.'
+    return 'Replica stall: one standby is cut off. Writes can continue on ANY 1; the stalled replica may serve stale reads.'
   }
   if (scenario === 'split_primary_replica') {
     return 'Partition active: primary and replicas cannot talk. Writes may stall when replication must wait on standbys.'
@@ -516,7 +516,7 @@ export function partitionActiveHint(
     return 'Partition active: app-server cannot reach this store until you Heal.'
   }
   if (scenario === 'stall_replica') {
-    return 'Partition active: one replica is cut off. Watch lag and stale reads until you Heal.'
+    return 'Replica stall: one standby is cut off. Watch lag and stale reads until you Heal.'
   }
   return 'Partition active until you Heal or the server auto-reverts.'
 }

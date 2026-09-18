@@ -620,7 +620,15 @@ export function LiveMetricsTypeSection({
             view={view}
             history={history}
           />
-          <DbReplicaLagSection m={m} />
+          <DbReplicaLagSection
+            m={m}
+            activePartitionScenario={
+              activeChaos?.stateful && activeChaos.targetComponent === 'db'
+                ? activeChaos.scenario
+                : null
+            }
+            standbyRecloneEvent={standbyRecloneEvent}
+          />
           <DbConsistencySection
             m={m}
             readConsistencyPolicy={readConsistencyFromConfig(node.config.readConsistency)}

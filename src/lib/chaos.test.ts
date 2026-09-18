@@ -14,6 +14,7 @@ import {
   latestPartitionCapEvent,
   latestPromotionChaosInjectEvent,
   latestStandbyRecloneEvent,
+  partitionActiveHint,
   partitionCapSummary,
   promotionWalBytesLost,
   stallTargetPodForInstance,
@@ -302,6 +303,17 @@ describe('promotion chaos helpers', () => {
       'on',
     )
     expect(summary).toContain('farthest-behind standby')
+  })
+})
+
+describe('partitionActiveHint', () => {
+  it('uses replica stall copy for stall_replica', () => {
+    expect(partitionActiveHint('stall_replica', 'semi-sync', 2)).toBe(
+      'Replica stall: one standby is cut off. Writes can continue on ANY 1; the stalled replica may serve stale reads.',
+    )
+    expect(partitionActiveHint('stall_replica', 'async', 1)).toBe(
+      'Replica stall: one standby is cut off. Watch lag and stale reads until you Heal.',
+    )
   })
 })
 

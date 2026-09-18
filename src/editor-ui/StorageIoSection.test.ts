@@ -700,9 +700,10 @@ describe('DbReplicaLagSection promotion preview', () => {
     expect(html).toContain('0 B')
   })
 
-  it('shows not reporting for disconnected replica and max lag from connected sibling', () => {
+  it('shows stalled for disconnected replica under stall_replica chaos', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        activePartitionScenario: 'stall_replica',
         m: dbBucket(undefined, {
           layers: [
             {
@@ -742,9 +743,10 @@ describe('DbReplicaLagSection promotion preview', () => {
       }),
     )
     const replica0Match = html.match(/<li[^>]*>[\s\S]*?postgres-replica-0[\s\S]*?<\/li>/)
-    expect(replica0Match?.[0]).toContain('partitioned')
+    expect(replica0Match?.[0]).toContain('stalled')
     expect(replica0Match?.[0]).toContain('not reporting on primary')
     expect(replica0Match?.[0]).toContain('not reporting')
+    expect(replica0Match?.[0]).not.toContain('partitioned')
     expect(replica0Match?.[0]).not.toContain('0 B behind')
     expect(replica0Match?.[0]).not.toContain('0 s')
     expect(html).toContain('postgres-replica-1')
@@ -753,9 +755,10 @@ describe('DbReplicaLagSection promotion preview', () => {
     expect(html).toContain('0 s')
   })
 
-  it('shows climbing LSN bytes and partitioned copy for disconnected replica', () => {
+  it('shows climbing LSN bytes and stalled copy for disconnected replica under stall_replica', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        activePartitionScenario: 'stall_replica',
         m: dbBucket(undefined, {
           layers: [
             {
@@ -794,15 +797,169 @@ describe('DbReplicaLagSection promotion preview', () => {
       }),
     )
     const replica0Match = html.match(/<li[^>]*>[\s\S]*?postgres-replica-0[\s\S]*?<\/li>/)
-    expect(replica0Match?.[0]).toContain('partitioned')
+    expect(replica0Match?.[0]).toContain('stalled')
     expect(replica0Match?.[0]).toContain('not reporting on primary')
     expect(replica0Match?.[0]).toContain('16.0 KiB behind')
+    expect(replica0Match?.[0]).not.toContain('partitioned')
     expect(replica0Match?.[0]).not.toContain('0 s')
     expect(replica0Match?.[0]).not.toContain('promote pick')
     expect(html).toContain('pg_stat_replication')
     expect(html).toContain('postgres-replica-1')
     expect(html).toContain('promote pick')
     expect(html).toContain('0 B behind')
+  })
+
+  it('shows partitioned for disconnected replica under split_primary_replica chaos', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        activePartitionScenario: 'split_primary_replica',
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: false,
+              promotionCandidate: false,
+            },
+            {
+              id: 'postgres-replica-1',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: true,
+              replicationLagSeconds: 0,
+              syncState: 'sync',
+              lagBytes: 0,
+              promotionCandidate: true,
+            },
+          ],
+          backendReplicas: { desired: 2, ready: 2 },
+        }),
+      }),
+    )
+    const replica0Match = html.match(/<li[^>]*>[\s\S]*?postgres-replica-0[\s\S]*?<\/li>/)
+    expect(replica0Match?.[0]).toContain('partitioned')
+    expect(replica0Match?.[0]).toContain('not reporting on primary')
+    expect(replica0Match?.[0]).not.toContain('stalled')
+  })
+
+  it('shows rebuilding for disconnected replica pending reclone', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        standbyRecloneEvent: {
+          timestamp: 't-reclone',
+          type: 'action',
+          source: 'chaos',
+          kind: 'standby_reclone',
+          component: 'db',
+          audience: 'both',
+          title: 'Standby rebuilt',
+          description: 'standby_reclone',
+          detail: {
+            pendingPods: 'postgres-replica-0',
+          },
+        },
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: false,
+              promotionCandidate: false,
+            },
+            {
+              id: 'postgres-replica-1',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: true,
+              replicationLagSeconds: 0,
+              syncState: 'sync',
+              lagBytes: 0,
+              promotionCandidate: true,
+            },
+          ],
+          backendReplicas: { desired: 2, ready: 2 },
+        }),
+      }),
+    )
+    const replica0Match = html.match(/<li[^>]*>[\s\S]*?postgres-replica-0[\s\S]*?<\/li>/)
+    expect(replica0Match?.[0]).toContain('rebuilding')
+    expect(replica0Match?.[0]).toContain('not reporting on primary')
+    expect(replica0Match?.[0]).not.toContain('stalled')
+    expect(replica0Match?.[0]).not.toContain('partitioned')
+  })
+
+  it('labels quorum sync state as quorum (any 1) with semi-sync hint', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: true,
+              replicationLagSeconds: 0,
+              syncState: 'quorum',
+              lagBytes: 0,
+              promotionCandidate: true,
+            },
+            {
+              id: 'postgres-replica-1',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+              connectedOnPrimary: true,
+              replicationLagSeconds: 0.1,
+              syncState: 'quorum',
+              lagBytes: 4096,
+            },
+          ],
+          backendReplicas: { desired: 2, ready: 2 },
+        }),
+      }),
+    )
+    expect(html).toContain('quorum (any 1)')
+    expect(html).not.toMatch(/quorum<\/span>/)
+    expect(html).toContain(
+      'Semi-sync is ANY 1 (*): commit waits on any quorum standby, not a single named sync replica.',
+    )
   })
 
   it('degrades to async when sync state is absent on a single replica', () => {
