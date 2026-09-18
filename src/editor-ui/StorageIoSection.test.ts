@@ -93,6 +93,44 @@ describe('DbConsistencySection', () => {
     expect(html).toBe('')
   })
 
+  it('renders nothing when tradeoff capability is absent', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 100,
+          replicaReads: 0,
+          replicaStaleReads: 0,
+          guaranteeHeldBy: 'none',
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 0,
+          replicaStalenessVersions: 0,
+        }),
+        showTradeoff: false,
+      }),
+    )
+    expect(html).toBe('')
+  })
+
+  it('hides cache vs database without a cache node', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbConsistencySection, {
+        m: dbBucket({
+          leaderReads: 0,
+          replicaReads: 0,
+          replicaStaleReads: 0,
+          rywViolations: 0,
+          monotonicViolations: 0,
+          cacheDbStale: 1,
+          replicaStalenessVersions: 0,
+        }),
+        readReplicas: 2,
+        hasCache: false,
+      }),
+    )
+    expect(html).not.toContain('Cache vs database')
+  })
+
   it('renders OK state with offload and policy hint', () => {
     const html = renderToStaticMarkup(
       createElement(DbConsistencySection, {
@@ -107,19 +145,18 @@ describe('DbConsistencySection', () => {
           replicaStalenessVersions: 0,
         }),
         readConsistencyPolicy: 'replica',
+        readReplicas: 2,
+        showStaleReplicaReads: true,
       }),
     )
-    expect(html).toContain('Read routing tradeoffs')
+    expect(html).toContain('Stale reads vs stalled writes')
     expect(html).toContain('what staying off the leader cost you')
     expect(html).toContain('Read offload')
     expect(html).toContain('75% (300 replica · 100 leader)')
     expect(html).toContain('Stale replica reads')
-    expect(html).toContain('RYW violations')
     expect(html).toContain('Held by')
     expect(html).toContain('None requested')
-    expect(html).toContain('Observer canary')
-    expect(html).toContain('Probe replica lag')
-    expect(html).toContain('0 versions')
+    expect(html).not.toContain('>RYW violations<')
     expect(html).toContain('stale replica reads are the expected tradeoff')
   })
 
@@ -138,14 +175,19 @@ describe('DbConsistencySection', () => {
           lastProbeError: 'dial replica: connection refused',
         }),
         readConsistencyPolicy: 'ryw',
+        readReplicas: 2,
+        showStaleReplicaReads: true,
+        showRywLine: true,
+        showMonotonicLine: true,
       }),
     )
     expect(html).toContain('75% (150 replica · 50 leader)')
     expect(html).toContain('12 reads')
     expect(html).toContain('App (redirects)')
+    expect(html).toContain('Read-your-writes')
     expect(html).toContain('2 violations')
+    expect(html).toContain('Monotonic reads')
     expect(html).toContain('1 violation')
-    expect(html).toContain('4 versions')
     expect(html).toContain('dial replica: connection refused')
     expect(html).toContain('redirects hold the guarantee')
   })
@@ -642,9 +684,36 @@ describe('DbLoadSection', () => {
 })
 
 describe('DbReplicaLagSection promotion preview', () => {
+  const withReplicas = { readReplicas: 2 }
+
+  it('renders nothing when readReplicas is zero even if layers exist', () => {
+    const html = renderToStaticMarkup(
+      createElement(DbReplicaLagSection, {
+        readReplicas: 0,
+        m: dbBucket(undefined, {
+          layers: [
+            {
+              id: 'postgres-replica-0',
+              role: 'replica',
+              engine: 'postgresql',
+              cpuUsage: 0.1,
+              memoryBytes: 1,
+              cpuLimit: 1,
+              memoryLimit: 1,
+              cpuIsEstimated: false,
+              memIsEstimated: false,
+            },
+          ],
+        }),
+      }),
+    )
+    expect(html).toBe('')
+  })
+
   it('marks the most-current standby and shows sync state with lag bytes', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         m: dbBucket(undefined, {
           layers: [
             {
@@ -703,6 +772,7 @@ describe('DbReplicaLagSection promotion preview', () => {
   it('shows stalled for disconnected replica under stall_replica chaos', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         activePartitionScenario: 'stall_replica',
         m: dbBucket(undefined, {
           layers: [
@@ -758,6 +828,7 @@ describe('DbReplicaLagSection promotion preview', () => {
   it('shows climbing LSN bytes and stalled copy for disconnected replica under stall_replica', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         activePartitionScenario: 'stall_replica',
         m: dbBucket(undefined, {
           layers: [
@@ -812,6 +883,7 @@ describe('DbReplicaLagSection promotion preview', () => {
   it('shows partitioned for disconnected replica under split_primary_replica chaos', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         activePartitionScenario: 'split_primary_replica',
         m: dbBucket(undefined, {
           layers: [
@@ -858,6 +930,7 @@ describe('DbReplicaLagSection promotion preview', () => {
   it('shows rebuilding for disconnected replica pending reclone', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         standbyRecloneEvent: {
           timestamp: 't-reclone',
           type: 'action',
@@ -917,6 +990,7 @@ describe('DbReplicaLagSection promotion preview', () => {
   it('labels quorum sync state as quorum (any 1) with semi-sync hint', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         m: dbBucket(undefined, {
           layers: [
             {
@@ -965,6 +1039,7 @@ describe('DbReplicaLagSection promotion preview', () => {
   it('degrades to async when sync state is absent on a single replica', () => {
     const html = renderToStaticMarkup(
       createElement(DbReplicaLagSection, {
+        ...withReplicas,
         m: dbBucket(undefined, {
           layers: [
             {
