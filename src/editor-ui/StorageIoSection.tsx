@@ -25,7 +25,11 @@ import {
   podLatencyMs,
   podSessionQuantileAvailable,
 } from '../lib/latencyQuantile'
-import type { ComponentLayerMetrics, PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
+import type {
+  BackendReplicaStatus,
+  ComponentLayerMetrics,
+  PodReplicaMetrics,
+} from '../editor-core/domain/metricsUiContract'
 import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
 import {
   cacheLayerSectionLabels,
@@ -768,7 +772,7 @@ function disconnectedReplicaHeadline(
   layer: ComponentLayerMetrics,
   activePartitionScenario: ChaosScenario | null | undefined,
   standbyRecloneEvent: WsEvent | null | undefined,
-  backendReplicas?: { ready: number; desired: number },
+  backendReplicas?: BackendReplicaStatus | null,
 ): string {
   const pending = parseStandbyPodList(standbyRecloneEvent?.detail?.pendingPods)
   if (activePartitionScenario === 'split_primary_replica') return 'partitioned'
