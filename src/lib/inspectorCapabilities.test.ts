@@ -12,7 +12,9 @@ function node(type: CanvasNode['type'], config: Record<string, unknown> = {}): C
   return {
     id: `${type}-1`,
     type,
-    position: { x: 0, y: 0 },
+    position: [0, 0, 0],
+    label: type,
+    status: 'healthy',
     config,
   }
 }

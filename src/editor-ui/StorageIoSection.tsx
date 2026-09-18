@@ -226,14 +226,12 @@ export function DbPatternBridge({
 /** Engine work — Postgres execution for all clients. */
 export function DbLoadSection({
   m,
-  dbQueryRate,
   templateMetrics,
   view,
   showPlaybackDelay = false,
   history = [],
 }: {
   m: MetricsBucket
-  dbQueryRate: number
   templateMetrics: Record<string, number>
   view: PanelViewState
   showPlaybackDelay?: boolean
@@ -243,7 +241,6 @@ export function DbLoadSection({
 
   const engine = (m.storageEngine ?? 'postgresql').trim()
   const io = m.storageIo
-  const readRate = io.readRate
   const isSession = view.timeframe === 'session'
   const readLabelRaw = storageReadTileLabel(io, engine)
   const writeLabelRaw = storageWriteTileLabel(io, engine)

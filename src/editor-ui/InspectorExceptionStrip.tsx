@@ -8,7 +8,6 @@ import type { ReplicationMode, SyncCommitLevel } from '../lib/replicaConfig'
 import type { SessionFact, SessionFacts } from '../lib/sessionFacts'
 import {
   exceptionFactsForComponent,
-  failoverPayloadFromFacts,
   type FailoverFactPayload,
 } from '../lib/sessionFacts'
 import { InlineDisclosure } from './InlineDisclosure'

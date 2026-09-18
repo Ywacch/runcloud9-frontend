@@ -651,7 +651,6 @@ describe('DbLoadSection', () => {
     const html = renderToStaticMarkup(
       createElement(DbLoadSection, {
         m: dbBucket(undefined, { storageIo: postgresIo, dbQueryRate: 50 }),
-        dbQueryRate: 50,
         templateMetrics: {},
         view: liveView,
       }),
@@ -666,7 +665,6 @@ describe('DbLoadSection', () => {
     const html = renderToStaticMarkup(
       createElement(DbLoadSection, {
         m: dbBucket(undefined, { storageIo: postgresIo, dbQueryRate: 50 }),
-        dbQueryRate: 50,
         templateMetrics: {},
         view: sessionView,
       }),

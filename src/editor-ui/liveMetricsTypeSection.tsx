@@ -42,9 +42,7 @@ import {
 import { getTopologyFlags } from '../lib/componentRole'
 import { readConsistencyFromConfig } from '../lib/readConsistency'
 import {
-  clampReadReplicas,
   lbAlgorithmForDeploy,
-  replicationModeFromConfig,
   syncCommitLevelFromConfig,
 } from '../lib/replicaConfig'
 import {
@@ -655,7 +653,6 @@ export function LiveMetricsTypeSection({
           <DbPatternBridge m={m} dbQueryRate={dbQueryRate} />
           <DbLoadSection
             m={m}
-            dbQueryRate={dbQueryRate}
             templateMetrics={templateMetrics}
             view={view}
             history={history}

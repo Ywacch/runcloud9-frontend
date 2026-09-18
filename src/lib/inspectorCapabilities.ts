@@ -41,7 +41,7 @@ export function inspectorCapabilities(
   return {
     hasCache: topo.hasCache,
     hasWorker: topo.hasWorker,
-    hasMq: topo.hasMq,
+    hasMq: topo.hasMQ,
     hasLb: topo.hasLB,
     hasDb: topo.hasDB,
     readReplicas,
