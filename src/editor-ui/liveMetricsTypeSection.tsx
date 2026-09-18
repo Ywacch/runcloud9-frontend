@@ -42,9 +42,7 @@ import {
 import { getTopologyFlags } from '../lib/componentRole'
 import { readConsistencyFromConfig } from '../lib/readConsistency'
 import {
-  clampReadReplicas,
   lbAlgorithmForDeploy,
-  replicationModeFromConfig,
   syncCommitLevelFromConfig,
 } from '../lib/replicaConfig'
 import {
@@ -53,6 +51,22 @@ import {
   latestPromotionChaosInjectEvent,
   latestStandbyRecloneEvent,
 } from '../lib/chaos'
+import {
+  inspectorCapabilities,
+  showCacheVsDatabase,
+  showDbConsistencyTradeoff,
+  showDbReplicaLag,
+  showMonotonicPolicyLine,
+  showObserverCanary,
+  showRywPolicyLine,
+  showStaleReplicaReads,
+} from '../lib/inspectorCapabilities'
+import {
+  failoverPayloadFromFacts,
+  reduceSessionFacts,
+  recloneFactForComponent,
+} from '../lib/sessionFacts'
+import { InspectorExceptionStrip } from './InspectorExceptionStrip'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { isMetricRelevant } from '../lib/templateKpis'
@@ -78,6 +92,7 @@ import {
   DbDiagnosticsDisclosure,
   DbInstanceLayerSection,
   DbLoadSection,
+  DbPatternBridge,
   DbReplicaLagSection,
   DbConsistencySection,
   EngineHealthDisclosure,
@@ -238,6 +253,10 @@ export function LiveMetricsTypeSection({
   )
   const standbyRecloneEvent = useMemo(
     () => latestStandbyRecloneEvent(metricsEvents),
+    [metricsEvents],
+  )
+  const sessionFacts = useMemo(
+    () => reduceSessionFacts(metricsEvents),
     [metricsEvents],
   )
   const panelPrefix =
@@ -588,6 +607,18 @@ export function LiveMetricsTypeSection({
       const scope = selectedInstanceId ?? 'cluster'
       const instanceLayer =
         scope !== 'cluster' ? findDbLayer(m.layers, scope) : undefined
+      const dbCap = inspectorCapabilities(nodes, node, { loadgenActive })
+      const readReplicas = dbCap.readReplicas
+      const replicationMode = dbCap.replicationMode
+      const syncCommitLevel = syncCommitLevelFromConfig(node.config.syncCommitLevel)
+      const failoverPayload = failoverPayloadFromFacts(sessionFacts, 'db')
+      const resolvedPromotionEvent =
+        failoverPayload?.promotionEvent ?? promotionChaosEvent
+      const resolvedFailoverLossEvent =
+        failoverPayload?.lossEvent ?? failoverWriteLossEvent
+      const resolvedRecloneEvent =
+        (recloneFactForComponent(sessionFacts, 'db')?.payload as typeof standbyRecloneEvent) ??
+        standbyRecloneEvent
 
       if (instanceLayer && scope !== 'cluster') {
         return (
@@ -606,6 +637,12 @@ export function LiveMetricsTypeSection({
       return (
         <div className="space-y-5">
           {panelPrefix}
+          <InspectorExceptionStrip
+            component="db"
+            facts={sessionFacts}
+            replicationMode={replicationMode}
+            syncCommitLevel={syncCommitLevel}
+          />
           <DbActivitySection
             m={bucket}
             history={history}
@@ -613,37 +650,45 @@ export function LiveMetricsTypeSection({
             dbRateHelp={dbRateHelp}
             view={view}
           />
+          <DbPatternBridge m={m} dbQueryRate={dbQueryRate} />
           <DbLoadSection
             m={m}
-            dbQueryRate={dbQueryRate}
             templateMetrics={templateMetrics}
             view={view}
             history={history}
           />
-          <DbReplicaLagSection
-            m={m}
-            activePartitionScenario={
-              activeChaos?.stateful && activeChaos.targetComponent === 'db'
-                ? activeChaos.scenario
-                : null
-            }
-            standbyRecloneEvent={standbyRecloneEvent}
-          />
+          {showDbReplicaLag(dbCap) ? (
+            <DbReplicaLagSection
+              m={m}
+              readReplicas={readReplicas}
+              activePartitionScenario={
+                activeChaos?.stateful && activeChaos.targetComponent === 'db'
+                  ? activeChaos.scenario
+                  : null
+              }
+              standbyRecloneEvent={resolvedRecloneEvent}
+            />
+          ) : null}
           <DbConsistencySection
             m={m}
             readConsistencyPolicy={readConsistencyFromConfig(node.config.readConsistency)}
-            replicationMode={replicationModeFromConfig(node.config.replicationMode)}
-            readReplicas={clampReadReplicas(node.config.readReplicas)}
-            syncCommitLevel={syncCommitLevelFromConfig(node.config.syncCommitLevel)}
+            replicationMode={replicationMode}
+            readReplicas={readReplicas}
+            syncCommitLevel={syncCommitLevel}
+            showTradeoff={showDbConsistencyTradeoff(dbCap, sessionFacts)}
+            hasCache={showCacheVsDatabase(dbCap)}
+            showStaleReplicaReads={showStaleReplicaReads(dbCap)}
+            showRywLine={showRywPolicyLine(dbCap)}
+            showMonotonicLine={showMonotonicPolicyLine(dbCap)}
             activePartitionScenario={
               activeChaos?.stateful && activeChaos.targetComponent === 'db'
                 ? activeChaos.scenario
                 : null
             }
             partitionCapEvent={partitionCapEvent}
-            promotionChaosEvent={promotionChaosEvent}
-            failoverWriteLossEvent={failoverWriteLossEvent}
-            standbyRecloneEvent={standbyRecloneEvent}
+            promotionChaosEvent={resolvedPromotionEvent}
+            failoverWriteLossEvent={resolvedFailoverLossEvent}
+            standbyRecloneEvent={resolvedRecloneEvent}
           />
           <DbClusterResourcesSection
             nodeId={nodeId}
@@ -653,7 +698,11 @@ export function LiveMetricsTypeSection({
             view={view}
             history={history}
           />
-          <DbDiagnosticsDisclosure m={m} maxConnections={maxConn} />
+          <DbDiagnosticsDisclosure
+            m={m}
+            maxConnections={maxConn}
+            showObserverCanary={showObserverCanary(dbCap)}
+          />
         </div>
       )
     }

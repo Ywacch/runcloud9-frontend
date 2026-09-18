@@ -122,8 +122,8 @@ export function DbActivitySection({
 
   return (
     <PedagogicalSection
-      title="Logical queries (RED)"
-      subtitle="What clients intended / executed on the hot path"
+      title="How hard is the app hitting the database?"
+      subtitle="App SQL on the hot path — what clients intended"
     >
       <StatRow
         left={
@@ -185,17 +185,53 @@ export function DbActivitySection({
   )
 }
 
-/** USE — Postgres engine execution + access pattern. */
-export function DbLoadSection({
+/** Pattern bridge between app SQL (RED) and engine work (USE). */
+export function DbPatternBridge({
   m,
   dbQueryRate,
+}: {
+  m: MetricsBucket
+  dbQueryRate: number
+}) {
+  const io = m.storageIo
+  if (!io) return null
+  const patternLabel = io.pattern?.trim()
+  const note = io.patternNote?.trim() || io.footnote?.trim()
+  if (!patternLabel && !note && !shouldShowHighScanRatioHint(dbQueryRate, io.readRate)) {
+    return null
+  }
+
+  return (
+    <section className="space-y-1.5 border-b border-gray-800/80 pb-4">
+      {patternLabel ? (
+        <p className="text-[11px] font-semibold text-cyan-200/90">
+          Access pattern · {patternLabel}
+        </p>
+      ) : null}
+      {note ? (
+        <p className="text-[11px] leading-relaxed text-gray-500">{note}</p>
+      ) : null}
+      {!patternLabel && shouldShowHighScanRatioHint(dbQueryRate, io.readRate) ? (
+        <InlineDisclosure label="Why engine work looks high">
+          <PedagogicalHint>
+            {fmtRate(dbQueryRate)} logical queries are causing {fmtRate(io.readRate)} row reads
+            per second — the access pattern amplifies engine work beyond query count.
+          </PedagogicalHint>
+        </InlineDisclosure>
+      ) : null}
+    </section>
+  )
+}
+
+/** Engine work — Postgres execution for all clients. */
+export function DbLoadSection({
+  m,
   templateMetrics,
   view,
   showPlaybackDelay = false,
   history = [],
 }: {
   m: MetricsBucket
-  dbQueryRate: number
   templateMetrics: Record<string, number>
   view: PanelViewState
   showPlaybackDelay?: boolean
@@ -205,7 +241,6 @@ export function DbLoadSection({
 
   const engine = (m.storageEngine ?? 'postgresql').trim()
   const io = m.storageIo
-  const readRate = io.readRate
   const isSession = view.timeframe === 'session'
   const readLabelRaw = storageReadTileLabel(io, engine)
   const writeLabelRaw = storageWriteTileLabel(io, engine)
@@ -219,19 +254,12 @@ export function DbLoadSection({
   const readSeries = history.map((h) => h.storageIo?.readRate ?? 0)
   const writeSeries = history.map((h) => h.storageIo?.writeRate ?? 0)
   const modelEstimate = fanoutScanModelEstimate(templateMetrics)
-  const hasPattern = Boolean(io.pattern?.trim())
-  const patternLabel = io.pattern?.trim() || null
 
   return (
     <PedagogicalSection
-      title="Storage execution (USE & pattern)"
-      subtitle="How the underlying storage engine processes the queries"
+      title="How much work is Postgres doing?"
+      subtitle="Engine work (all clients) — every session, not just the app"
     >
-      {patternLabel ? (
-        <div className="inline-flex rounded border border-cyan-500/30 bg-cyan-950/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">
-          Access pattern · {patternLabel}
-      </div>
-      ) : null}
       <StatRow
         left={
           <StatBlock
@@ -272,22 +300,8 @@ export function DbLoadSection({
       />
       {modelEstimate != null && modelEstimate > 0 && !isSession ? (
         <p className="font-mono text-[10px] text-violet-300/90">
-          Model (est.): ~{fmtRate(modelEstimate)}/s row scans from fanout formula
+          ~ model: {fmtRate(modelEstimate)}/s row scans from fanout formula
         </p>
-      ) : null}
-      {!isSession && !hasPattern && shouldShowHighScanRatioHint(dbQueryRate, readRate) ? (
-        <InlineDisclosure label="Why reads look high">
-          <PedagogicalHint>
-            Inefficient access pattern: {fmtRate(dbQueryRate)} logical queries are causing{' '}
-            {fmtRate(readRate)} row/document reads per second. Check the Data tab for a missing
-            index that may be causing O(N) sequential scans.
-          </PedagogicalHint>
-        </InlineDisclosure>
-      ) : null}
-      {io.patternNote?.trim() ? (
-        <InlineDisclosure label="About this access pattern">
-          <PedagogicalHint tone="muted">{io.patternNote.trim()}</PedagogicalHint>
-        </InlineDisclosure>
       ) : null}
       <StorageIoScopeFooter m={m} isPostgres />
     </PedagogicalSection>
@@ -811,6 +825,13 @@ export function formatConsistencyViolation(count: number): string {
   return count === 1 ? '1 violation' : `${fmtInt(count)} violations`
 }
 
+function formatPolicyHoldingLine(label: string, violations: number): string {
+  if (!Number.isFinite(violations) || violations <= 0) {
+    return `${label} · holding · 0 violations`
+  }
+  return `${label} · ${formatConsistencyViolation(violations)}`
+}
+
 function fmtStalenessVersions(versions: number): string {
   if (!Number.isFinite(versions) || versions <= 0) return '0'
   return fmtInt(versions)
@@ -856,16 +877,19 @@ function consistencyPolicyHint(policy: ReadConsistencyPolicy): string {
   }
 }
 
-/** Read-replica replay lag when db instance layers are present (Wave 3 PR4). */
+/** Read-replica replay lag — gated on canvas readReplicas, not collector layers. */
 export function DbReplicaLagSection({
   m,
+  readReplicas = 0,
   activePartitionScenario,
   standbyRecloneEvent,
 }: {
   m: MetricsBucket
+  readReplicas?: number
   activePartitionScenario?: ChaosScenario | null
   standbyRecloneEvent?: WsEvent | null
 }) {
+  if (readReplicas < 1) return null
   const replicaLayers = m.layers.filter((layer) => layer.role === 'replica')
   if (replicaLayers.length === 0) return null
 
@@ -1026,13 +1050,18 @@ function formatPartitionCapRule(rule?: string): string {
   return FMT_EMPTY
 }
 
-/** Read-routing tradeoffs when backend ships `components.db.consistency`. */
+/** Read-routing tradeoffs when topology or policy warrants them. */
 export function DbConsistencySection({
   m,
   readConsistencyPolicy,
   replicationMode = 'async',
   readReplicas = 0,
   syncCommitLevel = 'on',
+  showTradeoff = true,
+  hasCache = false,
+  showStaleReplicaReads = false,
+  showRywLine = false,
+  showMonotonicLine = false,
   activePartitionScenario,
   partitionCapEvent,
   promotionChaosEvent,
@@ -1044,6 +1073,11 @@ export function DbConsistencySection({
   replicationMode?: ReplicationMode
   readReplicas?: number
   syncCommitLevel?: SyncCommitLevel
+  showTradeoff?: boolean
+  hasCache?: boolean
+  showStaleReplicaReads?: boolean
+  showRywLine?: boolean
+  showMonotonicLine?: boolean
   activePartitionScenario?: ChaosScenario | null
   partitionCapEvent?: WsEvent | null
   promotionChaosEvent?: WsEvent | null
@@ -1051,7 +1085,7 @@ export function DbConsistencySection({
   standbyRecloneEvent?: WsEvent | null
 }) {
   const consistency = m.consistency
-  if (!consistency) return null
+  if (!showTradeoff || !consistency) return null
 
   const policy = readConsistencyPolicy ?? readConsistencyFromConfig(undefined)
   const capSummary = partitionCapSummary(
@@ -1077,9 +1111,14 @@ export function DbConsistencySection({
   const candidateLagBytes = Number(promotionChaosEvent?.detail?.candidateLagBytes ?? '')
   const recloneHints = standbyRecloneHints(standbyRecloneEvent ?? null)
 
+  const tradeoffTitle =
+    readReplicas >= 1
+      ? `Stale reads vs stalled writes · ${replicationMode} · ${readReplicas} follower${readReplicas === 1 ? '' : 's'}`
+      : 'Read routing tradeoffs'
+
   return (
     <PedagogicalSection
-      title="Read routing tradeoffs"
+      title={tradeoffTitle}
       subtitle="The guarantee you asked for, and what staying off the leader cost you."
     >
       {partitionCapEvent || partitionHint ? (
@@ -1146,60 +1185,64 @@ export function DbConsistencySection({
           ))}
         </>
       ) : null}
-      <StatRow
-        left={
+      {readReplicas >= 1 ? (
+        <StatRow
+          left={
+            <StatBlock
+              label="Read offload"
+              value={formatReadOffload(consistency.leaderReads, consistency.replicaReads)}
+              help="Share of app reads served from replicas vs the primary (db_read_total by route)."
+            />
+          }
+          right={
+            showStaleReplicaReads ? (
+              <StatBlock
+                label="Stale replica reads"
+                value={formatStaleReplicaReads(consistency.replicaStaleReads)}
+                help="Replica reads served while replay lagged the client's last write. Eventual-policy cost, not RYW violations."
+              />
+            ) : null
+          }
+        />
+      ) : null}
+      {showRywLine ? (
+        consistency.rywViolations > 0 ? (
           <StatBlock
-            label="Read offload"
-            value={formatReadOffload(consistency.leaderReads, consistency.replicaReads)}
-            help="Share of app reads served from replicas vs the primary (db_read_total by route)."
-          />
-        }
-        right={
-          <StatBlock
-            label="Stale replica reads"
-            value={formatStaleReplicaReads(consistency.replicaStaleReads)}
-            help="Replica reads served while replay lagged the client's last write. Eventual-policy cost, not RYW violations."
-          />
-        }
-      />
-      <StatRow
-        left={
-          <StatBlock
-            label="RYW violations"
+            label="Read-your-writes"
             value={formatConsistencyViolation(consistency.rywViolations)}
             help="Promised read-your-writes guarantee failed. Should stay near zero when app redirects are working."
           />
-        }
-        right={
-          <StatBlock
-            label="Held by"
-            value={formatGuaranteeHeldBy(consistency.guaranteeHeldBy)}
-            help="Who enforces the read guarantee. None = not requested; app = leader redirects after writes."
-          />
-        }
-      />
-      <PedagogicalCaption>Observer canary (secondary)</PedagogicalCaption>
-      <StatRow
-        left={
+        ) : (
+          <p className="text-[11px] text-gray-500">
+            {formatPolicyHoldingLine('Read-your-writes', consistency.rywViolations)}
+          </p>
+        )
+      ) : null}
+      {showMonotonicLine ? (
+        consistency.monotonicViolations > 0 ? (
           <StatBlock
             label="Monotonic reads"
             value={formatConsistencyViolation(consistency.monotonicViolations)}
             help="Observer: a later replica read returned a lower version than an earlier one."
           />
-        }
-        right={
-          <StatBlock
-            label="Cache vs database"
-            value={formatConsistencyViolation(consistency.cacheDbStale)}
-            help="Sampled cache hit served a different value than the primary (not the platform probe key)."
-          />
-        }
-      />
+        ) : (
+          <p className="text-[11px] text-gray-500">
+            {formatPolicyHoldingLine('Monotonic reads', consistency.monotonicViolations)}
+          </p>
+        )
+      ) : null}
       <StatBlock
-        label="Probe replica lag"
-        value={`${fmtStalenessVersions(consistency.replicaStalenessVersions)} versions`}
-        help="Observer canary: logical versions the replica trails the latest primary write (lag probe, not student RYW)."
+        label="Held by"
+        value={formatGuaranteeHeldBy(consistency.guaranteeHeldBy)}
+        help="Who enforces the read guarantee. None = not requested; app = leader redirects after writes."
       />
+      {hasCache ? (
+        <StatBlock
+          label="Cache vs database"
+          value={formatConsistencyViolation(consistency.cacheDbStale)}
+          help="Sampled cache hit served a different value than the primary (not the platform probe key)."
+        />
+      ) : null}
       <PedagogicalHint tone="muted">{consistencyPolicyHint(policy)}</PedagogicalHint>
       {consistency.lastCacheKey ? (
         <p className="text-[11px] leading-relaxed text-[var(--c9-muted)]">
@@ -1228,16 +1271,19 @@ export function DbConsistencySection({
 export function DbDiagnosticsDisclosure({
   m,
   maxConnections,
+  showObserverCanary = false,
 }: {
   m: MetricsBucket
   maxConnections: number
+  showObserverCanary?: boolean
 }) {
   const maxConn = maxConnections > 0 ? maxConnections : 100
   const connPct = maxConn > 0 ? (m.dbActiveConnections / maxConn) * 100 : 0
   const io = m.storageIo
+  const consistency = m.consistency
 
   return (
-    <InspectorDisclosure title="Engine detail & diagnostics">
+    <InspectorDisclosure title="Internals">
       <div className="space-y-2 font-mono text-[11px] text-gray-300">
         <div>
           Active connections · {fmtInt(m.dbActiveConnections)} / {fmtInt(maxConn)}
@@ -1248,6 +1294,18 @@ export function DbDiagnosticsDisclosure({
         ) : null}
         {io && io.errorRate > 0 ? (
           <div>Rollbacks · {fmtRate(io.errorRate)}/s</div>
+        ) : null}
+        {showObserverCanary && consistency ? (
+          <>
+            <div>
+              Observer canary · monotonic{' '}
+              {formatConsistencyViolation(consistency.monotonicViolations)}
+            </div>
+            <div>
+              Probe replica lag · {fmtStalenessVersions(consistency.replicaStalenessVersions)}{' '}
+              versions
+            </div>
+          </>
         ) : null}
       </div>
       <InlineDisclosure label="About these metrics">
