@@ -38,6 +38,7 @@ import {
   failoverReadoutSummary,
   partitionActiveHint,
   partitionCapSummary,
+  parseStandbyPodList,
   promotionWalBytesLost,
   standbyRecloneHints,
   type ChaosScenario,
@@ -755,12 +756,30 @@ function fmtLagBytes(bytes: number | undefined): string {
 
 function fmtReplicaSyncState(syncState: string | undefined): string {
   const state = syncState?.trim()
-  return state ? state : 'async'
+  if (!state) return 'async'
+  if (state === 'quorum') return 'quorum (any 1)'
+  return state
 }
 
 const REPLICA_NOT_REPORTING = 'not reporting'
-const REPLICA_PARTITIONED = 'partitioned'
 const REPLICA_NOT_REPORTING_ON_PRIMARY = 'not reporting on primary'
+
+function disconnectedReplicaHeadline(
+  layer: ComponentLayerMetrics,
+  activePartitionScenario: ChaosScenario | null | undefined,
+  standbyRecloneEvent: WsEvent | null | undefined,
+  backendReplicas?: { ready: number; desired: number },
+): string {
+  const pending = parseStandbyPodList(standbyRecloneEvent?.detail?.pendingPods)
+  if (activePartitionScenario === 'split_primary_replica') return 'partitioned'
+  if (pending.includes(layer.id)) return 'rebuilding'
+  if (activePartitionScenario === 'stall_replica') return 'stalled'
+  if (layer.lagBytes !== undefined) return 'stalled'
+  if (backendReplicas && backendReplicas.desired > 0 && backendReplicas.ready < backendReplicas.desired) {
+    return 'rebuilding'
+  }
+  return 'not reporting'
+}
 
 function isReplicaConnectedOnPrimary(layer: ComponentLayerMetrics): boolean {
   return layer.connectedOnPrimary !== false
@@ -834,7 +853,15 @@ function consistencyPolicyHint(policy: ReadConsistencyPolicy): string {
 }
 
 /** Read-replica replay lag when db instance layers are present (Wave 3 PR4). */
-export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
+export function DbReplicaLagSection({
+  m,
+  activePartitionScenario,
+  standbyRecloneEvent,
+}: {
+  m: MetricsBucket
+  activePartitionScenario?: ChaosScenario | null
+  standbyRecloneEvent?: WsEvent | null
+}) {
   const replicaLayers = m.layers.filter((layer) => layer.role === 'replica')
   if (replicaLayers.length === 0) return null
 
@@ -846,18 +873,20 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
   const showPromotionPreview = connectedReplicaLayers.some(
     (layer) => layer.syncState !== undefined || layer.lagBytes !== undefined || layer.promotionCandidate,
   )
-  const hasPartitionedStandby = replicaLayers.some((layer) => !isReplicaConnectedOnPrimary(layer))
-  const showPerReplicaDetail = showPromotionPreview || hasPartitionedStandby
+  const hasDisconnectedStandby = replicaLayers.some((layer) => !isReplicaConnectedOnPrimary(layer))
+  const showPerReplicaDetail = showPromotionPreview || hasDisconnectedStandby
   const hasClimbingPartitionLag = replicaLayers.some(
     (layer) => !isReplicaConnectedOnPrimary(layer) && layer.lagBytes !== undefined,
   )
+  const showQuorumHint =
+    showPromotionPreview && connectedReplicaLayers.some((layer) => layer.syncState === 'quorum')
 
   return (
     <PedagogicalSection
       title="Read replicas"
       subtitle={
-        hasPartitionedStandby
-          ? 'Streaming lag from pg_stat_replication; partitioned standbys use primary LSN minus frozen replay LSN'
+        hasDisconnectedStandby
+          ? 'Streaming lag from pg_stat_replication; disconnected standbys use primary LSN minus frozen replay LSN'
           : showPromotionPreview
             ? 'Replay lag, sync state, and which standby promote_replica would pick'
             : 'Primary-side replay lag per streaming standby'
@@ -884,7 +913,7 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
                   : undefined
                 : maxLag,
             )}
-            help="Seconds between primary commit and replay on the standby (~0 when caught up). Partitioned standbys are omitted."
+            help="Seconds between primary commit and replay on the standby (~0 when caught up). Disconnected standbys are omitted."
           />
         }
       />
@@ -899,9 +928,15 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
           farther-behind standby.
         </PedagogicalHint>
       ) : null}
+      {showQuorumHint ? (
+        <PedagogicalHint tone="muted">
+          Semi-sync is ANY 1 (*): commit waits on any quorum standby, not a single named sync
+          replica.
+        </PedagogicalHint>
+      ) : null}
       {hasClimbingPartitionLag ? (
         <PedagogicalHint tone="muted">
-          Partitioned standbys show how far the writer ran after they dropped off{' '}
+          Disconnected standbys show how far the writer ran after they dropped off{' '}
           <span className="font-mono">pg_stat_replication</span> (primary WAL LSN minus frozen
           replay LSN).
         </PedagogicalHint>
@@ -923,7 +958,12 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
                     </span>
                     <span>
                       {disconnected
-                        ? REPLICA_PARTITIONED
+                        ? disconnectedReplicaHeadline(
+                            layer,
+                            activePartitionScenario,
+                            standbyRecloneEvent,
+                            br,
+                          )
                         : fmtReplicationLagSeconds(layer.replicationLagSeconds)}
                     </span>
                   </div>
@@ -957,7 +997,16 @@ export function DbReplicaLagSection({ m }: { m: MetricsBucket }) {
             ) : (
               <>
                 <span>{REPLICA_NOT_REPORTING_ON_PRIMARY}</span>
-                <span>{replicaPartitionBytesCopy(single)}</span>
+                <span>
+                  {single.lagBytes !== undefined
+                    ? replicaPartitionBytesCopy(single)
+                    : disconnectedReplicaHeadline(
+                        single,
+                        activePartitionScenario,
+                        standbyRecloneEvent,
+                        br,
+                      )}
+                </span>
               </>
             )}
           </div>
