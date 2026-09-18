@@ -58,6 +58,60 @@ export function CacheStrategyBanner({ strategy }: { strategy: string }) {
   )
 }
 
+/** Headline engine commands when app hit/miss is unavailable (social-feed push). */
+export function CacheEngineCommandsNowSection({
+  m,
+  view,
+}: {
+  m: MetricsBucket
+  view: PanelViewState
+}) {
+  const tiles = commandTilesForBucket(m, view)
+  if (!tiles) return null
+  return (
+    <PedagogicalSection
+      title="Did caching actually help?"
+      subtitle="Engine commands — no app hit/miss on this read path"
+    >
+      <StatRow
+        left={<StatBlock label={tiles.readLabel} value={tiles.readValue} />}
+        right={<StatBlock label={tiles.writeLabel} value={tiles.writeValue} />}
+      />
+      <PedagogicalCaption>
+        Timeline store — engine commands are the honest answer when app logical cache
+        counters are not on the read path.
+      </PedagogicalCaption>
+    </PedagogicalSection>
+  )
+}
+
+export function CacheVsDatabaseTradeoffSection({
+  dbQueryRate,
+  cacheReadRate,
+}: {
+  dbQueryRate?: number
+  cacheReadRate?: number
+}) {
+  const dbReads =
+    dbQueryRate != null && dbQueryRate > 0 ? `${fmtRate(dbQueryRate)}/s` : 'these reads'
+  const cacheReads =
+    cacheReadRate != null && cacheReadRate > 0
+      ? `${fmtRate(cacheReadRate)}/s`
+      : 'timeline traffic'
+  return (
+    <PedagogicalSection
+      title="Hit rate vs database load"
+      subtitle="What happens if you remove the cache node"
+    >
+      <PedagogicalHint>
+        Feeds are served from Redis. Remove the cache and {cacheReads} become Postgres
+        queries — about {dbReads} of app SQL today, but engine work can be much higher
+        on fanout templates.
+      </PedagogicalHint>
+    </PedagogicalSection>
+  )
+}
+
 export function CacheStrategyPerformanceSection({
   cacheHead,
   hasTraffic,
@@ -70,7 +124,7 @@ export function CacheStrategyPerformanceSection({
   const hitRateLabel = cacheHitRateDisplay(cacheHead.hitRatePct)
   return (
     <PedagogicalSection
-      title="Strategy performance"
+      title="Did caching actually help?"
       subtitle="How often the app avoided a database round trip"
     >
       <StatRow
@@ -296,6 +350,7 @@ function layerProcessCard(
   m: MetricsBucket,
   view: PanelViewState,
   evictionPolicy?: string,
+  omitEngineCommands = false,
 ) {
   const backing = isBackingCacheLayer(layer)
   const { cpuPercent, memPercent } = layerResourcePercents(layer)
@@ -346,7 +401,9 @@ function layerProcessCard(
       }
       cpuLabel={cpuLabel}
       cpuHelp={resourceUsageHelp(layerBucket)}
-      commandTiles={backing ? commandTilesForBucket(syntheticForIo, view) : null}
+      commandTiles={
+        backing && !omitEngineCommands ? commandTilesForBucket(syntheticForIo, view) : null
+      }
       lifecycleTiles={
         backing
           ? lifecycleTilesFor(layer.evictionsPerSec, layer.expirationsPerSec)
@@ -364,6 +421,7 @@ export function CacheInfrastructureSection({
   memPercent,
   evictionPolicy,
   view,
+  omitEngineCommands = false,
 }: {
   m: MetricsBucket
   mode: CacheInspectorMode
@@ -371,6 +429,7 @@ export function CacheInfrastructureSection({
   memPercent: number
   evictionPolicy?: string
   view: PanelViewState
+  omitEngineCommands?: boolean
 }) {
   if (mode === 'layered' && isLayeredCache(m)) {
     return (
@@ -384,7 +443,9 @@ export function CacheInfrastructureSection({
           </p>
         </div>
         <div className="space-y-3">
-          {m.layers.map((layer) => layerProcessCard(layer, m, view, evictionPolicy))}
+          {m.layers.map((layer) =>
+            layerProcessCard(layer, m, view, evictionPolicy, omitEngineCommands),
+          )}
         </div>
       </section>
     )
@@ -416,7 +477,9 @@ export function CacheInfrastructureSection({
         memoryHelp={cacheMemoryHelp(m, memPercent)}
         cpuLabel={cpuLabel}
         cpuHelp={resourceUsageHelp(m)}
-        commandTiles={commandTilesForBucket(m, view)}
+        commandTiles={
+          omitEngineCommands ? null : commandTilesForBucket(m, view)
+        }
         lifecycleTiles={lifecycleTilesFor(m.evictionsPerSec, m.expirationsPerSec)}
         footerNote={evictionPolicy ? `${evictionPolicy} eviction` : undefined}
       />

@@ -1,4 +1,5 @@
 import type { WsEvent } from '../editor-core/stores/metricsStore'
+import type { SessionEventSummary } from './eventsSummaryFromApi'
 import {
   isPromotionChaosScenario,
   isPartitionChaosScenario,
@@ -229,5 +230,75 @@ export function exceptionFactsForComponent(
       f.component === component &&
       (f.type === 'failover' || f.type === 'partition' || f.type === 'reclone') &&
       !f.dismissed,
+  )
+}
+
+function highlightKey(event: SessionEventSummary): string {
+  return `${event.type}:${event.component ?? ''}:${event.rule}:${event.timestamp}`
+}
+
+/** Project a session fact into the post-session highlight reel shape (§4 Rule 0). */
+export function sessionFactToHighlightSummary(fact: SessionFact): SessionEventSummary {
+  if (fact.type === 'failover') {
+    const payload = fact.payload as FailoverFactPayload
+    const promotion = payload.promotionEvent
+    const loss = payload.lossEvent
+    const walBytesLost = payload.walBytesLost
+    const promotedPod = promotion.detail?.promotedPod?.trim()
+    const rule =
+      loss?.rule === 'failover_write_loss'
+        ? 'failover_write_loss'
+        : promotion.description?.trim() || 'promote_replica'
+    return {
+      timestamp: fact.firstSeen,
+      type: loss || walBytesLost > 0 ? 'invariant' : 'action',
+      rule,
+      component: fact.component,
+      narrative:
+        loss?.description?.trim() ||
+        loss?.title?.trim() ||
+        (walBytesLost > 0
+          ? `Promoted ${promotedPod ?? 'standby'} with ${walBytesLost} bytes of WAL not shipped`
+          : `Promoted ${promotedPod ?? 'standby'} with zero measured WAL loss`),
+    }
+  }
+  if (fact.type === 'partition') {
+    const event = fact.payload as WsEvent
+    return {
+      timestamp: fact.firstSeen,
+      type: 'invariant',
+      rule: event.rule ?? 'partition',
+      component: fact.component,
+      narrative: event.description?.trim() || event.title?.trim(),
+      suggestion: event.suggestion,
+    }
+  }
+  const event = fact.payload as WsEvent
+  return {
+    timestamp: fact.firstSeen,
+    type: event.type === 'invariant' ? 'invariant' : 'action',
+    rule: event.rule ?? event.title ?? fact.type,
+    component: fact.component,
+    narrative: event.description?.trim() || event.narrative,
+    suggestion: event.suggestion,
+  }
+}
+
+/** Merge API highlight reel with monotone session facts (facts win on duplicate keys). */
+export function mergeHighlightEvents(
+  apiEvents: SessionEventSummary[],
+  wsEvents: WsEvent[],
+): SessionEventSummary[] {
+  const facts = reduceSessionFacts(wsEvents)
+  const fromFacts = Object.values(facts).map(sessionFactToHighlightSummary)
+  const merged = new Map<string, SessionEventSummary>()
+  for (const event of apiEvents) {
+    merged.set(highlightKey(event), event)
+  }
+  for (const event of fromFacts) {
+    merged.set(highlightKey(event), event)
+  }
+  return [...merged.values()].sort(
+    (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
   )
 }

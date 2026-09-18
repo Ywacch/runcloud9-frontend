@@ -94,3 +94,48 @@ export function showMonotonicPolicyLine(cap: InspectorCapabilities): boolean {
 export function showObserverCanary(cap: InspectorCapabilities): boolean {
   return cap.readReplicas >= 1
 }
+
+/** Count LB backends from canvas wiring (not metrics payload). */
+export function lbBackendCount(
+  backendPods: number,
+  perBackendEntries: number,
+  canvasBackends: number,
+  desiredFromMetrics?: number,
+): number {
+  return Math.max(backendPods, perBackendEntries, canvasBackends, desiredFromMetrics ?? 0)
+}
+
+export function showLbPerBackendDistribution(backendCount: number): boolean {
+  return backendCount >= 2
+}
+
+export function showLbSingleBackendNudge(
+  cap: InspectorCapabilities,
+  backendCount: number,
+): boolean {
+  return cap.hasLb && backendCount === 1
+}
+
+/** Legacy redisOpsPerSec row — hidden when storageIo is present (§3.4, §7). */
+export function showLegacyRedisOpsRow(
+  cap: InspectorCapabilities,
+  m: { storageIo?: { readRate?: number } | null; redisOpsPerSec?: number },
+  timelineMode: boolean,
+): boolean {
+  if (!cap.hasCache || !timelineMode) return false
+  if ((m.storageIo?.readRate ?? 0) > 0) return false
+  return (m.redisOpsPerSec ?? 0) > 0
+}
+
+/** Social-feed push: no app hit/miss on timeline path — engine commands headline (§3.4). */
+export function showCacheEngineCommandsInNow(
+  cap: InspectorCapabilities,
+  hasAppHitMissTraffic: boolean,
+  timelineMode: boolean,
+): boolean {
+  return cap.hasCache && timelineMode && !hasAppHitMissTraffic
+}
+
+export function showCacheVsDatabaseTradeoff(cap: InspectorCapabilities): boolean {
+  return cap.hasCache && cap.hasDb
+}

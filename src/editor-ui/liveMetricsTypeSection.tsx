@@ -53,13 +53,19 @@ import {
 } from '../lib/chaos'
 import {
   inspectorCapabilities,
+  lbBackendCount,
+  showCacheEngineCommandsInNow,
   showCacheVsDatabase,
   showDbConsistencyTradeoff,
   showDbReplicaLag,
+  showLbPerBackendDistribution,
+  showLbSingleBackendNudge,
+  showLegacyRedisOpsRow,
   showMonotonicPolicyLine,
   showObserverCanary,
   showRywPolicyLine,
   showStaleReplicaReads,
+  showCacheVsDatabaseTradeoff,
 } from '../lib/inspectorCapabilities'
 import {
   failoverPayloadFromFacts,
@@ -81,9 +87,11 @@ import {
   CacheCanvasFootnote,
   CacheInfrastructureSection,
   CacheSessionTotalsDisclosure,
+  CacheEngineCommandsNowSection,
   CacheStrategyBanner,
   CacheStrategyPerformanceSection,
   CacheTimelinePerformanceSection,
+  CacheVsDatabaseTradeoffSection,
 } from './cacheInspectorSections'
 import {
   DbActivitySection,
@@ -238,6 +246,7 @@ export function LiveMetricsTypeSection({
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const metricsEvents = useMetricsStore((s) => s.events)
+  const allMetrics = useMetricsStore((s) => s.metrics)
   const activeChaos = useChaosStore((s) => s.active)
   const partitionCapEvent = useMemo(
     () => latestPartitionCapEvent(metricsEvents),
@@ -330,8 +339,8 @@ export function LiveMetricsTypeSection({
         <div className="space-y-5">
           {panelPrefix}
           <PedagogicalSection
-            title="API performance (RED)"
-            subtitle="Is the service fast and healthy?"
+            title="Is the API fast and healthy?"
+            subtitle="Request rate, latency, and errors"
           >
             <StatRow
               left={
@@ -442,10 +451,7 @@ export function LiveMetricsTypeSection({
             </PedagogicalSection>
           ) : null}
 
-          <PedagogicalSection
-            title="Cluster resources (USE)"
-            subtitle="Aggregate infrastructure load"
-          >
+          <InspectorDisclosure title="Internals">
             <StatRow
               left={
                 <StatBlock
@@ -485,7 +491,7 @@ export function LiveMetricsTypeSection({
                 <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
               </InlineDisclosure>
             ) : null}
-          </PedagogicalSection>
+          </InspectorDisclosure>
 
           {computeReplicaList.length > 0 ? (
             <InspectorDisclosure title="Per-replica breakdown">
@@ -531,10 +537,15 @@ export function LiveMetricsTypeSection({
         cacheMisses,
         view.timeframe,
       )
-      const showLegacyRedisOps =
-        timelineMode &&
-        !(m.storageIo?.readRate ?? 0) &&
-        (m.redisOpsPerSec ?? 0) > 0
+      const cacheCap = inspectorCapabilities(nodes, node, { loadgenActive })
+      const engineCommandsInNow = showCacheEngineCommandsInNow(
+        cacheCap,
+        hasTraffic,
+        timelineMode,
+      )
+      const showLegacyRedisOps = showLegacyRedisOpsRow(cacheCap, m, timelineMode)
+      const dbNode = Object.values(nodes).find((n) => n.type === 'database')
+      const dbMetrics = dbNode ? allMetrics[dbNode.id] : undefined
 
       return (
         <div className="space-y-5">
@@ -544,7 +555,9 @@ export function LiveMetricsTypeSection({
             <CacheLiveKeyCount deploymentId={deploymentId} />
           ) : null}
 
-          {timelineMode ? (
+          {engineCommandsInNow ? (
+            <CacheEngineCommandsNowSection m={m} view={view} />
+          ) : timelineMode ? (
             <CacheTimelinePerformanceSection
               m={m}
               view={view}
@@ -560,6 +573,13 @@ export function LiveMetricsTypeSection({
             />
           )}
 
+          {showCacheVsDatabaseTradeoff(cacheCap) ? (
+            <CacheVsDatabaseTradeoffSection
+              dbQueryRate={dbMetrics?.dbQueryRate}
+              cacheReadRate={m.storageIo?.readRate}
+            />
+          ) : null}
+
           <CacheInfrastructureSection
             m={m}
             mode={inspectorMode}
@@ -567,6 +587,7 @@ export function LiveMetricsTypeSection({
             memPercent={memPercent}
             evictionPolicy={evictionPolicy}
             view={view}
+            omitEngineCommands={engineCommandsInNow}
           />
 
           {showLegacyRedisOps ? (
@@ -690,14 +711,16 @@ export function LiveMetricsTypeSection({
             failoverWriteLossEvent={resolvedFailoverLossEvent}
             standbyRecloneEvent={resolvedRecloneEvent}
           />
-          <DbClusterResourcesSection
-            nodeId={nodeId}
-            m={m}
-            cpuPercent={cpuPercent}
-            memPercent={memPercent}
-            view={view}
-            history={history}
-          />
+          <InspectorDisclosure title="Internals">
+            <DbClusterResourcesSection
+              nodeId={nodeId}
+              m={m}
+              cpuPercent={cpuPercent}
+              memPercent={memPercent}
+              view={view}
+              history={history}
+            />
+          </InspectorDisclosure>
           <DbDiagnosticsDisclosure
             m={m}
             maxConnections={maxConn}
@@ -729,6 +752,15 @@ export function LiveMetricsTypeSection({
           : perBe.map(([, rps]) => rps)
       const skew = podDistributionSkew(podRates)
       const maxRate = skew.max
+      const lbCap = inspectorCapabilities(nodes, node, { loadgenActive })
+      const backendCount = lbBackendCount(
+        backendPods.length,
+        perBe.length,
+        backends.length,
+        m.backendReplicas?.desired,
+      )
+      const showPerBackend = showLbPerBackendDistribution(backendCount)
+      const showSingleBackendNudge = showLbSingleBackendNudge(lbCap, backendCount)
       const replicaListRows =
         backendPods.length > 0
           ? buildReplicaListRows(backendPods, view.timeframe, {
@@ -752,8 +784,8 @@ export function LiveMetricsTypeSection({
         <div className="space-y-5">
           {panelPrefix}
           <PedagogicalSection
-            title="Ingress intent (Declarative)"
-            subtitle="What the system is asked to do"
+            title="How much traffic is the load balancer routing?"
+            subtitle="Throughput and algorithm"
           >
             <StatRow
               left={
@@ -798,10 +830,19 @@ export function LiveMetricsTypeSection({
             <PedagogicalCaption>Algorithm: {algo}</PedagogicalCaption>
           </PedagogicalSection>
 
-          <PedagogicalSection
-            title="Routing execution (Imperative USE)"
-            subtitle="How the infrastructure is handling it"
-          >
+          {showSingleBackendNudge ? (
+            <PedagogicalSection
+              title="Load balancing needs more than one backend"
+              subtitle="Tradeoff"
+            >
+              <PedagogicalHint>
+                Add a replica to make the algorithm matter — a distribution chart over one
+                bar is not teachable.
+              </PedagogicalHint>
+            </PedagogicalSection>
+          ) : null}
+
+          <InspectorDisclosure title="Internals">
             <StatRow
               left={
                 <StatBlock
@@ -827,7 +868,7 @@ export function LiveMetricsTypeSection({
                 )
               }
             />
-            {replicaListRows.length > 0 ? (
+            {showPerBackend && replicaListRows.length > 0 ? (
               <div className="space-y-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                   Per-pod distribution
@@ -838,7 +879,7 @@ export function LiveMetricsTypeSection({
                 <ReplicaFlatList rows={replicaListRows} />
               </div>
             ) : null}
-            {skew.skewed ? (
+            {showPerBackend && skew.skewed ? (
               <InlineDisclosure label="Why distribution is uneven">
                 <PedagogicalHint>
                   {lbAlgorithmForDeploy(algo) === 'ip_hash' ? (
@@ -856,7 +897,7 @@ export function LiveMetricsTypeSection({
                 </PedagogicalHint>
               </InlineDisclosure>
             ) : null}
-          </PedagogicalSection>
+          </InspectorDisclosure>
 
           <EngineHealthDisclosure m={m} cpuPercent={cpuPercent} memPercent={memPercent} />
         </div>
@@ -891,8 +932,8 @@ export function LiveMetricsTypeSection({
         <div className="space-y-5">
           {panelPrefix}
           <PedagogicalSection
-            title="Message traffic (RED)"
-            subtitle="Logical publishing and consumption rates"
+            title="Is the queue keeping up?"
+            subtitle="Publish and consume rates"
           >
             <StatRow
               left={
@@ -929,8 +970,8 @@ export function LiveMetricsTypeSection({
           </PedagogicalSection>
 
           <PedagogicalSection
-            title="Queue state (USE)"
-            subtitle="Aggregate infrastructure load and backlog"
+            title="How deep is the backlog?"
+            subtitle="Queue depth and broker memory"
           >
             <StatRow
               left={
@@ -1053,7 +1094,7 @@ export function LiveMetricsTypeSection({
         <div className="space-y-5">
           {panelPrefix}
           <PedagogicalSection
-            title="Job processing (RED)"
+            title="Is background processing falling behind?"
             subtitle="Logical job execution speed and health"
           >
             <StatRow
@@ -1150,10 +1191,7 @@ export function LiveMetricsTypeSection({
             ) : null}
           </PedagogicalSection>
 
-          <PedagogicalSection
-            title="Compute resources (USE)"
-            subtitle="Aggregate infrastructure load"
-          >
+          <InspectorDisclosure title="Internals">
             <StatRow
               left={
                 <StatBlock
@@ -1200,7 +1238,7 @@ export function LiveMetricsTypeSection({
                 <PedagogicalHint tone="muted">{resourceHelp}</PedagogicalHint>
               </InlineDisclosure>
             ) : null}
-          </PedagogicalSection>
+          </InspectorDisclosure>
 
           {workerReplicaList.length > 0 ? (
             <InspectorDisclosure title="Per-replica breakdown">
