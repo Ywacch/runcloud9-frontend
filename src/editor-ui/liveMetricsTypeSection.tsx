@@ -36,6 +36,10 @@ import {
   latencyGraphTitle,
 } from '../lib/latencyQuantile'
 import {
+  lbBackendResourceLimits,
+  sumPodRequestRates,
+} from '../lib/lbInspectorMetrics'
+import {
   redHeadlines,
   replicaListRows as buildReplicaListRows,
 } from '../lib/metricTimeframe'
@@ -742,6 +746,13 @@ export function LiveMetricsTypeSection({
         m.lbAlgorithm?.trim() ||
         String(node.config.lbAlgorithm ?? node.config.algorithm ?? 'round-robin')
       const backendPods = m.backendPods ?? []
+      const backendResourceLimits = lbBackendResourceLimits(
+        nodeId,
+        edges,
+        nodes,
+        allMetrics,
+      )
+      const backendRpsSum = sumPodRequestRates(backendPods)
       const perBe = Object.entries(m.perBackendRps).sort(([a], [b]) => a.localeCompare(b))
       const connLimit = m.lbConnectionLimit
       const active = m.activeConnections
@@ -752,6 +763,7 @@ export function LiveMetricsTypeSection({
           : perBe.map(([, rps]) => rps)
       const skew = podDistributionSkew(podRates)
       const maxRate = skew.max
+      const lbLiveRps = backendRpsSum > 0 ? backendRpsSum : requestRate
       const lbCap = inspectorCapabilities(nodes, node, { loadgenActive })
       const backendCount = lbBackendCount(
         backendPods.length,
@@ -764,11 +776,11 @@ export function LiveMetricsTypeSection({
       const replicaListRows =
         backendPods.length > 0
           ? buildReplicaListRows(backendPods, view.timeframe, {
-              clusterRps: requestRate,
+              clusterRps: lbLiveRps,
               maxRate,
               skewed: skew.skewed,
-              cpuLimitCores: m.cpuLimit,
-              memoryLimitBytes: m.memoryLimit,
+              cpuLimitCores: backendResourceLimits.cpuLimitCores,
+              memoryLimitBytes: backendResourceLimits.memoryLimitBytes,
               quantile: view.latencyQuantile,
             })
           : perBe.map(([name, rps]) => ({
@@ -795,7 +807,11 @@ export function LiveMetricsTypeSection({
                       ? 'Total requests'
                       : 'Requests routed'
                   }
-                  value={red.throughputDisplay}
+                  value={
+                    view.timeframe === 'live' && backendRpsSum > 0
+                      ? `${fmtInt(lbLiveRps)} rps`
+                      : red.throughputDisplay
+                  }
                   help={lbRateHelp}
                   graph={
                     <MetricSeriesGraph

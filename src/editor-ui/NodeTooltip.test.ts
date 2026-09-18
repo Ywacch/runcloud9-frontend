@@ -60,7 +60,7 @@ describe('resolveGroupedDisplay worker', () => {
     expect(compute?.clusterScope).toBe(true)
   })
 
-  it('uses component cpu/mem percent for multi-replica cluster tooltip', () => {
+  it('averages per-pod cpu/mem for multi-replica cluster tooltip', () => {
     const m = {
       ...metrics(),
       cpuPercent: 24,
@@ -72,8 +72,10 @@ describe('resolveGroupedDisplay worker', () => {
     } as MetricsBucket
 
     const display = resolveGroupedDisplay(computeNode(), m, null)
-    expect(display?.cpuPct).toBe(24)
-    expect(display?.memPct).toBe(2)
+    // cpuLimit 1 / 2 pods → 0.5 per pod; 0.1 cores each → 20%
+    expect(display?.cpuPct).toBe(20)
+    // memoryLimit 256Mi / 2 pods → 128Mi per pod; 32Mi each → 25%
+    expect(display?.memPct).toBe(25)
     expect(display?.rps).toBe(10)
   })
 
