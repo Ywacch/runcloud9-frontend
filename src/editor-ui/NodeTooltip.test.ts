@@ -92,14 +92,14 @@ describe('resolveGroupedDisplay worker', () => {
   })
 })
 
-function dbNode(): CanvasNode {
+function dbNode(config: Record<string, unknown> = { readReplicas: 2 }): CanvasNode {
   return {
     id: 'db',
     type: 'database',
     label: 'PostgreSQL',
     position: [0, 0, 0],
     status: 'healthy',
-    config: { readReplicas: 2 },
+    config,
   }
 }
 
@@ -155,5 +155,20 @@ describe('resolveGroupedDisplay database', () => {
     expect(display?.rps).toBe(1)
     expect(display?.cpuPct).toBeGreaterThan(0)
     expect(display?.memPct).toBeGreaterThan(0)
+  })
+
+  it('uses layer p99 when present on primary hover', () => {
+    const layers = [
+      {
+        ...dbLayer('postgres', 'primary', 0.03, 80 * 1024 * 1024, 225),
+        p99LatencyMs: 12,
+      },
+    ]
+    const display = resolveGroupedDisplay(
+      dbNode({ readReplicas: 0 }),
+      { ...bucket, layers, dbQueryLatency: 0.005 } as MetricsBucket,
+      'postgres',
+    )
+    expect(display?.p99Ms).toBe(12)
   })
 })

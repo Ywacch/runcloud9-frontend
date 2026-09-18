@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
+  dbTooltipLatencyMs,
   perReplicaLimit,
   rollup,
   samplesFromCompute,
@@ -86,5 +88,36 @@ describe('splitByRole', () => {
     expect(rollup(byRole.get('primary') ?? []).cpuPct).toBe(80)
     expect(rollup(byRole.get('replica') ?? []).cpuPct).toBe(10)
     expect(rollup(samples).cpuPct).toBe(45)
+  })
+})
+
+describe('dbTooltipLatencyMs', () => {
+  it('falls back to dbQueryLatency when p99Latency is unset', () => {
+    const m = {
+      p99Latency: 0,
+      dbQueryLatency: 0.005,
+      avgLatency: 0,
+    } as MetricsBucket
+    expect(dbTooltipLatencyMs(m)).toBe(5)
+  })
+
+  it('prefers layer p99 when scoped to a db instance', () => {
+    const m = {
+      p99Latency: 0,
+      dbQueryLatency: 0.005,
+    } as MetricsBucket
+    const layer = {
+      id: 'postgres',
+      role: 'primary',
+      engine: 'postgresql',
+      cpuUsage: 0.03,
+      cpuLimit: 0.25,
+      memoryBytes: 80 * 1024 * 1024,
+      memoryLimit: 256 * 1024 * 1024,
+      cpuIsEstimated: false,
+      memIsEstimated: false,
+      p99LatencyMs: 12,
+    } satisfies ComponentLayerMetrics
+    expect(dbTooltipLatencyMs(m, layer)).toBe(12)
   })
 })
