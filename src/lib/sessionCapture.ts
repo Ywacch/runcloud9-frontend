@@ -2,6 +2,7 @@ import { getDeployment } from './api'
 import { discardWsEventsStorage } from './wsEventsPersist'
 import { clearLiveSessionPersist } from './liveSessionStorage'
 import { parseEventsSummary } from './eventsSummaryFromApi'
+import { mergeHighlightEvents } from './sessionFacts'
 import {
   mergePeakScalars,
   normalizeSparklines,
@@ -243,7 +244,13 @@ export function captureSessionSummaryWithApi(
   const st = useCanvasStore.getState()
   if (st.sessionSummary != null) return
   const base = buildSessionSummaryFromMetrics()
-  st.setSessionSummary(mergeApiMetricsSummary(base, apiMetricsSummary))
+  const merged = mergeApiMetricsSummary(base, apiMetricsSummary)
+  const wsEvents = useMetricsStore.getState().events
+  const eventsSummary = mergeHighlightEvents(merged.eventsSummary ?? [], wsEvents)
+  st.setSessionSummary({
+    ...merged,
+    eventsSummary: eventsSummary.length > 0 ? eventsSummary : undefined,
+  })
 }
 
 /** Client-only snapshot (no GET /deployments merge). */

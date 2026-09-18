@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { WsEvent } from '../editor-core/stores/metricsStore'
 import {
   failoverPayloadFromFacts,
+  mergeHighlightEvents,
   reduceSessionFacts,
 } from './sessionFacts'
 
@@ -47,6 +48,13 @@ describe('reduceSessionFacts', () => {
     ])
     const payload = failoverPayloadFromFacts(facts, 'db')
     expect(payload?.walBytesLost).toBe(8192)
+  })
+
+  it('merges session facts into highlight reel entries', () => {
+    const merged = mergeHighlightEvents([], [promoteEvent('4096')])
+    expect(merged.length).toBe(1)
+    expect(merged[0].rule).toBe('promote_lagging_replica')
+    expect(merged[0].component).toBe('db')
   })
 
   it('records partition CAP events', () => {

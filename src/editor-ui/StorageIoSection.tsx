@@ -343,8 +343,8 @@ export function DbClusterResourcesSection({
 
   return (
     <PedagogicalSection
-      title="Cluster resources (USE)"
-      subtitle="Hardware utilization handling the execution load"
+      title="Engine utilization"
+      subtitle="CPU and memory handling database work"
     >
       <StatRow
         left={
