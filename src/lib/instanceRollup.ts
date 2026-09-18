@@ -1,4 +1,7 @@
-import { layerResourcePercents } from '../editor-core/domain/metricsUiContract'
+import {
+  layerResourcePercents,
+  type ComponentLayerMetrics,
+} from '../editor-core/domain/metricsUiContract'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { FMT_EMPTY, fmtMs, utilizationPercent } from './format'
 
@@ -106,9 +109,27 @@ export function samplesFromLayers(m: MetricsBucket): InstanceSample[] {
       cpuPct: cpuPercent,
       memPct: memPercent,
       rps: layer.requestRate,
+      p99:
+        layer.p99LatencyMs != null && layer.p99LatencyMs > 0
+          ? layer.p99LatencyMs / 1000
+          : undefined,
       lagSeconds: layer.replicationLagSeconds,
     }
   })
+}
+
+/** DB canvas tooltip latency — matches inspector DB Activity fallback order. */
+export function dbTooltipLatencyMs(
+  m: MetricsBucket,
+  layer?: ComponentLayerMetrics,
+): number | null {
+  if (layer?.p99LatencyMs != null && layer.p99LatencyMs > 0) {
+    return layer.p99LatencyMs
+  }
+  if (m.p99Latency > 0) return m.p99Latency
+  if (m.dbQueryLatency > 0) return m.dbQueryLatency * 1000
+  if (m.avgLatency > 0) return m.avgLatency
+  return null
 }
 
 /** Canvas tooltip p99: missing or non-positive → em dash. */

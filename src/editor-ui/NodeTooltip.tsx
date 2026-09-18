@@ -4,6 +4,7 @@ import { compactPodName } from '../lib/replicaMetricsDisplay'
 import { usesPodReplicaScope, findDbLayer } from '../lib/dbInstanceScope'
 import { getTopologyFlags, resolveRole } from '../lib/componentRole'
 import {
+  dbTooltipLatencyMs,
   rollup,
   samplesFromCompute,
   samplesFromLayers,
@@ -191,14 +192,19 @@ export function NodeTooltip({
       ? grouped.rps
       : metrics?.requestRate ?? 0
   const idleRps = grouped?.kind === 'single' ? grouped.idle : false
-  const p99Label =
-    grouped?.kind === 'single'
-      ? grouped.p99Ms != null
-        ? fmtMs(grouped.p99Ms)
-        : FMT_EMPTY
-      : metrics?.p99Latency != null && metrics.p99Latency > 0
-        ? fmtMs(metrics.p99Latency)
-        : FMT_EMPTY
+  const dbLayerForScope =
+    metrics && node.type === 'database' && instanceScopeId && instanceScopeId !== 'cluster'
+      ? findDbLayer(metrics.layers, instanceScopeId)
+      : undefined
+  const tooltipP99Ms =
+    grouped?.p99Ms != null && grouped.p99Ms > 0
+      ? grouped.p99Ms
+      : node.type === 'database' && metrics
+        ? dbTooltipLatencyMs(metrics, dbLayerForScope)
+        : metrics?.p99Latency != null && metrics.p99Latency > 0
+          ? metrics.p99Latency
+          : null
+  const p99Label = tooltipP99Ms != null ? fmtMs(tooltipP99Ms) : FMT_EMPTY
 
   const rpsClass = idleRps
     ? 'text-zinc-400'
