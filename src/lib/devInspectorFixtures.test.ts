@@ -13,8 +13,8 @@ const computeNode: CanvasNode = {
   id: 'app',
   type: 'compute',
   label: 'App',
-  x: 0,
-  y: 0,
+  position: [0, 0, 0],
+  status: 'healthy',
   config: {},
 }
 
@@ -34,8 +34,8 @@ describe('devInspectorFixtures', () => {
         id: 'cache',
         type: 'cache',
         label: 'Redis',
-        x: 0,
-        y: 0,
+        position: [0, 0, 0],
+        status: 'healthy',
         config: {},
       },
     })

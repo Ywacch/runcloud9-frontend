@@ -6,7 +6,7 @@ import { TEMPLATE_FAMILIES } from './templateFamilyCatalog'
  * Offline template registry — JSON snapshot of ganymede/pkg/templates embedded YAML.
  * Re-export templates.Registry() into templateCatalogFallback.json when definitions change.
  */
-export const FALLBACK_TEMPLATE_CATALOG = catalog as TemplateInfo[]
+export const FALLBACK_TEMPLATE_CATALOG = catalog as unknown as TemplateInfo[]
 
 export function fallbackTemplateById(id: string): TemplateInfo | undefined {
   return FALLBACK_TEMPLATE_CATALOG.find((row) => row.id === id)

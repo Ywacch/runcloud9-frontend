@@ -1,5 +1,8 @@
 import { useEffect } from 'react'
-import type { ComponentLayerMetrics } from '../editor-core/domain/metricsUiContract'
+import type {
+  ComponentLayerMetrics,
+  StorageIoMetrics,
+} from '../editor-core/domain/metricsUiContract'
 import {
   isMetricsViewportMode,
   useCanvasStore,
@@ -27,6 +30,23 @@ export function isInstanceScopeViewportMode(mode: CanvasMode): boolean {
 }
 
 const DEV_HISTORY_POINTS = 24
+
+function devStorageIo(
+  partial: Pick<
+    StorageIoMetrics,
+    'readRate' | 'writeRate' | 'unit' | 'source'
+  > &
+    Partial<StorageIoMetrics>,
+): StorageIoMetrics {
+  return {
+    readLatency: 0,
+    writeLatency: 0,
+    bytesUsed: 0,
+    bytesLimit: 0,
+    errorRate: 0,
+    ...partial,
+  }
+}
 
 function emptyMetricsBucket(partial: Partial<MetricsBucket> = {}): MetricsBucket {
   return {
@@ -124,14 +144,14 @@ function layerMetrics(
     dbQueryRate: role === 'primary' ? 18 + index * 4 : 12 + index * 3,
     p50LatencyMs: 12 + index * 4,
     p99LatencyMs: 45 + index * 18,
-    storageIo: {
+    storageIo: devStorageIo({
       readRate: 22 + index * 6,
       writeRate: 4 + index,
       readTotal9m: 8000 + index * 1200,
       writeTotal9m: 900 + index * 200,
       unit: 'rows/s',
       source: 'postgres_exporter',
-    },
+    }),
   }
 }
 
@@ -223,14 +243,14 @@ function buildDatabaseMetrics(
     maxConnections: Number(node.config.maxConnections ?? 100),
     storageEngine: 'postgresql',
     storageRole: 'primary',
-    storageIo: {
+    storageIo: devStorageIo({
       readRate: 38,
       writeRate: 9,
       readTotal9m: 12_400,
       writeTotal9m: 2_100,
       unit: 'rows/s',
       source: 'postgres_exporter',
-    },
+    }),
     p50Latency: 18,
     p95Latency: 42,
     p99Latency: 88,
@@ -265,14 +285,14 @@ function buildCacheMetrics(node: CanvasNode): MetricsBucket {
     storageEngine: 'redis',
     storageRole: 'cache',
     cacheStrategy: String(node.config.cacheStrategy ?? 'cache-aside'),
-    storageIo: {
+    storageIo: devStorageIo({
       readRate: hits,
       writeRate: 18,
       readTotal9m: 48_200,
       writeTotal9m: 4_600,
       unit: 'ops/s',
       source: 'redis_exporter',
-    },
+    }),
     evictionsPerSec: 0.4,
     expirationsPerSec: 1.2,
   })
@@ -314,7 +334,7 @@ function buildLoadBalancerMetrics(
   })
 }
 
-function buildMessageQueueMetrics(node: CanvasNode): MetricsBucket {
+function buildMessageQueueMetrics(_node: CanvasNode): MetricsBucket {
   const depth = 128
   return emptyMetricsBucket({
     cpuUsage: 0.14,
