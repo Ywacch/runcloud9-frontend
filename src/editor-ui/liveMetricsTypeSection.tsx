@@ -129,6 +129,7 @@ import { InlineDisclosure } from './InlineDisclosure'
 import { rollup, samplesFromCompute } from '../lib/instanceRollup'
 import { findDbLayer, type SelectedInstanceId } from '../lib/dbInstanceScope'
 import { fetchCacheStats } from '../lib/introspectApi'
+import { devInspectorDeploymentId } from '../lib/devInspectorFixtures'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 
 function truncatePodName(name: string, max = 28): string {
@@ -199,6 +200,7 @@ export function LiveMetricsTypeSection({
   onPanelViewChange,
   replicaRows = [],
   selectedInstanceId = null,
+  metricsPreviewActive = false,
 }: {
   node: CanvasNode
   m: MetricsBucket
@@ -213,6 +215,7 @@ export function LiveMetricsTypeSection({
   onPanelViewChange?: (patch: Partial<PanelViewState>) => void
   replicaRows?: ReplicaInspectorRow[]
   selectedInstanceId?: SelectedInstanceId
+  metricsPreviewActive?: boolean
 }) {
   const nodeId = node.id
   const nodeType = node.type
@@ -248,7 +251,13 @@ export function LiveMetricsTypeSection({
   const resourceHelp = resourceUsageHelp(m)
   const memHelp = memoryUsageHelp(m, clusterMemPercent)
   const setSelectedInstanceId = useCanvasStore((s) => s.setSelectedInstanceId)
-  const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const canvasMode = useCanvasStore((s) => s.mode)
+  const canvasDeploymentId = useCanvasStore((s) => s.deploymentId)
+  const deploymentId = devInspectorDeploymentId(
+    canvasMode === 'live',
+    metricsPreviewActive,
+    canvasDeploymentId,
+  )
   const metricsEvents = useMetricsStore((s) => s.events)
   const allMetrics = useMetricsStore((s) => s.metrics)
   const activeChaos = useChaosStore((s) => s.active)

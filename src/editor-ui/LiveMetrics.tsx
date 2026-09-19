@@ -7,7 +7,11 @@ import {
   type ReplicaInspectorRow,
 } from '../lib/replicaMetricsDisplay'
 import { readLatencyQuantile, writeLatencyQuantile } from '../lib/latencyQuantile'
-import { useCanvasStore, type CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  useCanvasStore,
+  type CanvasMode,
+  type CanvasNode,
+} from '../editor-core/stores/canvasStore'
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import { MetricHelpIcon } from './MetricHelpIcon'
@@ -30,12 +34,12 @@ function MetricTile({
   help?: string
 }) {
   return (
-    <div className={METRIC_CARD_SHELL}>
-      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
+    <div className={`${METRIC_CARD_SHELL} space-y-1.5`}>
+      <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-[var(--c9-muted)]">
         <span>{label}</span>
         {help ? <MetricHelpIcon title={help} /> : null}
       </div>
-      <div className="mt-0.5 font-mono text-sm font-semibold text-[var(--c9-text)]">
+      <div className="font-mono text-[15px] font-semibold tabular-nums leading-none text-[var(--c9-text-heading)]">
         {value}
       </div>
     </div>
@@ -77,19 +81,23 @@ interface LiveMetricsProps {
   hideControls?: boolean
   panelView?: PanelViewState
   onPanelViewChange?: (patch: Partial<PanelViewState>) => void
+  /** DEV preview: render live inspector panels while canvas mode stays design. */
+  displayMode?: CanvasMode
+  /** DEV preview: use fixture deployment id for live-only chrome (e.g. cache key count). */
+  metricsPreviewActive?: boolean
 }
 
 export function MetricsWaitingSkeleton() {
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
         Live metrics
       </p>
-      <p className="text-sm text-gray-500">Waiting for metrics…</p>
+      <p className="text-sm text-[var(--c9-text-disabled)]">Waiting for metrics…</p>
       <div className="space-y-2 animate-pulse" aria-hidden>
-        <div className="h-9 rounded-lg bg-gray-800/60" />
-        <div className="h-9 rounded-lg bg-gray-800/60" />
-        <div className="h-16 rounded-lg bg-gray-800/40" />
+        <div className="h-14 rounded-xl bg-[var(--c9-bg-card)]" />
+        <div className="h-14 rounded-xl bg-[var(--c9-bg-card)]" />
+        <div className="h-20 rounded-xl bg-[var(--c9-bg-card)]/70" />
       </div>
     </div>
   )
@@ -100,9 +108,12 @@ export function LiveMetrics({
   hideControls = false,
   panelView: panelViewProp,
   onPanelViewChange,
+  displayMode,
+  metricsPreviewActive = false,
 }: LiveMetricsProps) {
   const nodeId = node.id
-  const mode = useCanvasStore((s) => s.mode)
+  const canvasMode = useCanvasStore((s) => s.mode)
+  const mode = displayMode ?? canvasMode
   const m = useMetricsStore((s) => s.metrics[nodeId])
   const history = useMetricsStore((s) => s.history[nodeId]) ?? EMPTY_HISTORY
   const edges = useCanvasStore((s) => s.edges)
@@ -206,13 +217,16 @@ export function LiveMetrics({
           node.type === 'compute' || node.type === 'worker' ? replicaRows : []
         }
         selectedInstanceId={selectedInstanceId}
+        metricsPreviewActive={metricsPreviewActive}
       />
       {simInspectorCallout ? (
-        <div className="space-y-2 border-t border-violet-900/40 pt-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-400/90">
+        <div className="space-y-2 border-t border-[var(--c9-border)] pt-4">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
             Simulation detail
           </h3>
-          <p className="text-[11px] leading-relaxed text-gray-500">{simInspectorCallout}</p>
+          <p className="text-[11px] leading-relaxed text-[var(--c9-text-disabled)]">
+            {simInspectorCallout}
+          </p>
         </div>
       ) : null}
       {mode === 'simulate' && simInspectorHasContent(simDetail) ? (
@@ -246,11 +260,11 @@ function SimulationInspectorSection({
   const hasWorkerJobs = (detail.workerJobs?.length ?? 0) > 0
 
   return (
-    <div className="space-y-2 border-t border-gray-700/50 pt-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-400/90">
+    <div className="space-y-2 border-t border-[var(--c9-border)] pt-4">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
         Simulation detail
       </h3>
-      <p className="text-[10px] text-gray-500">
+      <p className="text-[10px] text-[var(--c9-text-disabled)]">
         Approximate per-tick breakdown from the local worker (not live deploy
         telemetry).
       </p>

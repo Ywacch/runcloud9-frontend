@@ -134,6 +134,24 @@ body {
     scrollbar-color: var(--c9-border-strong) transparent;
   }
 
+  .inspector-scroll {
+    scrollbar-color: var(--c9-border-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  .inspector-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .inspector-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: var(--c9-border-strong);
+  }
+
+  .inspector-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   .c9-plan-compare td {
     font-variant-numeric: tabular-nums;
   }

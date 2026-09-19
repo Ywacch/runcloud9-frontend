@@ -215,11 +215,17 @@ function templatesApiBase(): string {
 /**
  * Fetch the template registry from the backend.
  * Path: strip "/deployments" suffix from DEPLOYMENTS_API_PREFIX and replace with "/templates".
+ * Falls back to the bundled YAML snapshot when the API is unreachable.
  */
 export async function getTemplates(): Promise<TemplateInfo[]> {
-  const res = await fetch(`${templatesApiBase()}/templates`)
-  if (!res.ok) throw new Error(await readApiErrorMessage(res))
-  return res.json() as Promise<TemplateInfo[]>
+  try {
+    const res = await fetch(`${templatesApiBase()}/templates`)
+    if (!res.ok) throw new Error(await readApiErrorMessage(res))
+    return (await res.json()) as TemplateInfo[]
+  } catch {
+    const { FALLBACK_TEMPLATE_CATALOG } = await import('./templateCatalogFallback')
+    return FALLBACK_TEMPLATE_CATALOG
+  }
 }
 
 export async function getTemplateLoadgen(

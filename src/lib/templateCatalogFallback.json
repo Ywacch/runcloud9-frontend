@@ -1,0 +1,2153 @@
+[
+  {
+    "id": "url-shortener",
+    "name": "URL Shortener",
+    "description": "Classic read-heavy cache-aside pattern with PostgreSQL + Redis. Demonstrates cache hit/miss ratios, DB query amplification on cache miss, and strategy tradeoffs.",
+    "components": 3,
+    "bottleneck": "Cache miss → DB query amplification",
+    "descriptionLite": "Classic read-heavy cache-aside with PostgreSQL + Redis on a single app server. Demonstrates cache hit/miss ratios, DB query amplification on cache miss, and strategy tradeoffs.",
+    "componentsLite": 3,
+    "bottleneckLite": "Cache miss → DB query amplification",
+    "available": true,
+    "premium": false,
+    "tags": [
+      "caching",
+      "read-heavy",
+      "beginner"
+    ],
+    "topology": [
+      {
+        "type": "load_balancer",
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "type": "compute",
+        "position": [
+          2,
+          0
+        ]
+      },
+      {
+        "type": "cache",
+        "position": [
+          4,
+          -1
+        ]
+      },
+      {
+        "type": "database",
+        "position": [
+          4,
+          1
+        ]
+      }
+    ],
+    "preset": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            0,
+            0.3,
+            0
+          ],
+          "label": "App Server",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "cache-1",
+          "type": "cache",
+          "position": [
+            3,
+            0.3,
+            -1.2
+          ],
+          "label": "Redis",
+          "config": {
+            "evictionPolicy": "allkeys-lru",
+            "strategy": "cache-aside"
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            3,
+            0.3,
+            1.2
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-cache",
+          "sourceId": "app-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "presetLite": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            0,
+            0.3,
+            0
+          ],
+          "label": "App Server",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "cache-1",
+          "type": "cache",
+          "position": [
+            3,
+            0.3,
+            -1.2
+          ],
+          "label": "Redis",
+          "config": {
+            "evictionPolicy": "allkeys-lru",
+            "strategy": "cache-aside"
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            3,
+            0.3,
+            1.2
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-cache",
+          "sourceId": "app-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "variations": [
+      {
+        "id": "app-db",
+        "label": "App and database",
+        "description": "Direct Postgres. No cache.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              0,
+              0.3,
+              0
+            ],
+            "label": "App Server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              3,
+              0.3,
+              0
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      },
+      {
+        "id": "app-db-cache",
+        "label": "App, cache, and database",
+        "description": "Cache-aside Redis. App reads Redis first, falls back to Postgres.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              0,
+              0.3,
+              0
+            ],
+            "label": "App Server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "cache-1",
+            "type": "cache",
+            "position": [
+              3,
+              0.3,
+              -1.2
+            ],
+            "label": "Redis",
+            "config": {
+              "evictionPolicy": "allkeys-lru",
+              "strategy": "cache-aside"
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              3,
+              0.3,
+              1.2
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-cache",
+            "sourceId": "app-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      },
+      {
+        "id": "app-db-cache-proxy",
+        "label": "App, proxy cache, and database",
+        "description": "Caching proxy between app and Postgres. No direct app-to-database edge.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              0,
+              0.3,
+              0
+            ],
+            "label": "App Server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "cache-1",
+            "type": "cache",
+            "position": [
+              3,
+              0.3,
+              -1.2
+            ],
+            "label": "Redis",
+            "config": {
+              "evictionPolicy": "allkeys-lru",
+              "strategy": "write-through"
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              3,
+              0.3,
+              1.2
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-cache",
+            "sourceId": "app-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-cache-db",
+            "sourceId": "cache-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      }
+    ],
+    "simulatable": true,
+    "deployable": true,
+    "supportsWorker": false,
+    "storytelling": {
+      "roles": {
+        "app-server": {
+          "base": "Handles POST /shorten and GET /r/{code}"
+        },
+        "cache": {
+          "base": "Redis holds short code to URL mappings",
+          "variants": [
+            {
+              "when": {
+                "strategy": "write-through"
+              },
+              "label": "SET hits Redis first; the caching proxy writes Postgres before ack. On miss, the proxy loads from Postgres and refills Redis (read-through is always on)."
+            },
+            {
+              "when": {
+                "strategy": "write-behind"
+              },
+              "label": "SET lands in Redis; the proxy flushes Postgres later. On miss, the proxy loads from Postgres and refills Redis (read-through is always on)."
+            },
+            {
+              "when": {
+                "strategy": "cache-aside"
+              },
+              "label": "App checks Redis; on miss it reads Postgres and SETs the key"
+            }
+          ]
+        },
+        "db": {
+          "base": "Postgres table mapping codes to original URLs"
+        },
+        "lb": {
+          "base": "Routes traffic across app-server replicas"
+        }
+      },
+      "edges": {
+        "app-server-\u003ecache": {
+          "base": "App checks Redis for short:{code} on the hot resolve path.",
+          "variants": [
+            {
+              "when": {
+                "strategy": "write-through"
+              },
+              "label": "App talks to the caching proxy: SET writes Redis then Postgres before ack; GET miss fills from Postgres (read-through)."
+            },
+            {
+              "when": {
+                "strategy": "write-behind"
+              },
+              "label": "App talks to the caching proxy: SET lands in Redis and flushes Postgres later; GET miss fills from Postgres (read-through)."
+            },
+            {
+              "when": {
+                "strategy": "cache-aside"
+              },
+              "label": "App GETs Redis first; on miss it reads Postgres and SETs the key."
+            }
+          ]
+        },
+        "app-server-\u003edb": {
+          "base": "App looks up original URLs in Postgres on cache miss (and writes new codes)."
+        },
+        "cache-\u003edb": {
+          "base": "Proxy cache fills or flushes against Postgres for this strategy."
+        },
+        "lb-\u003eapp-server": {
+          "base": "Load balancer spreads HTTP to app-server replicas."
+        }
+      },
+      "journeys": [
+        {
+          "id": "resolve",
+          "method": "GET",
+          "path": "/r/{code}",
+          "label": "Resolve short URL",
+          "trafficPercent": 80,
+          "steps": [
+            {
+              "component": "lb",
+              "action": "Routes GET /r/{code} to app-server.",
+              "requires": [
+                "lb"
+              ]
+            },
+            {
+              "component": "app-server",
+              "action": "Looks up the short code.",
+              "metricsKey": "p99Latency"
+            },
+            {
+              "component": "cache",
+              "action": "GET short:{code} ; hot path for popular links.",
+              "metricsKey": "redisAvgLatency",
+              "requires": [
+                "cache"
+              ],
+              "lesson": "Most traffic should stop here. A hit avoids Postgres on the read path."
+            },
+            {
+              "component": "db",
+              "action": "SELECT original URL by code when cache misses.",
+              "detail": "SELECT url FROM urls WHERE code = ?",
+              "requires": [
+                "db"
+              ],
+              "condition": "On miss",
+              "onlyWhen": {
+                "strategy": "cache-aside"
+              },
+              "lesson": "Cache-aside miss: the app loads the row and can warm Redis for the next GET."
+            },
+            {
+              "component": "db",
+              "action": "On miss, the caching proxy runs configured SQL, repopulates the key, then returns the URL to the app.",
+              "detail": "Proxy-driven SELECT + backfill (read-through, always on in proxy mode)",
+              "requires": [
+                "db"
+              ],
+              "condition": "On miss",
+              "excludeWhen": {
+                "strategy": "cache-aside"
+              },
+              "lesson": "Proxy miss-fill: your app never talks to Postgres on reads. The caching proxy owns the load."
+            }
+          ],
+          "explanation": "Classic cache-aside: try Redis for the mapping, fall back to Postgres on miss.",
+          "explanationVariants": [
+            {
+              "when": {
+                "strategy": "write-through"
+              },
+              "text": "Write-through: every write lands in Redis then Postgres before ack, so fresh codes stay warm. On miss, the proxy still loads from Postgres and refills Redis (read-through is always on)."
+            },
+            {
+              "when": {
+                "strategy": "write-behind"
+              },
+              "text": "Write-behind: new codes appear in Redis immediately while Postgres persistence trails. On miss, the proxy loads from Postgres and refills Redis (read-through is always on)."
+            }
+          ]
+        },
+        {
+          "id": "shorten",
+          "method": "POST",
+          "path": "/shorten",
+          "label": "Create short URL",
+          "trafficPercent": 20,
+          "steps": [
+            {
+              "component": "lb",
+              "action": "Routes POST /shorten.",
+              "requires": [
+                "lb"
+              ]
+            },
+            {
+              "component": "app-server",
+              "action": "Allocates a code, persists the mapping, returns short URL.",
+              "metricsKey": "p99Latency"
+            },
+            {
+              "component": "db",
+              "action": "INSERT mapping (code → original URL).",
+              "requires": [
+                "db"
+              ],
+              "onlyWhen": {
+                "strategy": "cache-aside"
+              }
+            },
+            {
+              "component": "cache",
+              "action": "No Redis write on create; the next GET /r/{code} miss warms the cache.",
+              "metricsKey": "redisAvgLatency",
+              "requires": [
+                "cache"
+              ],
+              "onlyWhen": {
+                "strategy": "cache-aside"
+              },
+              "lesson": "Cache-aside here does not SET on write; codes are immutable, so the first resolve populates Redis."
+            },
+            {
+              "component": "cache",
+              "action": "SET short:{code}; caching proxy persists to Postgres before completing the write.",
+              "metricsKey": "redisAvgLatency",
+              "requires": [
+                "cache"
+              ],
+              "onlyWhen": {
+                "strategy": "write-through"
+              },
+              "lesson": "Write-through: Redis accepts first; the proxy persists to Postgres before the write completes so later GETs stay warm. On DB failure the proxy deletes the cache key."
+            },
+            {
+              "component": "db",
+              "action": "Row written via caching-proxy after Redis accept.",
+              "requires": [
+                "db"
+              ],
+              "onlyWhen": {
+                "strategy": "write-through"
+              }
+            },
+            {
+              "component": "cache",
+              "action": "SET short:{code}; proxy acknowledges immediately; durable INSERT is asynchronous.",
+              "metricsKey": "redisAvgLatency",
+              "requires": [
+                "cache"
+              ],
+              "onlyWhen": {
+                "strategy": "write-behind"
+              }
+            },
+            {
+              "component": "db",
+              "action": "INSERT applied asynchronously by the caching-proxy after the hot write path.",
+              "requires": [
+                "db"
+              ],
+              "onlyWhen": {
+                "strategy": "write-behind"
+              }
+            }
+          ],
+          "explanation": "Cache-aside write path: insert into Postgres; Redis is populated on the first successful resolve.",
+          "explanationVariants": [
+            {
+              "when": {
+                "strategy": "write-through"
+              },
+              "text": "Write-through: the app writes to the proxy; Redis is set first and Postgres is persisted synchronously before the write completes (with cache rollback if the DB write fails)."
+            },
+            {
+              "when": {
+                "strategy": "write-behind"
+              },
+              "text": "Write-behind: Redis accepts SET immediately for low latency; the proxy flushes the row to Postgres in the background (brief window where Redis is ahead of durable storage)."
+            }
+          ]
+        }
+      ],
+      "narrativeContext": {
+        "cache_hit_low": {
+          "cause": "More lookups are missing Redis and falling through to Postgres."
+        },
+        "db_latency": {
+          "cause": "URL lookups hit Postgres directly on cache miss.",
+          "suggestion": "Add a cache node to serve hot lookups from Redis."
+        }
+      }
+    },
+    "introspection": {
+      "cache": {
+        "engine": "redis",
+        "keyPatterns": [
+          "*"
+        ]
+      },
+      "db": {
+        "engine": "postgres",
+        "tables": [
+          "urls"
+        ]
+      }
+    }
+  },
+  {
+    "id": "ecommerce",
+    "name": "E-Commerce",
+    "description": "Multi-server product catalog with shared database and cache layer. Tests load balancer distribution and write contention. Add a message queue and worker for async order processing.",
+    "components": 5,
+    "bottleneck": "Write contention on shared database",
+    "descriptionLite": "Product catalog with shared PostgreSQL and Redis cache on a single app server. Catalog reads benefit from cache; checkout writes contend on the database.",
+    "componentsLite": 3,
+    "bottleneckLite": "Write contention on shared database",
+    "available": true,
+    "premium": false,
+    "tags": [
+      "multi-server",
+      "write-heavy",
+      "intermediate"
+    ],
+    "topology": [
+      {
+        "type": "load_balancer",
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "type": "compute",
+        "position": [
+          2,
+          -1
+        ]
+      },
+      {
+        "type": "compute",
+        "position": [
+          2,
+          1
+        ]
+      },
+      {
+        "type": "cache",
+        "position": [
+          4,
+          0
+        ]
+      },
+      {
+        "type": "database",
+        "position": [
+          6,
+          0
+        ]
+      }
+    ],
+    "preset": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            -1,
+            0.3,
+            0
+          ],
+          "label": "App Server",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "mq-1",
+          "type": "message_queue",
+          "position": [
+            2,
+            0.3,
+            -1.4
+          ],
+          "label": "Message Queue",
+          "config": {
+            "durable": true,
+            "engine": "rabbitmq"
+          }
+        },
+        {
+          "id": "worker-1",
+          "type": "worker",
+          "position": [
+            5,
+            0.3,
+            -1.4
+          ],
+          "label": "Worker",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "cache-1",
+          "type": "cache",
+          "position": [
+            2,
+            0.3,
+            1.4
+          ],
+          "label": "Redis",
+          "config": {
+            "evictionPolicy": "allkeys-lru",
+            "strategy": "cache-aside"
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            5,
+            0.3,
+            1.4
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-mq",
+          "sourceId": "app-1",
+          "targetId": "mq-1",
+          "protocol": "http"
+        },
+        {
+          "id": "e-worker-mq",
+          "sourceId": "worker-1",
+          "targetId": "mq-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-worker-db",
+          "sourceId": "worker-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-cache",
+          "sourceId": "app-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "presetLite": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            -1,
+            0.3,
+            0
+          ],
+          "label": "App Server",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "cache-1",
+          "type": "cache",
+          "position": [
+            2,
+            0.3,
+            1.4
+          ],
+          "label": "Redis",
+          "config": {
+            "evictionPolicy": "allkeys-lru",
+            "strategy": "cache-aside"
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            5,
+            0.3,
+            1.4
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-cache",
+          "sourceId": "app-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "variations": [
+      {
+        "id": "app-db",
+        "label": "App and database",
+        "description": "Direct Postgres catalog and checkout. No cache or async worker.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              -1,
+              0.3,
+              0
+            ],
+            "label": "App Server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              3,
+              0.3,
+              0
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      },
+      {
+        "id": "app-db-cache",
+        "label": "App, cache, and database",
+        "description": "Sync catalog with cache-aside Redis. Checkout writes hit Postgres directly.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              -1,
+              0.3,
+              0
+            ],
+            "label": "App Server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "cache-1",
+            "type": "cache",
+            "position": [
+              2,
+              0.3,
+              1.4
+            ],
+            "label": "Redis",
+            "config": {
+              "evictionPolicy": "allkeys-lru",
+              "strategy": "cache-aside"
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              5,
+              0.3,
+              1.4
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-cache",
+            "sourceId": "app-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      },
+      {
+        "id": "app-db-cache-mq-worker",
+        "label": "App, cache, MQ, worker, and database",
+        "description": "Async checkout with RabbitMQ worker and cache-aside catalog reads.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              -1,
+              0.3,
+              0
+            ],
+            "label": "App Server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "mq-1",
+            "type": "message_queue",
+            "position": [
+              2,
+              0.3,
+              -1.4
+            ],
+            "label": "Message Queue",
+            "config": {
+              "durable": true,
+              "engine": "rabbitmq"
+            }
+          },
+          {
+            "id": "worker-1",
+            "type": "worker",
+            "position": [
+              5,
+              0.3,
+              -1.4
+            ],
+            "label": "Worker",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "cache-1",
+            "type": "cache",
+            "position": [
+              2,
+              0.3,
+              1.4
+            ],
+            "label": "Redis",
+            "config": {
+              "evictionPolicy": "allkeys-lru",
+              "strategy": "cache-aside"
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              5,
+              0.3,
+              1.4
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-mq",
+            "sourceId": "app-1",
+            "targetId": "mq-1",
+            "protocol": "http"
+          },
+          {
+            "id": "e-worker-mq",
+            "sourceId": "worker-1",
+            "targetId": "mq-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-worker-db",
+            "sourceId": "worker-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-cache",
+            "sourceId": "app-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      }
+    ],
+    "simulatable": true,
+    "deployable": true,
+    "supportsWorker": true,
+    "storytelling": {
+      "roles": {
+        "app-server": {
+          "base": "GET /catalog and POST /checkout"
+        },
+        "cache": {
+          "base": "App checks Redis for catalog and product keys; misses load from Postgres"
+        },
+        "db": {
+          "base": "Products, inventory, and order rows"
+        },
+        "lb": {
+          "base": "Routes traffic across app-server replicas"
+        },
+        "mq": {
+          "base": "Checkout publishes order.placed for workers"
+        },
+        "worker": {
+          "base": "Consumes orders from the queue and runs fulfillment"
+        }
+      },
+      "edges": {
+        "app-server-\u003ecache": {
+          "base": "App checks Redis for catalog and product keys (cache-aside)."
+        },
+        "app-server-\u003edb": {
+          "base": "App reads catalog/inventory and writes orders directly to Postgres."
+        },
+        "app-server-\u003emq": {
+          "base": "Checkout publishes order.placed for async fulfillment."
+        },
+        "lb-\u003eapp-server": {
+          "base": "Load balancer spreads HTTP to app-server replicas."
+        },
+        "worker-\u003edb": {
+          "base": "Worker updates order/fulfillment state in Postgres."
+        },
+        "worker-\u003emq": {
+          "base": "Fulfillment worker consumes order.placed from this queue."
+        }
+      },
+      "journeys": [
+        {
+          "id": "catalog",
+          "method": "GET",
+          "path": "/catalog",
+          "label": "Catalog browse",
+          "trafficPercent": 40,
+          "steps": [
+            {
+              "component": "lb",
+              "action": "Routes to app-server.",
+              "requires": [
+                "lb"
+              ]
+            },
+            {
+              "component": "app-server",
+              "action": "Serves catalog payload.",
+              "metricsKey": "p99Latency"
+            },
+            {
+              "component": "cache",
+              "action": "Hot product rows when cached.",
+              "requires": [
+                "cache"
+              ]
+            },
+            {
+              "component": "db",
+              "action": "Loads catalog on miss.",
+              "requires": [
+                "db"
+              ]
+            }
+          ],
+          "explanation": "Catalog GET checks Redis first. On miss the app loads from Postgres and SETs the key. Checkout always writes inventory and orders to Postgres directly."
+        },
+        {
+          "id": "checkout",
+          "method": "POST",
+          "path": "/checkout",
+          "label": "Checkout",
+          "trafficPercent": 30,
+          "steps": [
+            {
+              "component": "lb",
+              "action": "Routes checkout.",
+              "requires": [
+                "lb"
+              ]
+            },
+            {
+              "component": "app-server",
+              "action": "Validates cart and inventory.",
+              "metricsKey": "p99Latency"
+            },
+            {
+              "component": "db",
+              "action": "Inventory update and order row.",
+              "requires": [
+                "db"
+              ]
+            },
+            {
+              "component": "mq",
+              "action": "Publishes order.placed when present.",
+              "requires": [
+                "mq"
+              ]
+            },
+            {
+              "component": "worker",
+              "action": "Async fulfillment when present.",
+              "requires": [
+                "mq",
+                "worker"
+              ]
+            }
+          ],
+          "explanation": "Writes hit Postgres; optional MQ/worker handle async fulfillment."
+        }
+      ],
+      "narrativeContext": {
+        "db_latency": {
+          "cause": "Checkout and catalog paths contend on shared Postgres under load.",
+          "suggestion": "Add cache or read replicas to spread read load; scale workers if the queue backs up."
+        }
+      }
+    },
+    "introspection": {
+      "cache": {
+        "engine": "redis",
+        "keyPatterns": [
+          "product:*",
+          "cart:*",
+          "catalog",
+          "product-pool"
+        ]
+      },
+      "db": {
+        "engine": "postgres",
+        "tables": [
+          "products",
+          "orders",
+          "inventory"
+        ]
+      },
+      "mq": {
+        "engine": "rabbitmq",
+        "queues": [
+          "orders"
+        ]
+      }
+    }
+  },
+  {
+    "id": "social-feed",
+    "name": "Social Feed (Push)",
+    "description": "Fan-out on write: new posts are pushed to every follower's pre-computed feed via a message queue and worker. Reads are O(1) but writes create amplification. Demonstrates consumer lag, backpressure, and queue depth under load.",
+    "components": 5,
+    "bottleneck": "Consumer lag under high fan-out",
+    "descriptionLite": "Fan-out on write without a queue: the app pushes new posts into follower timelines in Redis. Reads are O(1) from sorted sets; POST pays sync fan-out cost on the app server.",
+    "componentsLite": 3,
+    "bottleneckLite": "Sync fan-out on POST scales with follower count",
+    "available": true,
+    "premium": false,
+    "tags": [
+      "async",
+      "fan-out",
+      "advanced"
+    ],
+    "topology": [
+      {
+        "type": "load_balancer",
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "type": "compute",
+        "position": [
+          2,
+          0
+        ]
+      },
+      {
+        "type": "message_queue",
+        "position": [
+          4,
+          -1
+        ]
+      },
+      {
+        "type": "worker",
+        "position": [
+          6,
+          -1
+        ]
+      },
+      {
+        "type": "cache",
+        "position": [
+          4,
+          1
+        ]
+      },
+      {
+        "type": "database",
+        "position": [
+          6,
+          1
+        ]
+      }
+    ],
+    "preset": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            -1,
+            0.3,
+            0
+          ],
+          "label": "App server",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "mq-1",
+          "type": "message_queue",
+          "position": [
+            2,
+            0.3,
+            -1.4
+          ],
+          "label": "Message Queue",
+          "config": {
+            "durable": true,
+            "engine": "rabbitmq"
+          }
+        },
+        {
+          "id": "worker-1",
+          "type": "worker",
+          "position": [
+            5,
+            0.3,
+            -1.4
+          ],
+          "label": "Fan-out Worker",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1,
+            "workerConcurrency": 1,
+            "workerPrefetch": 10
+          }
+        },
+        {
+          "id": "cache-1",
+          "type": "cache",
+          "position": [
+            2,
+            0.3,
+            1.4
+          ],
+          "label": "Redis",
+          "config": {
+            "cacheStrategy": "timeline-store",
+            "evictionPolicy": "allkeys-lru",
+            "strategy": "timeline-store"
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            5,
+            0.3,
+            1.4
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-mq",
+          "sourceId": "app-1",
+          "targetId": "mq-1",
+          "protocol": "http"
+        },
+        {
+          "id": "e-worker-mq",
+          "sourceId": "worker-1",
+          "targetId": "mq-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-worker-db",
+          "sourceId": "worker-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-worker-cache",
+          "sourceId": "worker-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-cache",
+          "sourceId": "app-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "presetLite": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            -1,
+            0.3,
+            0
+          ],
+          "label": "App server",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "cache-1",
+          "type": "cache",
+          "position": [
+            2,
+            0.3,
+            1.4
+          ],
+          "label": "Redis",
+          "config": {
+            "cacheStrategy": "timeline-store",
+            "evictionPolicy": "allkeys-lru",
+            "strategy": "timeline-store"
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            5,
+            0.3,
+            1.4
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-cache",
+          "sourceId": "app-1",
+          "targetId": "cache-1",
+          "protocol": "tcp"
+        },
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "variations": [
+      {
+        "id": "timeline-sync",
+        "label": "Sync push timeline",
+        "description": "App writes follower timelines in Redis on each post. No message queue.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              -1,
+              0.3,
+              0
+            ],
+            "label": "App server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "cache-1",
+            "type": "cache",
+            "position": [
+              2,
+              0.3,
+              1.4
+            ],
+            "label": "Redis",
+            "config": {
+              "cacheStrategy": "timeline-store",
+              "evictionPolicy": "allkeys-lru",
+              "strategy": "timeline-store"
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              5,
+              0.3,
+              1.4
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-cache",
+            "sourceId": "app-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      },
+      {
+        "id": "timeline-async",
+        "label": "Async push timeline",
+        "description": "App publishes to a queue. Workers fan out timeline updates to Redis.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              -1,
+              0.3,
+              0
+            ],
+            "label": "App server",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "mq-1",
+            "type": "message_queue",
+            "position": [
+              2,
+              0.3,
+              -1.4
+            ],
+            "label": "Message Queue",
+            "config": {
+              "durable": true,
+              "engine": "rabbitmq"
+            }
+          },
+          {
+            "id": "worker-1",
+            "type": "worker",
+            "position": [
+              5,
+              0.3,
+              -1.4
+            ],
+            "label": "Fan-out Worker",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1,
+              "workerConcurrency": 1,
+              "workerPrefetch": 10
+            }
+          },
+          {
+            "id": "cache-1",
+            "type": "cache",
+            "position": [
+              2,
+              0.3,
+              1.4
+            ],
+            "label": "Redis",
+            "config": {
+              "cacheStrategy": "timeline-store",
+              "evictionPolicy": "allkeys-lru",
+              "strategy": "timeline-store"
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              5,
+              0.3,
+              1.4
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-mq",
+            "sourceId": "app-1",
+            "targetId": "mq-1",
+            "protocol": "http"
+          },
+          {
+            "id": "e-worker-mq",
+            "sourceId": "worker-1",
+            "targetId": "mq-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-worker-db",
+            "sourceId": "worker-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-worker-cache",
+            "sourceId": "worker-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-cache",
+            "sourceId": "app-1",
+            "targetId": "cache-1",
+            "protocol": "tcp"
+          },
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      }
+    ],
+    "simulatable": true,
+    "deployable": true,
+    "supportsWorker": true,
+    "storytelling": {
+      "roles": {
+        "app-server": {
+          "base": "Handles post creation and feed reads",
+          "variants": [
+            {
+              "when": {
+                "topology": "!hasCache+!hasMQ"
+              },
+              "label": "Pull mode: every feed read runs a DB JOIN"
+            },
+            {
+              "when": {
+                "topology": "hasCache+!hasMQ"
+              },
+              "label": "Fans out new posts in-process; serves feeds from Redis"
+            },
+            {
+              "when": {
+                "topology": "hasMQ"
+              },
+              "label": "Publishes new posts to the queue; serves feeds from Redis"
+            }
+          ]
+        },
+        "cache": {
+          "base": "Pre-computed user timeline cache (Redis sorted sets)",
+          "variants": [
+            {
+              "when": {
+                "topology": "hasMQ+hasWorker"
+              },
+              "label": "Written by the fan-out worker after consuming from the queue"
+            },
+            {
+              "when": {
+                "topology": "!hasMQ"
+              },
+              "label": "Written synchronously by app-server on each post"
+            }
+          ]
+        },
+        "db": {
+          "base": "Stores users, posts, and the follower graph"
+        },
+        "lb": {
+          "base": "Routes requests across app-server replicas"
+        },
+        "mq": {
+          "base": "Buffers new posts before fan-out to followers"
+        },
+        "worker": {
+          "base": "Consumes posts from the queue, writes to follower timelines",
+          "variants": [
+            {
+              "when": {
+                "topology": "!hasCache"
+              },
+              "label": "No Redis target for fan-out writes"
+            }
+          ]
+        }
+      },
+      "edges": {
+        "app-server-\u003ecache": {
+          "base": "App reads follower timelines from Redis (ZREVRANGE on timeline:{userId}).",
+          "variants": [
+            {
+              "when": {
+                "topology": "!hasCache"
+              },
+              "label": "No Redis on the canvas — feed reads fall back to Postgres JOINs."
+            }
+          ]
+        },
+        "app-server-\u003edb": {
+          "base": "App reads and writes users, posts, and the follower graph in Postgres."
+        },
+        "app-server-\u003emq": {
+          "base": "App publishes new posts to the queue for async fan-out."
+        },
+        "lb-\u003eapp-server": {
+          "base": "Load balancer spreads HTTP to app-server replicas."
+        },
+        "worker-\u003ecache": {
+          "base": "Worker writes timeline:{followerId} sorted sets in Redis after each post."
+        },
+        "worker-\u003edb": {
+          "base": "Worker loads follower lists and post metadata from Postgres."
+        },
+        "worker-\u003emq": {
+          "base": "Fan-out worker consumes post events from this queue."
+        }
+      },
+      "journeys": [
+        {
+          "id": "feed-read",
+          "method": "GET",
+          "path": "/feed/{userId}",
+          "label": "Feed reads",
+          "trafficPercent": 60,
+          "steps": [
+            {
+              "component": "lb",
+              "action": "Routes to app-server.",
+              "requires": [
+                "lb"
+              ]
+            },
+            {
+              "component": "app-server",
+              "action": "Check Redis for materialized timeline.",
+              "metricsKey": "p99Latency",
+              "requires": [
+                "cache"
+              ]
+            },
+            {
+              "component": "cache",
+              "action": "ZREVRANGE timeline:{userId} 0 19",
+              "detail": "Redis sorted set lookup, sub-ms when warm.",
+              "metricsKey": "redisAvgLatency",
+              "requires": [
+                "cache"
+              ],
+              "lesson": "Push read path: twenty newest posts from a pre-built timeline. Score is post time; no JOIN when the zset is warm."
+            },
+            {
+              "component": "db",
+              "action": "3-table JOIN: posts × follows × users.",
+              "detail": "SELECT ... WHERE follower_id = ? ORDER BY created_at DESC",
+              "requires": [
+                "db"
+              ],
+              "condition": "If Redis empty or no cache",
+              "lesson": "Optional miss path when the timeline key is empty. Strict push mode usually returns an empty feed instead of falling back here."
+            },
+            {
+              "component": "app-server",
+              "action": "3-table JOIN: posts, follows, users. Returns top 20 by timestamp.",
+              "detail": "SELECT p.* FROM posts p JOIN follows f ON f.followed_id = p.user_id WHERE f.follower_id = $1 ORDER BY p.created_at DESC LIMIT 20",
+              "onlyWhen": {
+                "topology": "!hasCache"
+              },
+              "lesson": "Pull mode: every GET runs this JOIN. Latency tracks how many accounts you follow, not how many posts landed in Redis ahead of time."
+            }
+          ],
+          "explanation": "In push mode, most warm reads hit Redis. Without cache, every read does a 3-table JOIN.",
+          "explanationVariants": [
+            {
+              "when": {
+                "topology": "!hasCache"
+              },
+              "text": "Pull mode: every feed request runs a 3-table JOIN across posts, follows, and users. Latency grows with follower count since there's no pre-computed timeline to read from."
+            },
+            {
+              "when": {
+                "topology": "hasCache+!hasMQ"
+              },
+              "text": "Sync push (no queue): timelines live in Redis like async push, but the app-server loads followers and ZADDs on each post instead of a worker. Reads stay cheap; POST still pays for follower lookup on the app."
+            }
+          ]
+        },
+        {
+          "id": "post-create",
+          "method": "POST",
+          "path": "/post",
+          "label": "Create post",
+          "trafficPercent": 30,
+          "steps": [
+            {
+              "component": "lb",
+              "action": "Routes to app-server.",
+              "requires": [
+                "lb"
+              ]
+            },
+            {
+              "component": "app-server",
+              "action": "INSERT post into Postgres.",
+              "metricsKey": "p99Latency"
+            },
+            {
+              "component": "mq",
+              "action": "Publish post to fanout exchange.",
+              "detail": "Async — response returns here.",
+              "requires": [
+                "mq"
+              ],
+              "lesson": "The client gets 202 after Postgres and a successful publish. Timeline writes happen later on workers, not on this HTTP thread."
+            },
+            {
+              "component": "worker",
+              "action": "Consume from queue, fetch followers from DB.",
+              "requires": [
+                "mq",
+                "worker"
+              ],
+              "lesson": "Each message triggers a follower query and a batch of ZADDs. Queue depth and worker count decide how fast timelines catch up."
+            },
+            {
+              "component": "cache",
+              "action": "ZADD to timeline:{followerId} for each follower.",
+              "detail": "Batched pipeline fan-out.",
+              "requires": [
+                "worker",
+                "cache"
+              ],
+              "lesson": "One post becomes N sorted-set updates. That write amplification is the cost of O(1) feed reads later."
+            },
+            {
+              "component": "cache",
+              "action": "App-server does sync ZADD to follower timelines.",
+              "detail": "Fire-and-forget goroutine, does not block response.",
+              "requires": [
+                "cache"
+              ],
+              "onlyWhen": {
+                "topology": "!hasMQ+hasCache"
+              },
+              "excludeWhen": {
+                "topology": "hasMQ"
+              },
+              "lesson": "Sync push: the app loads followers before it responds, then ZADD runs in a goroutine. Reads still hit Redis; POST latency still scales with follower count."
+            }
+          ],
+          "explanation": "With RabbitMQ, the app inserts the post, publishes one message, and returns 202 once the broker accepts it. A worker loads followers from Postgres and ZADDs each timeline. Your client never waits on Redis.",
+          "explanationVariants": [
+            {
+              "when": {
+                "topology": "hasCache+!hasMQ"
+              },
+              "text": "Sync push (no queue): the app inserts the post, loads followers from Postgres, and ZADDs each timeline in a goroutine before returning 200. Reads stay cheap in Redis; POST latency still scales with follower count."
+            }
+          ]
+        }
+      ],
+      "narrativeContext": {
+        "cache_hit_low": {
+          "cause": "Sorted-set timelines are not classic cache-aside GET/SET; a low hit share can mean cold timelines, eviction under memory pressure, or traffic patterns that rarely reuse keys.",
+          "suggestion": "Add Redis memory or shard timelines across more capacity so follower timelines stay resident under fan-out load."
+        },
+        "cascade_cache_db": {
+          "cause": "When timeline freshness or eviction shifts what is resident in Redis, read paths can lean harder on Postgres even though the data model is push-oriented.",
+          "suggestion": "Add Redis memory or cache capacity if timelines are being evicted, or add read replicas if Postgres is the sustained bottleneck."
+        },
+        "cascade_latency_miss": {
+          "cause": "For a Redis timeline store, rising latency with more misses often means timelines are cold or incomplete, so read paths do more work than a hot sorted-set lookup; when timelines are not materialized you also pay the full 3-table JOIN cost.",
+          "suggestion": "Keep workers fed through MQ so timelines stay warm; add Redis memory or replicas if eviction is trimming hot keys."
+        },
+        "cascade_mq_backpressure": {
+          "suggestion": "Add worker replicas and ensure the cache tier exists for the timeline store workers write into."
+        },
+        "db_latency": {
+          "cause": "Feed reads that miss Redis do a 3-table JOIN (posts × follows × users), which is expensive as data grows.",
+          "suggestion": "Add MQ + worker nodes so timelines are precomputed into Redis; reads stay on sorted-set timelines instead of large joins."
+        },
+        "mq_backpressure": {
+          "cause": "Each post fans out to ~{worker.fanout_size_p99} followers. At {mq.produce_rate} posts/s, workers deliver ~{worker.redis_write_rate} Redis writes/s.",
+          "suggestion": "Add more worker replicas to increase fan-out throughput."
+        }
+      }
+    },
+    "introspection": {
+      "cache": {
+        "engine": "redis",
+        "keyPatterns": [
+          "timeline:*"
+        ]
+      },
+      "db": {
+        "engine": "postgres",
+        "tables": [
+          "users",
+          "posts",
+          "follows"
+        ]
+      },
+      "mq": {
+        "engine": "rabbitmq",
+        "queues": [
+          "fanout"
+        ]
+      }
+    }
+  },
+  {
+    "id": "social-feed-pull",
+    "name": "Social Feed (Pull)",
+    "description": "Fan-out on read: feeds are generated on demand by joining posts and follows. Simple architecture but reads get expensive as follower counts grow. Compare with Push variant to see the tradeoff.",
+    "components": 3,
+    "bottleneck": "JOIN query latency scaling with follower count",
+    "available": true,
+    "premium": false,
+    "tags": [
+      "read-heavy",
+      "beginner"
+    ],
+    "topology": [
+      {
+        "type": "load_balancer",
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "type": "compute",
+        "position": [
+          2,
+          0
+        ]
+      },
+      {
+        "type": "database",
+        "position": [
+          4,
+          0
+        ]
+      }
+    ],
+    "preset": {
+      "nodes": [
+        {
+          "id": "app-1",
+          "type": "compute",
+          "position": [
+            0,
+            0.3,
+            0
+          ],
+          "label": "Feed Service",
+          "config": {
+            "instanceSize": "small",
+            "replicas": 1
+          }
+        },
+        {
+          "id": "db-1",
+          "type": "database",
+          "position": [
+            3,
+            0.3,
+            0
+          ],
+          "label": "PostgreSQL",
+          "config": {
+            "engine": "postgresql",
+            "maxConnections": 100,
+            "storageGB": 10
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-app-db",
+          "sourceId": "app-1",
+          "targetId": "db-1",
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "variations": [
+      {
+        "id": "app-db",
+        "label": "Pull feed (DB JOINs)",
+        "description": "Fan-out on read. Every feed request joins posts, follows, and users in Postgres.",
+        "nodes": [
+          {
+            "id": "app-1",
+            "type": "compute",
+            "position": [
+              0,
+              0.3,
+              0
+            ],
+            "label": "Feed Service",
+            "config": {
+              "instanceSize": "small",
+              "replicas": 1
+            }
+          },
+          {
+            "id": "db-1",
+            "type": "database",
+            "position": [
+              3,
+              0.3,
+              0
+            ],
+            "label": "PostgreSQL",
+            "config": {
+              "engine": "postgresql",
+              "maxConnections": 100,
+              "storageGB": 10
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-app-db",
+            "sourceId": "app-1",
+            "targetId": "db-1",
+            "protocol": "tcp"
+          }
+        ]
+      }
+    ],
+    "simulatable": true,
+    "deployable": true,
+    "supportsWorker": false,
+    "loadgenDefaultRps": 25,
+    "storytelling": {
+      "roles": {
+        "app-server": {
+          "base": "GET /feed/{userId} and POST /post against Postgres only",
+          "variants": [
+            {
+              "when": {
+                "topology": "!hasCache"
+              },
+              "label": "Pull mode: every feed read is a DB JOIN"
+            }
+          ]
+        },
+        "db": {
+          "base": "Stores users, posts, and the follower graph"
+        },
+        "lb": {
+          "base": "Routes requests across app-server replicas"
+        }
+      },
+      "edges": {
+        "app-server-\u003edb": {
+          "base": "Every feed read and post write hits Postgres (pull / JOIN path)."
+        },
+        "lb-\u003eapp-server": {
+          "base": "Load balancer spreads HTTP to app-server replicas."
+        }
+      },
+      "journeys": [
+        {
+          "id": "feed-read",
+          "method": "GET",
+          "path": "/feed/{userId}",
+          "label": "Feed reads",
+          "trafficPercent": 60,
+          "steps": [
+            {
+              "component": "app-server",
+              "action": "Runs fan-out-on-read query per request.",
+              "detail": "SELECT p.id, p.user_id, u.username, p.content, p.created_at FROM posts p JOIN follows f ON f.following_id = p.user_id JOIN users u ON u.id = p.user_id WHERE f.follower_id = $1 ORDER BY p.created_at DESC LIMIT $2",
+              "metricsKey": "p99Latency",
+              "lesson": "Pull mode: every GET runs this JOIN. Latency tracks how many accounts you follow, not how many posts were pre-written to Redis."
+            },
+            {
+              "component": "db",
+              "action": "JOIN posts, follows, and users; return top 20 by created_at.",
+              "detail": "posts × follows × users — indexed on follower_id",
+              "requires": [
+                "db"
+              ],
+              "lesson": "Postgres does the heavy work on each read. Under load, connection pool and JOIN cost dominate before you add cache or async fan-out."
+            }
+          ],
+          "explanation": "Pull mode: every feed read hits Postgres with a multi-table JOIN. No Redis timeline means no cheap warm read path."
+        },
+        {
+          "id": "post-create",
+          "method": "POST",
+          "path": "/post",
+          "label": "Create post",
+          "trafficPercent": 30,
+          "steps": [
+            {
+              "component": "app-server",
+              "action": "Validate user, INSERT post, return 200.",
+              "detail": "INSERT INTO posts (user_id, content) VALUES ($1, $2) RETURNING id, ...",
+              "metricsKey": "p99Latency",
+              "lesson": "Pull writes only persist the row. Followers see the post on their next feed GET when the JOIN runs; there is no queue, worker, or timeline ZADD."
+            },
+            {
+              "component": "db",
+              "action": "Stores the new post row.",
+              "requires": [
+                "db"
+              ],
+              "lesson": "Inserts are cheap compared to fan-out-on-read. Write amplification shows up on GET /feed, not on POST /post."
+            }
+          ],
+          "explanation": "POST /post is a single INSERT and 200 OK. Unlike push, nothing precomputes follower timelines; feed reads pay the JOIN cost later."
+        }
+      ],
+      "narrativeContext": {
+        "db_latency": {
+          "cause": "Every feed read performs a 3-table JOIN as follower counts grow.",
+          "suggestion": "Compare with the push template: add cache + MQ + worker to precompute timelines in Redis."
+        }
+      }
+    },
+    "introspection": {
+      "db": {
+        "engine": "postgres",
+        "tables": [
+          "users",
+          "posts",
+          "follows"
+        ]
+      }
+    }
+  }
+]
