@@ -1,5 +1,28 @@
 import { useState, type ReactNode } from 'react'
 
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      aria-hidden
+      className={`shrink-0 text-[var(--c9-text-disabled)] transition-transform duration-150 ${
+        open ? 'rotate-90' : ''
+      }`}
+    >
+      <path
+        d="M3 1.5 7.5 5 3 8.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 /** Collapsible block for secondary inspector metrics (metrics-component-panels §5). */
 export function InspectorDisclosure({
   title,
@@ -15,25 +38,27 @@ export function InspectorDisclosure({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-lg border border-gray-700/40 bg-gray-900/20">
+    <div className="overflow-hidden rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)]/40">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-800/30"
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[var(--c9-bg-card)]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--c9-accent)]/50"
       >
-        <span className="shrink-0 text-[10px] text-gray-500" aria-hidden>
-          {open ? '▼' : '▶'}
-        </span>
-        <span className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+        <ChevronIcon open={open} />
+        <span className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
           {title}
         </span>
         {hint && !open ? (
-          <span className="shrink-0 truncate text-[10px] text-gray-600">{hint}</span>
+          <span className="shrink-0 truncate text-[10px] text-[var(--c9-text-disabled)]">
+            {hint}
+          </span>
         ) : null}
       </button>
       {open ? (
-        <div className="space-y-2 border-t border-gray-700/30 px-3 pb-3 pt-2">{children}</div>
+        <div className="space-y-2 border-t border-[var(--c9-border)]/70 px-3 pb-3 pt-2.5">
+          {children}
+        </div>
       ) : null}
     </div>
   )

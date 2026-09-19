@@ -99,6 +99,7 @@ import {
   dbReplicaLayerIds,
   instanceTabsForNode,
 } from '../lib/dbInstanceScope'
+import { devInspectorDeploymentId } from '../lib/devInspectorFixtures'
 import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useLogStore } from '../editor-core/stores/logStore'
@@ -126,6 +127,8 @@ import {
   writeLatencyQuantile,
 } from '../lib/latencyQuantile'
 import {
+  InspectorSegment,
+  InspectorSegmentGroup,
   PanelViewControls,
   type PanelViewState,
 } from './inspectorPanelUi'
@@ -229,7 +232,6 @@ export function InspectorPanel() {
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
-  const devInstanceScopePreview = devInstanceScopePreviewEnabled(mode)
   const engineerPreviewLocked =
     node != null &&
     isEngineerPreviewLocked({
@@ -239,6 +241,14 @@ export function InspectorPanel() {
         : !session,
       mode: templatePresetMode,
     })
+  const devMetricsPreview = devInstanceScopePreviewEnabled(mode)
+  const inspectorLiveChrome = liveMode || devMetricsPreview
+  const inspectorDeployment = devInspectorDeploymentId(
+    liveMode,
+    devMetricsPreview,
+    deploymentId,
+  )
+  const configFieldsReadOnly = inspectorLiveChrome || engineerPreviewLocked
   const variationTopologyLocked = isVariationTopologyLocked(loadedVariationId)
   const quotaDisplay = useMemo(() => {
     if (liveMode || simulationMode || !snapshotTemplateId || !quotaTier) return null
@@ -338,7 +348,7 @@ export function InspectorPanel() {
 
   return (
     <aside
-      className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-[var(--c9-bg)]/95 text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
+      className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-[var(--c9-bg-surface)] text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
         open
           ? 'border-l border-[var(--c9-border)]'
           : 'pointer-events-none w-0 border-0'
@@ -360,32 +370,36 @@ export function InspectorPanel() {
       ) : null}
       {open && node ? (
         <>
-          <header className="flex shrink-0 items-center gap-3 border-b border-[var(--c9-border)] p-4">
+          <header className="flex shrink-0 items-start gap-3 border-b border-[var(--c9-border)] px-4 py-3.5">
             <span
-              className="h-10 w-10 shrink-0 rounded"
+              className="mt-0.5 h-9 w-9 shrink-0 rounded-lg ring-1 ring-[var(--c9-border-inset)]"
               style={{ backgroundColor: NODE_VISUAL[node.type].face }}
               aria-hidden
             />
             <div className="min-w-0 flex-1">
-              <span className={labelClass}>Label</span>
-              {!liveMode &&
+              {!inspectorLiveChrome &&
               !engineerPreviewLocked &&
               !variationTopologyLocked &&
               !deploymentId ? (
-                <input
-                  id="runcloud9-inspector-label"
-                  type="text"
-                  value={node.label}
-                  onChange={(e) => updateNodeLabel(node.id, e.target.value)}
-                  className={fieldClass}
-                />
+                <>
+                  <label className={labelClass} htmlFor="runcloud9-inspector-label">
+                    Label
+                  </label>
+                  <input
+                    id="runcloud9-inspector-label"
+                    type="text"
+                    value={node.label}
+                    onChange={(e) => updateNodeLabel(node.id, e.target.value)}
+                    className={fieldClass}
+                  />
+                </>
               ) : (
-                <p className="truncate text-sm font-medium text-[var(--c9-text)]">
+                <p className="truncate text-base font-semibold leading-tight text-[var(--c9-text-heading)]">
                   {node.label}
                 </p>
               )}
               {roleLabel ? (
-                <p className="mt-1 text-[10px] leading-tight text-[var(--c9-muted)]">
+                <p className="mt-1 text-[11px] leading-tight text-[var(--c9-muted)]">
                   {roleLabel}
                 </p>
               ) : null}
@@ -393,19 +407,25 @@ export function InspectorPanel() {
             <button
               type="button"
               onClick={() => selectNode(null)}
-              className="shrink-0 rounded p-2 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)]"
+              className="shrink-0 rounded-lg p-2 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-bg-card)] hover:text-[var(--c9-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]/50"
               aria-label="Close inspector"
             >
-              <span aria-hidden className="text-sm font-medium">
-                X
-              </span>
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+                <path
+                  d="M3 3l8 8M11 3 3 11"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           </header>
 
-          {liveMode ? (
+          {inspectorLiveChrome ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="border-b border-[var(--c9-border)] px-4 pt-3">
-                <div className="flex gap-1">
+              <div className="border-b border-[var(--c9-border)] px-4 py-3">
+                <InspectorSegmentGroup aria-label="Inspector panels" className="w-full">
                   {(
                     [
                       ['metrics', 'Metrics'],
@@ -418,25 +438,20 @@ export function InspectorPanel() {
                         : []),
                     ] as [string, string][]
                   ).map(([id, label]) => (
-                    <button
+                    <InspectorSegment
                       key={id}
-                      type="button"
+                      active={liveTab === id}
                       onClick={() =>
                         setLiveTab(id as 'metrics' | 'logs' | 'config' | 'data')
                       }
-                      className={`rounded-t-md border border-b-0 px-2.5 py-1 text-xs ${
-                        liveTab === id
-                          ? 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-text)]'
-                          : 'border-transparent text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-                      }`}
-                    >
-                      {label}
-                    </button>
+                      label={label}
+                      className="flex-1 text-center sm:flex-none"
+                    />
                   ))}
-                </div>
+                </InspectorSegmentGroup>
               </div>
               {showLiveStickyChrome ? (
-                <div className="shrink-0 space-y-2 border-b border-[var(--c9-border)] bg-[var(--c9-bg)]/95 px-4 py-2">
+                <div className="shrink-0 space-y-2.5 border-b border-[var(--c9-border)] bg-[var(--c9-bg)] px-4 py-3">
                   {showLiveInstanceTabs ? (
                     <DbInstanceTabBar
                       tabs={instanceTabs}
@@ -459,13 +474,18 @@ export function InspectorPanel() {
                   ) : null}
                 </div>
               ) : null}
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              <div className="inspector-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                 {liveTab === 'metrics' ? (
                   <>
-                    <ChaosActions node={node} />
+                    <ChaosActions
+                      node={node}
+                      previewMode={devMetricsPreview && !liveMode}
+                    />
                     <LiveMetrics
                       node={node}
                       hideControls
+                      displayMode={devMetricsPreview && !liveMode ? 'live' : undefined}
+                      metricsPreviewActive={devMetricsPreview && !liveMode}
                       panelView={metricsPanelView}
                       onPanelViewChange={patchMetricsPanelView}
                     />
@@ -488,8 +508,13 @@ export function InspectorPanel() {
                       edges={edges}
                       nodes={nodes}
                       simulationMode={false}
-                      readOnly
-                      updateConfig={() => {}}
+                      readOnly={configFieldsReadOnly}
+                      loadedVariationId={loadedVariationId}
+                      updateConfig={
+                        configFieldsReadOnly
+                          ? () => {}
+                          : (patch) => updateNodeConfig(node.id, patch)
+                      }
                       templateId={snapshotTemplateId}
                     />
                     {provisionedBadge(node) ? (
@@ -499,27 +524,27 @@ export function InspectorPanel() {
                     ) : null}
                   </div>
                 ) : null}
-                {liveTab === 'data' && deploymentId && node.type === 'database' ? (
+                {liveTab === 'data' && inspectorDeployment && node.type === 'database' ? (
                   <DataBrowser
-                    deploymentId={deploymentId}
+                    deploymentId={inspectorDeployment}
                     component={canvasToBackend[node.type]}
                     readReplicaCount={clampReadReplicas(node.config.readReplicas)}
                     instanceId={showDbDataInstanceTabs ? selectedInstanceId : null}
                     hideTargetToggle={showDbDataInstanceTabs}
                   />
                 ) : null}
-                {liveTab === 'data' && deploymentId && node.type === 'cache' ? (
+                {liveTab === 'data' && inspectorDeployment && node.type === 'cache' ? (
                   <CacheBrowser
-                    deploymentId={deploymentId}
+                    deploymentId={inspectorDeployment}
                     component={canvasToBackend[node.type]}
                     keyPatterns={cacheKeyPatterns}
                   />
                 ) : null}
                 {liveTab === 'data' &&
-                deploymentId &&
+                inspectorDeployment &&
                 node.type === 'message_queue' ? (
                   <QueueBrowser
-                    deploymentId={deploymentId}
+                    deploymentId={inspectorDeployment}
                     component={canvasToBackend[node.type]}
                   />
                 ) : null}
@@ -527,7 +552,7 @@ export function InspectorPanel() {
             </div>
           ) : (
             <>
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+              <div className="inspector-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
                 {engineerPreviewLocked ? <EngineerLockedInspectorNotice /> : null}
                 <TypeFields
                   node={node}
@@ -553,33 +578,20 @@ export function InspectorPanel() {
                   </p>
                 ) : null}
                 {simulationMode ? <LiveMetrics node={node} /> : null}
-                {devInstanceScopePreview ? (
-                  <div className="space-y-4 border-t border-[var(--c9-border)] pt-4">
-                    <p className="text-[10px] uppercase tracking-wide text-amber-400/90">
-                      DEV instance-scope preview
-                    </p>
-                    {showInstanceTabs ? (
-                      <DbInstanceTabBar
-                        tabs={instanceTabs}
-                        selectedId={selectedInstanceId}
-                        onSelect={setSelectedInstanceId}
-                      />
-                    ) : null}
-                    <LiveMetrics node={node} />
-                  </div>
-                ) : null}
               </div>
-              <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
-                {!variationTopologyLocked && !deploymentId ? (
-                  <button
-                    type="button"
-                    onClick={onDelete}
-                    className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 transition-colors duration-200 hover:bg-red-800"
-                  >
-                    Delete node
-                  </button>
-                ) : null}
-              </div>
+              {!inspectorLiveChrome ? (
+                <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
+                  {!variationTopologyLocked && !deploymentId ? (
+                    <button
+                      type="button"
+                      onClick={onDelete}
+                      className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 transition-colors duration-200 hover:bg-red-800"
+                    >
+                      Delete node
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </>

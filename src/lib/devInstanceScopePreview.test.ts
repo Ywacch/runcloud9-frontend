@@ -45,6 +45,40 @@ describe('devInstanceScopePreview', () => {
     expect(metrics?.runtimeHealth?.pods).toHaveLength(2)
   })
 
+  it('builds cache, load balancer, and database fixtures for dev preview', () => {
+    const cache: CanvasNode = {
+      id: 'cache1',
+      type: 'cache',
+      label: 'Redis',
+      position: [0, 0, 0],
+      status: 'healthy',
+      config: { cacheStrategy: 'cache-aside' },
+    }
+    const db: CanvasNode = {
+      id: 'db1',
+      type: 'database',
+      label: 'Postgres',
+      position: [0, 0, 0],
+      status: 'healthy',
+      config: { readReplicas: 0 },
+    }
+    const lb: CanvasNode = {
+      id: 'lb1',
+      type: 'load_balancer',
+      label: 'LB',
+      position: [0, 0, 0],
+      status: 'healthy',
+      config: {},
+    }
+    expect(buildDevInstanceScopeMetrics(cache, undefined)?.cacheHits).toBeGreaterThan(0)
+    expect(buildDevInstanceScopeMetrics(db, undefined)?.layers.length).toBe(1)
+    expect(
+      buildDevInstanceScopeMetrics(lb, undefined, { app1: cache }, {
+        e1: { id: 'e1', sourceId: 'lb1', targetId: 'app1', protocol: 'http', animated: false },
+      })?.backendPods.length,
+    ).toBe(1)
+  })
+
   it('builds worker pod fixtures aligned with canvas unit count', () => {
     const node: CanvasNode = {
       id: 'worker1',

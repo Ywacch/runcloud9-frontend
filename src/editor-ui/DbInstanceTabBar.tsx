@@ -1,4 +1,5 @@
 import type { DbInstanceTab, SelectedInstanceId } from '../lib/dbInstanceScope'
+import { InspectorSegment, InspectorSegmentGroup } from './inspectorPanelUi'
 
 export function DbInstanceTabBar({
   tabs,
@@ -12,25 +13,20 @@ export function DbInstanceTabBar({
   if (tabs.length === 0) return null
   const active = selectedId ?? 'cluster'
   return (
-    <div className="flex flex-wrap gap-1 border-b border-[var(--c9-border)] pb-2">
+    <InspectorSegmentGroup aria-label="Instance scope" className="w-full">
       {tabs.map((tab) => {
         const id = tab.id ?? 'cluster'
         const isActive = active === id
         return (
-          <button
+          <InspectorSegment
             key={String(id)}
-            type="button"
+            active={isActive}
             onClick={() => onSelect(id)}
-            className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
-              isActive
-                ? 'border-[var(--c9-border)] bg-[var(--c9-surface)] text-[var(--c9-text)]'
-                : 'border-transparent text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-            }`}
-          >
-            {tab.label}
-          </button>
+            label={tab.label}
+            className="flex-1 text-center sm:flex-none"
+          />
         )
       })}
-    </div>
+    </InspectorSegmentGroup>
   )
 }

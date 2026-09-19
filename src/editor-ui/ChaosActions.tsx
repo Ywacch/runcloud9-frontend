@@ -23,7 +23,14 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 
-export function ChaosActions({ node }: { node: CanvasNode }) {
+export function ChaosActions({
+  node,
+  previewMode = false,
+}: {
+  node: CanvasNode
+  /** DEV inspector preview: show live chrome without calling the API. */
+  previewMode?: boolean
+}) {
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const mode = useCanvasStore((s) => s.mode)
   const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
@@ -39,7 +46,7 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
   const scenarios = target
     ? chaosScenariosForTarget(target, chaosContextForNode(node))
     : []
-  const ready = mode === 'live' && Boolean(deploymentId)
+  const ready = previewMode || (mode === 'live' && Boolean(deploymentId))
 
   const targetBusy = useMemo(() => {
     if (!activeChaos || !target) return false
@@ -62,7 +69,7 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
       : undefined
 
   const run = async (scenario: ChaosScenario) => {
-    if (!deploymentId || !target) return
+    if (previewMode || !deploymentId || !target) return
     const targetPod = scenario === 'stall_replica' ? stallPod : undefined
     const copyOpts = targetPod ? { targetPod } : undefined
     const ok = window.confirm(
@@ -104,7 +111,7 @@ export function ChaosActions({ node }: { node: CanvasNode }) {
   }
 
   const runHeal = async () => {
-    if (!deploymentId) return
+    if (previewMode || !deploymentId) return
     const ok = window.confirm(
       'Heal active partition?\n\nRemoves the network policy and restores traffic.',
     )

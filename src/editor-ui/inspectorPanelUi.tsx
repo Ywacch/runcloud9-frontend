@@ -34,6 +34,57 @@ export interface PanelViewState {
   latencyQuantile: LatencyQuantile
 }
 
+/** Shared label style for inspector metric keys and section chrome. */
+export const INSPECTOR_LABEL_CLASS =
+  'text-[10px] font-medium uppercase tracking-wide text-[var(--c9-muted)]'
+
+export function InspectorSegmentGroup({
+  children,
+  className = '',
+  'aria-label': ariaLabel,
+}: {
+  children: ReactNode
+  className?: string
+  'aria-label'?: string
+}) {
+  return (
+    <div
+      className={`inline-flex flex-wrap gap-0.5 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] p-0.5 ${className}`}
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function InspectorSegment({
+  active,
+  onClick,
+  label,
+  className = '',
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]/50 ${
+        active
+          ? 'bg-[var(--c9-bg-card)] text-[var(--c9-text)] shadow-[inset_0_1px_0_var(--c9-border-inset)]'
+          : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+      } ${className}`}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function PanelViewControls({
   view,
   onChange,
@@ -42,53 +93,40 @@ export function PanelViewControls({
   onChange: (patch: Partial<PanelViewState>) => void
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-800/80 pb-2 text-[10px] text-gray-500">
-      <span className="font-semibold uppercase tracking-wider text-gray-600">Timeframe:</span>
-      <TogglePill
-        active={view.timeframe === 'live'}
-        onClick={() => onChange({ timeframe: 'live' })}
-        label="Live (10s)"
-      />
-      <TogglePill
-        active={view.timeframe === 'session'}
-        onClick={() => onChange({ timeframe: 'session' })}
-        label={SESSION_TIMEFRAME_LABEL}
-      />
-      <span className="ml-auto" />
-      <TogglePill
-        active={view.showGraphs}
-        onClick={() => onChange({ showGraphs: !view.showGraphs })}
-        label="Graphs"
-      />
-      <span className="w-full text-[9px] leading-snug text-gray-600">
-        {SESSION_TIMEFRAME_FOOTER} Graphs use the same series with freshness / playback
-        hints when available.
-      </span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={INSPECTOR_LABEL_CLASS}>Timeframe</span>
+        <InspectorSegmentGroup aria-label="Metrics timeframe">
+          <InspectorSegment
+            active={view.timeframe === 'live'}
+            onClick={() => onChange({ timeframe: 'live' })}
+            label="Live (10s)"
+          />
+          <InspectorSegment
+            active={view.timeframe === 'session'}
+            onClick={() => onChange({ timeframe: 'session' })}
+            label={SESSION_TIMEFRAME_LABEL}
+          />
+        </InspectorSegmentGroup>
+        <span className="ml-auto" />
+        <InspectorSegmentGroup aria-label="Graph visibility">
+          <InspectorSegment
+            active={view.showGraphs}
+            onClick={() => onChange({ showGraphs: true })}
+            label="Graphs on"
+          />
+          <InspectorSegment
+            active={!view.showGraphs}
+            onClick={() => onChange({ showGraphs: false })}
+            label="Graphs off"
+          />
+        </InspectorSegmentGroup>
+      </div>
+      <p className="text-[10px] leading-snug text-[var(--c9-text-disabled)]">
+        {SESSION_TIMEFRAME_FOOTER} Graphs use the same series with freshness / playback hints
+        when available.
+      </p>
     </div>
-  )
-}
-
-function TogglePill({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
-        active
-          ? 'bg-gray-700/80 text-gray-100'
-          : 'text-gray-500 hover:text-gray-300'
-      }`}
-    >
-      {active ? '◉' : '○'} {label}
-    </button>
   )
 }
 
@@ -102,9 +140,9 @@ export function PedagogicalSection({
   children: ReactNode
 }) {
   return (
-    <section className="space-y-2.5">
-      <div className="flex items-center gap-1">
-        <h4 className="text-[11px] font-bold uppercase tracking-wide text-[var(--c9-text)]">
+    <section className="space-y-3 border-t border-[var(--c9-border)]/70 pt-4 first:border-t-0 first:pt-0">
+      <div className="flex items-center gap-1.5">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--c9-text-heading)]">
           {title}
         </h4>
         <InfoTooltip text={subtitle} />
@@ -148,12 +186,14 @@ export function StatBlock({
   graph?: ReactNode
 }) {
   return (
-    <div className="min-w-0 space-y-1">
-      <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+    <div className={`min-w-0 space-y-1.5 ${METRIC_CARD_SHELL}`}>
+      <div className={`flex items-center gap-1 ${INSPECTOR_LABEL_CLASS}`}>
         {labelNode ?? <span>{label}</span>}
         {help ? <MetricHelpIcon title={help} /> : null}
       </div>
-      <div className="font-mono text-sm font-semibold tabular-nums text-white">{value}</div>
+      <div className="font-mono text-[15px] font-semibold tabular-nums leading-none text-[var(--c9-text-heading)]">
+        {value}
+      </div>
       {graph}
     </div>
   )
@@ -167,7 +207,7 @@ export function StatRow({
   right?: ReactNode
 }) {
   return (
-    <div className={`grid gap-4 ${right ? 'grid-cols-2' : 'grid-cols-1'}`}>
+    <div className={`grid gap-2 ${right ? 'grid-cols-2' : 'grid-cols-1'}`}>
       {left}
       {right}
     </div>
@@ -192,19 +232,21 @@ export function CapacityBar({
         : 'bg-emerald-500'
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 min-w-0 flex-1 rounded-full bg-gray-800">
+      <div className="h-1.5 min-w-0 flex-1 rounded-full bg-[var(--c9-bg-subtle)]">
         <div
           className={`h-full rounded-full ${barClass}`}
           style={{ width: `${clamped}%` }}
         />
       </div>
-      <span className="shrink-0 font-mono text-[10px] text-gray-400">{clamped.toFixed(0)}%</span>
+      <span className="shrink-0 font-mono text-[10px] tabular-nums text-[var(--c9-muted)]">
+        {clamped.toFixed(0)}%
+      </span>
     </div>
   )
 }
 
 const chartClass =
-  'rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-2.5 shadow-none'
+  'rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-3 shadow-[inset_0_1px_0_var(--c9-border-inset)]'
 
 /** Shared shell for metric / chart cards in the docked inspector. */
 export const METRIC_CARD_SHELL = chartClass
@@ -227,8 +269,8 @@ export function MetricSeriesGraph({
   if (!view.showGraphs) return null
   if (data.length < 2) {
     return (
-      <div className={`${chartClass} text-[10px] text-gray-500`}>
-        <div className="mb-1 text-[10px] font-medium text-gray-400">{title}</div>
+      <div className={`${chartClass} text-[10px] text-[var(--c9-text-disabled)]`}>
+        <div className={`mb-1 ${INSPECTOR_LABEL_CLASS}`}>{title}</div>
         Collecting samples…
       </div>
     )
@@ -255,7 +297,7 @@ export function EngineDiagnosticsBlock({
   memLabel: string
 }) {
   return (
-    <div className="space-y-1 font-mono text-[11px] text-gray-300">
+    <div className="space-y-1 font-mono text-[11px] text-[var(--c9-text)]">
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         <span>CPU: {cpuLabel}</span>
         <span>Memory: {memLabel}</span>
@@ -319,12 +361,12 @@ export function RuntimeHealthSection({
           return (
             <li key={pod.name} className="min-w-0">
               <span
-                className={`block truncate ${pod.ready ? 'text-gray-400' : 'text-red-300'}`}
+                className={`block truncate ${pod.ready ? 'text-[var(--c9-muted)]' : 'text-red-300'}`}
                 title={pod.name}
               >
                 {compactPodName(pod.name) || pod.name}
               </span>
-              <span className="block text-gray-500">{detail}</span>
+              <span className="block text-[var(--c9-text-disabled)]">{detail}</span>
             </li>
           )
         })}
@@ -356,15 +398,15 @@ export function ReplicaFlatList({
 }) {
   if (rows.length === 0) return null
   return (
-    <ul className="min-w-0 space-y-2 font-mono text-[10px] text-gray-300">
+    <ul className="min-w-0 space-y-2 font-mono text-[10px] text-[var(--c9-text)]">
       {rows.map((row) => {
         const selected = selectedName === row.name
         const content = (
           <>
-            <span className="block truncate text-gray-500" title={row.name}>
+            <span className="block truncate text-[var(--c9-muted)]" title={row.name}>
               {compactPodName(row.name) || row.name}
             </span>
-            <span className="block text-gray-400">
+            <span className="block text-[var(--c9-text-disabled)]">
               {row.hot ? '🔥 ' : row.warn ? '⚠️ ' : ''}
               {row.primaryText ?? `${Math.round(row.rps ?? 0)} rps`}
               {' · '}
@@ -386,10 +428,10 @@ export function ReplicaFlatList({
             <button
               type="button"
               onClick={() => onSelectName(row.name)}
-              className={`w-full rounded border px-2 py-1 text-left transition-colors ${
+              className={`w-full rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]/50 ${
                 selected
-                  ? 'border-violet-500/60 bg-violet-950/40'
-                  : 'border-transparent hover:border-gray-700/60 hover:bg-gray-900/40'
+                  ? 'border-[var(--c9-accent)]/60 bg-[var(--c9-accent-subtle)]'
+                  : 'border-transparent hover:border-[var(--c9-border)] hover:bg-[var(--c9-bg-card)]/60'
               }`}
             >
               {content}

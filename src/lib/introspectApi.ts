@@ -1,5 +1,6 @@
 import { DEPLOYMENTS_API_PREFIX } from './api'
 import { getAccessToken } from './auth'
+import { devIntrospectFixture, isDevInspectorDeployment } from './devInspectorFixtures'
 
 const API_BASE = DEPLOYMENTS_API_PREFIX
 
@@ -94,6 +95,11 @@ async function introspectGet<T>(
   component: string,
   path: string,
 ): Promise<T> {
+  if (isDevInspectorDeployment(deploymentId)) {
+    const fixture = devIntrospectFixture(component, path)
+    if (fixture != null) return fixture as T
+    throw new Error(`No dev inspector fixture for ${component}/${path}`)
+  }
   const url = `${API_BASE}/${encodeURIComponent(deploymentId)}/introspect/${encodeURIComponent(component)}/${path}`
   const res = await fetch(url, { headers: authHeaders() })
   if (!res.ok) {
