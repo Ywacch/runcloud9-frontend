@@ -3,6 +3,8 @@ import { clearPlaybackSession } from '../playback/playbackLoop'
 import { clearTierCWarmupSession } from '../../lib/tierCWarmupSession'
 import { capWsEvents } from '../../lib/chaos'
 import { loadWsEventsJson } from '../../lib/wsEventsPersist'
+import type { EventVisibility } from '../domain/eventVisibility'
+import { parseEventVisibility } from '../domain/eventVisibility'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
 
@@ -14,7 +16,7 @@ export type WorkloadEventKind =
   | 'chaos_inject'
   | 'chaos_heal'
   | 'standby_reclone'
-export type EventAudience = 'user' | 'ai' | 'both'
+export type { EventVisibility } from '../domain/eventVisibility'
 
 /** Event from backend metrics stream (threshold, cascade, workload/runtime actions). */
 export interface WsEvent {
@@ -25,8 +27,8 @@ export interface WsEvent {
   kind?: WorkloadEventKind
   /** Workload parameters supplied by the backend. */
   detail?: Record<string, string>
-  /** Missing means `both` for backward compatibility. */
-  audience?: EventAudience
+  /** Missing means `all`. Legacy `audience` from older backends is normalized on ingest. */
+  visibility?: EventVisibility
   component?: string
   /** Rule id from backend (matches narrativeContext keys / event title). */
   rule?: string
@@ -273,10 +275,7 @@ function parsePersistedWsEvents(raw: string): WsEvent[] {
               ),
             )
           : undefined,
-      audience:
-        r.audience === 'user' || r.audience === 'ai' || r.audience === 'both'
-          ? r.audience
-          : undefined,
+      visibility: parseEventVisibility(r.visibility, r.audience),
       component: typeof r.component === 'string' ? r.component : undefined,
       title,
       description: typeof r.description === 'string' ? r.description : '',

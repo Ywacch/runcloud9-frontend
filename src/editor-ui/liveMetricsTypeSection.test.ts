@@ -61,8 +61,8 @@ describe('LiveMetricsTypeSection message_queue', () => {
       }),
     )
 
-    expect(html).toContain(
-      'Message bodies: Data tab → Peek (requeues the head message).',
+    expect(html).toMatch(
+      /Message bodies:.*Data tab → Peek.*\(requeues the head message\)/,
     )
   })
 })

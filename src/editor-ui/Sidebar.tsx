@@ -887,19 +887,23 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`relative flex h-full shrink-0 flex-col bg-[var(--c9-bg)] text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
+      className={`sl-sidebar relative flex h-full shrink-0 flex-col transition-[width] duration-200 ease-out ${
         rail ? 'w-12' : 'w-64'
       }`}
     >
-      <div className="flex items-center justify-between gap-1 border-b border-[var(--c9-border)] bg-[var(--c9-surface)] p-2">
+      <div className="sl-sb-head flex items-center justify-between gap-1">
         {!rail ? (
-          <Link
-            to="/"
-            className="min-w-0 truncate rounded px-2 text-left text-lg font-semibold tracking-tight text-[var(--c9-text)] transition-colors duration-200 hover:text-[var(--c9-accent)]"
-            aria-label="Go to homepage"
-          >
-            RunCloud9
-          </Link>
+          <div className="min-w-0">
+            <span className="sl-kind">SESSION</span>
+            <Link
+              to="/"
+              className="sl-sb-title block transition-colors duration-200 hover:opacity-90"
+              aria-label="Go to homepage"
+            >
+              RunCloud9
+            </Link>
+            <p className="sl-sb-sub">canvas · playground</p>
+          </div>
         ) : (
           <span className="sr-only">RunCloud9</span>
         )}
@@ -914,7 +918,7 @@ export function Sidebar() {
               : undefined
           }
           onClick={() => setCollapsed((c) => !c)}
-          className="shrink-0 rounded p-1.5 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)] disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-none border border-transparent p-1.5 font-mono text-[10px] text-[var(--c9-muted)] transition-colors duration-200 hover:border-[var(--c9-border)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {rail ? '▶' : '◀'}
         </button>
@@ -924,9 +928,7 @@ export function Sidebar() {
           rail ? 'hidden' : ''
         }`}
       >
-        <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
-          Templates
-        </h2>
+        <h2 className="sl-lab mb-2">Templates</h2>
         <button
           type="button"
           disabled={live || simulate}
@@ -937,14 +939,12 @@ export function Sidebar() {
               template: snapshotTemplateId ?? 'none',
             })
           }}
-          className="w-full rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)] px-4 py-3 text-left text-sm font-medium text-[var(--c9-text)] transition-all duration-200 hover:border-[var(--c9-accent)] disabled:opacity-40"
+          className="sl-tpl disabled:opacity-40"
         >
-          <span className="text-xs uppercase tracking-wider text-[var(--c9-muted)]">
-            Template
-          </span>
-          <div className="mt-1">
+          <span className="sl-tpl-lab">Template</span>
+          <span className="sl-tpl-name">
             {templateTitleForId(snapshotTemplateId) ?? 'Choose a template…'}
-          </div>
+          </span>
         </button>
         <button
           type="button"
@@ -954,7 +954,7 @@ export function Sidebar() {
             resetDesignOptionSession()
             setBanner('Template cleared.')
           }}
-          className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-4 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="sl-btn mt-2 w-full disabled:cursor-not-allowed disabled:opacity-50"
         >
           Clear template
         </button>
@@ -975,14 +975,12 @@ export function Sidebar() {
           }}
         />
 
-        <h2 className="pt-2 text-xs font-medium uppercase tracking-wider text-[var(--c9-muted)]">
-          Canvas
-        </h2>
-        <div className="space-y-2 rounded border border-[var(--c9-border)] bg-[var(--c9-surface)]/60 p-2">
+        <h2 className="sl-lab mb-2 pt-2">Canvas</h2>
+        <div className="btn-stack flex flex-col gap-1.5">
           <button
             type="button"
             onClick={() => setMovementLocked(!movementLocked)}
-            className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-3 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)]"
+            className="sl-btn w-full"
           >
             {movementLocked ? 'Unlock movement' : 'Lock movement'}
           </button>
@@ -990,24 +988,24 @@ export function Sidebar() {
             type="button"
             disabled={nodeCount === 0}
             onClick={handleAutoArrange}
-            className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-3 py-2 text-left text-xs font-medium text-[var(--c9-text)] transition-colors duration-200 hover:bg-[var(--c9-badge-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="sl-btn w-full disabled:cursor-not-allowed disabled:opacity-50"
           >
             Auto arrange
           </button>
         </div>
         {banner ? (
-          <p className="rounded border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1.5 text-xs text-[var(--c9-text)]">
+          <p className="rounded-none border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1.5 text-xs text-[var(--c9-text)]">
             {banner}
           </p>
         ) : null}
         {topologyBanner ? (
-          <p className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100/90">
+          <p className="rounded-none border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100/90">
             {topologyBanner}
           </p>
         ) : null}
         {graphHonestyIssue ? (
           <p
-            className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-100/95"
+            className="rounded-none border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-100/95"
             data-graph-honesty-sidebar
             role="status"
           >
@@ -1029,7 +1027,7 @@ export function Sidebar() {
             type="button"
             disabled={tearing}
             onClick={handleTeardown}
-              className="w-full rounded bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-red-600 disabled:opacity-50"
+              className="sl-btn danger w-full disabled:opacity-50"
           >
             Teardown
           </button>
@@ -1041,7 +1039,7 @@ export function Sidebar() {
                 useSimulationStore.getState().stop()
                 setBanner('Simulation stopped.')
               }}
-              className="w-full rounded border border-amber-600/70 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 transition-colors duration-200 hover:border-amber-500 hover:bg-amber-900/40"
+              className="w-full rounded-none border border-amber-600/70 bg-amber-950/40 px-4 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-amber-100 transition-colors duration-200 hover:border-amber-500 hover:bg-amber-900/40"
             >
               Stop simulation
             </button>
@@ -1056,7 +1054,7 @@ export function Sidebar() {
                 st.setMode('design')
                 setBanner(null)
               }}
-              className="w-full rounded bg-violet-800 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-violet-700"
+              className="w-full rounded-none border border-violet-600/60 bg-violet-950/40 px-4 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-violet-100 transition-colors duration-200 hover:border-violet-500 hover:bg-violet-900/40"
             >
               Exit simulation
             </button>
@@ -1087,7 +1085,7 @@ export function Sidebar() {
                     setSessionMinutesChoice(next)
                     writeSessionMinutesPref(next)
                   }}
-                  className="w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-sm text-[var(--c9-text)]"
+                  className="w-full rounded-none border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-sm text-[var(--c9-text)]"
                 />
                 <p className="text-[11px] leading-snug text-[var(--c9-muted)]">
                   Live session runs this many minutes after the environment is ready.
@@ -1103,7 +1101,7 @@ export function Sidebar() {
               disabled={deploying || !!deployBlockedReason}
               title={deployDisabledReason}
               onClick={handleDeploy}
-              className="w-full rounded bg-[var(--c9-accent)] px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
+              className="w-full rounded-none border border-[var(--c9-accent)] bg-[var(--c9-accent)] px-4 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>
@@ -1141,7 +1139,7 @@ export function Sidebar() {
                     'Simulation view. Press Start simulation in the top bar when ready.',
                   )
                 }}
-                className="w-full rounded border border-violet-600/60 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 transition-colors duration-200 hover:border-violet-500 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-none border border-violet-600/60 bg-violet-950/40 px-4 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-violet-100 transition-colors duration-200 hover:border-violet-500 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Simulator
               </button>

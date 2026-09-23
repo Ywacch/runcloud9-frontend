@@ -10,7 +10,6 @@ import {
 import {
   REDIS_EVICTION_POLICIES,
   REDIS_EVICTION_POLICY_DESCRIPTION,
-  REDIS_EVICTION_POLICY_LABEL,
   normalizeRedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
 import {
@@ -36,7 +35,6 @@ import {
   templateSupportsPurchaseMode,
 } from '../lib/purchaseMode'
 import {
-  CACHE_TTL_HELPER,
   CACHE_TTL_MAX,
   CACHE_TTL_MIN,
   CACHE_TTL_VALIDATION,
@@ -82,10 +80,7 @@ import {
 import { useAuthStore } from '../product/stores/authStore'
 import {
   REPLICAS_HELP_FREE,
-  replicasHelpPaid,
-  UPGRADE_TO_SCALE_REPLICAS_TOOLTIP,
 } from '../lib/billingCopy'
-import { NODE_VISUAL } from '../lib/nodeVisual'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
   useCanvasStore,
@@ -98,23 +93,34 @@ import {
   dbHasReplicaLayers,
   dbReplicaLayerIds,
   instanceTabsForNode,
+  usesPodReplicaScope,
 } from '../lib/dbInstanceScope'
 import { devInspectorDeploymentId } from '../lib/devInspectorFixtures'
+import { useDevInspectorMode } from '../lib/devInspectorMode'
 import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { isEngineerPreviewLocked } from '../lib/engineerLockedVisual'
 import { CacheBrowser } from './CacheBrowser'
-import { ComponentLogPanel } from './ComponentLogPanel'
+import { StacklabLogPanel, stacklabLogCountForNode } from './StacklabLogPanel'
 import { DataBrowser } from './DataBrowser'
 import { EngineerLockedInspectorNotice } from './EngineerLockedInspectorNotice'
 import { QueueBrowser } from './QueueBrowser'
 import { ChaosActions } from './ChaosActions'
+import { CacheStrategyBanner } from './cacheInspectorSections'
+import { DevInspectorModeToggle } from './DevInspectorModeToggle'
+import {
+  PcfgChk,
+  PcfgField,
+  PcfgNum,
+  PcfgOptions,
+  PcfgStepper,
+} from './stacklabConfigControls'
+import { StacklabDeployedConfig } from './stacklabDeployedConfig'
+import { SlHint } from './stacklabPanePrimitives'
 import { LiveMetrics } from './LiveMetrics'
 import { ResourceProfileFields } from './ResourceProfileFields'
 import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
-import { InfoTooltip } from './InfoTooltip'
-import { InlineDisclosure } from './InlineDisclosure'
 import { WorkerInspectorFields } from './WorkerInspectorFields'
 import { getResourceProfilesCached } from '../lib/resourceProfileStore'
 import {
@@ -127,24 +133,25 @@ import {
   writeLatencyQuantile,
 } from '../lib/latencyQuantile'
 import {
-  InspectorSegment,
-  InspectorSegmentGroup,
   PanelViewControls,
+  stacklabNodeKind,
   type PanelViewState,
 } from './inspectorPanelUi'
+import { InspectorBreadcrumbNav } from './InspectorBreadcrumbNav'
+import {
+  defaultMetricGroupId,
+  metricGroupsForNode,
+  panelViewVisibilityForGroup,
+  resolveMetricGroupId,
+  type InspectorMetricGroupId,
+} from '../lib/inspectorMetricGroups'
 import {
   filterStrategiesForVariation,
   variationCacheStrategyMode,
 } from '../lib/variationTopologyLock'
 import { isVariationTopologyLocked } from '../lib/variationTopologyLock'
 
-const fieldClass =
-  'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
-const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
-const badgeClass =
-  'rounded border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1 text-xs text-[var(--c9-muted)]'
-
-const INSPECTOR_MIN_W = 420
+const INSPECTOR_MIN_W = 400
 const INSPECTOR_MAX_W = 900
 
 function clampInspectorWidth(px: number): number {
@@ -241,6 +248,7 @@ export function InspectorPanel() {
         : !session,
       mode: templatePresetMode,
     })
+  useDevInspectorMode()
   const devMetricsPreview = devInstanceScopePreviewEnabled(mode)
   const inspectorLiveChrome = liveMode || devMetricsPreview
   const inspectorDeployment = devInspectorDeploymentId(
@@ -248,7 +256,6 @@ export function InspectorPanel() {
     devMetricsPreview,
     deploymentId,
   )
-  const configFieldsReadOnly = inspectorLiveChrome || engineerPreviewLocked
   const variationTopologyLocked = isVariationTopologyLocked(loadedVariationId)
   const quotaDisplay = useMemo(() => {
     if (liveMode || simulationMode || !snapshotTemplateId || !quotaTier) return null
@@ -282,14 +289,59 @@ export function InspectorPanel() {
       return next
     })
   }, [])
+  const metricGroupByTypeRef = useRef<Record<string, InspectorMetricGroupId>>({})
+  const [metricGroupId, setMetricGroupId] = useState<InspectorMetricGroupId>(() =>
+    node ? defaultMetricGroupId(node) : 'health',
+  )
+  const prevMetricNodeTypeRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!node) return
+    if (prevMetricNodeTypeRef.current !== node.type) {
+      prevMetricNodeTypeRef.current = node.type
+      const stored = metricGroupByTypeRef.current[node.type]
+      setMetricGroupId(resolveMetricGroupId(node, stored, nodeMetrics))
+      return
+    }
+    setMetricGroupId((current) =>
+      resolveMetricGroupId(node, current, nodeMetrics),
+    )
+  }, [node, nodeMetrics])
+  const selectMetricGroup = useCallback(
+    (id: InspectorMetricGroupId) => {
+      if (!node) return
+      metricGroupByTypeRef.current[node.type] = id
+      setMetricGroupId(id)
+    },
+    [node],
+  )
+  const panelViewVisibility = panelViewVisibilityForGroup(metricGroupId)
+  const cacheStrategyLabel =
+    node?.type === 'cache'
+      ? (nodeMetrics?.cacheStrategy ?? '').trim() ||
+        String(node.config.cacheStrategy ?? 'cache-aside')
+      : null
+  const showMetricBreadcrumb =
+    liveTab === 'metrics' &&
+    node != null &&
+    node.type !== 'client' &&
+    (!selectedInstanceId || selectedInstanceId === 'cluster')
   const showLiveInstanceTabs =
-    showInstanceTabs && (liveTab === 'metrics' || liveTab === 'logs')
+    node?.type === 'database' &&
+    showInstanceTabs &&
+    (liveTab === 'metrics' || liveTab === 'logs')
+  const showPodScopeToggle =
+    Boolean(node) &&
+    usesPodReplicaScope(node) &&
+    instanceTabs.some((tab) => tab.id !== 'cluster')
   const showLiveMetricsControls = liveTab === 'metrics' && node?.type !== 'client'
   const showLiveStickyChrome =
     showLiveInstanceTabs ||
     (showDbDataInstanceTabs && liveTab === 'data') ||
     showLiveMetricsControls
   const inspectorTabNonce = useLogStore((s) => s.inspectorTabNonce)
+  const allLogs = useLogStore((s) => s.logs)
+  const logTabCount = node ? stacklabLogCountForNode(node, allLogs) : 0
+  const clientInert = node?.type === 'client'
   const [dockWidth, setDockWidth] = useState(defaultInspectorWidth)
   const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
 
@@ -348,12 +400,12 @@ export function InspectorPanel() {
 
   return (
     <aside
-      className={`relative flex h-full shrink-0 flex-col overflow-hidden bg-[var(--c9-bg-surface)] text-[var(--c9-text)] transition-[width] duration-200 ease-out ${
+      className={`sl-inspector inspector${open ? '' : ' pointer-events-none'}`}
+      style={
         open
-          ? 'border-l border-[var(--c9-border)]'
-          : 'pointer-events-none w-0 border-0'
-      }`}
-      style={open ? { width: dockWidth } : undefined}
+          ? { width: dockWidth, flex: `0 0 ${dockWidth}px` }
+          : { width: 0, flex: '0 0 0', overflow: 'hidden', border: 0 }
+      }
       aria-hidden={!open}
     >
       {open ? (
@@ -370,88 +422,125 @@ export function InspectorPanel() {
       ) : null}
       {open && node ? (
         <>
-          <header className="flex shrink-0 items-start gap-3 border-b border-[var(--c9-border)] px-4 py-3.5">
-            <span
-              className="mt-0.5 h-9 w-9 shrink-0 rounded-lg ring-1 ring-[var(--c9-border-inset)]"
-              style={{ backgroundColor: NODE_VISUAL[node.type].face }}
-              aria-hidden
-            />
-            <div className="min-w-0 flex-1">
-              {!inspectorLiveChrome &&
-              !engineerPreviewLocked &&
-              !variationTopologyLocked &&
-              !deploymentId ? (
-                <>
-                  <label className={labelClass} htmlFor="runcloud9-inspector-label">
-                    Label
-                  </label>
-                  <input
-                    id="runcloud9-inspector-label"
-                    type="text"
-                    value={node.label}
-                    onChange={(e) => updateNodeLabel(node.id, e.target.value)}
-                    className={fieldClass}
-                  />
-                </>
-              ) : (
-                <p className="truncate text-base font-semibold leading-tight text-[var(--c9-text-heading)]">
-                  {node.label}
-                </p>
-              )}
-              {roleLabel ? (
-                <p className="mt-1 text-[11px] leading-tight text-[var(--c9-muted)]">
-                  {roleLabel}
-                </p>
-              ) : null}
+          <header className="ins-head">
+            <div className="ins-head-top">
+              <span className="kind">
+                {stacklabNodeKind(node.type)}
+                {inspectorLiveChrome ? '' : ' · PREDEPLOY'}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {import.meta.env.DEV && mode === 'design' ? (
+                  <DevInspectorModeToggle compact />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => selectNode(null)}
+                  className="close"
+                  aria-label="Close inspector"
+                >
+                  <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden>
+                    <path
+                      d="M0.5 0.5 L8.5 8.5 M8.5 0.5 L0.5 8.5"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => selectNode(null)}
-              className="shrink-0 rounded-lg p-2 text-[var(--c9-muted)] transition-colors duration-200 hover:bg-[var(--c9-bg-card)] hover:text-[var(--c9-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]/50"
-              aria-label="Close inspector"
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-                <path
-                  d="M3 3l8 8M11 3 3 11"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
+            {!inspectorLiveChrome &&
+            !engineerPreviewLocked &&
+            !variationTopologyLocked &&
+            !deploymentId ? (
+              <>
+                <label className="sr-only" htmlFor="runcloud9-inspector-label">
+                  Label
+                </label>
+                <input
+                  id="runcloud9-inspector-label"
+                  type="text"
+                  value={node.label}
+                  onChange={(e) => updateNodeLabel(node.id, e.target.value)}
+                  style={{
+                    fontFamily: 'var(--disp)',
+                    fontSize: 19,
+                    fontWeight: 600,
+                    letterSpacing: '-0.015em',
+                    marginTop: 9,
+                    width: '100%',
+                    background: 'transparent',
+                    border: 0,
+                    color: 'var(--ink)',
+                  }}
                 />
-              </svg>
-            </button>
+              </>
+            ) : (
+              <h1>{node.label}</h1>
+            )}
+            {roleLabel ? <p className="role">{roleLabel}</p> : null}
+            {inspectorLiveChrome && (provisionedBadge(node) || inspectorDeployment) ? (
+              <div className="head-meta">
+                {provisionedBadge(node) ? <span>{provisionedBadge(node)}</span> : null}
+                {inspectorDeployment ? (
+                  <>
+                    {provisionedBadge(node) ? (
+                      <span style={{ color: 'var(--ink-4)' }}>/</span>
+                    ) : null}
+                    <span>deploy {inspectorDeployment.slice(0, 8)}</span>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            {!inspectorLiveChrome ? (
+              <div className="head-meta">
+                <span>draft</span>
+                <span style={{ color: 'var(--ink-4)' }}>/</span>
+                <span>ns·prod</span>
+                <span style={{ color: 'var(--ink-4)' }}>/</span>
+                <span>not deployed</span>
+              </div>
+            ) : null}
           </header>
 
           {inspectorLiveChrome ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="border-b border-[var(--c9-border)] px-4 py-3">
-                <InspectorSegmentGroup aria-label="Inspector panels" className="w-full">
+            <>
+              {!clientInert ? (
+                <nav className="tabs" aria-label="Inspector panels">
                   {(
                     [
-                      ['metrics', 'Metrics'],
-                      ['logs', 'Logs'],
-                      ['config', 'Config'],
+                      ['metrics', 'metrics'],
+                      ['logs', 'logs'],
+                      ['config', 'config'],
                       ...(node.type === 'database' ||
                       node.type === 'cache' ||
                       node.type === 'message_queue'
-                        ? ([['data', 'Data']] as [string, string][])
+                        ? ([['data', 'data']] as [string, string][])
                         : []),
                     ] as [string, string][]
                   ).map(([id, label]) => (
-                    <InspectorSegment
+                    <button
                       key={id}
-                      active={liveTab === id}
+                      type="button"
+                      className={`tab ${liveTab === id ? 'is-on' : ''}`}
                       onClick={() =>
                         setLiveTab(id as 'metrics' | 'logs' | 'config' | 'data')
                       }
-                      label={label}
-                      className="flex-1 text-center sm:flex-none"
-                    />
+                    >
+                      {label}
+                      {id === 'metrics' ? (
+                        <span className="tab-count">
+                          {metricGroupsForNode(node, nodeMetrics).length}
+                        </span>
+                      ) : null}
+                      {id === 'logs' && logTabCount > 0 ? (
+                        <span className="tab-count">{logTabCount}</span>
+                      ) : null}
+                    </button>
                   ))}
-                </InspectorSegmentGroup>
-              </div>
+                </nav>
+              ) : null}
               {showLiveStickyChrome ? (
-                <div className="shrink-0 space-y-2.5 border-b border-[var(--c9-border)] bg-[var(--c9-bg)] px-4 py-3">
+                <div className="shrink-0">
                   {showLiveInstanceTabs ? (
                     <DbInstanceTabBar
                       tabs={instanceTabs}
@@ -470,17 +559,56 @@ export function InspectorPanel() {
                     <PanelViewControls
                       view={metricsPanelView}
                       onChange={patchMetricsPanelView}
+                      showScope={showPodScopeToggle}
+                      scopeValue={
+                        !selectedInstanceId || selectedInstanceId === 'cluster'
+                          ? 'cluster'
+                          : 'instance'
+                      }
+                      scopeOptions={['cluster', 'instance']}
+                      onScopeChange={(scope) => {
+                        if (scope === 'cluster') {
+                          setSelectedInstanceId('cluster')
+                          return
+                        }
+                        const firstPod = instanceTabs.find((tab) => tab.id !== 'cluster')
+                        if (firstPod) setSelectedInstanceId(firstPod.id)
+                      }}
+                      showTimeframe={panelViewVisibility.showTimeframe}
+                      showGraphsToggle={panelViewVisibility.showGraphs}
                     />
                   ) : null}
-                </div>
-              ) : null}
-              <div className="inspector-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                {liveTab === 'metrics' ? (
-                  <>
+                  {liveTab === 'metrics' && node.type !== 'client' ? (
                     <ChaosActions
                       node={node}
                       previewMode={devMetricsPreview && !liveMode}
                     />
+                  ) : null}
+                  {liveTab === 'metrics' && cacheStrategyLabel ? (
+                    <CacheStrategyBanner strategy={cacheStrategyLabel} />
+                  ) : null}
+                  {showMetricBreadcrumb ? (
+                    <InspectorBreadcrumbNav
+                      node={node}
+                      m={nodeMetrics}
+                      activeGroupId={metricGroupId}
+                      onSelectGroup={selectMetricGroup}
+                      title={node.label}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="body">
+                {clientInert ? (
+                  <section className="sec">
+                    <p className="note">
+                      <b>i</b>Client is an external traffic source. Select a deployed component
+                      on the canvas to inspect metrics.
+                    </p>
+                  </section>
+                ) : null}
+                {!clientInert && liveTab === 'metrics' ? (
+                  <>
                     <LiveMetrics
                       node={node}
                       hideControls
@@ -488,110 +616,140 @@ export function InspectorPanel() {
                       metricsPreviewActive={devMetricsPreview && !liveMode}
                       panelView={metricsPanelView}
                       onPanelViewChange={patchMetricsPanelView}
+                      metricGroup={metricGroupId}
+                      onSelectMetricGroup={selectMetricGroup}
+                      onOpenDataTab={() => setLiveTab('data')}
+                      showLatencyControls={panelViewVisibility.showLatency}
                     />
                   </>
                 ) : null}
-                {liveTab === 'logs' ? (
-                  <ComponentLogPanel
+                {!clientInert && liveTab === 'logs' ? (
+                  <StacklabLogPanel
                     key={node.id}
                     node={node}
                     instanceId={selectedInstanceId}
                     replicaLayerIds={
                       node.type === 'database' ? replicaLayerIds : undefined
                     }
+                    onOpenMetrics={() => setLiveTab('metrics')}
                   />
                 ) : null}
-                {liveTab === 'config' ? (
-                  <div className="space-y-4">
+                {!clientInert && liveTab === 'config' ? (
+                  <section className="sec">
+                    <StacklabDeployedConfig
+                      node={node}
+                      nodes={nodes}
+                      edges={edges}
+                      metrics={nodeMetrics}
+                    />
+                    <SlHint direction="forward" onClick={() => setLiveTab('metrics')}>
+                      Limits feed <b>Metrics</b>
+                    </SlHint>
+                  </section>
+                ) : null}
+                {!clientInert && liveTab === 'data' && inspectorDeployment && node.type === 'database' ? (
+                  <section className="sec">
+                    <DataBrowser
+                      deploymentId={inspectorDeployment}
+                      component={canvasToBackend[node.type]}
+                      readReplicaCount={clampReadReplicas(node.config.readReplicas)}
+                      instanceId={showDbDataInstanceTabs ? selectedInstanceId : null}
+                      hideTargetToggle={showDbDataInstanceTabs}
+                    />
+                  </section>
+                ) : null}
+                {!clientInert && liveTab === 'data' && inspectorDeployment && node.type === 'cache' ? (
+                  <section className="sec">
+                    <CacheBrowser
+                      deploymentId={inspectorDeployment}
+                      component={canvasToBackend[node.type]}
+                      keyPatterns={cacheKeyPatterns}
+                    />
+                  </section>
+                ) : null}
+                {!clientInert &&
+                liveTab === 'data' &&
+                inspectorDeployment &&
+                node.type === 'message_queue' ? (
+                  <section className="sec">
+                    <QueueBrowser
+                      deploymentId={inspectorDeployment}
+                      component={canvasToBackend[node.type]}
+                      queueName={String(node.config.queueName ?? 'orders').trim() || 'orders'}
+                    />
+                  </section>
+                ) : null}
+              </div>
+              <div className="panel-foot">
+                <span>
+                  <span className={`live-sq${liveMode ? '' : ' paused'}`} />
+                  <span>
+                    {liveMode ? 'LIVE' : 'PREVIEW'} ·{' '}
+                    {metricsPanelView.timeframe === 'session' ? 'SESSION · AGGREGATE' : '10s WINDOW'}
+                    {!clientInert ? (
+                      <>
+                        {' '}
+                        ·{' '}
+                        {!selectedInstanceId || selectedInstanceId === 'cluster'
+                          ? 'cluster'
+                          : 'instance'}
+                      </>
+                    ) : null}
+                  </span>
+                </span>
+                <span>{node.label}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="body">
+                <section className="sec">
+                  {engineerPreviewLocked ? <EngineerLockedInspectorNotice /> : null}
+                  <div className="pcfg-stack">
                     <TypeFields
                       node={node}
                       edges={edges}
                       nodes={nodes}
-                      simulationMode={false}
-                      readOnly={configFieldsReadOnly}
+                      simulationMode={simulationMode}
+                      readOnly={engineerPreviewLocked || Boolean(deploymentId)}
                       loadedVariationId={loadedVariationId}
                       updateConfig={
-                        configFieldsReadOnly
+                        engineerPreviewLocked || deploymentId
                           ? () => {}
                           : (patch) => updateNodeConfig(node.id, patch)
                       }
                       templateId={snapshotTemplateId}
                     />
-                    {provisionedBadge(node) ? (
-                      <p className={`${badgeClass} inline-block`}>
-                        Provisioned: {provisionedBadge(node)}
-                      </p>
-                    ) : null}
                   </div>
-                ) : null}
-                {liveTab === 'data' && inspectorDeployment && node.type === 'database' ? (
-                  <DataBrowser
-                    deploymentId={inspectorDeployment}
-                    component={canvasToBackend[node.type]}
-                    readReplicaCount={clampReadReplicas(node.config.readReplicas)}
-                    instanceId={showDbDataInstanceTabs ? selectedInstanceId : null}
-                    hideTargetToggle={showDbDataInstanceTabs}
-                  />
-                ) : null}
-                {liveTab === 'data' && inspectorDeployment && node.type === 'cache' ? (
-                  <CacheBrowser
-                    deploymentId={inspectorDeployment}
-                    component={canvasToBackend[node.type]}
-                    keyPatterns={cacheKeyPatterns}
-                  />
-                ) : null}
-                {liveTab === 'data' &&
-                inspectorDeployment &&
-                node.type === 'message_queue' ? (
-                  <QueueBrowser
-                    deploymentId={inspectorDeployment}
-                    component={canvasToBackend[node.type]}
-                  />
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="inspector-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
-                {engineerPreviewLocked ? <EngineerLockedInspectorNotice /> : null}
-                <TypeFields
-                  node={node}
-                  edges={edges}
-                  nodes={nodes}
-                  simulationMode={simulationMode}
-                  readOnly={engineerPreviewLocked || Boolean(deploymentId)}
-                  loadedVariationId={loadedVariationId}
-                  updateConfig={
-                    engineerPreviewLocked || deploymentId
-                      ? () => {}
-                      : (patch) => updateNodeConfig(node.id, patch)
-                  }
-                  templateId={snapshotTemplateId}
-                />
-                {quotaDisplay ? (
-                  <p className="text-[11px] leading-snug text-amber-300/90">
-                    This design is {quotaDisplay.requested.cpu} /{' '}
-                    {quotaDisplay.requested.memory}, but{' '}
-                    {displayQuotaTierLabel(quotaTier)} allows {quotaDisplay.cap.cpu} /{' '}
-                    {quotaDisplay.cap.memory} on the canvas. Downsize nodes or replicas to
-                    deploy.
-                  </p>
-                ) : null}
-                {simulationMode ? <LiveMetrics node={node} /> : null}
-              </div>
-              {!inspectorLiveChrome ? (
-                <div className="shrink-0 border-t border-[var(--c9-border)] p-4">
-                  {!variationTopologyLocked && !deploymentId ? (
+                  {quotaDisplay ? (
+                    <p className="note amber">
+                      <b>!</b>
+                      This design is {quotaDisplay.requested.cpu} / {quotaDisplay.requested.memory},
+                      but {displayQuotaTierLabel(quotaTier)} allows {quotaDisplay.cap.cpu} /{' '}
+                      {quotaDisplay.cap.memory} on the canvas. Downsize nodes or replicas to deploy.
+                    </p>
+                  ) : null}
+                  {simulationMode ? <LiveMetrics node={node} /> : null}
+                </section>
+                {!variationTopologyLocked && !deploymentId ? (
+                  <section className="sec">
                     <button
                       type="button"
+                      className="btn danger"
+                      style={{ display: 'block', width: '100%', textAlign: 'center' }}
                       onClick={onDelete}
-                      className="w-full rounded bg-red-900/80 px-4 py-2.5 text-sm font-medium text-red-100 transition-colors duration-200 hover:bg-red-800"
                     >
                       Delete node
                     </button>
-                  ) : null}
-                </div>
-              ) : null}
+                  </section>
+                ) : null}
+              </div>
+              <div className="panel-foot">
+                <span>
+                  <span className="live-sq paused" />
+                  DRAFT · NOT DEPLOYED
+                </span>
+              </div>
             </>
           )}
         </>
@@ -772,112 +930,95 @@ export function CacheNodeInspectorFields({
     strategyLocked,
   ])
 
+  const strategyOptions =
+    strategyReadOnly || ambiguousTopology
+      ? [
+          {
+            value: strategy,
+            label: `${CACHE_STRATEGY_LABEL[strategy] ?? strategy}${
+              !strategyReadOnly && ambiguousTopology ? ' (fix wiring)' : ''
+            }`,
+          },
+        ]
+      : available.map((v) => ({ value: v, label: CACHE_STRATEGY_LABEL[v] ?? v }))
+
+  const applyStrategy = (next: string) => {
+    if (strategyReadOnly) return
+    const prev = selectValue
+    const patch: Partial<CanvasNode['config']> = {
+      cacheStrategy: next,
+      strategy: next,
+    }
+    if (isProxyCacheStrategy(next)) {
+      if (!proxyInstanceSize && !proxyResourceProfile) {
+        const proxySize = defaultProxyResourceProfile(redisProfileFromConfig(c))
+        patch.proxyInstanceSize = proxySize
+        patch.proxyResourceProfile = proxySize
+      }
+    } else {
+      patch.proxyInstanceSize = undefined
+      patch.proxyResourceProfile = undefined
+    }
+    if (
+      templateSupportsWriteBehindInterval(templateId) &&
+      next === 'write-behind' &&
+      c.writeBehindIntervalSeconds == null
+    ) {
+      patch.writeBehindIntervalSeconds = WRITE_BEHIND_INTERVAL_DEFAULT
+    }
+    updateConfig(patch)
+    const template = templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+    trackEvent('design_option_changed', {
+      template,
+      optionName: 'cache_strategy',
+      previousCategory: prev,
+      newCategory: next,
+    })
+  }
+
   return (
     <>
-      <div>
-        <span className={labelClass}>Engine</span>
-        <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-          Redis
-        </span>
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="cache-strat">
-          Cache strategy
-        </label>
-        <select
-          id="cache-strat"
-          className={`${fieldClass}${strategyReadOnly || ambiguousTopology ? ' cursor-not-allowed opacity-60' : ''}`}
+      <PcfgField
+        label="Strategy"
+        sub={
+          showProxyReadThroughNote
+            ? 'Proxy needs cache-to-database. Read-through refills Redis on miss.'
+            : 'Whether writes go through the cache or are written to the store first.'
+        }
+      >
+        <PcfgOptions
+          variant="seg"
+          label="Strategy"
           value={selectValue}
           disabled={strategyReadOnly || ambiguousTopology}
-          onChange={(e) => {
-            if (strategyReadOnly) return
-            const prev = selectValue
-            const next = e.target.value
-            const patch: Partial<CanvasNode['config']> = {
-              cacheStrategy: next,
-              strategy: next,
-            }
-            if (isProxyCacheStrategy(next)) {
-              if (!proxyInstanceSize && !proxyResourceProfile) {
-                const proxySize = defaultProxyResourceProfile(
-                  redisProfileFromConfig(c),
-                )
-                patch.proxyInstanceSize = proxySize
-                patch.proxyResourceProfile = proxySize
-              }
-            } else {
-              patch.proxyInstanceSize = undefined
-              patch.proxyResourceProfile = undefined
-            }
-            if (
-              templateSupportsWriteBehindInterval(templateId) &&
-              next === 'write-behind' &&
-              c.writeBehindIntervalSeconds == null
-            ) {
-              patch.writeBehindIntervalSeconds = WRITE_BEHIND_INTERVAL_DEFAULT
-            }
-            updateConfig(patch)
-            const template = templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-            trackEvent('design_option_changed', {
-              template,
-              optionName: 'cache_strategy',
-              previousCategory: prev,
-              newCategory: next,
-            })
-          }}
-        >
-          {strategyReadOnly || ambiguousTopology ? (
-            <option value={strategy}>
-              {CACHE_STRATEGY_LABEL[strategy] ?? strategy}
-              {!strategyReadOnly && ambiguousTopology ? ' (fix wiring)' : ''}
-            </option>
-          ) : (
-            available.map((v) => (
-              <option key={v} value={v}>
-                {CACHE_STRATEGY_LABEL[v] ?? v}
-              </option>
-            ))
-          )}
-        </select>
-        <InlineDisclosure label="How strategies differ">
-          Proxy needs cache-to-database. Cache-aside needs the app talking to the
-          database.
-        </InlineDisclosure>
-        {showProxyReadThroughNote ? (
-          <InlineDisclosure label="Read-through (always on)">
-            On miss, the proxy loads from Postgres and refills Redis. The app does
-            not read the database.
-          </InlineDisclosure>
-        ) : null}
-        {!strategyReadOnly && ambiguousTopology ? (
-          <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
-            This wiring is invalid: a connector reaches this cache and the database while the cache
-            also reaches the database. Remove either the direct connector→database link or the
-            cache→database link, then pick a strategy again.
-          </p>
-        ) : null}
-      </div>
+          options={strategyOptions}
+          segWrap
+          segTight
+          onChange={applyStrategy}
+        />
+      </PcfgField>
+      {!strategyReadOnly && ambiguousTopology ? (
+        <p className="note amber">
+          <b>!</b>
+          Invalid wiring: remove either the connector→database link or the cache→database link,
+          then pick a strategy again.
+        </p>
+      ) : null}
       {showWriteBehindInterval ? (
-        <div>
-          <label className={labelClass} htmlFor="cache-write-behind-interval">
-            <span className="inline-flex items-center gap-1">
-              Write-behind flush interval (seconds)
-              <InfoTooltip text="How often the proxy flushes writes to the database." />
-            </span>
-          </label>
-          <input
+        <PcfgField
+          label="Flush interval"
+          htmlFor="cache-write-behind-interval"
+          sub="How often the proxy flushes writes to the database."
+        >
+          <PcfgNum
             id="cache-write-behind-interval"
-            type="number"
+            value={writeBehindDraft}
+            unit="s"
             min={WRITE_BEHIND_INTERVAL_MIN}
             max={WRITE_BEHIND_INTERVAL_MAX}
-            step={1}
-            className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-            value={writeBehindDraft}
             disabled={readOnly}
-            title="Shorter keeps cache and database closer. Longer delays durable writes."
-            onChange={(e) => {
+            onChange={(nextDraft) => {
               if (readOnly) return
-              const nextDraft = e.target.value
               setWriteBehindDraft(nextDraft)
               const commit = commitWriteBehindIntervalDraft(
                 nextDraft,
@@ -886,9 +1027,7 @@ export function CacheNodeInspectorFields({
               if (!commit.ok || !commit.changed) return
               updateConfig({ writeBehindIntervalSeconds: commit.next })
               const template =
-                templateId ??
-                useCanvasStore.getState().snapshotTemplateId ??
-                'unknown'
+                templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
               trackEvent('design_option_changed', {
                 template,
                 optionName: 'write_behind_interval',
@@ -898,166 +1037,130 @@ export function CacheNodeInspectorFields({
             }}
           />
           {!writeBehindDraftValid ? (
-            <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+            <p className="note amber" style={{ marginTop: 8 }}>
+              <b>!</b>
               {WRITE_BEHIND_INTERVAL_VALIDATION}
             </p>
           ) : null}
-        </div>
+        </PcfgField>
       ) : null}
-      <div>
-        <label className={labelClass} htmlFor="cache-ttl">
-          <span className="inline-flex items-center gap-1">
-            Cache TTL
-            <InfoTooltip text={CACHE_TTL_HELPER} />
-          </span>
-        </label>
-        <label className="mb-2 flex items-center gap-2 text-xs text-[var(--c9-text)]">
-          <input
-            id="cache-ttl-no-expiry"
-            type="checkbox"
-            className="rounded border-[var(--c9-border)]"
-            checked={noExpiry}
-            disabled={readOnly}
-            onChange={(e) => {
-              if (readOnly) return
-              const enableNoExpiry = e.target.checked
-              const template =
-                templateId ??
-                useCanvasStore.getState().snapshotTemplateId ??
-                'unknown'
-              const prev = storedCacheTtl ?? templateTtlDefault ?? lastPositiveTtl
-              if (enableNoExpiry) {
-                if (storedCacheTtl != null && storedCacheTtl > 0) {
-                  setLastPositiveTtl(storedCacheTtl)
-                  setTtlDraft(String(storedCacheTtl))
-                }
-                updateConfig({ cacheTtlSeconds: 0 })
-                if (prev !== 0) {
-                  trackEvent('design_option_changed', {
-                    template,
-                    optionName: 'cache_ttl',
-                    previousCategory: String(prev),
-                    newCategory: '0',
-                  })
-                }
-                return
+      <PcfgField
+        label="Default TTL"
+        sub="Seconds a value survives before it is evicted."
+      >
+        <PcfgChk
+          id="cache-ttl-no-expiry"
+          label="No expiry"
+          checked={noExpiry}
+          disabled={readOnly}
+          onChange={(enableNoExpiry) => {
+            if (readOnly) return
+            const template =
+              templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+            const prev = storedCacheTtl ?? templateTtlDefault ?? lastPositiveTtl
+            if (enableNoExpiry) {
+              if (storedCacheTtl != null && storedCacheTtl > 0) {
+                setLastPositiveTtl(storedCacheTtl)
+                setTtlDraft(String(storedCacheTtl))
               }
-              const restored = lastPositiveTtl
-              updateConfig({ cacheTtlSeconds: restored })
-              setTtlDraft(String(restored))
-              if (prev !== restored) {
+              updateConfig({ cacheTtlSeconds: 0 })
+              if (prev !== 0) {
                 trackEvent('design_option_changed', {
                   template,
                   optionName: 'cache_ttl',
                   previousCategory: String(prev),
-                  newCategory: String(restored),
+                  newCategory: '0',
                 })
               }
-            }}
-          />
-          No expiry
-        </label>
-        {!noExpiry ? (
-          <>
-            <input
-              id="cache-ttl"
-              type="number"
-              min={CACHE_TTL_MIN}
-              max={CACHE_TTL_MAX}
-              step={1}
-              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={ttlDraft}
-              disabled={readOnly}
-              onChange={(e) => {
-                if (readOnly) return
-                const nextDraft = e.target.value
-                setTtlDraft(nextDraft)
-                const previous =
-                  storedCacheTtl != null && storedCacheTtl > 0
-                    ? storedCacheTtl
-                    : lastPositiveTtl
-                const commit = commitTimedCacheTtlDraft(nextDraft, previous)
-                if (!commit.ok || !commit.changed) return
-                setLastPositiveTtl(commit.next)
-                updateConfig({ cacheTtlSeconds: commit.next })
-                const template =
-                  templateId ??
-                  useCanvasStore.getState().snapshotTemplateId ??
-                  'unknown'
-                trackEvent('design_option_changed', {
-                  template,
-                  optionName: 'cache_ttl',
-                  previousCategory: String(previous),
-                  newCategory: String(commit.next),
-                })
-              }}
-            />
-            {!ttlDraftValid ? (
-              <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
-                {CACHE_TTL_VALIDATION}
-              </p>
-            ) : null}
-          </>
-        ) : null}
-        <InlineDisclosure label="TTL vs eviction">
-          TTL is a per-key timer set when the key is written. Eviction is a
-          memory-pressure policy that removes keys when maxmemory is reached.
-          Both can remove the same key, but they operate independently.
-        </InlineDisclosure>
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="cache-eviction">
-          <span className="inline-flex items-center gap-1">
-            Eviction policy
-            <InfoTooltip text="How Redis frees memory when full. TTL expiry is independent." />
-          </span>
-        </label>
-        <select
-          id="cache-eviction"
-          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-          value={evictionPolicy}
-          disabled={readOnly}
-          onChange={(e) =>
-            {
-              if (readOnly) return
-              const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
-              const next = normalizeRedisEvictionPolicy(e.target.value)
-              updateConfig({ evictionPolicy: next })
-              const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+              return
+            }
+            const restored = lastPositiveTtl
+            updateConfig({ cacheTtlSeconds: restored })
+            setTtlDraft(String(restored))
+            if (prev !== restored) {
               trackEvent('design_option_changed', {
                 template,
-                optionName: 'eviction_policy',
-                previousCategory: prev,
-                newCategory: next,
+                optionName: 'cache_ttl',
+                previousCategory: String(prev),
+                newCategory: String(restored),
               })
             }
-          }
-        >
-          {REDIS_EVICTION_POLICIES.map((p) => (
-            <option
-              key={p}
-              value={p}
-              title={REDIS_EVICTION_POLICY_DESCRIPTION[p]}
-            >
-              {REDIS_EVICTION_POLICY_LABEL[p]}
-            </option>
-          ))}
-        </select>
-        <InlineDisclosure label="What this means">
-          {REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
-        </InlineDisclosure>
+          }}
+        />
+        {!noExpiry ? (
+          <PcfgNum
+            id="cache-ttl"
+            value={ttlDraft}
+            unit="s"
+            min={CACHE_TTL_MIN}
+            max={CACHE_TTL_MAX}
+            disabled={readOnly}
+            onChange={(nextDraft) => {
+              if (readOnly) return
+              setTtlDraft(nextDraft)
+              const previous =
+                storedCacheTtl != null && storedCacheTtl > 0 ? storedCacheTtl : lastPositiveTtl
+              const commit = commitTimedCacheTtlDraft(nextDraft, previous)
+              if (!commit.ok || !commit.changed) return
+              setLastPositiveTtl(commit.next)
+              updateConfig({ cacheTtlSeconds: commit.next })
+              const template =
+                templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+              trackEvent('design_option_changed', {
+                template,
+                optionName: 'cache_ttl',
+                previousCategory: String(previous),
+                newCategory: String(commit.next),
+              })
+            }}
+          />
+        ) : null}
+        {!noExpiry && !ttlDraftValid ? (
+          <p className="note amber" style={{ marginTop: 8 }}>
+            <b>!</b>
+            {CACHE_TTL_VALIDATION}
+          </p>
+        ) : null}
+      </PcfgField>
+      <PcfgField
+        label="Eviction policy"
+        sub={REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
+      >
+        <PcfgOptions
+          variant="dd"
+          id="cache-eviction"
+          label="Eviction policy"
+          value={evictionPolicy}
+          disabled={readOnly}
+          options={REDIS_EVICTION_POLICIES.map((p) => ({
+            value: p,
+            label: p,
+          }))}
+          onChange={(next) => {
+            if (readOnly) return
+            const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
+            const normalized = normalizeRedisEvictionPolicy(next)
+            updateConfig({ evictionPolicy: normalized })
+            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+            trackEvent('design_option_changed', {
+              template,
+              optionName: 'eviction_policy',
+              previousCategory: prev,
+              newCategory: normalized,
+            })
+          }}
+        />
         {showVolatileWarning ? (
-          <p className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-snug text-amber-700 dark:text-amber-200">
+          <p className="note amber" style={{ marginTop: 8 }}>
+            <b>!</b>
             {VOLATILE_NO_EXPIRY_WARNING}
           </p>
         ) : null}
-      </div>
+      </PcfgField>
       <ResourceProfileFields
         idPrefix="cache"
         nodeType="cache"
         config={c}
-        label="Redis size"
-        helperText="Sizes redis-internal. Memory limit for eviction comes from this profile."
         updateConfig={updateConfig}
         readOnly={readOnly}
         maxInstanceSize={maxInstanceSize}
@@ -1067,46 +1170,39 @@ export function CacheNodeInspectorFields({
           idPrefix="cache-proxy"
           nodeType="cache"
           config={c}
-          label="Proxy size"
+          label="Proxy profile"
           configKey="proxyInstanceSize"
           updateConfig={updateConfig}
           readOnly={readOnly}
-        maxInstanceSize={maxInstanceSize}
+          maxInstanceSize={maxInstanceSize}
         />
       ) : null}
       {simulationMode ? (
-        <>
-          <div>
-            <label className={labelClass} htmlFor="cache-cap">
-              Capacity override (RPS, optional)
-            </label>
-            <input
-              id="cache-cap"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="Auto"
-              className={fieldClass}
-              value={
-                Number.isFinite(Number(c.nodeCapacityRps)) &&
-                Number(c.nodeCapacityRps) > 0
-                  ? String(Number(c.nodeCapacityRps))
-                  : ''
+        <PcfgField
+          label="Capacity override"
+          htmlFor="cache-cap"
+          sub="Optional RPS ceiling. Empty leaves capacity on automatic."
+        >
+          <PcfgNum
+            id="cache-cap"
+            value={
+              Number.isFinite(Number(c.nodeCapacityRps)) && Number(c.nodeCapacityRps) > 0
+                ? String(Number(c.nodeCapacityRps))
+                : ''
+            }
+            unit="rps"
+            min={1}
+            placeholder="Auto"
+            onChange={(raw) => {
+              if (!raw) {
+                updateConfig({ nodeCapacityRps: undefined })
+                return
               }
-              onChange={(e) => {
-                const v = e.target.value.trim()
-                if (!v) {
-                  updateConfig({ nodeCapacityRps: undefined })
-                  return
-                }
-                const n = Number(v)
-                if (Number.isFinite(n) && n > 0) {
-                  updateConfig({ nodeCapacityRps: n })
-                }
-              }}
-            />
-          </div>
-        </>
+              const n = Number(raw)
+              if (Number.isFinite(n) && n > 0) updateConfig({ nodeCapacityRps: n })
+            }}
+          />
+        </PcfgField>
       ) : null}
     </>
   )
@@ -1146,21 +1242,35 @@ function TypeFields({
     case 'load_balancer': {
       const rawAlgo = String(c.algorithm ?? c.lbAlgorithm ?? 'round-robin')
       const liveAlgo = lbAlgorithmForDeploy(rawAlgo)
+      const algoValue = simulationMode ? rawAlgo : liveAlgo
+      const algoOptions = simulationMode
+        ? [
+            { value: 'round-robin', label: 'Round-robin' },
+            { value: 'weighted', label: 'Weighted' },
+            { value: 'least-connections', label: 'Least connections' },
+            { value: 'weighted-least-connections', label: 'Weighted least connections' },
+            { value: 'ip-hash', label: 'IP hash' },
+            { value: 'least-response-time', label: 'Least response time' },
+            { value: 'random', label: 'Random' },
+            { value: 'least-bandwidth', label: 'Least bandwidth' },
+          ]
+        : LIVE_LB_ALGORITHMS.map((algo) => ({ value: algo, label: algo }))
       return (
-        <div className="space-y-4">
-          <div>
-            <label className={labelClass} htmlFor="lb-algo">
-              Algorithm
-            </label>
-            <select
+        <>
+          <PcfgField
+            label="Algorithm"
+            sub="How new connections are assigned across the backend pool."
+          >
+            <PcfgOptions
+              variant="dd"
               id="lb-algo"
-              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={simulationMode ? rawAlgo : liveAlgo}
+              label="Algorithm"
+              value={algoValue}
               disabled={readOnly}
-              onChange={(e) => {
+              options={algoOptions}
+              onChange={(v) => {
                 if (readOnly) return
-                const prev = simulationMode ? rawAlgo : liveAlgo
-                const v = e.target.value
+                const prev = algoValue
                 const next = simulationMode ? v : lbAlgorithmForDeploy(v)
                 updateConfig({ algorithm: next, lbAlgorithm: next })
                 const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
@@ -1171,76 +1281,48 @@ function TypeFields({
                   newCategory: next,
                 })
               }}
-            >
-              {simulationMode ? (
-                <>
-                  <option value="round-robin">round-robin</option>
-                  <option value="weighted">weighted (use backend weights)</option>
-                  <option value="least-connections">least-connections</option>
-                  <option value="weighted-least-connections">
-                    weighted-least-connections
-                  </option>
-                  <option value="ip-hash">ip-hash</option>
-                  <option value="least-response-time">least-response-time</option>
-                  <option value="random">random (seeded)</option>
-                  <option value="least-bandwidth">least-bandwidth</option>
-                </>
-              ) : (
-                LIVE_LB_ALGORITHMS.map((algo) => (
-                  <option key={algo} value={algo}>
-                    {algo}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
+            />
+          </PcfgField>
           {!simulationMode ? (
             <>
-              <div>
-                <label className={`${labelClass} flex items-center gap-2 normal-case`}>
-                  <input
-                    id="lb-weight-by-size"
-                    type="checkbox"
-                    className={readOnly ? 'cursor-not-allowed opacity-60' : ''}
-                    checked={Boolean(c.weightByInstanceSize)}
-                    disabled={readOnly}
-                    onChange={(e) => {
-                      if (readOnly) return
-                      updateConfig({ weightByInstanceSize: e.target.checked })
-                    }}
-                  />
-                  <span className="inline-flex items-center gap-1">
-                    Weight by instance size
-                    <InfoTooltip text="Off: equal share per pod. On: small 1, medium 2, large 4." />
-                  </span>
-                </label>
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="lb-rate-limit-per-ip">
-                  <span className="inline-flex items-center gap-1">
-                    Per-IP request limit (RPS)
-                    <InfoTooltip text="0 = off. Nginx 429s that virtual client above this RPS." />
-                  </span>
-                </label>
-                <input
+              <PcfgField
+                label="Weight by instance size"
+                sub="Off: equal share per pod. On: small 1, medium 2, large 4."
+              >
+                <PcfgOptions
+                  variant="seg"
+                  label="Weight by instance size"
+                  value={c.weightByInstanceSize ? 'on' : 'off'}
+                  disabled={readOnly}
+                  options={[
+                    { value: 'off', label: 'Off' },
+                    { value: 'on', label: 'On' },
+                  ]}
+                  onChange={(v) => {
+                    if (readOnly) return
+                    updateConfig({ weightByInstanceSize: v === 'on' })
+                  }}
+                />
+              </PcfgField>
+              <PcfgField
+                label="Per-IP request limit"
+                htmlFor="lb-rate-limit-per-ip"
+                sub="Cap on requests from any single client IP before the router sheds load. 0 turns the cap off."
+              >
+                <PcfgNum
                   id="lb-rate-limit-per-ip"
-                  type="number"
+                  value={Number(c.rateLimitPerIp ?? 0)}
+                  unit="rps"
                   min={0}
                   max={100}
-                  step={1}
-                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-                  value={Number(c.rateLimitPerIp ?? 0)}
                   disabled={readOnly}
-                  onChange={(e) => {
+                  onChange={(raw) => {
                     if (readOnly) return
-                    const next = Math.min(
-                      100,
-                      Math.max(0, Math.floor(Number(e.target.value) || 0)),
-                    )
+                    const next = Math.min(100, Math.max(0, Math.floor(Number(raw) || 0)))
                     updateConfig({ rateLimitPerIp: next })
                   }}
                 />
-              </div>
+              </PcfgField>
             </>
           ) : null}
           <ResourceProfileFields
@@ -1254,79 +1336,77 @@ function TypeFields({
           />
           {simulationMode ? (
             <>
-              <div>
-                <label className={labelClass} htmlFor="lb-cap">
-                  Capacity override (RPS, optional)
-                </label>
-                <input
+              <PcfgField
+                label="Capacity override"
+                htmlFor="lb-cap"
+                sub="Optional RPS ceiling. Empty leaves capacity on automatic."
+              >
+                <PcfgNum
                   id="lb-cap"
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="Auto"
-                  className={fieldClass}
                   value={
                     Number.isFinite(Number(c.nodeCapacityRps)) &&
                     Number(c.nodeCapacityRps) > 0
                       ? String(Number(c.nodeCapacityRps))
                       : ''
                   }
-                  onChange={(e) => {
-                    const v = e.target.value.trim()
-                    if (!v) {
+                  unit="rps"
+                  min={1}
+                  placeholder="Auto"
+                  onChange={(raw) => {
+                    if (!raw) {
                       updateConfig({ nodeCapacityRps: undefined })
                       return
                     }
-                    const n = Number(v)
-                    if (Number.isFinite(n) && n > 0) {
-                      updateConfig({ nodeCapacityRps: n })
-                    }
+                    const n = Number(raw)
+                    if (Number.isFinite(n) && n > 0) updateConfig({ nodeCapacityRps: n })
                   }}
                 />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="lb-weights">
-                  Backend weights (JSON: node id → weight)
-                </label>
-                <textarea
-                  id="lb-weights"
-                  rows={3}
-                  className={fieldClass}
-                  placeholder='{"app-a":3,"app-b":1}'
-                  defaultValue={
-                    c.backendWeights &&
-                    typeof c.backendWeights === 'object' &&
-                    !Array.isArray(c.backendWeights)
-                      ? JSON.stringify(c.backendWeights, null, 2)
-                      : ''
-                  }
-                  key={JSON.stringify(c.backendWeights ?? null)}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim()
-                    if (!v) {
-                      updateConfig({ backendWeights: undefined })
-                      return
+              </PcfgField>
+              <PcfgField
+                label="Backend weights"
+                htmlFor="lb-weights"
+                sub="JSON map of node id to weight."
+              >
+                <div className="numfld">
+                  <textarea
+                    id="lb-weights"
+                    rows={3}
+                    placeholder='{"app-a":3,"app-b":1}'
+                    defaultValue={
+                      c.backendWeights &&
+                      typeof c.backendWeights === 'object' &&
+                      !Array.isArray(c.backendWeights)
+                        ? JSON.stringify(c.backendWeights, null, 2)
+                        : ''
                     }
-                    try {
-                      const parsed = JSON.parse(v) as unknown
-                      if (
-                        parsed &&
-                        typeof parsed === 'object' &&
-                        !Array.isArray(parsed)
-                      ) {
-                        updateConfig({
-                          backendWeights: parsed as Record<string, number>,
-                        })
+                    key={JSON.stringify(c.backendWeights ?? null)}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim()
+                      if (!v) {
+                        updateConfig({ backendWeights: undefined })
+                        return
                       }
-                    } catch {
-                      /* keep previous */
-                    }
-                  }}
-                />
-              </div>
+                      try {
+                        const parsed = JSON.parse(v) as unknown
+                        if (
+                          parsed &&
+                          typeof parsed === 'object' &&
+                          !Array.isArray(parsed)
+                        ) {
+                          updateConfig({
+                            backendWeights: parsed as Record<string, number>,
+                          })
+                        }
+                      } catch {
+                        /* keep previous */
+                      }
+                    }}
+                  />
+                </div>
+              </PcfgField>
             </>
           ) : null}
-        </div>
+        </>
       )
     }
 
@@ -1341,38 +1421,22 @@ function TypeFields({
       const seedCapacity = seedEventCapacityFromConfig(c)
       return (
         <>
-          <div>
-            <label className={labelClass} htmlFor="compute-replicas">
-              <span className="inline-flex items-center gap-1">
-                Replicas
-                <InfoTooltip
-                  text={
-                    replicasLocked
-                      ? REPLICAS_HELP_FREE
-                      : replicasHelpPaid(maxAppReplicas)
-                  }
-                />
-              </span>
-            </label>
-            <input
-              id="compute-replicas"
-              type="number"
+          <PcfgField
+            label="Replicas"
+            sub={
+              replicasLocked
+                ? REPLICAS_HELP_FREE
+                : 'Number of identical app-server instances to run behind the load balancer.'
+            }
+          >
+            <PcfgStepper
+              label="Replicas"
+              value={replicas}
               min={APP_SERVER_REPLICA_MIN}
               max={maxAppReplicas}
-              step={1}
-              className={`${fieldClass}${replicasDisabled ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={replicas}
-              readOnly={replicasDisabled}
               disabled={replicasDisabled}
-              title={
-                !readOnly && replicasLocked
-                  ? UPGRADE_TO_SCALE_REPLICAS_TOOLTIP
-                  : undefined
-              }
-              onChange={(e) => {
+              onChange={(n) => {
                 if (replicasDisabled) return
-                const n = Number(e.target.value)
-                if (!Number.isFinite(n)) return
                 const prev = replicas
                 const next = clampAppServerReplicas(n, maxAppReplicas)
                 const sizes = normalizeInstanceSizes(c, next)
@@ -1391,15 +1455,17 @@ function TypeFields({
                 })
               }}
             />
-          </div>
+          </PcfgField>
           {replicas > 1 ? (
             <InstanceSizeCopyFields
               idPrefix="compute"
+              nodeType="compute"
               config={c}
               replicaCount={replicas}
               updateConfig={updateConfig}
               readOnly={readOnly}
-        maxInstanceSize={maxInstanceSize}
+              maxInstanceSize={maxInstanceSize}
+              labelForIndex={(i) => `Replica ${i + 1} size`}
             />
           ) : (
             <ResourceProfileFields
@@ -1419,126 +1485,100 @@ function TypeFields({
             />
           )}
           {showPurchaseMode ? (
-            <div>
-              <label className={labelClass} htmlFor="compute-purchase-mode">
-                <span className="inline-flex items-center gap-1">
-                  Purchase mode
-                  <InfoTooltip text={PURCHASE_MODE_HELP} />
-                </span>
-              </label>
-              <select
-                id="compute-purchase-mode"
-                className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+            <PcfgField label="Purchase mode" sub={PURCHASE_MODE_HELP}>
+              <PcfgOptions
+                variant="seg"
+                label="Purchase mode"
                 value={purchaseMode}
                 disabled={readOnly}
-                onChange={(e) => {
+                options={[
+                  { value: 'unsafe', label: 'unsafe' },
+                  { value: 'safe', label: 'row-lock' },
+                  { value: 'optimistic', label: 'optimistic' },
+                ]}
+                segTight
+                onChange={(next) => {
                   if (readOnly) return
                   const prev = purchaseMode
-                  const next = normalizePurchaseMode(e.target.value)
-                  updateConfig({ purchaseMode: next })
+                  const normalized = normalizePurchaseMode(next)
+                  updateConfig({ purchaseMode: normalized })
                   const template =
                     templateId ?? useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
                   trackEvent('design_option_changed', {
                     template,
                     optionName: 'purchase_mode',
                     previousCategory: prev,
-                    newCategory: next,
+                    newCategory: normalized,
                   })
                 }}
-              >
-                <option value="unsafe">Unsafe (app read-then-write)</option>
-                <option value="safe">Row lock (FOR UPDATE)</option>
-                <option value="optimistic">Conditional UPDATE</option>
-              </select>
-              <div className="mt-2 rounded-md border border-[var(--c9-border)]/80 bg-[var(--c9-bg)]/60 px-2.5 py-2">
-                <p className="text-[10px] font-medium text-[var(--c9-text)]">
-                  {pathInfo.layer}
-                </p>
-                <ul className="mt-1.5 space-y-1 font-mono text-[10px] leading-relaxed text-[var(--c9-muted)]">
-                  {pathInfo.sql.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-[10px] leading-relaxed text-[var(--c9-muted)]">
-                  {pathInfo.underDrop}
-                </p>
-              </div>
-            </div>
+              />
+              <p className="pcfg-sub" style={{ marginTop: 8 }}>
+                {pathInfo.layer} · {pathInfo.sql.join(' ')} {pathInfo.underDrop}
+              </p>
+            </PcfgField>
           ) : null}
           {showPurchaseMode ? (
             <>
-              <div>
-                <label className={labelClass} htmlFor="compute-seed-event-name">
-                  Event name
-                </label>
-                <input
-                  id="compute-seed-event-name"
-                  type="text"
-                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-                  value={seedName}
-                  readOnly={readOnly}
-                  disabled={readOnly}
-                  onChange={(e) => {
-                    if (readOnly) return
-                    updateConfig({ seedEventName: e.target.value })
-                  }}
-                />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="compute-seed-event-capacity">
-                  Ticket capacity
-                </label>
-                <input
+              <PcfgField label="Event name" htmlFor="compute-seed-event-name">
+                <div className="numfld">
+                  <input
+                    id="compute-seed-event-name"
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={seedName}
+                    disabled={readOnly}
+                    onChange={(e) => {
+                      if (readOnly) return
+                      updateConfig({ seedEventName: e.target.value })
+                    }}
+                  />
+                </div>
+              </PcfgField>
+              <PcfgField label="Ticket capacity" htmlFor="compute-seed-event-capacity">
+                <PcfgNum
                   id="compute-seed-event-capacity"
-                  type="number"
+                  value={seedCapacity}
                   min={SEED_EVENT_CAPACITY_MIN}
                   max={SEED_EVENT_CAPACITY_MAX}
-                  step={1}
-                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-                  value={seedCapacity}
-                  readOnly={readOnly}
                   disabled={readOnly}
-                  onChange={(e) => {
+                  onChange={(raw) => {
                     if (readOnly) return
-                    const n = Number(e.target.value)
+                    const n = Number(raw)
                     if (!Number.isFinite(n)) return
                     updateConfig({ seedEventCapacity: Math.floor(n) })
                   }}
                 />
-              </div>
+              </PcfgField>
             </>
           ) : null}
           {simulationMode ? (
-            <div>
-              <label className={labelClass} htmlFor="compute-cap">
-                Capacity override (RPS, optional)
-              </label>
-              <input
+            <PcfgField
+              label="Capacity override"
+              htmlFor="compute-cap"
+              sub="Optional RPS ceiling. Empty leaves capacity on automatic."
+            >
+              <PcfgNum
                 id="compute-cap"
-                type="number"
-                min={1}
-                step={1}
-                placeholder="Auto"
-                className={fieldClass}
                 value={
                   Number.isFinite(Number(c.nodeCapacityRps)) &&
                   Number(c.nodeCapacityRps) > 0
                     ? String(Number(c.nodeCapacityRps))
                     : ''
                 }
-                onChange={(e) => {
-                  const v = e.target.value.trim()
-                  if (!v) {
+                unit="rps"
+                min={1}
+                placeholder="Auto"
+                onChange={(raw) => {
+                  if (!raw) {
                     updateConfig({ nodeCapacityRps: undefined })
                     return
                   }
-                  const n = Number(v)
-                  if (Number.isFinite(n) && n > 0) {
-                    updateConfig({ nodeCapacityRps: n })
-                  }
+                  const n = Number(raw)
+                  if (Number.isFinite(n) && n > 0) updateConfig({ nodeCapacityRps: n })
                 }}
               />
-            </div>
+            </PcfgField>
           ) : null}
         </>
       )
@@ -1556,29 +1596,48 @@ function TypeFields({
         readReplicas < 2
       return (
         <>
-          <div>
-            <span className={labelClass}>Engine</span>
-            <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-              PostgreSQL
-            </span>
-          </div>
+          <PcfgField
+            label="Read replicas"
+            sub="Standby copies that serve read traffic and can be promoted on failover."
+          >
+            <PcfgStepper
+              label="Read replicas"
+              value={readReplicas}
+              min={0}
+              max={2}
+              disabled={readOnly}
+              onChange={(next) => {
+                if (readOnly) return
+                const clamped = clampReadReplicas(next)
+                const sizeCount = 1 + clamped
+                const sizes = normalizeInstanceSizes(c, sizeCount)
+                updateConfig({
+                  readReplicas: clamped,
+                  instanceSizes: sizes,
+                  instanceSize: sizes[0],
+                  replicationMode:
+                    clamped === 0 ? 'async' : String(c.replicationMode ?? 'async'),
+                })
+              }}
+            />
+          </PcfgField>
           {readReplicas >= 1 ? (
             <InstanceSizeCopyFields
               idPrefix="database"
+              nodeType="database"
               config={c}
               replicaCount={dbInstanceCount}
               updateConfig={updateConfig}
               readOnly={readOnly}
-        maxInstanceSize={maxInstanceSize}
-              labelForIndex={(i) =>
-                i === 0 ? 'Primary size' : `Replica ${i} size`
-              }
+              maxInstanceSize={maxInstanceSize}
+              labelForIndex={(i) => (i === 0 ? 'Primary size' : `Replica ${i} size`)}
             />
           ) : (
             <ResourceProfileFields
               idPrefix="database"
               nodeType="database"
               config={c}
+              label="Resource profile"
               updateConfig={(patch) => {
                 const size = String(patch.instanceSize ?? c.instanceSize ?? 'small')
                 updateConfig({
@@ -1588,197 +1647,138 @@ function TypeFields({
                 })
               }}
               readOnly={readOnly}
-        maxInstanceSize={maxInstanceSize}
+              maxInstanceSize={maxInstanceSize}
             />
           )}
-          <div>
-            <label className={labelClass} htmlFor="db-read-replicas">
-              Read replicas
-            </label>
-            <input
-              id="db-read-replicas"
-              type="number"
-              min={0}
-              max={2}
-              step={1}
-              className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-              value={readReplicas}
-              readOnly={readOnly}
-              disabled={readOnly}
-              onChange={(e) => {
-                if (readOnly) return
-                const next = clampReadReplicas(Number(e.target.value))
-                const sizeCount = 1 + next
-                const sizes = normalizeInstanceSizes(c, sizeCount)
-                updateConfig({
-                  readReplicas: next,
-                  instanceSizes: sizes,
-                  instanceSize: sizes[0],
-                  replicationMode:
-                    next === 0
-                      ? 'async'
-                      : String(c.replicationMode ?? 'async'),
-                })
-              }}
-            />
-          </div>
           {readReplicas >= 1 ? (
             <>
-              <div>
-                <label className={labelClass} htmlFor="db-read-consistency">
-                  <span className="inline-flex items-center gap-1">
-                    Read consistency
-                    <InfoTooltip text="How app reads are routed when read replicas are provisioned." />
-                  </span>
-                </label>
-                <select
+              <PcfgField
+                label="Read consistency"
+                sub={READ_CONSISTENCY_HELP[readConsistency]}
+              >
+                <PcfgOptions
+                  variant="dd"
                   id="db-read-consistency"
-                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  label="Read consistency"
                   value={readConsistency}
                   disabled={readOnly}
-                  onChange={(e) => {
+                  options={READ_CONSISTENCY_POLICIES.map((policy) => ({
+                    value: policy,
+                    label: READ_CONSISTENCY_LABEL[policy],
+                    disabled: !readOnly && readConsistencyOptionDisabled(policy, readReplicas),
+                  }))}
+                  onChange={(next) => {
                     if (readOnly) return
                     const prev = readConsistency
-                    const next = readConsistencyFromConfig(e.target.value)
-                    updateConfig({ readConsistency: next })
+                    const normalized = readConsistencyFromConfig(next)
+                    updateConfig({ readConsistency: normalized })
                     const template =
                       useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
                     trackEvent('design_option_changed', {
                       template,
                       optionName: 'read_consistency',
                       previousCategory: prev,
-                      newCategory: next,
+                      newCategory: normalized,
                     })
                   }}
-                >
-                  {READ_CONSISTENCY_POLICIES.map((policy) => (
-                    <option
-                      key={policy}
-                      value={policy}
-                      disabled={
-                        !readOnly &&
-                        readConsistencyOptionDisabled(policy, readReplicas)
-                      }
-                      title={READ_CONSISTENCY_HELP[policy]}
-                    >
-                      {READ_CONSISTENCY_LABEL[policy]}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  {READ_CONSISTENCY_HELP[readConsistency]}
-                </p>
+                />
                 {showReadConsistencyClampHint ? (
-                  <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300">
+                  <p className="note amber" style={{ marginTop: 8 }}>
+                    <b>!</b>
                     {READ_CONSISTENCY_CLAMP_HINT}
                   </p>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="db-replication-mode">
-                  Replication
-                </label>
-                <select
+              </PcfgField>
+              <PcfgField
+                label="Replication mode"
+                sub="Async: replica may lag. Semi-sync: commit waits for one standby. Sync: all standbys."
+              >
+                <PcfgOptions
+                  variant="dd"
                   id="db-replication-mode"
-                  className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                  label="Replication mode"
                   value={replicationMode}
                   disabled={readOnly}
-                  onChange={(e) => {
+                  options={REPLICATION_MODES.map((mode) => ({
+                    value: mode,
+                    label:
+                      mode === 'async'
+                        ? 'Async'
+                        : mode === 'semi-sync'
+                          ? 'Semi-sync'
+                          : 'Sync',
+                  }))}
+                  onChange={(next) => {
                     if (readOnly) return
-                    const next = replicationModeFromConfig(e.target.value)
+                    const normalized = replicationModeFromConfig(next)
                     const patch: Record<string, unknown> = {
-                      replicationMode: next,
+                      replicationMode: normalized,
                     }
-                    if (!requiresSynchronousReplication(next)) {
+                    if (!requiresSynchronousReplication(normalized)) {
                       patch.syncCommitLevel = undefined
                     }
                     updateConfig(patch)
                   }}
-                >
-                  {REPLICATION_MODES.map((mode) => (
-                    <option key={mode} value={mode}>
-                      {mode === 'async'
-                        ? 'Async'
-                        : mode === 'semi-sync'
-                          ? 'Semi-sync'
-                          : 'Sync'}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  Async: replica may lag. Semi-sync: commit waits for any one
-                  standby. Sync: commit waits for all standbys.
-                </p>
-              </div>
+                />
+              </PcfgField>
               {showSyncCommitLevel ? (
-                <div>
-                  <label className={labelClass} htmlFor="db-sync-commit-level">
-                    <span className="inline-flex items-center gap-1">
-                      Synchronous commit
-                      <InfoTooltip
-                        text="Postgres synchronous_commit level. Remote apply holds read-your-writes at the database layer."
-                      />
-                    </span>
-                  </label>
-                  <select
+                <PcfgField
+                  label="Synchronous commit"
+                  sub="Postgres synchronous_commit level."
+                >
+                  <PcfgOptions
+                    variant="dd"
                     id="db-sync-commit-level"
-                    className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
+                    label="Synchronous commit"
                     value={syncCommitLevel}
                     disabled={readOnly}
-                    onChange={(e) => {
-                      if (readOnly) return
-                      updateConfig({
-                        syncCommitLevel: syncCommitLevelFromConfig(e.target.value),
-                      })
-                    }}
-                  >
-                    {SYNC_COMMIT_LEVELS.map((level) => (
-                      <option key={level} value={level}>
-                        {level === 'remote_write'
+                    options={SYNC_COMMIT_LEVELS.map((level) => ({
+                      value: level,
+                      label:
+                        level === 'remote_write'
                           ? 'Remote write'
                           : level === 'remote_apply'
-                            ? 'Remote apply (db-layer RYW)'
-                            : 'On (default)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                            ? 'Remote apply'
+                            : 'On (default)',
+                    }))}
+                    onChange={(next) => {
+                      if (readOnly) return
+                      updateConfig({
+                        syncCommitLevel: syncCommitLevelFromConfig(next),
+                      })
+                    }}
+                  />
+                </PcfgField>
               ) : null}
             </>
           ) : null}
           {simulationMode ? (
-            <>
-              <div>
-                <label className={labelClass} htmlFor="db-cap">
-                  Capacity override (RPS, optional)
-                </label>
-                <input
-                  id="db-cap"
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="Auto"
-                  className={fieldClass}
-                  value={
-                    Number.isFinite(Number(c.nodeCapacityRps)) &&
-                    Number(c.nodeCapacityRps) > 0
-                      ? String(Number(c.nodeCapacityRps))
-                      : ''
+            <PcfgField
+              label="Capacity override"
+              htmlFor="db-cap"
+              sub="Optional RPS ceiling. Empty leaves capacity on automatic."
+            >
+              <PcfgNum
+                id="db-cap"
+                value={
+                  Number.isFinite(Number(c.nodeCapacityRps)) &&
+                  Number(c.nodeCapacityRps) > 0
+                    ? String(Number(c.nodeCapacityRps))
+                    : ''
+                }
+                unit="rps"
+                min={1}
+                placeholder="Auto"
+                onChange={(raw) => {
+                  if (!raw) {
+                    updateConfig({ nodeCapacityRps: undefined })
+                    return
                   }
-                  onChange={(e) => {
-                    const v = e.target.value.trim()
-                    if (!v) {
-                      updateConfig({ nodeCapacityRps: undefined })
-                      return
-                    }
-                    const n = Number(v)
-                    if (Number.isFinite(n) && n > 0) {
-                      updateConfig({ nodeCapacityRps: n })
-                    }
-                  }}
-                />
-              </div>
-            </>
+                  const n = Number(raw)
+                  if (Number.isFinite(n) && n > 0) updateConfig({ nodeCapacityRps: n })
+                }}
+              />
+            </PcfgField>
           ) : null}
         </>
       )
@@ -1802,12 +1802,6 @@ function TypeFields({
     case 'message_queue':
       return (
         <>
-          <div>
-            <span className={labelClass}>Engine</span>
-            <span className="inline-block rounded bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-              RabbitMQ
-            </span>
-          </div>
           <ResourceProfileFields
             idPrefix="mq"
             nodeType="message_queue"
@@ -1819,54 +1813,45 @@ function TypeFields({
           />
           {simulationMode ? (
             <>
-              <div>
-                <label className={labelClass} htmlFor="mq-parts">
-                  Partitions
-                </label>
-                <input
+              <PcfgField label="Partitions" htmlFor="mq-parts">
+                <PcfgNum
                   id="mq-parts"
-                  type="number"
+                  value={Number(c.partitions ?? 1)}
                   min={1}
                   max={32}
-                  className={fieldClass}
-                  value={Number(c.partitions ?? 1)}
-                  onChange={(e) =>
+                  onChange={(raw) =>
                     updateConfig({
-                      partitions: clamp(Number(e.target.value) || 1, 1, 32),
+                      partitions: clamp(Number(raw) || 1, 1, 32),
                     })
                   }
                 />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="mq-cap">
-                  Capacity override (RPS, optional)
-                </label>
-                <input
+              </PcfgField>
+              <PcfgField
+                label="Capacity override"
+                htmlFor="mq-cap"
+                sub="Optional RPS ceiling. Empty leaves capacity on automatic."
+              >
+                <PcfgNum
                   id="mq-cap"
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="Auto"
-                  className={fieldClass}
                   value={
                     Number.isFinite(Number(c.nodeCapacityRps)) &&
                     Number(c.nodeCapacityRps) > 0
                       ? String(Number(c.nodeCapacityRps))
                       : ''
                   }
-                  onChange={(e) => {
-                    const v = e.target.value.trim()
-                    if (!v) {
+                  unit="rps"
+                  min={1}
+                  placeholder="Auto"
+                  onChange={(raw) => {
+                    if (!raw) {
                       updateConfig({ nodeCapacityRps: undefined })
                       return
                     }
-                    const n = Number(v)
-                    if (Number.isFinite(n) && n > 0) {
-                      updateConfig({ nodeCapacityRps: n })
-                    }
+                    const n = Number(raw)
+                    if (Number.isFinite(n) && n > 0) updateConfig({ nodeCapacityRps: n })
                   }}
                 />
-              </div>
+              </PcfgField>
             </>
           ) : null}
         </>
@@ -1885,8 +1870,8 @@ function TypeFields({
 
     case 'client':
       return (
-        <p className="text-xs text-[var(--c9-muted)]">
-          External traffic source (load generator)
+        <p className="note">
+          <b>i</b>External traffic source (load generator). Not inspectable on the canvas.
         </p>
       )
 

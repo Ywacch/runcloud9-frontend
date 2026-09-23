@@ -24,7 +24,7 @@ export function DesignToolStrip() {
 
   return (
     <div
-      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 gap-0.5 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 p-1 shadow-lg backdrop-blur-sm"
+      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 gap-0.5 rounded-none border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 p-1 backdrop-blur-sm"
       role="toolbar"
       aria-label="Design tools"
     >
@@ -42,7 +42,7 @@ export function DesignToolStrip() {
               if (disabled) return
               setDesignTool(t.id)
             }}
-            className={`relative flex min-w-[4.5rem] flex-col items-center rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+            className={`relative flex min-w-[4.5rem] flex-col items-center rounded-none px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-wide transition-colors ${
               disabled
                 ? 'cursor-not-allowed opacity-40'
                 : active

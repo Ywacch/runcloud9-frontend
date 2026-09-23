@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useDevInspectorMode } from './devInspectorMode'
 import type {
   ComponentLayerMetrics,
   StorageIoMetrics,
@@ -19,10 +20,11 @@ import {
 } from './dbInstanceScope'
 import { clampAppServerReplicas, clampReadReplicas, lbAlgorithmForDeploy } from './replicaConfig'
 import { seedDevInspectorLogs } from './devInspectorFixtures'
+import { devInspectorLivePreviewEnabled } from './devInspectorMode'
 
 /** Temporary DEV hook: exercise inspector + metrics UX in design mode without a deploy. */
 export function devInstanceScopePreviewEnabled(mode: CanvasMode): boolean {
-  return import.meta.env.DEV && mode === 'design'
+  return devInspectorLivePreviewEnabled() && mode === 'design'
 }
 
 export function isInstanceScopeViewportMode(mode: CanvasMode): boolean {
@@ -302,14 +304,24 @@ function buildLoadBalancerMetrics(
   node: CanvasNode,
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
+  svgNode?: SvgNode,
 ): MetricsBucket {
   const backends = Object.values(edges)
     .filter((edge) => edge.sourceId === node.id)
     .map((edge) => nodes[edge.targetId])
     .filter((backend): backend is CanvasNode => Boolean(backend))
-  const backendPods = backends.map((backend, index) =>
-    podReplicaRow(backend, index, 88 - index * 14),
-  )
+  const backendPods: MetricsBucket['backendPods'] = []
+  for (const backend of backends) {
+    const replicaCount = Math.max(
+      1,
+      svgNode?.id === backend.id
+        ? visualReplicaCount(backend, svgNode)
+        : clampAppServerReplicas(Number(backend.config.replicas ?? 1), 8),
+    )
+    for (let index = 0; index < replicaCount; index++) {
+      backendPods.push(podReplicaRow(backend, index, 102 - index * 28))
+    }
+  }
   const requestRate = backendPods.reduce((sum, pod) => sum + pod.requestRate, 0)
   const perBackendRps = Object.fromEntries(
     backendPods.map((pod) => [pod.name, pod.requestRate]),
@@ -337,20 +349,30 @@ function buildLoadBalancerMetrics(
 function buildMessageQueueMetrics(_node: CanvasNode): MetricsBucket {
   const depth = 128
   return emptyMetricsBucket({
-    cpuUsage: 0.14,
-    cpuPercent: 24,
+    cpuUsage: 0.34,
+    cpuPercent: 34,
+    cpuLimit: 1,
     memoryBytes: 180 * 1024 * 1024,
-    memPercent: 55,
+    memoryLimit: 2 * 1024 * 1024 * 1024,
+    memPercent: 71,
     queueDepth: depth,
     produceRate: 64,
-    consumeRate: 58,
+    consumeRate: 52,
     messagesReady: depth,
     messagesUnacked: 6,
     mqMemoryUsed: 180 * 1024 * 1024,
     mqMemoryLimit: 256 * 1024 * 1024,
-    mqSaturationRatio: 0.42,
+    mqSaturationRatio: 0.71,
     storageEngine: 'rabbitmq',
     storageRole: 'broker',
+    runtimeHealth: {
+      unreadyCount: 0,
+      restarting: false,
+      pods: [
+        { name: 'rabbitmq-0', ready: true, restartCount: 0 },
+        { name: 'rabbitmq-1', ready: true, restartCount: 0 },
+      ],
+    },
   })
 }
 
@@ -369,7 +391,7 @@ export function buildDevInstanceScopeMetrics(
     case 'cache':
       return buildCacheMetrics(node)
     case 'load_balancer':
-      return buildLoadBalancerMetrics(node, nodes, edges)
+      return buildLoadBalancerMetrics(node, nodes, edges, svgNode)
     case 'message_queue':
       return buildMessageQueueMetrics(node)
     default:
@@ -457,10 +479,11 @@ export function useDevInstanceScopePreview(
   mode: CanvasMode,
   nodes: Record<string, CanvasNode>,
 ): void {
+  const devInspectorMode = useDevInspectorMode()
   const svgNodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
 
   useEffect(() => {
     syncDevInstanceScopeMetrics(mode, nodes, svgNodes, edges)
-  }, [mode, nodes, svgNodes, edges])
+  }, [mode, nodes, svgNodes, edges, devInspectorMode])
 }

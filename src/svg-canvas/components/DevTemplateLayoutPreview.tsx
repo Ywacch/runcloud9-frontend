@@ -10,6 +10,7 @@ import {
 } from '../../lib/devTemplateLayoutPreview'
 import { useTemplateRegistryStore } from '../../editor-core/stores/templateRegistryStore'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { DevInspectorModeToggle } from '../../editor-ui/DevInspectorModeToggle'
 
 export function DevTemplateLayoutPreview({ compact = false }: { compact?: boolean }) {
   const templates = useTemplateRegistryStore((s) => s.byId)
@@ -119,6 +120,7 @@ export function DevTemplateLayoutPreview({ compact = false }: { compact?: boolea
           )}
         </select>
       </div>
+      <DevInspectorModeToggle compact />
       <div className="flex flex-wrap items-center gap-1">
         {DEV_LAYOUT_STAGES.map((opt) => (
           <button

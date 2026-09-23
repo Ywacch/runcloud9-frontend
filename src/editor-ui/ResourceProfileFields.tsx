@@ -2,33 +2,16 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import {
   resolveProxyInstanceSize,
-  resolveProxyProvisionedLimits,
   type ProxyInstanceSize,
 } from '../lib/cacheProxyResources'
-import { useResourceProfiles } from '../lib/resourceProfileStore'
-import {
-  formatProvisionedLabel,
-  resolveProvisionedLimits,
-} from '../lib/resolveProvisionedLimits'
+import { pcfgProfileOptions, pcfgProxyProfileOptions } from '../lib/pcfgProfileOptions'
 import { trackEvent } from '../lib/analytics'
-import {
-  INSTANCE_SIZE_LARGE_LOCKED_HELPER,
-  RESOURCE_PROFILE_HELPER,
-} from '../lib/billingCopy'
+import { INSTANCE_SIZE_LARGE_LOCKED_HELPER } from '../lib/billingCopy'
 import {
   isInstanceSizePlanLocked,
   type InstanceSize,
 } from '../lib/userTier'
-import { InfoTooltip } from './InfoTooltip'
-
-const fieldClass =
-  'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
-const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
-
-const PROXY_SIZE_HELPER =
-  'Sizes the caching-proxy sidecar separately from Redis. CPU/RAM amounts differ from Redis profiles.'
-
-const SIZE_OPTIONS: InstanceSize[] = ['small', 'medium', 'large']
+import { PcfgField, PcfgProf } from './stacklabConfigControls'
 
 type SizeConfigKey = 'instanceSize' | 'proxyInstanceSize'
 
@@ -39,7 +22,7 @@ export function ResourceProfileFields({
   showDefaultOption = false,
   updateConfig,
   label = 'Resource profile',
-  helperText = RESOURCE_PROFILE_HELPER,
+  helperText,
   configKey = 'instanceSize',
   readOnly = false,
   maxInstanceSize = 'large',
@@ -55,7 +38,6 @@ export function ResourceProfileFields({
   readOnly?: boolean
   maxInstanceSize?: InstanceSize
 }) {
-  const catalog = useResourceProfiles()
   const isProxy = configKey === 'proxyInstanceSize'
   const rawSize = config[configKey]
   const instanceSize = showDefaultOption
@@ -64,82 +46,60 @@ export function ResourceProfileFields({
       ? resolveProxyInstanceSize(config)
       : String(rawSize ?? 'small')
 
-  const limits = isProxy
-    ? resolveProxyProvisionedLimits(config)
-    : resolveProvisionedLimits(
-        nodeType,
-        configKey === 'instanceSize'
-          ? config
-          : { ...config, instanceSize: rawSize },
-        catalog,
-      )
-
   const showLargeLocked = maxInstanceSize !== 'large'
+  const profileOptions = isProxy
+    ? pcfgProxyProfileOptions(config, maxInstanceSize)
+    : pcfgProfileOptions(nodeType, maxInstanceSize)
+
+  const applySize = (v: string) => {
+    if (readOnly) return
+    const prev = instanceSize
+    if (isInstanceSizePlanLocked(v, maxInstanceSize)) return
+    if (isProxy) {
+      if (!v) {
+        updateConfig({
+          proxyInstanceSize: undefined,
+          proxyResourceProfile: undefined,
+        })
+      } else {
+        const size = v as ProxyInstanceSize
+        updateConfig({
+          proxyInstanceSize: size,
+          proxyResourceProfile: size,
+        })
+      }
+    } else {
+      updateConfig(v ? { instanceSize: v } : { instanceSize: undefined })
+    }
+    const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+    trackEvent('design_option_changed', {
+      template,
+      optionName: isProxy ? 'proxy_resource_profile' : 'resource_profile',
+      previousCategory: prev || 'default',
+      newCategory: v || 'default',
+    })
+  }
+
+  const options = showDefaultOption
+    ? [{ value: '', label: 'Default', meta: '' }, ...profileOptions]
+    : profileOptions
+
+  const sub =
+    helperText || showLargeLocked
+      ? [helperText, showLargeLocked ? INSTANCE_SIZE_LARGE_LOCKED_HELPER : '']
+          .filter(Boolean)
+          .join(' ')
+      : undefined
 
   return (
-    <>
-      <div>
-        <label className={labelClass} htmlFor={`${idPrefix}-size`}>
-          <span className="inline-flex items-center gap-1">
-            {label}
-            <InfoTooltip text={isProxy ? PROXY_SIZE_HELPER : helperText} />
-          </span>
-        </label>
-        <select
-          id={`${idPrefix}-size`}
-          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-          value={instanceSize}
-          disabled={readOnly}
-          onChange={(e) => {
-            if (readOnly) return
-            const prev = instanceSize
-            const v = e.target.value.trim()
-            if (isInstanceSizePlanLocked(v, maxInstanceSize)) return
-            if (isProxy) {
-              if (!v) {
-                updateConfig({
-                  proxyInstanceSize: undefined,
-                  proxyResourceProfile: undefined,
-                })
-              } else {
-                const size = v as ProxyInstanceSize
-                updateConfig({
-                  proxyInstanceSize: size,
-                  proxyResourceProfile: size,
-                })
-              }
-            } else {
-              updateConfig(v ? { instanceSize: v } : { instanceSize: undefined })
-            }
-            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-            trackEvent('design_option_changed', {
-              template,
-              optionName: isProxy ? 'proxy_resource_profile' : 'resource_profile',
-              previousCategory: prev || 'default',
-              newCategory: v || 'default',
-            })
-          }}
-        >
-          {showDefaultOption ? <option value="">Default</option> : null}
-          {SIZE_OPTIONS.map((option) => (
-            <option
-              key={option}
-              value={option}
-              disabled={isInstanceSizePlanLocked(option, maxInstanceSize)}
-            >
-              {option}
-            </option>
-          ))}
-        </select>
-      </div>
-      {showLargeLocked ? (
-        <p className="text-[11px] text-[var(--c9-muted)]">
-          {INSTANCE_SIZE_LARGE_LOCKED_HELPER}
-        </p>
-      ) : null}
-      <p className="text-[11px] text-[var(--c9-muted)]">
-        {formatProvisionedLabel(limits)}
-      </p>
-    </>
+    <PcfgField label={label} sub={sub}>
+      <PcfgProf
+        id={`${idPrefix}-size`}
+        value={instanceSize}
+        options={options}
+        disabled={readOnly}
+        onChange={applySize}
+      />
+    </PcfgField>
   )
 }

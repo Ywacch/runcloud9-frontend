@@ -1,8 +1,5 @@
-import type {
-  EventAudience,
-  WorkloadEventKind,
-  WsEvent,
-} from '../stores/metricsStore'
+import type { EventVisibility } from '../domain/eventVisibility'
+import type { WorkloadEventKind, WsEvent } from '../stores/metricsStore'
 
 export interface WsComponentMetrics {
   component?: string
@@ -83,7 +80,9 @@ export interface WsEventPayload {
   source?: string
   kind?: WorkloadEventKind
   detail?: Record<string, string>
-  audience?: EventAudience
+  visibility?: EventVisibility
+  /** @deprecated Legacy field; normalized to visibility on ingest. */
+  audience?: string
   component?: string
   rule?: string
   ruleId?: string

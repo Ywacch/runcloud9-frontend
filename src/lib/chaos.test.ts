@@ -356,7 +356,7 @@ describe('standby reclone helpers', () => {
     source: 'chaos',
     kind: 'standby_reclone',
     component: 'db',
-    audience: 'both',
+    visibility: 'all',
     title: 'Standby rebuilt after timeline fork',
     description: 'standby_reclone',
     detail: {

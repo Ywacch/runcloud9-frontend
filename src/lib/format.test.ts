@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampPercent, FMT_EMPTY, fmtMs, utilizationPercent } from './format'
+import { clampPercent, FMT_EMPTY, fmtLatencyCell, fmtMs, utilizationPercent } from './format'
 
 describe('fmtMs', () => {
   it('shows empty placeholder for zero and invalid values', () => {
@@ -15,6 +15,18 @@ describe('fmtMs', () => {
   it('shows rounded milliseconds for values >= 1ms', () => {
     expect(fmtMs(1.2)).toBe('1ms')
     expect(fmtMs(12.7)).toBe('13ms')
+  })
+})
+
+describe('fmtLatencyCell', () => {
+  it('keeps sub-second values in ms with one decimal', () => {
+    expect(fmtLatencyCell(5.2)).toBe('5.2 ms')
+    expect(fmtLatencyCell(987.6)).toBe('987.6 ms')
+  })
+
+  it('rolls to seconds at 1s and above', () => {
+    expect(fmtLatencyCell(1245.8)).toBe('1.2 s')
+    expect(fmtLatencyCell(12_400)).toBe('12 s')
   })
 })
 

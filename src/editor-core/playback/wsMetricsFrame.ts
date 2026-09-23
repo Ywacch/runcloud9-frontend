@@ -22,6 +22,7 @@ import {
   parseStorageIo,
   sampleFromWsPayload,
 } from '../domain/metricsUiContract'
+import { parseEventVisibility } from '../domain/eventVisibility'
 import { nodeStatusFromMetrics } from '../domain/healthThresholds'
 import { useChaosStore } from '../stores/chaosStore'
 import { useCanvasStore, type CanvasNode } from '../stores/canvasStore'
@@ -188,17 +189,14 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
             ),
           )
         : undefined
-    const audience =
-      e.audience === 'user' || e.audience === 'ai' || e.audience === 'both'
-        ? e.audience
-        : undefined
+    const visibility = parseEventVisibility(e.visibility, e.audience)
     out.push({
       timestamp: e.timestamp ?? new Date().toISOString(),
       type: e.type ?? 'action',
       source: e.source ?? 'unknown',
       kind,
       detail,
-      audience,
+      visibility,
       component: e.component,
       rule,
       title,

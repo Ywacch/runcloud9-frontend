@@ -65,7 +65,6 @@ const CACHE_KEYS: KeyInfo[] = [
 
 const MQ_QUEUES: QueueInfo[] = [
   { name: 'orders', messages: 42, consumers: 1, available: true },
-  { name: 'orders.dlq', messages: 0, consumers: 0, available: true },
 ]
 
 function isoOffset(secondsAgo: number): string {
@@ -250,8 +249,8 @@ export function devIntrospectFixture(
       const queue = decodeURIComponent(path.slice('peek/'.length))
       return {
         queue,
-        empty: queue === 'orders.dlq',
-        body: queue === 'orders' ? '{"orderId":"ord_1042","sku":"SKU-42"}' : undefined,
+        empty: false,
+        body: '{"orderId":"ord_1042","sku":"SKU-42"}',
         contentType: 'application/json',
         requeued: false,
       } satisfies PeekResult

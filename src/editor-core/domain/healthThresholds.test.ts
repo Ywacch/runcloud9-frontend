@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../stores/metricsStore'
-import { computeHealthState } from './healthThresholds'
+import {
+  computeHealthState,
+  isCpuUtilWarn,
+  isMemUtilWarn,
+  resourceWarnFootLabel,
+  resourceWarnMarkLabel,
+  WARNING_CPU,
+  WARNING_MEM,
+} from './healthThresholds'
 
 function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
   return {
@@ -62,6 +70,19 @@ function bucket(partial: Partial<MetricsBucket>): MetricsBucket {
     ...partial,
   }
 }
+
+describe('resource warn helpers', () => {
+  it('uses shared CPU and memory warn thresholds for inspector marks', () => {
+    expect(WARNING_CPU).toBe(80)
+    expect(WARNING_MEM).toBe(80)
+    expect(isCpuUtilWarn(79)).toBe(false)
+    expect(isCpuUtilWarn(80)).toBe(true)
+    expect(isMemUtilWarn(79)).toBe(false)
+    expect(isMemUtilWarn(80)).toBe(true)
+    expect(resourceWarnMarkLabel(WARNING_CPU)).toBe('80 warn')
+    expect(resourceWarnFootLabel(WARNING_MEM)).toBe('warn ≥ 80%')
+  })
+})
 
 describe('computeHealthState', () => {
   it('returns idle without metrics', () => {
