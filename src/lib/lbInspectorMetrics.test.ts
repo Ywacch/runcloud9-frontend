@@ -37,7 +37,7 @@ describe('lbInspectorBackendPods', () => {
         },
       ],
       perBackendRps: { 'app-roll-b': 42 },
-    } as MetricsBucket)
+    } as unknown as MetricsBucket)
     expect(pods).toHaveLength(1)
     expect(pods[0]?.name).toBe('app-roll-a')
   })
@@ -46,7 +46,7 @@ describe('lbInspectorBackendPods', () => {
     const pods = lbInspectorBackendPods({
       backendPods: [],
       perBackendRps: { 'app-roll-a': 58, 'app-roll-b': 42 },
-    } as MetricsBucket)
+    } as unknown as MetricsBucket)
     expect(pods.map((pod) => pod.name).sort()).toEqual(['app-roll-a', 'app-roll-b'])
     expect(sumPodRequestRates(pods)).toBe(100)
   })
@@ -79,7 +79,7 @@ describe('lbBackendTableRows', () => {
           },
         ],
         perBackendRps: {},
-      } as MetricsBucket,
+      } as unknown as MetricsBucket,
       { cpuLimitCores: 1, memoryLimitBytes: 512 * 1024 * 1024 },
     )
     expect(rows).toHaveLength(2)
@@ -150,8 +150,8 @@ describe('lbBackendResourceLimits', () => {
       { e1: edge },
       { 'lb-1': lb, 'app-1': app },
       {
-        'lb-1': { cpuLimit: 0.25, memoryLimit: 128 * 1024 * 1024 } as MetricsBucket,
-        'app-1': { cpuLimit: 3, memoryLimit: 1536 * 1024 * 1024 } as MetricsBucket,
+        'lb-1': { cpuLimit: 0.25, memoryLimit: 128 * 1024 * 1024 } as unknown as MetricsBucket,
+        'app-1': { cpuLimit: 3, memoryLimit: 1536 * 1024 * 1024 } as unknown as MetricsBucket,
       },
     )
     expect(limits.cpuLimitCores).toBe(3)

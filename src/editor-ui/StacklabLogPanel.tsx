@@ -54,7 +54,7 @@ export function StacklabLogPanel({
   const componentLogs = useMemo(() => {
     if (!component) return []
     return logs
-      .filter((l) => logComponentMatches(l.component, component))
+      .filter((l) => l.component && logComponentMatches(l.component, component))
       .filter((l) =>
         logLineMatchesInstance(l.pod, instanceId, { replicaLayerIds }),
       )
@@ -163,5 +163,5 @@ export function stacklabLogCountForNode(
 ): number {
   const component = canvasToBackend[node.type]
   if (!component) return 0
-  return logs.filter((l) => logComponentMatches(l.component, component)).length
+  return logs.filter((l) => l.component && logComponentMatches(l.component, component)).length
 }
