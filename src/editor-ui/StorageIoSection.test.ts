@@ -527,7 +527,7 @@ describe('ComputeInstanceSection timeframe', () => {
     expect(html).toContain('Errors')
     expect(html).toContain('12')
     expect(html).toContain('Latency ')
-    expect(html).toContain('>p99<')
+    expect(html).toContain('Latency (p99)')
   })
 })
 
@@ -592,7 +592,7 @@ describe('DbInstanceLayerSection timeframe', () => {
     expect(html).toContain('Query rate')
     expect(html).toContain('4/s')
     expect(html).toContain('Latency (')
-    expect(html).toContain('>p99<')
+    expect(html).toContain('data-pctl="true">p99')
     expect(html).not.toContain('not shown on Replica tabs yet')
   })
 
@@ -606,7 +606,7 @@ describe('DbInstanceLayerSection timeframe', () => {
     expect(html).toContain('Total queries')
     expect(html).toContain('672')
     expect(html).toContain('Latency ')
-    expect(html).toContain('>p99<')
+    expect(html).toContain('Latency (p99)')
   })
 
   it('shows dashes when layer app SQL fields are absent', () => {
