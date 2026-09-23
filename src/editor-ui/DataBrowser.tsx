@@ -16,161 +16,23 @@ import {
   type SelectedInstanceId,
 } from '../lib/dbInstanceScope'
 import { trackEvent } from '../lib/analytics'
-import { FMT_EMPTY } from '../lib/format'
+import { SlSecHead } from './stacklabPanePrimitives'
+import {
+  formatRowCount,
+  SlDataError,
+  SlDataHead,
+  SlDataPager,
+  SlDbRows,
+  SlIndexesTable,
+  SlSchemaBlock,
+} from './stacklabDataPanels'
 
-const PAGE_LIMIT = 50
-const CELL_MAX = 120
-
-function truncateCell(v: unknown): { text: string; full: string } {
-  const full =
-    v === null || v === undefined
-      ? ''
-      : typeof v === 'object'
-        ? JSON.stringify(v)
-        : String(v)
-  if (full.length <= CELL_MAX) return { text: full, full }
-  return { text: `${full.slice(0, CELL_MAX)}…`, full }
-}
-
-function ErrorBanner({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  return (
-    <div className="rounded border border-red-700/50 bg-red-950/65 px-2 py-2 text-xs text-red-100">
-      <p className="font-medium">{message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-2 rounded bg-red-900/80 px-2 py-1 text-[11px] font-semibold text-red-100 hover:bg-red-800"
-      >
-        Retry
-      </button>
-    </div>
-  )
-}
-
-function TableSkeleton() {
-  return (
-    <div className="animate-pulse space-y-2 py-2">
-      <div className="h-4 rounded bg-[var(--c9-surface)]" />
-      <div className="h-4 w-3/4 rounded bg-[var(--c9-surface)]" />
-      <div className="h-4 w-5/6 rounded bg-[var(--c9-surface)]" />
-    </div>
-  )
-}
-
-function SchemaSection({ columns }: { columns: ColumnInfo[] }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="border-t border-[var(--c9-border)] pt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-1 text-left text-[11px] font-semibold text-[var(--c9-muted)]"
-      >
-        <span>{open ? '▾' : '▸'}</span>
-        Schema
-      </button>
-      {open ? (
-        <ul className="mt-2 space-y-1.5 text-[10px]">
-          {columns.map((c) => (
-            <li
-              key={c.name}
-              className="rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50 px-2 py-1 font-mono"
-            >
-              <span className="text-[var(--c9-text)]">{c.name}</span>{' '}
-              <span className="text-[var(--c9-muted)]">{c.dataType}</span>
-              {!c.nullable ? (
-                <span className="text-amber-400/90"> NOT NULL</span>
-              ) : null}
-              {c.isPrimaryKey ? (
-                <span className="ml-1 rounded bg-[var(--c9-accent)]/25 px-1 text-[9px] text-[var(--c9-accent)]">
-                  PK
-                </span>
-              ) : null}
-              {c.defaultValue != null && String(c.defaultValue) !== '' ? (
-                <span className="block text-[var(--c9-muted)]">
-                  default: {String(c.defaultValue)}
-                </span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  )
-}
-
-function IndexesSection({
-  indexes,
-  tableName,
-}: {
-  indexes: IndexInfo[]
-  tableName: string | null
-}) {
-  const [open, setOpen] = useState(false)
-  const filtered = useMemo(
-    () =>
-      tableName
-        ? indexes.filter((i) => i.table === tableName)
-        : indexes,
-    [indexes, tableName],
-  )
-  return (
-    <div className="border-t border-[var(--c9-border)] pt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-1 text-left text-[11px] font-semibold text-[var(--c9-muted)]"
-      >
-        <span>{open ? '▾' : '▸'}</span>
-        Indexes
-      </button>
-      {open ? (
-        <ul className="mt-2 space-y-2 text-[10px]">
-          {filtered.length === 0 ? (
-            <li className="text-[var(--c9-muted)]">No indexes for this table.</li>
-          ) : (
-            filtered.map((idx) => (
-              <li
-                key={`${idx.name}-${idx.table}`}
-                className="rounded border border-[var(--c9-border)]/60 bg-[var(--c9-bg)]/50 px-2 py-1"
-              >
-                <div className="font-mono text-[var(--c9-text)]">{idx.name}</div>
-                <div className="text-[var(--c9-muted)]">{idx.definition}</div>
-                <div className="mt-0.5 flex flex-wrap gap-1">
-                  {idx.primary ? (
-                    <span className="rounded bg-[var(--c9-accent)]/20 px-1 text-[9px] text-[var(--c9-accent)]">
-                      primary
-                    </span>
-                  ) : null}
-                  {idx.unique ? (
-                    <span className="rounded bg-violet-500/20 px-1 text-[9px] text-violet-300">
-                      unique
-                    </span>
-                  ) : null}
-                  <span className="text-[var(--c9-muted)]">
-                    [{(idx.columns ?? []).join(', ')}]
-                  </span>
-                </div>
-              </li>
-            ))
-          )}
-        </ul>
-      ) : null}
-    </div>
-  )
-}
+const PAGE_LIMIT = 6
 
 interface DataBrowserProps {
   deploymentId: string
   component: string
   readReplicaCount: number
-  /** When set, Data tab follows inspector instance tabs (Cluster / Primary / Replica). */
   instanceId?: SelectedInstanceId | null
   hideTargetToggle?: boolean
 }
@@ -214,12 +76,14 @@ export function DataBrowser({
       setTables(tList)
       setIndexes(idxList)
       setSelectedTable((prev) =>
-        prev && tList.some((x) => x.name === prev)
-          ? prev
-          : tList[0]?.name ?? null,
+        prev && tList.some((x) => x.name === prev) ? prev : (tList[0]?.name ?? null),
       )
       const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-      trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'list_tables' })
+      trackEvent('data_inspector_used', {
+        template,
+        componentType: component,
+        operationCategory: 'list_tables',
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load tables')
       setTables([])
@@ -248,6 +112,7 @@ export function DataBrowser({
           fetchRows(deploymentId, component, table, {
             page: pageNum,
             limit: PAGE_LIMIT,
+            order: 'desc',
             target: introspectOpts.target,
             layerId: introspectOpts.layerId,
           }),
@@ -256,7 +121,11 @@ export function DataBrowser({
         setRows(r)
         setSchema(s)
         const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-        trackEvent('data_inspector_used', { template, componentType: component, operationCategory: 'fetch_rows' })
+        trackEvent('data_inspector_used', {
+          template,
+          componentType: component,
+          operationCategory: 'fetch_rows',
+        })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load table data')
         setRows(null)
@@ -282,216 +151,134 @@ export function DataBrowser({
     return Math.max(1, Math.ceil(rows.total / (rows.limit || PAGE_LIMIT)))
   }, [rows])
 
-  const currentTableMeta = useMemo(
-    () => tables.find((t) => t.name === selectedTable),
-    [tables, selectedTable],
-  )
+  const previewCols = useMemo(() => {
+    if (!rows) return []
+    const cols =
+      rows.columns.length > 0 ? rows.columns : Object.keys(rows.rows[0] ?? {})
+    return cols.slice(0, 3)
+  }, [rows])
 
-  const onRefresh = useCallback(() => {
-    if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
-  }, [selectedTable, page, loadTableData])
-
-  const goPrev = () => setPage((p) => Math.max(1, p - 1))
-  const goNext = () => setPage((p) => Math.min(totalPages, p + 1))
+  const pageFrom = rows ? (page - 1) * (rows.limit || PAGE_LIMIT) + 1 : 0
+  const pageTo = rows
+    ? Math.min(rows.total, page * (rows.limit || PAGE_LIMIT))
+    : 0
 
   if (error && tables.length === 0 && !loading) {
-    return (
-      <div className="space-y-2">
-        <ErrorBanner message={error} onRetry={() => void loadTablesAndIndexes()} />
-      </div>
-    )
+    return <SlDataError message={error} onRetry={() => void loadTablesAndIndexes()} />
   }
 
   return (
-    <div className="space-y-3">
+    <>
+      <SlDataHead subtitle="Schema, indexes, and rows for the selected table." />
+
       {showReplicaToggle ? (
-        <div className="space-y-1.5">
-          <div
-            className="inline-flex rounded border border-[var(--c9-border)] p-0.5"
-            role="group"
-            aria-label="Database target"
-          >
-            {(['primary', 'replica'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  if (value === legacyTarget) return
-                  setPage(1)
-                  setLegacyTarget(value)
-                }}
-                className={`rounded px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
-                  legacyTarget === value
-                    ? 'bg-[var(--c9-accent)] text-white'
-                    : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-                }`}
-              >
-                {value}
-              </button>
-            ))}
+        <div className="pcfg-field" style={{ paddingTop: 0 }}>
+          <span className="lab pcfg-lab">Target</span>
+          <div className="pcfg-ctl">
+            <div className="seg" role="group" aria-label="Database target">
+              {(['primary', 'replica'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={legacyTarget === value ? 'is-on' : ''}
+                  onClick={() => {
+                    if (value === legacyTarget) return
+                    setPage(1)
+                    setLegacyTarget(value)
+                  }}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
           </div>
           {legacyTarget === 'replica' ? (
-            <p className="text-[10px] leading-snug text-[var(--c9-muted)]">
-              Replica data can lag under async replication.
-              {readReplicaCount >= 2
-                ? ' With two replicas, reads are pooled across standbys.'
-                : null}
-            </p>
+            <p className="pcfg-sub">Replica data can lag under async replication.</p>
           ) : null}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        {tables.map((t) => (
+      <div className="pt data h">
+        <span>table</span>
+        <span className="r">rows</span>
+      </div>
+      {tables.map((t) => {
+        const on = selectedTable === t.name
+        return (
           <button
             key={t.name}
             type="button"
+            className={`pt data rowsel${on ? ' is-on' : ''}`}
+            aria-current={on ? 'true' : undefined}
             onClick={() => {
               setPage(1)
               setSelectedTable(t.name)
             }}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-              selectedTable === t.name
-                ? 'bg-[var(--c9-accent)] text-white'
-                : 'bg-[var(--c9-surface)] text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-            }`}
           >
-            {t.name}
+            <span>{t.name}</span>
+            <span className="r">{formatRowCount(t.rowCount)}</span>
           </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => void loadTablesAndIndexes()}
-          className="ml-auto text-[11px] text-[var(--c9-accent)] hover:underline"
-          title="Refresh table list"
-        >
-          ↻ Refresh
-        </button>
-      </div>
+        )
+      })}
 
       {error && tables.length > 0 ? (
-        <ErrorBanner message={error} onRetry={onRefresh} />
+        <SlDataError
+          message={error}
+          onRetry={() => {
+            if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
+          }}
+        />
       ) : null}
 
       {!selectedTable && !loading ? (
-        <p className="py-4 text-center text-xs text-[var(--c9-muted)]">
-          No tables available.
+        <p className="note">
+          <b>i</b>No tables available.
         </p>
       ) : null}
 
-      {selectedTable ? (
+      {selectedTable && schema && schema.length > 0 ? (
+        <SlSchemaBlock
+          table={selectedTable}
+          columns={schema}
+          indexes={(indexes ?? []).filter((idx) => idx.table === selectedTable)}
+        />
+      ) : null}
+
+      {selectedTable && indexes != null ? (
+        <SlIndexesTable indexes={indexes} tableName={selectedTable} />
+      ) : null}
+
+      {selectedTable && rows ? (
         <>
-          <div className="text-[10px] text-[var(--c9-muted)]">
-            {selectedTable}
-            {currentTableMeta != null ? (
-              <span> (≈{currentTableMeta.rowCount.toLocaleString()} rows)</span>
-            ) : null}
-          </div>
-
-          {loading && !rows ? <TableSkeleton /> : null}
-
-          {rows && (
-            <>
-              <div
-                className={`overflow-x-auto rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 ${loading ? 'animate-pulse opacity-70' : ''}`}
-              >
-                {rows.rows.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-xs text-[var(--c9-muted)]">
-                    No rows found
-                  </p>
-                ) : (
-                  <table className="w-full min-w-max border-collapse text-left font-mono text-xs">
-                    <thead>
-                      <tr className="border-b border-[var(--c9-border)]">
-                        {(rows.columns.length
-                          ? rows.columns
-                          : Object.keys(rows.rows[0] ?? {})
-                        ).map((col) => (
-                          <th
-                            key={col}
-                            className="whitespace-nowrap px-2 py-1.5 font-semibold text-[var(--c9-muted)]"
-                          >
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.rows.map((row, ri) => {
-                        const cols =
-                          rows.columns.length > 0
-                            ? rows.columns
-                            : Object.keys(row)
-                        return (
-                          <tr
-                            key={ri}
-                            className="border-b border-[var(--c9-border)] last:border-0"
-                          >
-                            {cols.map((col) => {
-                              const { text, full } = truncateCell(row[col])
-                              return (
-                                <td
-                                  key={col}
-                                  className="max-w-[min(12rem,40vw)] truncate px-2 py-1 text-[var(--c9-text)]"
-                                  title={full.length > CELL_MAX ? full : undefined}
-                                >
-                                  {text || FMT_EMPTY}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-[var(--c9-muted)]">
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={goPrev}
-                    className="rounded border border-[var(--c9-border)] px-1.5 py-0.5 disabled:opacity-40"
-                  >
-                    ◀
-                  </button>
-                  <span>
-                    Page {page} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page >= totalPages}
-                    onClick={goNext}
-                    className="rounded border border-[var(--c9-border)] px-1.5 py-0.5 disabled:opacity-40"
-                  >
-                    ▶
-                  </button>
-                </div>
-                <span>
-                  {PAGE_LIMIT}/page · {rows.total.toLocaleString()} total
-                </span>
-              </div>
-            </>
+          <SlSecHead
+            index="D4"
+            title="Rows"
+            subtitle={`${rows.total.toLocaleString()} rows · newest first. Click a row to inspect every column.`}
+          />
+          {loading && rows.rows.length === 0 ? (
+            <p className="note">
+              <b>i</b>Loading rows…
+            </p>
+          ) : rows.rows.length === 0 ? (
+            <p className="note">
+              <b>i</b>No rows found.
+            </p>
+          ) : (
+            <SlDbRows columns={rows.columns} rows={rows.rows} previewCols={previewCols} />
           )}
-
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="text-[11px] text-[var(--c9-accent)] hover:underline"
-          >
-            ↻ Refresh rows
-          </button>
-
-          {schema && schema.length > 0 ? (
-            <SchemaSection columns={schema} />
-          ) : null}
-          {indexes != null ? (
-            <IndexesSection indexes={indexes} tableName={selectedTable} />
+          {rows.total > 0 ? (
+            <SlDataPager
+              from={pageFrom}
+              to={pageTo}
+              total={rows.total}
+              canPrev={page > 1}
+              canNext={page < totalPages}
+              onPrev={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+            />
           ) : null}
         </>
       ) : null}
-    </div>
+    </>
   )
 }

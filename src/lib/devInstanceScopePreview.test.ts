@@ -1,14 +1,30 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import {
+  resetDevInspectorModeCache,
+  setDevInspectorMode,
+} from './devInspectorMode'
 import {
   buildDevInstanceScopeMetrics,
   devInstanceScopePreviewEnabled,
   isInstanceScopeViewportMode,
 } from './devInstanceScopePreview'
 
+afterEach(() => {
+  resetDevInspectorModeCache()
+  if (import.meta.env.DEV) setDevInspectorMode('live')
+})
+
 describe('devInstanceScopePreview', () => {
-  it('is enabled only in local design mode', () => {
-    expect(devInstanceScopePreviewEnabled('design')).toBe(import.meta.env.DEV)
+  it('is enabled only in local design mode with live inspector preview', () => {
+    if (!import.meta.env.DEV) {
+      expect(devInstanceScopePreviewEnabled('design')).toBe(false)
+      return
+    }
+    setDevInspectorMode('live')
+    expect(devInstanceScopePreviewEnabled('design')).toBe(true)
+    setDevInspectorMode('config')
+    expect(devInstanceScopePreviewEnabled('design')).toBe(false)
     expect(devInstanceScopePreviewEnabled('live')).toBe(false)
   })
 
@@ -17,6 +33,7 @@ describe('devInstanceScopePreview', () => {
       expect(isInstanceScopeViewportMode('design')).toBe(false)
       return
     }
+    setDevInspectorMode('live')
     expect(isInstanceScopeViewportMode('design')).toBe(true)
     expect(isInstanceScopeViewportMode('live')).toBe(true)
     expect(isInstanceScopeViewportMode('simulate')).toBe(true)
@@ -72,11 +89,24 @@ describe('devInstanceScopePreview', () => {
     }
     expect(buildDevInstanceScopeMetrics(cache, undefined)?.cacheHits).toBeGreaterThan(0)
     expect(buildDevInstanceScopeMetrics(db, undefined)?.layers.length).toBe(1)
+    const app: CanvasNode = {
+      id: 'app1',
+      type: 'compute',
+      label: 'App',
+      position: [0, 0, 0],
+      status: 'healthy',
+      config: { replicas: 2 },
+    }
     expect(
-      buildDevInstanceScopeMetrics(lb, undefined, { app1: cache }, {
-        e1: { id: 'e1', sourceId: 'lb1', targetId: 'app1', protocol: 'http', animated: false },
-      })?.backendPods.length,
-    ).toBe(1)
+      buildDevInstanceScopeMetrics(
+        lb,
+        { id: 'app1', archetype: 'app-server', engine: 'generic', x: 0, y: 0, label: 'App', config: {}, topology: { replicas: 2, shards: 1, packing: 'stack' } },
+        { app1: app },
+        {
+          e1: { id: 'e1', sourceId: 'lb1', targetId: 'app1', protocol: 'http', animated: false },
+        },
+      )?.backendPods.length,
+    ).toBe(2)
   })
 
   it('builds worker pod fixtures aligned with canvas unit count', () => {

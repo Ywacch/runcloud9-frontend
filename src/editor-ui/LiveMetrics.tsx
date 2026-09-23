@@ -15,6 +15,7 @@ import {
 import { useMetricsStore, type MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import { MetricHelpIcon } from './MetricHelpIcon'
+import type { InspectorMetricGroupId } from '../lib/inspectorMetricGroups'
 import {
   METRIC_CARD_SHELL,
   PanelViewControls,
@@ -85,6 +86,10 @@ interface LiveMetricsProps {
   displayMode?: CanvasMode
   /** DEV preview: use fixture deployment id for live-only chrome (e.g. cache key count). */
   metricsPreviewActive?: boolean
+  metricGroup?: InspectorMetricGroupId
+  onSelectMetricGroup?: (id: InspectorMetricGroupId) => void
+  onOpenDataTab?: () => void
+  showLatencyControls?: boolean
 }
 
 export function MetricsWaitingSkeleton() {
@@ -110,6 +115,10 @@ export function LiveMetrics({
   onPanelViewChange,
   displayMode,
   metricsPreviewActive = false,
+  metricGroup,
+  onSelectMetricGroup,
+  onOpenDataTab,
+  showLatencyControls = true,
 }: LiveMetricsProps) {
   const nodeId = node.id
   const canvasMode = useCanvasStore((s) => s.mode)
@@ -194,7 +203,7 @@ export function LiveMetrics({
   }
 
   return (
-    <div className="space-y-4">
+    <>
       {!hideControls && node.type !== 'client' ? (
         <PanelViewControls
           view={panelView}
@@ -212,6 +221,10 @@ export function LiveMetrics({
         templateMetrics={templateMetrics}
         loadgenActive={loadgenActive}
         view={panelView}
+        metricGroup={metricGroup}
+        onSelectMetricGroup={onSelectMetricGroup}
+        onOpenDataTab={onOpenDataTab}
+        showLatencyControls={showLatencyControls}
         onPanelViewChange={patchPanelView}
         replicaRows={
           node.type === 'compute' || node.type === 'worker' ? replicaRows : []
@@ -232,7 +245,7 @@ export function LiveMetrics({
       {mode === 'simulate' && simInspectorHasContent(simDetail) ? (
         <SimulationInspectorSection detail={simDetail!} nodes={nodes} />
       ) : null}
-    </div>
+    </>
   )
 }
 

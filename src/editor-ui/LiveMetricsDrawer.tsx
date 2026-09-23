@@ -5,6 +5,8 @@ import {
   useLiveChromeStore,
 } from '../lib/liveChromeStore'
 import { useDevLiveStripVisible } from '../lib/devCanvasTools'
+import { useDevInspectorMode } from '../lib/devInspectorMode'
+import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
@@ -57,7 +59,8 @@ export function LiveMetricsDrawer() {
   const [flowOpen, setFlowOpen] = useState(false)
   const [dataViewOpen, setDataViewOpen] = useState(false)
 
-  const devPreview = import.meta.env.DEV && mode === 'design'
+  useDevInspectorMode()
+  const devPreview = devInstanceScopePreviewEnabled(mode)
   const transportReconnecting =
     streamWarning === 'Live metrics connection dropped. Reconnecting...' ||
     streamWarning === 'Reconnecting live metrics…'
@@ -210,11 +213,11 @@ export function LiveMetricsDrawer() {
 
   return (
     <aside
-      className={`flex h-full shrink-0 flex-col border-l border-[var(--c9-border)] bg-[var(--c9-bg-surface)] ${LIVE_METRICS_DRAWER_CLASS}`}
+      className={`sl-inspector flex h-full shrink-0 flex-col ${LIVE_METRICS_DRAWER_CLASS}`}
       aria-label="Detailed metrics"
     >
-      <div className="flex items-start gap-2 border-b border-[var(--c9-border)] px-3 py-2">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--c9-muted)]">
+      <div className="sl-topbar items-start">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1">
           <span>
             Target:{' '}
             <span className="font-mono tabular-nums text-[var(--c9-text)]">
@@ -244,7 +247,7 @@ export function LiveMetricsDrawer() {
           type="button"
           aria-label="Collapse detailed metrics"
           onClick={() => setOpen(false)}
-          className="mt-0.5 shrink-0 rounded p-0.5 text-[var(--c9-muted)] transition-transform duration-150 hover:text-[var(--c9-text)] active:scale-[0.96]"
+          className="mt-0.5 shrink-0 rounded-none border border-transparent p-1 text-[var(--c9-muted)] transition-colors duration-150 hover:border-[var(--c9-border)] hover:text-[var(--c9-text)] active:scale-[0.96]"
         >
           <ChevronRight />
         </button>
@@ -270,7 +273,7 @@ export function LiveMetricsDrawer() {
                   .map(([code, count]) => (
                     <span
                       key={code}
-                      className={`rounded border px-1.5 py-0.5 font-mono text-[10px] leading-none ${
+                      className={`rounded-none border px-1.5 py-0.5 font-mono text-[10px] leading-none ${
                         Number(code) >= 500
                           ? 'border-red-500/40 bg-red-500/10 text-red-200/90'
                           : Number(code) >= 400
@@ -290,17 +293,19 @@ export function LiveMetricsDrawer() {
             Metrics will appear once telemetry arrives.
           </p>
         ) : cards.length > 0 ? (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="sl-kpi-grid">
             {cards.map((card) => (
-              <MetricChart
-                key={card.id}
-                title={card.title}
-                unit={card.unit}
-                series={card.series}
-                compact
-                showDot={false}
-                className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-2.5 shadow-none"
-              />
+              <div key={card.id} className="sl-kpi">
+                <div className="sl-kpi-lab">{card.title}</div>
+                <MetricChart
+                  title={card.title}
+                  unit={card.unit}
+                  series={card.series}
+                  compact
+                  showDot={false}
+                  className="mt-2 !border-0 !bg-transparent !p-0 shadow-none"
+                />
+              </div>
             ))}
           </div>
         ) : null}

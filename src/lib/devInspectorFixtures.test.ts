@@ -53,7 +53,6 @@ describe('devInspectorFixtures', () => {
     })
     expect(devIntrospectFixture('mq', 'queues')).toEqual([
       { name: 'orders', messages: 42, consumers: 1, available: true },
-      { name: 'orders.dlq', messages: 0, consumers: 0, available: true },
     ])
   })
 

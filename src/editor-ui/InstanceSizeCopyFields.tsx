@@ -3,20 +3,17 @@ import {
   normalizeInstanceSize,
   normalizeInstanceSizes,
 } from '../lib/instanceSizes'
+import { pcfgProfileOptions } from '../lib/pcfgProfileOptions'
 import {
   isInstanceSizePlanLocked,
   type InstanceSize,
 } from '../lib/userTier'
 import { INSTANCE_SIZE_LARGE_LOCKED_HELPER } from '../lib/billingCopy'
-
-const fieldClass =
-  'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
-const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
-
-const SIZE_OPTIONS: InstanceSize[] = ['small', 'medium', 'large']
+import { PcfgField, PcfgProf } from './stacklabConfigControls'
 
 export function InstanceSizeCopyFields({
   idPrefix,
+  nodeType,
   config,
   replicaCount,
   updateConfig,
@@ -25,6 +22,7 @@ export function InstanceSizeCopyFields({
   maxInstanceSize = 'large',
 }: {
   idPrefix: string
+  nodeType: CanvasNode['type']
   config: Record<string, unknown>
   replicaCount: number
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
@@ -33,46 +31,39 @@ export function InstanceSizeCopyFields({
   maxInstanceSize?: InstanceSize
 }) {
   const sizes = normalizeInstanceSizes(config, replicaCount)
+  const profileOptions = pcfgProfileOptions(nodeType, maxInstanceSize)
   const showLargeLocked = maxInstanceSize !== 'large'
+
   return (
     <>
       {sizes.map((size, i) => (
-        <div key={`${idPrefix}-copy-${i}`}>
-          <label className={labelClass} htmlFor={`${idPrefix}-copy-${i}-size`}>
-            {labelForIndex ? labelForIndex(i) : `Copy ${i + 1} size`}
-          </label>
-          <select
+        <PcfgField
+          key={`${idPrefix}-copy-${i}`}
+          label={labelForIndex ? labelForIndex(i) : `Copy ${i + 1} size`}
+          sub={
+            showLargeLocked && isInstanceSizePlanLocked('large', maxInstanceSize)
+              ? INSTANCE_SIZE_LARGE_LOCKED_HELPER
+              : undefined
+          }
+        >
+          <PcfgProf
             id={`${idPrefix}-copy-${i}-size`}
-            className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
             value={size}
+            options={profileOptions}
             disabled={readOnly}
-            onChange={(e) => {
+            onChange={(next) => {
               if (readOnly) return
+              if (isInstanceSizePlanLocked(next, maxInstanceSize)) return
               const nextArr = [...sizes]
-              nextArr[i] = normalizeInstanceSize(e.target.value)
+              nextArr[i] = normalizeInstanceSize(next)
               updateConfig({
                 instanceSizes: nextArr,
                 instanceSize: nextArr[0],
               })
             }}
-          >
-            {SIZE_OPTIONS.map((option) => (
-              <option
-                key={option}
-                value={option}
-                disabled={isInstanceSizePlanLocked(option, maxInstanceSize)}
-              >
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+          />
+        </PcfgField>
       ))}
-      {showLargeLocked ? (
-        <p className="text-[11px] text-[var(--c9-muted)]">
-          {INSTANCE_SIZE_LARGE_LOCKED_HELPER}
-        </p>
-      ) : null}
     </>
   )
 }

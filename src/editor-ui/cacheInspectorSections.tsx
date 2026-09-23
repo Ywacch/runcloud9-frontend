@@ -47,10 +47,11 @@ import { InlineDisclosure } from './InlineDisclosure'
 export function CacheStrategyBanner({ strategy }: { strategy: string }) {
   const banner = cacheStrategyBanner(strategy)
   return (
-    <section className="space-y-1 border-b border-gray-800/80 pb-4">
-      <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-300">
-        {banner.title}
-      </h3>
+    <section className="banner">
+      <span className="tag border border-[var(--sl-rule-2,rgba(232,233,229,0.2))] px-1 font-mono text-[8.5px] tracking-[0.16em] text-[var(--sl-ink-4,#4a504e)]">
+        Strategy
+      </span>
+      <b>{banner.title}</b>
       <InlineDisclosure label="How this strategy works">
         {banner.subtitle}
       </InlineDisclosure>

@@ -210,14 +210,14 @@ describe('parseRecentLatenciesMs', () => {
 })
 
 describe('normalizeWsEvents workload anchors', () => {
-  it('retains all workload kinds, detail, and audience while type stays action', () => {
+  it('retains all workload kinds, detail, and visibility while type stays action', () => {
     const events = normalizeWsEvents([
       {
         timestamp: '2026-05-01T12:00:00Z',
         type: 'action',
         source: 'loadgen',
         kind: 'loadgen_start',
-        audience: 'both',
+        visibility: 'all',
         title: 'Load generator started',
         description: 'rps=5',
         detail: { template: 'url-shortener', rps: '5', durationSeconds: '30' },
@@ -236,7 +236,7 @@ describe('normalizeWsEvents workload anchors', () => {
         type: 'action',
         source: 'chaos',
         kind: 'chaos_inject',
-        audience: 'ai',
+        visibility: 'operator',
         title: 'Chaos injected',
         detail: { scenario: 'pod_kill', targetComponent: 'app-server' },
       },
@@ -249,11 +249,14 @@ describe('normalizeWsEvents workload anchors', () => {
     ])
     expect(events[0]).toMatchObject({
       type: 'action',
-      audience: 'both',
+      visibility: 'all',
       detail: { template: 'url-shortener', rps: '5', durationSeconds: '30' },
     })
+    expect(events[1]).toMatchObject({
+      visibility: 'student',
+    })
     expect(events[2]).toMatchObject({
-      audience: 'ai',
+      visibility: 'operator',
       detail: { scenario: 'pod_kill', targetComponent: 'app-server' },
     })
   })
@@ -265,7 +268,7 @@ describe('normalizeWsEvents workload anchors', () => {
         type: 'action',
         source: 'chaos',
         kind: 'standby_reclone',
-        audience: 'both',
+        visibility: 'all',
         component: 'db',
         title: 'Standby rebuilt after timeline fork',
         description: 'standby_reclone',
@@ -279,7 +282,7 @@ describe('normalizeWsEvents workload anchors', () => {
 
     expect(event.kind).toBe('standby_reclone')
     expect(event.description).toBe('standby_reclone')
-    expect(event.audience).toBe('both')
+    expect(event.visibility).toBe('all')
   })
 
   it('keeps a legacy runtime action unchanged when kind is missing', () => {
@@ -305,7 +308,7 @@ describe('normalizeWsEvents workload anchors', () => {
     })
     expect(event.kind).toBeUndefined()
     expect(event.detail).toBeUndefined()
-    expect(event.audience).toBeUndefined()
+    expect(event.visibility).toBeUndefined()
   })
 })
 

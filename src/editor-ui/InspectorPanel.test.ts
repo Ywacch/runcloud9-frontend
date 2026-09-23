@@ -162,17 +162,15 @@ function renderCacheInspector(opts: {
 
 describe('CacheNodeInspectorFields eviction policy copy', () => {
   it.each(['volatile-lru', 'volatile-lfu', 'volatile-random', 'volatile-ttl'] as const)(
-    'shows What this means disclosure without amber warning for %s when TTL is set',
+    'shows eviction policy helper without amber warning for %s when TTL is set',
     (policy) => {
       const html = renderCacheInspector({
         evictionPolicy: policy,
         cacheTtlSeconds: 300,
       })
 
-      expect(html).toContain('What this means')
-      expect(html).toContain(
-        `title="${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}"`,
-      )
+      expect(html).toContain('pcfg-sub')
+      expect(html).toContain(REDIS_EVICTION_POLICY_DESCRIPTION[policy])
       expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )
@@ -190,29 +188,27 @@ describe('CacheNodeInspectorFields eviction policy copy', () => {
   )
 
   it.each(['noeviction', 'allkeys-lru', 'allkeys-lfu', 'allkeys-random'] as const)(
-    'shows What this means disclosure without the volatile warning for %s',
+    'shows eviction policy helper without the volatile warning for %s',
     (policy) => {
       const html = renderCacheInspector({
         evictionPolicy: policy,
         cacheTtlSeconds: 0,
       })
 
-      expect(html).toContain('What this means')
-      expect(html).toContain(
-        `title="${REDIS_EVICTION_POLICY_DESCRIPTION[policy]}"`,
-      )
+      expect(html).toContain('pcfg-sub')
+      expect(html).toContain(REDIS_EVICTION_POLICY_DESCRIPTION[policy])
       expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )
 })
 
 describe('CacheNodeInspectorFields cache TTL', () => {
-  it('renders Cache TTL with timed value for url-shortener default', () => {
+  it('renders Default TTL with timed value for url-shortener default', () => {
     const html = renderCacheInspector({
       templateId: 'url-shortener',
       cacheTtlSeconds: 300,
     })
-    expect(html).toContain('Cache TTL')
+    expect(html).toContain('Default TTL')
     expect(html).toContain('id="cache-ttl"')
     expect(html).toContain('value="300"')
     expect(html).toContain('No expiry')
@@ -255,18 +251,12 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
       topology: 'proxy',
     })
 
-    expect(html).toContain('Write-behind flush interval (seconds)')
+    expect(html).toContain('Flush interval')
     expect(html).toContain('How often the proxy flushes writes to the database.')
-    expect(html).toContain(
-      'title="Shorter keeps cache and database closer. Longer delays durable writes."',
-    )
     expect(html).toContain('id="cache-write-behind-interval"')
     expect(html).toContain('value="30"')
     expect(html).not.toContain(WRITE_BEHIND_INTERVAL_VALIDATION)
-    expect(html).toContain('Read-through (always on)')
-    expect(html).not.toContain(
-      'On miss, the proxy loads from Postgres and refills Redis.',
-    )
+    expect(html).toContain('Read-through refills Redis on miss.')
   })
 
   it('hides the control for cache-aside and write-through on url-shortener', () => {
@@ -276,7 +266,7 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
       writeBehindIntervalSeconds: 45,
       topology: 'aside',
     })
-    expect(aside).not.toContain('Write-behind flush interval (seconds)')
+    expect(aside).not.toContain('Flush interval')
     expect(aside).not.toContain('id="cache-write-behind-interval"')
 
     const through = renderCacheInspector({
@@ -285,7 +275,7 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
       writeBehindIntervalSeconds: 45,
       topology: 'proxy',
     })
-    expect(through).not.toContain('Write-behind flush interval (seconds)')
+    expect(through).not.toContain('Flush interval')
     expect(through).not.toContain('id="cache-write-behind-interval"')
   })
 
@@ -297,7 +287,7 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
         writeBehindIntervalSeconds: 45,
         topology: 'proxy',
       })
-      expect(html).not.toContain('Write-behind flush interval (seconds)')
+      expect(html).not.toContain('Flush interval')
     }
   })
 
@@ -324,16 +314,15 @@ describe('CacheNodeInspectorFields readOnly (live Config)', () => {
       readOnly: true,
     })
 
-    expect(html).toContain('Redis')
-    expect(html).toContain('Cache strategy')
+    expect(html).toContain('Strategy')
     expect(html).toContain('write-behind')
-    expect(html).toContain('Cache TTL')
+    expect(html).toContain('Default TTL')
     expect(html).toContain('id="cache-ttl"')
     expect(html).toContain('Eviction policy')
     expect(html).toContain(REDIS_EVICTION_POLICY_DESCRIPTION['volatile-lru'])
-    expect(html).toContain('Write-behind flush interval (seconds)')
-    expect(html).toContain('Redis size')
-    expect(html).toContain('Proxy size')
+    expect(html).toContain('Flush interval')
+    expect(html).toContain('Resource profile')
+    expect(html).toContain('Proxy profile')
     expect(html).toContain('disabled=""')
     expect(html).not.toContain('(fix wiring)')
   })
@@ -363,7 +352,7 @@ describe('DatabaseNodeInspectorFields applicable knobs', () => {
   it('hides replication and read consistency when readReplicas is 0', () => {
     const html = renderDatabaseInspector(0)
 
-    expect(html).toContain('id="db-read-replicas"')
+    expect(html).toContain('Read replicas')
     expect(html).not.toContain('id="db-replication-mode"')
     expect(html).not.toContain('id="db-read-consistency"')
   })
@@ -371,7 +360,7 @@ describe('DatabaseNodeInspectorFields applicable knobs', () => {
   it('shows replication and read consistency when readReplicas is at least 1', () => {
     const html = renderDatabaseInspector(1)
 
-    expect(html).toContain('id="db-read-replicas"')
+    expect(html).toContain('Read replicas')
     expect(html).toContain('id="db-replication-mode"')
     expect(html).toContain('id="db-read-consistency"')
   })

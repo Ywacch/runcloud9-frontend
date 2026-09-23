@@ -1,32 +1,40 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchPeek,
   fetchQueues,
   type PeekResult,
   type QueueInfo,
 } from '../lib/introspectApi'
+import { SlKv, SlKvList } from './stacklabPanePrimitives'
+import {
+  fmtKeySize,
+  SlDataError,
+  SlDataHead,
+  SlJsonBlock,
+} from './stacklabDataPanels'
 
-function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="rounded border border-red-700/50 bg-red-950/65 px-2 py-2 text-xs text-red-100">
-      <p>{message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-2 rounded bg-red-900/80 px-2 py-1 text-[11px] font-semibold hover:bg-red-800"
-      >
-        Retry
-      </button>
-    </div>
-  )
+function headMessageLabel(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>
+    const orderId = parsed.orderId ?? parsed.order_id ?? parsed.post_id ?? parsed.id
+    const event = parsed.event ?? parsed.type ?? parsed.content
+    if (orderId != null && event != null) return `${String(event)} · id ${String(orderId)}`
+    if (orderId != null) return `id ${String(orderId)}`
+    if (event != null) return String(event)
+  } catch {
+    /* keep fallback */
+  }
+  return 'head message'
 }
 
 export function QueueBrowser({
   deploymentId,
   component,
+  queueName = 'orders',
 }: {
   deploymentId: string
   component: string
+  queueName?: string
 }) {
   const [queues, setQueues] = useState<QueueInfo[]>([])
   const [selected, setSelected] = useState<string | null>(null)
@@ -34,6 +42,16 @@ export function QueueBrowser({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [peeking, setPeeking] = useState(false)
+
+  const primaryQueue = useMemo(() => {
+    const preferred = queues.find((q) => q.name === queueName)
+    return preferred ?? queues[0] ?? null
+  }, [queues, queueName])
+
+  const selectedQueue = useMemo(
+    () => queues.find((q) => q.name === selected) ?? primaryQueue,
+    [queues, selected, primaryQueue],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -43,14 +61,15 @@ export function QueueBrowser({
       setQueues(list)
       setSelected((prev) => {
         if (prev && list.some((q) => q.name === prev)) return prev
-        return list[0]?.name ?? null
+        const preferred = list.find((q) => q.name === queueName)
+        return preferred?.name ?? list[0]?.name ?? null
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [deploymentId, component])
+  }, [deploymentId, component, queueName])
 
   useEffect(() => {
     void load()
@@ -69,82 +88,113 @@ export function QueueBrowser({
     }
   }
 
+  const activeName = selectedQueue?.name ?? queueName
+  const subtitle = `${activeName} queue — head of the line.`
+  const body = peek?.empty ? undefined : peek?.body
+
   if (loading) {
-    return <p className="text-xs text-[var(--c9-muted)]">Loading queues…</p>
+    return (
+      <>
+        <SlDataHead subtitle={subtitle} />
+        <p className="note">
+          <b>i</b>Loading queues…
+        </p>
+      </>
+    )
   }
+
   if (error && queues.length === 0) {
-    return <ErrorBox message={error} onRetry={() => void load()} />
+    return (
+      <>
+        <SlDataHead subtitle={subtitle} />
+        <SlDataError message={error} onRetry={() => void load()} />
+      </>
+    )
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wider text-[var(--c9-muted)]">
-          Queues
-        </p>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded border border-[var(--c9-border)] px-2 py-0.5 text-[10px] text-[var(--c9-muted)] hover:text-[var(--c9-text)]"
-        >
-          Refresh
-        </button>
-      </div>
-      {error ? <ErrorBox message={error} onRetry={() => void load()} /> : null}
-      <ul className="space-y-1">
-        {queues.map((q) => {
-          const active = q.name === selected
-          return (
-            <li key={q.name}>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelected(q.name)
-                  setPeek(null)
-                }}
-                className={`flex w-full items-center justify-between rounded border px-2 py-1.5 text-left text-xs ${
-                  active
-                    ? 'border-[var(--c9-accent)] bg-[var(--c9-surface)]'
-                    : 'border-[var(--c9-border)] hover:bg-[var(--c9-surface)]'
-                }`}
-              >
-                <span className="font-mono text-[var(--c9-text)]">{q.name}</span>
-                <span className="font-mono text-[10px] text-[var(--c9-muted)]">
-                  {q.available
-                    ? `${q.messages} msg · ${q.consumers} cons`
-                    : 'unavailable'}
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      {selected ? (
-        <div className="space-y-2 rounded border border-[var(--c9-border)] p-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] text-[var(--c9-muted)]">
-              Peek head (Get + requeue; one message per click)
-            </p>
+    <>
+      <SlDataHead subtitle={subtitle} />
+
+      {queues.length > 1 ? (
+        <div className="seg" role="group" aria-label="Queue" style={{ marginBottom: 12 }}>
+          {queues.map((q) => (
             <button
+              key={q.name}
               type="button"
-              disabled={peeking}
-              onClick={() => void onPeek()}
-              className="rounded bg-[var(--c9-accent)]/20 px-2 py-0.5 text-[10px] font-semibold text-[var(--c9-text)] disabled:opacity-50"
+              className={q.name === activeName ? 'is-on' : ''}
+              onClick={() => {
+                setSelected(q.name)
+                setPeek(null)
+              }}
             >
+              {q.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {error ? <SlDataError message={error} onRetry={() => void load()} /> : null}
+
+      {selectedQueue ? (
+        <SlKvList flush>
+          <SlKv
+            keyLabel="depth"
+            value={
+              selectedQueue.available
+                ? `${selectedQueue.messages.toLocaleString()} msgs`
+                : 'unavailable'
+            }
+          />
+          <SlKv keyLabel="consumers" value={String(selectedQueue.consumers)} />
+        </SlKvList>
+      ) : null}
+
+      {body ? (
+        <>
+          <SlKvList flush>
+            <SlKv keyLabel="head message" value={headMessageLabel(body)} />
+            <SlKv keyLabel="body size" value={fmtKeySize(body.length)} />
+          </SlKvList>
+          <SlJsonBlock
+            title={`${activeName} / head`}
+            dialect={peek?.contentType ?? 'application/json'}
+            body={body}
+          />
+        </>
+      ) : selectedQueue && !selectedQueue.available ? (
+        <p className="note">
+          <b>i</b>Queue metadata is unavailable from the broker.
+        </p>
+      ) : selectedQueue && selectedQueue.messages === 0 ? (
+        <p className="note">
+          <b>i</b>Queue is empty — nothing to peek.
+        </p>
+      ) : null}
+
+      {selected ? (
+        <>
+          <div className="row">
+            <div className="row-key">
+              <div className="t">Peek head message</div>
+              <div className="s">Requeues the head message — it is delivered again afterwards.</div>
+            </div>
+            <button type="button" className="btn" disabled={peeking} onClick={() => void onPeek()}>
               {peeking ? 'Peeking…' : 'Peek'}
             </button>
           </div>
-          {peek ? (
-            peek.empty ? (
-              <p className="text-xs text-[var(--c9-muted)]">Queue empty</p>
-            ) : (
-              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-[var(--c9-text)]">
-                {peek.body ?? ''}
-              </pre>
-            )
+          {peek?.empty ? (
+            <p className="note">
+              <b>i</b>Queue empty.
+            </p>
           ) : null}
-        </div>
+          {peek?.requeued ? (
+            <p className="note amber">
+              <b>!</b>Message requeued — it will be delivered again.
+            </p>
+          ) : null}
+        </>
       ) : null}
-    </div>
+    </>
   )
 }

@@ -15,6 +15,18 @@ export function fmtRate(v: number | undefined | null): string {
   return Math.round(v).toLocaleString()
 }
 
+/**
+ * Inspector table latency — `ms` with a space; rolls to `s` at ≥1s so p99 stays compact.
+ */
+export function fmtLatencyCell(ms: number | undefined | null): string {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return FMT_EMPTY
+  if (ms >= 1000) {
+    const seconds = ms / 1000
+    return seconds >= 10 ? `${Math.round(seconds)} s` : `${seconds.toFixed(1)} s`
+  }
+  return `${ms.toFixed(1)} ms`
+}
+
 /** Latency in ms — 0 decimals above 10ms, 1 decimal below */
 export function fmtMs(v: number | undefined | null): string {
   if (v == null || !Number.isFinite(v)) return FMT_EMPTY

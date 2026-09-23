@@ -124,7 +124,7 @@ export default function SvgCanvasPage() {
   )
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--c9-bg)] text-[var(--c9-text)]">
+    <div className="sl-chrome flex h-screen w-screen overflow-hidden bg-[var(--sl-bg,#0a0b0d)] text-[var(--sl-ink,#e8e9e5)]">
       <SessionSummary />
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

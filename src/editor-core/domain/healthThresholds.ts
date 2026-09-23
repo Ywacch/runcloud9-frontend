@@ -15,6 +15,25 @@ export const HIGH_LOAD_CPU = WARNING_CPU
 /** @deprecated Use WARNING_MEM */
 export const HIGH_LOAD_MEM = WARNING_MEM
 
+/** Scale marker + amber fill when utilization reaches the warn line (0–100). */
+export function isCpuUtilWarn(pct: number): boolean {
+  return pct >= WARNING_CPU
+}
+
+export function isMemUtilWarn(pct: number): boolean {
+  return pct >= WARNING_MEM
+}
+
+/** Inspector scale tick label, e.g. `80 warn`. */
+export function resourceWarnMarkLabel(threshold: number): string {
+  return `${threshold} warn`
+}
+
+/** Inspector footnote copy, e.g. `warn ≥ 80%`. */
+export function resourceWarnFootLabel(threshold: number): string {
+  return `warn ≥ ${threshold}%`
+}
+
 export type HealthState = 'idle' | 'healthy' | 'warning' | 'error'
 
 export function runtimeHealthIsCritical(

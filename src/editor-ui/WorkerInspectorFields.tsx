@@ -7,12 +7,8 @@ import {
 import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { ResourceProfileFields } from './ResourceProfileFields'
 import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
-import { InfoTooltip } from './InfoTooltip'
 import type { InstanceSize } from '../lib/userTier'
-
-const fieldClass =
-  'w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-3 py-2 text-sm text-[var(--c9-text)] focus:border-[var(--c9-accent)] focus:outline-none'
-const labelClass = 'mb-1 block text-xs uppercase tracking-wider text-[var(--c9-muted)]'
+import { PcfgField, PcfgNum, PcfgStepper } from './stacklabConfigControls'
 
 function optionalPositiveInt(raw: unknown): string {
   const n = typeof raw === 'number' ? raw : Number(raw)
@@ -39,102 +35,72 @@ export function WorkerInspectorFields({
 
   return (
     <>
-      <div>
-        <label className={labelClass} htmlFor="worker-replicas">
-          <span className="inline-flex items-center gap-1">
-            Replicas
-            <InfoTooltip
-              text={`Scale fan-out with replicas on a single worker node (max ${WORKER_REPLICA_MAX}).`}
-            />
-          </span>
-        </label>
-        <input
-          id="worker-replicas"
-          type="number"
+      <PcfgField
+        label="Replicas"
+        sub={`Number of identical workers draining the queue in parallel. Max ${WORKER_REPLICA_MAX}.`}
+      >
+        <PcfgStepper
+          label="Replicas"
+          value={workerReplicas}
           min={WORKER_REPLICA_MIN}
           max={WORKER_REPLICA_MAX}
-          step={1}
-          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
-          value={workerReplicas}
-          readOnly={readOnly}
           disabled={readOnly}
-          onChange={(e) => {
-            if (readOnly) return
-            const n = Number(e.target.value)
-            if (!Number.isFinite(n)) return
-            const next = clampWorkerReplicas(n)
-            const sizes = normalizeInstanceSizes(config, next)
+          onChange={(next) => {
+            const clamped = clampWorkerReplicas(next)
+            const sizes = normalizeInstanceSizes(config, clamped)
             updateConfig({
-              replicas: next,
+              replicas: clamped,
               instanceSizes: sizes,
               instanceSize: sizes[0],
             })
           }}
         />
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="worker-prefetch">
-          <span className="inline-flex items-center gap-1">
-            Prefetch
-            <InfoTooltip text="RabbitMQ QoS prefetch per consumer (empty = image default)." />
-          </span>
-        </label>
-        <input
+      </PcfgField>
+      <PcfgField
+        label="Prefetch"
+        htmlFor="worker-prefetch"
+        sub="Messages the broker will deliver to a consumer before waiting for acks. Empty uses the image default."
+      >
+        <PcfgNum
           id="worker-prefetch"
-          type="number"
-          min={1}
-          step={1}
-          placeholder="Default"
-          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
           value={prefetch}
-          readOnly={readOnly}
+          unit="msgs"
+          min={1}
           disabled={readOnly}
-          onChange={(e) => {
-            if (readOnly) return
-            const v = e.target.value.trim()
-            if (!v) {
+          placeholder="Default"
+          onChange={(raw) => {
+            if (!raw) {
               updateConfig({ workerPrefetch: undefined })
               return
             }
-            const n = Number(v)
-            if (!Number.isFinite(n) || n < 1) return
-            updateConfig({ workerPrefetch: Math.floor(n) })
+            updateConfig({ workerPrefetch: Math.floor(Number(raw)) })
           }}
         />
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="worker-concurrency">
-          <span className="inline-flex items-center gap-1">
-            Concurrency
-            <InfoTooltip text="Concurrent handlers per worker process (empty = image default)." />
-          </span>
-        </label>
-        <input
+      </PcfgField>
+      <PcfgField
+        label="Concurrency"
+        htmlFor="worker-concurrency"
+        sub="Concurrent handlers per worker process. Empty uses the image default."
+      >
+        <PcfgNum
           id="worker-concurrency"
-          type="number"
-          min={1}
-          step={1}
-          placeholder="Default"
-          className={`${fieldClass}${readOnly ? ' cursor-not-allowed opacity-60' : ''}`}
           value={concurrency}
-          readOnly={readOnly}
+          min={1}
           disabled={readOnly}
-          onChange={(e) => {
-            if (readOnly) return
-            const v = e.target.value.trim()
-            if (!v) {
+          placeholder="Default"
+          onChange={(raw) => {
+            if (!raw) {
               updateConfig({ workerConcurrency: undefined })
               return
             }
-            const n = Number(v)
-            if (!Number.isFinite(n) || n < 1) return
-            updateConfig({ workerConcurrency: Math.floor(n) })
+            updateConfig({ workerConcurrency: Math.floor(Number(raw)) })
           }}
         />
-      </div>
+      </PcfgField>
       {workerReplicas > 1 ? (
         <InstanceSizeCopyFields
           idPrefix="worker"
+          nodeType="worker"
           config={config}
           replicaCount={workerReplicas}
           updateConfig={updateConfig}
@@ -160,36 +126,32 @@ export function WorkerInspectorFields({
         />
       )}
       {simulationMode ? (
-        <div>
-          <label className={labelClass} htmlFor="worker-cap">
-            Capacity override (RPS, optional)
-          </label>
-          <input
+        <PcfgField
+          label="Capacity override"
+          htmlFor="worker-cap"
+          sub="Optional RPS ceiling. Empty leaves capacity on automatic."
+        >
+          <PcfgNum
             id="worker-cap"
-            type="number"
-            min={1}
-            step={1}
-            placeholder="Auto"
-            className={fieldClass}
             value={
               Number.isFinite(Number(config.nodeCapacityRps)) &&
               Number(config.nodeCapacityRps) > 0
                 ? String(Number(config.nodeCapacityRps))
                 : ''
             }
-            onChange={(e) => {
-              const v = e.target.value.trim()
-              if (!v) {
+            unit="rps"
+            min={1}
+            placeholder="Auto"
+            onChange={(raw) => {
+              if (!raw) {
                 updateConfig({ nodeCapacityRps: undefined })
                 return
               }
-              const n = Number(v)
-              if (Number.isFinite(n) && n > 0) {
-                updateConfig({ nodeCapacityRps: n })
-              }
+              const n = Number(raw)
+              if (Number.isFinite(n) && n > 0) updateConfig({ nodeCapacityRps: n })
             }}
           />
-        </div>
+        </PcfgField>
       ) : null}
     </>
   )

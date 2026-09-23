@@ -8,6 +8,8 @@ import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 import { trackEvent } from '../lib/analytics'
 import { fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import { useDevLiveStripVisible } from '../lib/devCanvasTools'
+import { useDevInspectorMode } from '../lib/devInspectorMode'
+import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import { useLiveChromeStore } from '../lib/liveChromeStore'
 import {
   DEV_LIVE_STRIP_PREVIEW,
@@ -65,8 +67,7 @@ const INGRESS_HELP_SIM =
 
 const CHIPS_KEY = 'runcloud9.liveKpiChipsOpen'
 
-const hudChromeBtn =
-  'c9-hud-btn inline-flex items-center gap-[0.45rem] rounded-md border border-[var(--c9-border)] bg-[var(--c9-bg-subtle)] px-[0.7rem] py-[0.3rem] text-[12px] text-[var(--c9-text)] transition-colors duration-150 hover:bg-[var(--c9-bg-card)] focus-visible:outline-none focus-visible:shadow-[var(--c9-shadow-focus)] active:scale-[0.98]'
+const hudChromeBtn = 'sl-tb-btn'
 
 function readChipsOpen(): boolean {
   try {
@@ -113,7 +114,8 @@ export function LiveSessionStrip() {
     snapshotTemplateId ? s.loadgenConfigById[snapshotTemplateId] : undefined,
   )
   const setLoadgenConfig = useTemplateRegistryStore((s) => s.setLoadgenConfig)
-  const devDesignPreview = import.meta.env.DEV && mode === 'design'
+  useDevInspectorMode()
+  const devDesignPreview = devInstanceScopePreviewEnabled(mode)
   const resolvedLoadgenConfig = devDesignPreview ? DEV_LOADGEN_CONFIG : loadgenConfig
   const mixTemplateId = devDesignPreview
     ? DEV_LIVE_STRIP_PREVIEW.templateId
@@ -226,7 +228,7 @@ export function LiveSessionStrip() {
   }, [maxLoadgenRps])
 
   useEffect(() => {
-    if (import.meta.env.DEV && mode === 'design') {
+    if (devInstanceScopePreviewEnabled(mode)) {
       const end = Date.now() + DEV_LIVE_STRIP_PREVIEW.remainingSeconds * 1000
       const tick = () => {
         setRemaining(Math.max(0, Math.ceil((end - Date.now()) / 1000)))
@@ -248,7 +250,7 @@ export function LiveSessionStrip() {
   }, [liveSessionEndsAt, mode])
 
   useEffect(() => {
-    if (mode !== 'live' && !(import.meta.env.DEV && mode === 'design')) {
+    if (mode !== 'live' && !devInstanceScopePreviewEnabled(mode)) {
       setActiveTraceId(null)
       setLoadOpen(false)
       setMetricsDrawerOpen(false)
@@ -644,12 +646,6 @@ export function LiveSessionStrip() {
       : health === 'degraded'
         ? 'text-amber-200'
         : 'text-[var(--c9-text)]'
-  const statusDot =
-    health === 'critical'
-      ? 'bg-red-400'
-      : health === 'degraded'
-        ? 'bg-amber-400'
-        : 'bg-emerald-400'
   const showLoad =
     (mode === 'live' && Boolean(deploymentId)) || devDesignPreview
   const showLiveChrome = mode === 'live' || devDesignPreview
@@ -670,6 +666,16 @@ export function LiveSessionStrip() {
   const runningTotal = devDesignPreview
     ? previewTotal
     : (loadgen?.totalRequests ?? 0)
+  const targetRpsDisplay = devDesignPreview
+    ? fmtRate(DEV_LIVE_STRIP_PREVIEW.targetRps)
+    : loadgen
+      ? fmtRate(loadgen.targetRps)
+      : fmtRate(rps)
+  const achievedRpsDisplay = devDesignPreview
+    ? fmtRate(DEV_LIVE_STRIP_PREVIEW.throughputRps)
+    : loadgen
+      ? fmtRate(loadgen.actualRps)
+      : fmtRate(throughput)
   const loadPhaseLabel =
     !devDesignPreview && loadgen?.currentPhase ? loadgen.currentPhase : null
   const sessionTitle =
@@ -700,70 +706,59 @@ export function LiveSessionStrip() {
     <>
       <div className="relative z-30 shrink-0 overflow-visible">
 
-        <div
-          className="flex h-11 min-w-0 items-center gap-3 overflow-visible border-b border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-3"
-          title={sessionTitle}
-        >
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-[var(--c9-text)]">
-              <span
-                className={`h-2 w-2 shrink-0 rounded-full ${statusDot} ${
-                  pulseOk ? 'animate-pulse' : ''
-                }`}
-                title={statusLabel}
-                aria-label={statusLabel}
-              />
-              {showLiveChrome ? 'Live' : 'Sim'}
-              {showLiveChrome ? (
-                <span className="hidden font-mono text-[11px] tabular-nums text-[var(--c9-muted)] sm:inline">
-                  {formatSessionMmSs(remaining)}
-                </span>
-              ) : null}
+        <div className="sl-topbar min-w-0 overflow-visible" title={sessionTitle}>
+          <span className="sl-live">
+            <span
+              className={`dot ${pulseOk ? 'animate-pulse' : ''}`}
+              style={
+                health !== 'ok'
+                  ? { background: health === 'critical' ? 'var(--sl-red)' : 'var(--sl-amber)' }
+                  : undefined
+              }
+              title={statusLabel}
+              aria-label={statusLabel}
+            />
+            {showLiveChrome ? 'Live' : 'Sim'}
+          </span>
+          {showLiveChrome ? (
+            <>
+              <span className="sl-tb-sep" aria-hidden />
+              <span className="sl-num clock">{formatSessionMmSs(remaining)}</span>
+            </>
+          ) : null}
+          <span className="sl-tb-sep" aria-hidden />
+          <span className="sl-tb-kv">
+            <span className="k">P99</span>
+            <b className={`sl-num ${healthTone}`}>
+              {showWaiting ? '…' : fmtMs(p99Ms)}
+            </b>
+          </span>
+          <span className="sl-tb-kv">
+            <span className="k">Err</span>
+            <b className={`sl-num ${healthTone}`}>
+              {showWaiting ? '…' : fmtPct(errPct)}
+            </b>
+          </span>
+          {alertKpi ? (
+            <span className="sl-tb-kv">
+              <span className="k">{alertKpi.label}</span>
+              <b className="sl-num">{alertKpi.value}</b>
             </span>
-
-            <span className="shrink-0 text-[12px] text-[var(--c9-muted)]">
-              P99{' '}
-              <span className={`font-mono font-semibold tabular-nums ${healthTone}`}>
-                {showWaiting ? '…' : fmtMs(p99Ms)}
-              </span>
+          ) : null}
+          {SHOW_SIMULATION_UI && mode === 'simulate' ? (
+            <span className="sl-tb-kv" title={INGRESS_HELP_SIM}>
+              <span className="k">In</span>
+              <b className="sl-num">{showWaiting ? '…' : fmtRate(throughput)}</b>
             </span>
-            <span className="shrink-0 text-[12px] text-[var(--c9-muted)]">
-              Err{' '}
-              <span className={`font-mono font-semibold tabular-nums ${healthTone}`}>
-                {showWaiting ? '…' : fmtPct(errPct)}
-              </span>
-            </span>
-            {alertKpi ? (
-              <span className="shrink-0 text-[12px] text-red-300">
-                {alertKpi.label}{' '}
-                <span className="font-mono font-semibold tabular-nums">
-                  {alertKpi.value}
-                </span>
-              </span>
-            ) : null}
-            {SHOW_SIMULATION_UI && mode === 'simulate' ? (
-              <span
-                className="shrink-0 text-[12px] text-[var(--c9-muted)]"
-                title={INGRESS_HELP_SIM}
-              >
-                In{' '}
-                <span className="font-mono font-semibold tabular-nums text-[var(--c9-text)]">
-                  {showWaiting ? '…' : fmtRate(throughput)}
-                </span>
-              </span>
-            ) : null}
-          </div>
-
+          ) : null}
           {mixSegments ? (
             <MixBar
               segments={mixSegments}
               onClick={allJourneys.length > 0 ? openJourneyOverview : undefined}
             />
-          ) : (
-            <div className="min-w-0 flex-1" />
-          )}
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          ) : null}
+          <span className="sl-tb-spacer" />
+          <div className="flex shrink-0 items-center gap-1.5">
             {showLoad ? (
               <button
                 ref={loadBtnRef}
@@ -833,13 +828,32 @@ export function LiveSessionStrip() {
                 type="button"
                 disabled={busy}
                 onClick={() => void onStopLoad()}
-                className="rounded-md bg-red-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-red-500 active:scale-[0.98] disabled:opacity-60"
+                className="sl-tb-btn stop"
               >
                 Stop
               </button>
             ) : null}
           </div>
         </div>
+
+        {showLiveChrome ? (
+          <div className="sl-targets">
+            <span className="sl-ts">
+              <span className="k">Target</span>
+              <b className="sl-num">{targetRpsDisplay}</b>
+            </span>
+            <span className="sl-ts">
+              <span className="k">Achieved</span>
+              <b className="sl-num">{achievedRpsDisplay}</b>
+            </span>
+            {runningTotal > 0 ? (
+              <span className="sl-ts">
+                <span className="k">Total</span>
+                <b className="sl-num">{fmtInt(runningTotal)}</b>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
 
         {chipsOpen && kpiRows.length > 0 ? (

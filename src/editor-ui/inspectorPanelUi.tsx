@@ -10,7 +10,6 @@ import {
   ALLOCATED_NOT_MEASURED_HELP,
   METRICS_API_FRESHNESS_HELP,
   SESSION_TIMEFRAME_FOOTER,
-  SESSION_TIMEFRAME_LABEL,
   TIER_C_WARMUP_HELP,
 } from '../lib/metricHelp'
 import { containerFreshnessHint } from '../lib/metricsFreshness'
@@ -22,9 +21,7 @@ import type {
 } from '../editor-core/domain/metricsUiContract'
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import type { LatencyQuantile } from '../lib/latencyQuantile'
-import { MetricChart } from './MetricChart'
-import { MetricHelpIcon } from './MetricHelpIcon'
-import { InfoTooltip } from './InfoTooltip'
+import { StacklabSparkline } from './stacklabMetricsUi'
 
 export type MetricsTimeframe = 'live' | 'session'
 
@@ -36,23 +33,52 @@ export interface PanelViewState {
 
 /** Shared label style for inspector metric keys and section chrome. */
 export const INSPECTOR_LABEL_CLASS =
-  'text-[10px] font-medium uppercase tracking-wide text-[var(--c9-muted)]'
+  'font-mono text-[9px] font-medium uppercase tracking-[0.13em] text-[var(--c9-muted)]'
+
+/** Config tab field stack (mock pcfg-field, indigo tokens). */
+export const CONFIG_FIELD_CLASS = 'sl-field w-full'
+
+export const CONFIG_LABEL_CLASS = 'sl-f-lab mb-2 block'
+
+export const CONFIG_HELPER_CLASS = 'sl-f-sub mt-1.5'
+
+export function stacklabNodeKind(type: string): string {
+  switch (type) {
+    case 'compute':
+      return 'SERVICE'
+    case 'load_balancer':
+      return 'ROUTER'
+    case 'client':
+      return 'CLIENT'
+    default:
+      return 'NODE'
+  }
+}
 
 export function InspectorSegmentGroup({
   children,
   className = '',
   'aria-label': ariaLabel,
+  variant = 'stacklab',
 }: {
   children: ReactNode
   className?: string
   'aria-label'?: string
+  variant?: 'stacklab' | 'legacy'
 }) {
+  if (variant === 'legacy') {
+    return (
+      <div
+        className={`inline-flex flex-wrap gap-0.5 rounded-none border border-[var(--c9-border)] bg-[var(--c9-bg)] p-0.5 ${className}`}
+        role="group"
+        aria-label={ariaLabel}
+      >
+        {children}
+      </div>
+    )
+  }
   return (
-    <div
-      className={`inline-flex flex-wrap gap-0.5 rounded-lg border border-[var(--c9-border)] bg-[var(--c9-bg)] p-0.5 ${className}`}
-      role="group"
-      aria-label={ariaLabel}
-    >
+    <div className={`sl-seg ${className}`} role="group" aria-label={ariaLabel}>
       {children}
     </div>
   )
@@ -63,22 +89,36 @@ export function InspectorSegment({
   onClick,
   label,
   className = '',
+  variant = 'stacklab',
 }: {
   active: boolean
   onClick: () => void
   label: string
   className?: string
+  variant?: 'stacklab' | 'legacy'
 }) {
+  if (variant === 'legacy') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`rounded-none px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--c9-accent)] ${
+          active
+            ? 'bg-[var(--c9-bg-card)] text-[var(--c9-text)] shadow-[inset_0_1px_0_var(--c9-border-inset)]'
+            : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
+        } ${className}`}
+      >
+        {label}
+      </button>
+    )
+  }
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c9-accent)]/50 ${
-        active
-          ? 'bg-[var(--c9-bg-card)] text-[var(--c9-text)] shadow-[inset_0_1px_0_var(--c9-border-inset)]'
-          : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
-      } ${className}`}
+      className={`${active ? 'is-on' : ''} ${className}`}
     >
       {label}
     </button>
@@ -88,64 +128,150 @@ export function InspectorSegment({
 export function PanelViewControls({
   view,
   onChange,
+  showScope = false,
+  scopeValue = 'cluster',
+  scopeOptions = ['cluster', 'instance'],
+  onScopeChange,
+  showTimeframe = true,
+  showGraphsToggle = true,
 }: {
   view: PanelViewState
   onChange: (patch: Partial<PanelViewState>) => void
+  showScope?: boolean
+  scopeValue?: string
+  scopeOptions?: string[]
+  onScopeChange?: (scope: string) => void
+  showTimeframe?: boolean
+  showGraphsToggle?: boolean
+  showLatencyNote?: boolean
 }) {
+  if (!showTimeframe && !showGraphsToggle && !showScope) return null
+
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={INSPECTOR_LABEL_CLASS}>Timeframe</span>
-        <InspectorSegmentGroup aria-label="Metrics timeframe">
-          <InspectorSegment
-            active={view.timeframe === 'live'}
-            onClick={() => onChange({ timeframe: 'live' })}
-            label="Live (10s)"
-          />
-          <InspectorSegment
-            active={view.timeframe === 'session'}
-            onClick={() => onChange({ timeframe: 'session' })}
-            label={SESSION_TIMEFRAME_LABEL}
-          />
-        </InspectorSegmentGroup>
-        <span className="ml-auto" />
-        <InspectorSegmentGroup aria-label="Graph visibility">
-          <InspectorSegment
-            active={view.showGraphs}
-            onClick={() => onChange({ showGraphs: true })}
-            label="Graphs on"
-          />
-          <InspectorSegment
-            active={!view.showGraphs}
-            onClick={() => onChange({ showGraphs: false })}
-            label="Graphs off"
-          />
-        </InspectorSegmentGroup>
+    <div className="controls">
+      <div className="ctl-row">
+        {showScope ? (
+          <div className="ctl">
+            <span className="lab">scope</span>
+            <div
+              className={`seg${scopeOptions.length < 2 ? ' dim' : ''}`}
+              role="group"
+              aria-label="Metrics scope"
+            >
+              {scopeOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={scopeValue === option ? 'is-on' : ''}
+                  disabled={scopeOptions.length < 2}
+                  onClick={() => onScopeChange?.(option)}
+                >
+                  {option === 'cluster' ? 'Cluster' : 'Instance'}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {showTimeframe ? (
+          <div className="ctl">
+            <span className="lab">time</span>
+            <div className="seg" role="group" aria-label="Metrics timeframe">
+              <button
+                type="button"
+                className={view.timeframe === 'live' ? 'is-on' : ''}
+                onClick={() => onChange({ timeframe: 'live' })}
+              >
+                Live
+              </button>
+              <button
+                type="button"
+                className={view.timeframe === 'session' ? 'is-on' : ''}
+                onClick={() => onChange({ timeframe: 'session' })}
+              >
+                Session
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {showGraphsToggle ? (
+          <div className="ctl">
+            <button
+              type="button"
+              className={`flip ${view.showGraphs ? 'is-on' : ''}`}
+              aria-pressed={view.showGraphs}
+              aria-label="Toggle graphs"
+              title="Toggle graphs"
+              onClick={() => onChange({ showGraphs: !view.showGraphs })}
+            >
+              <span className="flip-track">
+                <span className="flip-knob" />
+              </span>
+              <span className="flip-lab">graphs {view.showGraphs ? 'on' : 'off'}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
-      <p className="text-[10px] leading-snug text-[var(--c9-text-disabled)]">
-        {SESSION_TIMEFRAME_FOOTER} Graphs use the same series with freshness / playback hints
-        when available.
-      </p>
+      {showTimeframe && view.timeframe === 'session' ? (
+        <p className="ctl-foot is-on">{SESSION_TIMEFRAME_FOOTER}</p>
+      ) : null}
     </div>
   )
 }
 
+export function PatternBridge({
+  direction,
+  children,
+}: {
+  direction: 'forward' | 'back'
+  children: ReactNode
+}) {
+  const arrow = direction === 'forward' ? '→' : '←'
+  return (
+    <button type="button" className="hint" data-pattern-bridge={direction}>
+      <span className="hint-mark">{arrow}</span>
+      <span className="hint-txt">{children}</span>
+      <span className="hint-rule" />
+      <span className="hint-arrow">{arrow}</span>
+    </button>
+  )
+}
+
+export function ResourceUnitCaption({ m }: { m: MetricsBucket }) {
+  if (m.cpuIsEstimated && m.memIsEstimated) return null
+  const cpu =
+    m.cpuLimit > 0
+      ? `${fmtCpuMilliCores(m.cpuUsage)} / ${fmtCpuMilliCores(m.cpuLimit)}`
+      : fmtCpuMilliCores(m.cpuUsage)
+  const mem =
+    m.memoryLimit > 0
+      ? `${fmtMemMB(m.memoryBytes)} / ${fmtMemMB(m.memoryLimit)}`
+      : fmtMemMB(m.memoryBytes)
+  return (
+    <p className="font-mono text-[9px] tabular-nums text-[var(--c9-text-disabled)]">
+      CPU {cpu} · Mem {mem}
+    </p>
+  )
+}
+
 export function PedagogicalSection({
+  index = '01',
   title,
   subtitle,
   children,
 }: {
+  index?: string
   title: string
   subtitle: string
   children: ReactNode
 }) {
   return (
-    <section className="space-y-3 border-t border-[var(--c9-border)]/70 pt-4 first:border-t-0 first:pt-0">
-      <div className="flex items-center gap-1.5">
-        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--c9-text-heading)]">
-          {title}
-        </h4>
-        <InfoTooltip text={subtitle} />
+    <section className="sec">
+      <div className="sec-head">
+        <span className="sec-idx">{index}</span>
+        <div>
+          <h2>{title}</h2>
+          <p className="sec-sub">{subtitle}</p>
+        </div>
       </div>
       {children}
     </section>
@@ -159,16 +285,15 @@ export function PedagogicalHint({
   /** @deprecated Tone is unused; kept for call-site compatibility. */
   tone?: 'violet' | 'sky' | 'muted'
 }) {
-  return (
-    <span className="text-[11px] leading-relaxed text-[var(--c9-muted)]">
-      {children}
-    </span>
-  )
+  return <p className="note">{children}</p>
 }
 
 export function PedagogicalCaption({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[10px] leading-snug text-[var(--c9-muted)]">{children}</p>
+    <p className="note">
+      <b>↔</b>
+      {children}
+    </p>
   )
 }
 
@@ -176,24 +301,35 @@ export function StatBlock({
   label,
   labelNode,
   value,
-  help,
+  unit,
+  sparkData,
+  tileFoot,
+  view,
   graph,
+  valueClassName = '',
 }: {
   label?: string
   labelNode?: ReactNode
   value: string
+  unit?: string
+  sparkData?: number[]
+  tileFoot?: ReactNode
+  view?: PanelViewState
   help?: string
   graph?: ReactNode
+  valueClassName?: string
 }) {
+  const showSpark =
+    view?.showGraphs !== false && sparkData != null && sparkData.length >= 2
   return (
-    <div className={`min-w-0 space-y-1.5 ${METRIC_CARD_SHELL}`}>
-      <div className={`flex items-center gap-1 ${INSPECTOR_LABEL_CLASS}`}>
-        {labelNode ?? <span>{label}</span>}
-        {help ? <MetricHelpIcon title={help} /> : null}
+    <div className="tile">
+      <div className="tile-lab">{labelNode ?? label}</div>
+      <div className={`tile-v num ${valueClassName}`.trim()}>
+        <span>{value}</span>
+        {unit ? <span className="u">{unit}</span> : null}
       </div>
-      <div className="font-mono text-[15px] font-semibold tabular-nums leading-none text-[var(--c9-text-heading)]">
-        {value}
-      </div>
+      {showSpark ? <StacklabSparkline data={sparkData!} /> : null}
+      {tileFoot}
       {graph}
     </div>
   )
@@ -206,12 +342,7 @@ export function StatRow({
   left: ReactNode
   right?: ReactNode
 }) {
-  return (
-    <div className={`grid gap-2 ${right ? 'grid-cols-2' : 'grid-cols-1'}`}>
-      {left}
-      {right}
-    </div>
-  )
+  return <div className={right ? 'tiles' : 'tiles'} style={right ? undefined : { gridTemplateColumns: '1fr' }}>{left}{right}</div>
 }
 
 export function CapacityBar({
@@ -224,68 +355,77 @@ export function CapacityBar({
   criticalAt?: number
 }) {
   const clamped = Math.min(100, Math.max(0, pct))
-  const barClass =
-    clamped >= criticalAt
-      ? 'bg-red-500'
-      : clamped >= warnAt
-        ? 'bg-amber-500'
-        : 'bg-emerald-500'
+  const hot = clamped >= warnAt || clamped >= criticalAt
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 min-w-0 flex-1 rounded-full bg-[var(--c9-bg-subtle)]">
+    <div className="scale">
+      <div className="scale-track">
         <div
-          className={`h-full rounded-full ${barClass}`}
+          className={`scale-fill${hot ? ' amber' : ''}`}
           style={{ width: `${clamped}%` }}
         />
       </div>
-      <span className="shrink-0 font-mono text-[10px] tabular-nums text-[var(--c9-muted)]">
-        {clamped.toFixed(0)}%
-      </span>
+      <div className="scale-ticks" />
+      <div className="scale-caret" style={{ left: `${clamped}%` }} />
     </div>
   )
 }
 
 const chartClass =
-  'rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-3 shadow-[inset_0_1px_0_var(--c9-border-inset)]'
+  'rounded-none border border-[var(--c9-border)] bg-[var(--c9-bg-card)] p-3'
 
 /** Shared shell for metric / chart cards in the docked inspector. */
 export const METRIC_CARD_SHELL = chartClass
 
 export function MetricSeriesGraph({
   data,
-  color,
   title,
+  sub,
   unit,
   view,
-  showPlaybackDelay = false,
+  height = 52,
 }: {
   data: number[]
-  color: string
+  color?: string
   title: string
-  unit: string
+  unit?: string
+  sub?: string
   view: PanelViewState
   showPlaybackDelay?: boolean
+  height?: number
 }) {
+  const subLabel = sub ?? unit
   if (!view.showGraphs) return null
-  if (data.length < 2) {
-    return (
-      <div className={`${chartClass} text-[10px] text-[var(--c9-text-disabled)]`}>
-        <div className={`mb-1 ${INSPECTOR_LABEL_CLASS}`}>{title}</div>
-        Collecting samples…
-      </div>
-    )
-  }
-  // Live and session both use MetricChart so inspector graphs keep Railway-like
-  // visual quality (axes, area, hover) instead of a 24px micro-sparkline.
+  if (data.length < 2) return null
+  const W = 360
+  const H = height
+  const PB = 12
+  const max = Math.max(...data, 1)
+  let d = ''
+  data.forEach((value, index) => {
+    const x = (index / (data.length - 1)) * W
+    const y = H - PB - (value / max) * (H - PB - 4)
+    const prevY =
+      index > 0
+        ? H - PB - (data[index - 1] / max) * (H - PB - 4)
+        : y
+    d +=
+      index === 0
+        ? `M${x.toFixed(1)} ${y.toFixed(1)}`
+        : ` L${x.toFixed(1)} ${prevY.toFixed(1)} L${x.toFixed(1)} ${y.toFixed(1)}`
+  })
   return (
-    <MetricChart
-      title={title}
-      unit={unit}
-      showPlaybackDelay={showPlaybackDelay}
-      series={[{ data, color, showArea: true }]}
-      compact
-      className={chartClass}
-    />
+    <div className="graph-wrap graph">
+      <div className="graph-head">
+        <span className="lab">{title}</span>
+        {subLabel ? <span className="lab">{subLabel}</span> : null}
+      </div>
+      <div className="graph-box" style={{ height }}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
+          <line className="axis" x1="0" y1={H - PB} x2={W} y2={H - PB} />
+          <path className="trace" d={d} />
+        </svg>
+      </div>
+    </div>
   )
 }
 
