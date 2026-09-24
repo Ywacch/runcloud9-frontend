@@ -15,6 +15,7 @@ import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
+import { resolveCacheCanvasFocus } from '../lib/cacheCanvasFocus'
 import {
   dbClusterResourceHelp,
   formatDbClusterResourceLabels,
@@ -152,19 +153,25 @@ export function NodeTooltip({
     [node, metrics, instanceScopeId],
   )
 
-  const tooltipMetrics =
-    metrics && node.type === 'database' && instanceScopeId && instanceScopeId !== 'cluster'
+  const cacheFocus =
+    node.type === 'cache' && metrics ? resolveCacheCanvasFocus(metrics) : null
+
+  const tooltipMetrics = cacheFocus
+    ? tooltipResourceBucket(metrics, cacheFocus.layerMetrics)
+    : metrics && node.type === 'database' && instanceScopeId && instanceScopeId !== 'cluster'
       ? tooltipResourceBucket(metrics, findDbLayer(metrics.layers, instanceScopeId))
       : metrics
 
-  const cpuPct =
-    grouped?.kind === 'single'
+  const cpuPct = cacheFocus
+    ? cacheFocus.cpuPct
+    : grouped?.kind === 'single'
       ? grouped.cpuPct
       : tooltipMetrics?.cpuIsEstimated
         ? 0
         : clampPercent(tooltipMetrics?.cpuPercent)
-  const memPct =
-    grouped?.kind === 'single'
+  const memPct = cacheFocus
+    ? cacheFocus.memPct
+    : grouped?.kind === 'single'
       ? grouped.memPct
       : tooltipMetrics?.memIsEstimated
         ? 0
@@ -214,9 +221,10 @@ export function NodeTooltip({
         ? 'text-red-300'
         : 'text-cyan-300'
 
-  const clusterScope = grouped?.clusterScope === true
-  const subtitle =
-    grouped?.instanceLabel != null
+  const clusterScope = grouped?.clusterScope === true && !cacheFocus
+  const subtitle = cacheFocus
+    ? `${roleLabel} · ${cacheFocus.layer}`
+    : grouped?.instanceLabel != null
       ? `${roleLabel} · ${grouped.instanceLabel}`
       : clusterScope
         ? 'Cluster'

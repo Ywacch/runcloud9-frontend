@@ -128,6 +128,7 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
+import { resolveCacheCanvasFocus } from '../lib/cacheCanvasFocus'
 import {
   readLatencyQuantile,
   writeLatencyQuantile,
@@ -367,6 +368,32 @@ export function InspectorPanel() {
     const pending = useLogStore.getState().takePendingInspectorTab()
     setLiveTab(pending ?? 'metrics')
   }, [open, selectedId, inspectorTabNonce])
+
+  const cacheFocusNodeId = useRef<string | null>(null)
+  const cacheFocusPending = useRef(false)
+  useEffect(() => {
+    if (!node) {
+      cacheFocusNodeId.current = null
+      cacheFocusPending.current = false
+      return
+    }
+    if (cacheFocusNodeId.current !== node.id) {
+      cacheFocusNodeId.current = node.id
+      cacheFocusPending.current = node.type === 'cache'
+    }
+    if (!cacheFocusPending.current || !nodeMetrics) return
+    cacheFocusPending.current = false
+    const focus = resolveCacheCanvasFocus(nodeMetrics)
+    if (
+      !focus?.metricGroup ||
+      (focus.severity !== 'warning' && focus.severity !== 'error')
+    ) {
+      return
+    }
+    metricGroupByTypeRef.current.cache = focus.metricGroup
+    setMetricGroupId(focus.metricGroup)
+    setLiveTab('metrics')
+  }, [node, nodeMetrics])
 
   useEffect(() => {
     const onResize = () => setDockWidth((w) => clampInspectorWidth(w))
