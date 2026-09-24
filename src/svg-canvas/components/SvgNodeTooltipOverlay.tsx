@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { computeHealthState } from '../../editor-core/domain/healthThresholds'
+import { canvasHealthState } from '../../lib/cacheCanvasFocus'
 import {
   useCanvasStore,
 } from '../../editor-core/stores/canvasStore'
@@ -48,7 +48,7 @@ export function SvgNodeTooltipOverlay() {
   )
   if (!screen) return null
 
-  const health = computeHealthState(bucket, node.status)
+  const health = canvasHealthState(bucket, node.status)
   const align = node.position[0] > 0 ? 'left' : 'right'
 
   return (

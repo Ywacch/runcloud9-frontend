@@ -5,7 +5,7 @@ import {
   subscribeCanvasViewportScreenRefresh,
   viewportLocalToScreen,
 } from './utils/canvasViewportBridge'
-import { computeHealthState } from '../editor-core/domain/healthThresholds'
+import { canvasHealthState } from '../lib/cacheCanvasFocus'
 import {
   isMetricsViewportMode,
   useCanvasStore,
@@ -45,7 +45,7 @@ export function CanvasNodeTooltipOverlay() {
   )
   if (!screen) return null
 
-  const health = computeHealthState(bucket, node.status)
+  const health = canvasHealthState(bucket, node.status)
   const align = node.position[0] > 0 ? 'left' : 'right'
 
   return (

@@ -1,4 +1,5 @@
-import { computeHealthState, type HealthState } from '../../editor-core/domain/healthThresholds'
+import type { HealthState } from '../../editor-core/domain/healthThresholds'
+import { canvasHealthState } from '../../lib/cacheCanvasFocus'
 import {
   isMetricsViewportMode,
   type CanvasMode,
@@ -58,7 +59,7 @@ export function resolveHealthVisual(
 ): HealthVisualState {
   if (!isMetricsViewportMode(mode)) return 'off'
   if (chaosActive) return 'chaos'
-  const state = computeHealthState(metrics, node.status)
+  const state = canvasHealthState(metrics, node.status)
   // Live: 0% metric ticks stay "healthy" so the rim layer does not mount/unmount.
   if (mode === 'live' && metrics && state === 'idle') return 'healthy'
   return state
