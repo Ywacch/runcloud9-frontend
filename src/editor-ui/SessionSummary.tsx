@@ -16,6 +16,7 @@ import {
 } from '../lib/analytics'
 import { dispatchRequestDeploy } from '../lib/deployEvents'
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
+import { highlightEventSearchText } from '../lib/highlightCaption'
 import { HighlightPanel } from './HighlightReel'
 import { MetricChart } from './MetricChart'
 import { ClientLatencyBoxChart } from './ClientLatencyBoxChart'
@@ -62,10 +63,7 @@ type SummarySlide = {
 }
 
 function eventTokens(event: SessionEventSummary): string {
-  return [event.component, event.rule, event.narrative, ...(event.related ?? [])]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
+  return highlightEventSearchText(event)
 }
 
 function relatedSparkKeys(event: SessionEventSummary): SparkKey[] {
