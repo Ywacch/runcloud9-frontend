@@ -1,6 +1,8 @@
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
+import { highlightDisplayBody, showModelInferenceBadge } from '../lib/highlightCaption'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
 import { AsPredictedBadge } from './AsPredictedBadge'
+import { ModelInferenceBadge } from './ModelInferenceBadge'
 
 function formatTime(iso: string): string {
   const t = Date.parse(iso)
@@ -28,9 +30,8 @@ export function eventTypeClass(type: string): string {
 
 export function HighlightPanel({ event }: { event: SessionEventSummary }) {
   const isPredicted = useStorytellingStore((s) => s.isPredicted(event))
-  const body =
-    (event.narrative && event.narrative.trim()) ||
-    event.rule
+  const body = highlightDisplayBody(event)
+  const modelInference = showModelInferenceBadge(event)
 
   return (
     <article>
@@ -39,6 +40,7 @@ export function HighlightPanel({ event }: { event: SessionEventSummary }) {
           {eventTypeLabel(event.type)}
         </span>
         {isPredicted ? <AsPredictedBadge /> : null}
+        {modelInference ? <ModelInferenceBadge /> : null}
         <time className="ml-auto font-mono text-[10px] text-[var(--c9-muted)]">
           {formatTime(event.timestamp)}
         </time>
