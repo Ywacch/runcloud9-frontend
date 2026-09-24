@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { fmtRate } from '../lib/format'
 import { LatencyQuantileLabel } from './LatencyQuantileLabel'
 import type { LatencyQuantile } from '../lib/latencyQuantile'
 import type { MetricsTimeframe } from '../lib/metricTimeframe'
@@ -253,30 +254,64 @@ export function SlGraphWrap({
   data,
   dashed,
   secondary,
+  primaryLabel = 'value',
+  secondaryLabel,
 }: {
   title: string
   sub: string
   height?: number
   data: number[]
   dashed?: boolean
-  /** Optional second series (rendered dashed when the primary is solid). */
+  /** Optional second series, drawn dashed on the same vertical scale. */
   secondary?: number[]
+  primaryLabel?: string
+  secondaryLabel?: string
 }) {
+  const [hover, setHover] = useState<number | null>(null)
   if (data.length < 2) return null
   const W = 360
   const PB = 12
-  const primary = stacklabTracePath(data, W, height, PB)
-  const secondaryPath =
-    secondary && secondary.length >= 2 ? stacklabTracePath(secondary, W, height, PB) : null
+  const secondarySeries = secondary && secondary.length >= 2 ? secondary : null
+  const scaleMax = Math.max(1, ...data, ...(secondarySeries ?? []))
+  const primary = stacklabTracePath(data, W, height, PB, scaleMax)
+  const secondaryPath = secondarySeries
+    ? stacklabTracePath(secondarySeries, W, height, PB, scaleMax)
+    : null
+  const index = hover != null ? Math.min(data.length - 1, Math.max(0, hover)) : null
+  const readout =
+    index != null
+      ? secondarySeries
+        ? `${primaryLabel} ${fmtRate(data[index])} · ${secondaryLabel ?? 'other'} ${fmtRate(secondarySeries[Math.min(index, secondarySeries.length - 1)])}`
+        : `${primaryLabel} ${fmtRate(data[index])}`
+      : null
   return (
     <div className="graph-wrap graph">
       <div className="graph-head">
         <span className="lab">{title}</span>
-        <span className="lab">{sub}</span>
+        <span className="lab">{readout ?? sub}</span>
       </div>
-      <div className="graph-box" style={{ height }}>
+      <div
+        className="graph-box"
+        style={{ height }}
+        onMouseMove={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect()
+          if (rect.width <= 0) return
+          const ratio = (event.clientX - rect.left) / rect.width
+          setHover(Math.round(ratio * (data.length - 1)))
+        }}
+        onMouseLeave={() => setHover(null)}
+      >
         <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" aria-hidden>
           <line className="axis" x1="0" y1={height - PB} x2={W} y2={height - PB} />
+          {index != null ? (
+            <line
+              className="mk"
+              x1={(index / (data.length - 1)) * W}
+              y1={0}
+              x2={(index / (data.length - 1)) * W}
+              y2={height - PB}
+            />
+          ) : null}
           <path className={`trace${dashed ? ' dash' : ''}`} d={primary} />
           {secondaryPath ? <path className="trace dash" d={secondaryPath} /> : null}
         </svg>
@@ -356,6 +391,7 @@ export function SlPodStatus({
 export type SlPodRow = {
   name: string
   rps: string
+  latency?: string
   cpu: string
   mem: string
   cpuTone?: 'am'
@@ -368,16 +404,18 @@ export function SlPodTable({
   columns,
   rows,
 }: {
-  columns: [string, string, string, string]
+  columns: [string, string, string, string] | [string, string, string, string, string]
   rows: SlPodRow[]
 }) {
+  const withLatency = columns.length === 5
   return (
     <div className="pod-table">
-      <div className="pt h">
+      <div className={`pt h${withLatency ? ' lat' : ''}`}>
         <span>{columns[0]}</span>
         <span className="r">{columns[1]}</span>
-        <span className="r">{columns[2]}</span>
-        <span className="r">{columns[3]}</span>
+        {withLatency ? <span className="r">{columns[2]}</span> : null}
+        <span className="r">{columns[withLatency ? 3 : 2]}</span>
+        <span className="r">{columns[withLatency ? 4 : 3]}</span>
       </div>
       {rows.map((row) => {
         const inner = (
@@ -387,6 +425,7 @@ export function SlPodTable({
               {row.name}
             </span>
             <span className="r">{row.rps}</span>
+            {withLatency ? <span className="r">{row.latency ?? '—'}</span> : null}
             <span className={`r${row.cpuTone ? ` ${row.cpuTone}` : ''}`}>{row.cpu}</span>
             <span className={`r${row.memTone ? ` ${row.memTone}` : ''}`}>{row.mem}</span>
           </>
@@ -714,7 +753,7 @@ export function SlRedHealthPane({
           </SlTileVal>
           {showGraphs ? <StacklabSparkline data={rateSpark} /> : null}
           {showGraphs ? (
-            <SlTileFoot graph left="window 10s" right={`peak ${ratePeak}`} />
+            <SlTileFoot graph left="window 10s" right={`peak ${fmtRate(ratePeak)}`} />
           ) : null}
         </SlTile>
         <SlTile>

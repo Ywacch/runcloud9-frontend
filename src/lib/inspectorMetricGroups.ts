@@ -26,7 +26,6 @@ const DB_GROUPS: InspectorMetricGroup[] = [
   { id: 'app-load', label: 'App Load' },
   { id: 'engine-work', label: 'Engine Work' },
   { id: 'replication', label: 'Replication' },
-  { id: 'tradeoffs', label: 'Tradeoffs' },
 ]
 
 const CACHE_GROUPS_BASE: InspectorMetricGroup[] = [

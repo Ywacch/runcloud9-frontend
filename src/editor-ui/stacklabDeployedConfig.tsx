@@ -160,10 +160,14 @@ export function deployedConfigRows(
           value: strategy === 'write-behind' ? `batch · every ${interval} s` : 'inline',
         })
       }
+      const ttlSeconds = Number(c.cacheTtlSeconds ?? 0)
       rows.push(
         { key: 'maxmemory', value: memLimitLine(node, m) },
         { key: 'policy', value: policy },
       )
+      if (Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
+        rows.push({ key: 'ttl', value: `${ttlSeconds} s` })
+      }
       if (clients.length > 0) {
         rows.push({
           key: 'client',

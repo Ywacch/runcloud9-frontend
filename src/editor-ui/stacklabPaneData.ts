@@ -6,7 +6,7 @@ import {
   bucketSessionQuantileAvailable,
 } from '../lib/latencyQuantile'
 import type { LatencyQuantile } from '../lib/latencyQuantile'
-import { fmtErrorRate, fmtMemMB } from '../lib/format'
+import { fmtErrorRate, fmtLatencyCell, fmtMemMB } from '../lib/format'
 import { redHeadlines, replicaListRows, type MetricsTimeframe } from '../lib/metricTimeframe'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
@@ -115,6 +115,7 @@ export function podTableRows(
   return rows.map((row) => ({
     name: compactPodName(row.name) || row.name,
     rps: row.primaryText.replace(/\s*rps$/i, '').trim(),
+    latency: row.latencyMs != null && row.latencyMs > 0 ? fmtLatencyCell(row.latencyMs) : '—',
     cpu: row.cpuPct != null ? `${Math.round(row.cpuPct)}%` : '—',
     mem: row.memPct != null ? `${Math.round(row.memPct)}%` : '—',
     cpuTone:

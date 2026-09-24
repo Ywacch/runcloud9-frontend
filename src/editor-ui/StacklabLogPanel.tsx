@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { logComponentMatches } from '../lib/logComponent'
@@ -67,7 +67,9 @@ export function StacklabLogPanel({
     )
   }, [componentLogs, filter])
 
-  const shown = filtered.slice(-MAX_LOG_ROWS)
+  const frozenRef = useRef(filtered)
+  if (!openKey) frozenRef.current = filtered
+  const shown = (openKey ? frozenRef.current : filtered).slice(-MAX_LOG_ROWS)
 
   return (
     <section className="sec">
@@ -103,8 +105,8 @@ export function StacklabLogPanel({
         <div className="log-empty">NO EVENTS AT THIS LEVEL IN THE CURRENT WINDOW</div>
       ) : (
         <div className="log-list">
-          {shown.map((line, i) => {
-            const key = `${line.id ?? line.timestamp}-${i}`
+          {shown.map((line) => {
+            const key = String(line.id ?? `${line.timestamp}:${line.message}`)
             const open = openKey === key
             const level = normalizeLevel(line.level, line.message)
             const kv = fieldsEntries(line.fields)

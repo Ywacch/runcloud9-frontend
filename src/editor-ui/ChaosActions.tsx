@@ -60,7 +60,13 @@ export function ChaosActions({
       ? stallTargetPodForInstance(selectedInstanceId)
       : undefined
 
-  const selected = pick ?? scenarios[0] ?? null
+  const selected = pick && scenarios.includes(pick) ? pick : (scenarios[0] ?? null)
+
+  useEffect(() => {
+    setPick(null)
+    setArmed(null)
+    setMenuOpen(false)
+  }, [node.id])
 
   const targetBusy = useMemo(() => {
     if (!activeChaos || !target) return false
