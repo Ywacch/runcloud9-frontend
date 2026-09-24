@@ -156,7 +156,7 @@ export function NodeTooltip({
   const cacheFocus =
     node.type === 'cache' && metrics ? resolveCacheCanvasFocus(metrics) : null
 
-  const tooltipMetrics = cacheFocus
+  const tooltipMetrics = cacheFocus && metrics
     ? tooltipResourceBucket(metrics, cacheFocus.layerMetrics)
     : metrics && node.type === 'database' && instanceScopeId && instanceScopeId !== 'cluster'
       ? tooltipResourceBucket(metrics, findDbLayer(metrics.layers, instanceScopeId))
