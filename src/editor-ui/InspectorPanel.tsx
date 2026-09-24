@@ -326,9 +326,9 @@ export function InspectorPanel() {
     node.type !== 'client' &&
     (!selectedInstanceId || selectedInstanceId === 'cluster')
   const showLiveInstanceTabs =
-    node?.type === 'database' &&
     showInstanceTabs &&
-    (liveTab === 'metrics' || liveTab === 'logs')
+    (liveTab === 'metrics' || liveTab === 'logs') &&
+    (node?.type === 'database' || (node != null && usesPodReplicaScope(node)))
   const showPodScopeToggle =
     Boolean(node) &&
     usesPodReplicaScope(node) &&

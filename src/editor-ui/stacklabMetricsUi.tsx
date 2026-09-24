@@ -11,21 +11,15 @@ export function stacklabTracePath(
   width = 360,
   height = 52,
   paddingBottom = 12,
+  scaleMax?: number,
 ): string {
   if (data.length < 2) return ''
-  const max = Math.max(...data, 1)
+  const max = scaleMax != null && scaleMax > 0 ? scaleMax : Math.max(...data, 1)
   let d = ''
   data.forEach((value, index) => {
     const x = (index / (data.length - 1)) * width
     const y = height - paddingBottom - (value / max) * (height - paddingBottom - 4)
-    const prevY =
-      index > 0
-        ? height - paddingBottom - (data[index - 1] / max) * (height - paddingBottom - 4)
-        : y
-    d +=
-      index === 0
-        ? `M${x.toFixed(1)} ${y.toFixed(1)}`
-        : ` L${x.toFixed(1)} ${prevY.toFixed(1)} L${x.toFixed(1)} ${y.toFixed(1)}`
+    d += index === 0 ? `M${x.toFixed(1)} ${y.toFixed(1)}` : ` L${x.toFixed(1)} ${y.toFixed(1)}`
   })
   return d
 }
@@ -104,8 +98,7 @@ export function StacklabLatencyHistogram({
   for (let i = 0; i <= 40; i++) {
     const x = (i / 40) * W
     const y = H - PB - (raw[i] / vm) * (H - PB - 6)
-    const yp = H - PB - (raw[Math.max(0, i - 1)] / vm) * (H - PB - 6)
-    d += i === 0 ? `M${x.toFixed(1)} ${y.toFixed(1)}` : ` L${x.toFixed(1)} ${yp.toFixed(1)} L${x.toFixed(1)} ${y.toFixed(1)}`
+    d += i === 0 ? `M${x.toFixed(1)} ${y.toFixed(1)}` : ` L${x.toFixed(1)} ${y.toFixed(1)}`
   }
 
   const markers: Array<[LatencyQuantile, number]> = [

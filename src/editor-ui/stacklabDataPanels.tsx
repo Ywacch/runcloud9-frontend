@@ -64,11 +64,12 @@ export function formatRowCount(n: number): string {
 }
 
 export function fmtTtlHuman(ttl: number, complex = false): string {
-  if (ttl < 0) return complex ? '∞' : '—'
-  if (ttl >= 86_400) return `${Math.round(ttl / 86_400)}d`
-  if (ttl >= 3_600) return `${Math.round(ttl / 3_600)}h`
-  if (ttl >= 60) return `${Math.round(ttl / 60)}m`
-  return `${ttl}s`
+  if (ttl < 0) return complex ? 'TTL none' : 'TTL —'
+  if (ttl > 0 && ttl < 1) return `TTL ${Math.round(ttl * 1000)} ms`
+  if (ttl < 60) return `TTL ${Math.round(ttl)} s`
+  if (ttl < 3_600) return `TTL ${Math.round(ttl / 60)} m`
+  if (ttl < 86_400) return `TTL ${Math.round(ttl / 3_600)} h`
+  return `TTL ${Math.round(ttl / 86_400)} d`
 }
 
 export function fmtKeySize(bytes: number): string {

@@ -143,9 +143,11 @@ function ComputePane({
           index="01"
           title="Is the API fast and healthy?"
           subtitle="Request rate, latency, and errors."
-          rateLabel="Request rate"
-          rateValue={fmtInt(bucket.requestRate)}
-          rateUnit="rps"
+          rateLabel={view.timeframe === 'session' ? red.throughputLabel : 'Request rate'}
+          rateValue={
+            view.timeframe === 'session' ? red.throughputDisplay : fmtInt(bucket.requestRate)
+          }
+          rateUnit={view.timeframe === 'session' ? '' : 'rps'}
           rateSpark={rpsSeries}
           ratePeak={rpsSeries.length ? Math.max(...rpsSeries) : bucket.requestRate}
           latencyMs={selectedLatencyMs(bucket, view.timeframe, view.latencyQuantile, clusterP99)}
@@ -218,10 +220,6 @@ function ComputePane({
           />
           <SlUtilHelp>{utilHelpMem(m)}</SlUtilHelp>
         </SlUtil>
-        <SlKvList>
-          <SlKv keyLabel="open conns" value={fmtInt(m.activeConnections)} />
-          <SlKv keyLabel="runtime" value={m.storageEngine || 'app runtime'} />
-        </SlKvList>
         <SlHint direction="forward" onClick={() => onSelectMetricGroup?.('replicas')}>
           Which replica is hot? <b>Replicas</b>
         </SlHint>
@@ -243,7 +241,7 @@ function ComputePane({
         {status ? (
           <SlPodStatus ready={status.ready} bad={status.bad} warn={status.warn} />
         ) : null}
-        <SlPodTable columns={['pod', 'rps', 'cpu', 'mem']} rows={rows} />
+        <SlPodTable columns={['pod', 'rps', view.latencyQuantile, 'cpu', 'mem']} rows={rows} />
         <Note mark="i">
           {spotlight ? (
             <>
@@ -541,6 +539,28 @@ function CachePane({
   const missSeries = historySeries(history, 'cacheMisses')
   const memPct = m.memoryLimit > 0 ? (m.memoryBytes / m.memoryLimit) * 100 : m.memPercent
   const evictionPolicy = String(node.config.evictionPolicy ?? 'lru').replace('allkeys-', '')
+  const storeLayer = m.layers.find(
+    (layer) => layer.id === 'redis-internal' || layer.role === 'backing-store',
+  )
+  const proxyLayer = m.layers.find(
+    (layer) => layer.id === 'cache-proxy' || layer.role === 'sidecar',
+  )
+  const storeCpu =
+    storeLayer && storeLayer.cpuLimit > 0
+      ? (storeLayer.cpuUsage / storeLayer.cpuLimit) * 100
+      : m.cpuPercent
+  const storeMem =
+    storeLayer && storeLayer.memoryLimit > 0
+      ? (storeLayer.memoryBytes / storeLayer.memoryLimit) * 100
+      : memPct
+  const proxyCpu =
+    proxyLayer && proxyLayer.cpuLimit > 0
+      ? (proxyLayer.cpuUsage / proxyLayer.cpuLimit) * 100
+      : m.cpuPercent
+  const proxyMem =
+    proxyLayer && proxyLayer.memoryLimit > 0
+      ? (proxyLayer.memoryBytes / proxyLayer.memoryLimit) * 100
+      : memPct
 
   if (metricGroup === 'hit-rate') {
     const hitTone = hitPct != null && hitPct >= 80 ? 'green' : hitPct != null && hitPct < 50 ? 'amber' : undefined
@@ -553,7 +573,9 @@ function CachePane({
         />
         <SlTiles>
           <SlTile>
-            <SlTileLab>Hit rate · 10s</SlTileLab>
+            <SlTileLab>
+              {view.timeframe === 'session' ? 'Hit rate · session' : 'Hit rate · 10s'}
+            </SlTileLab>
             <SlTileVal tone={hitTone}>
               {hitPct != null ? Math.round(hitPct) : '—'}
               <SlUnit>%</SlUnit>
@@ -565,13 +587,16 @@ function CachePane({
           <SlTile>
             <SlTileLab>Hits · misses</SlTileLab>
             <SlTileVal>
-              {fmtRate(hits)}
-              <SlUnit>/s</SlUnit>
+              {fmtInt(hits)}
+              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
               <span className="sep-sm">·</span>
-              <span className="mu">{fmtRate(misses)}</span>
-              <SlUnit>/s</SlUnit>
+              <span className="mu">{fmtInt(misses)}</span>
+              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
-            <SlTileFoot left="logical · app side" right="10s window" />
+            <SlTileFoot
+              left="logical · app side"
+              right={view.timeframe === 'session' ? 'session totals' : '10s window'}
+            />
           </SlTile>
         </SlTiles>
         <Note mark="?">App logical hits and misses, not Redis GET/SET command counters.</Note>
@@ -590,13 +615,16 @@ function CachePane({
         {view.showGraphs ? (
           <SlGraphWrap
             title="Hits vs misses · last 10s"
-            sub="stacked share"
-            data={hitSeries.map((h, i) => h + (missSeries[i] ?? 0))}
+            sub="solid hits · dashed misses"
+            data={hitSeries}
+            secondary={missSeries}
+            primaryLabel="hits"
+            secondaryLabel="misses"
             height={54}
           />
         ) : null}
         <SlStatStrip>
-          <SlStatCell label="evictions" value={fmtRate(m.evictionsPerSec ?? 0)} unit="/s" />
+          <SlStatCell label="evictions" value={fmtRate(m.evictionsPerSec ?? 0)} unit="/s · 10s" />
           <SlStatCell label="keys" value={fmtInt(m.redisKeyspaceHits ?? 0)} />
           <SlStatCell label="policy" value={evictionPolicy} />
           <SlStatCell label="engine" value={m.storageEngine || 'redis'} />
@@ -641,13 +669,15 @@ function CachePane({
           <SlTile>
             <SlTileLab>Memory used</SlTileLab>
             <SlTileVal>
-              {m.memoryLimit > 0 ? Math.round(m.memoryBytes / (1024 * 1024)) : '—'}
+              {(storeLayer?.memoryLimit ?? m.memoryLimit) > 0
+                ? Math.round((storeLayer?.memoryBytes ?? m.memoryBytes) / (1024 * 1024))
+                : '—'}
               <SlUnit>MiB</SlUnit>
             </SlTileVal>
-            <SlBarInline pct={memPct} hot={isMemUtilWarn(memPct)} />
+            <SlBarInline pct={storeMem} hot={isMemUtilWarn(storeMem)} />
             <SlTileFoot
-              left={`of ${m.memoryLimit > 0 ? Math.round(m.memoryLimit / (1024 * 1024)) : '—'} MiB`}
-              right={`${Math.round(memPct)}% used`}
+              left={`of ${(storeLayer?.memoryLimit ?? m.memoryLimit) > 0 ? Math.round((storeLayer?.memoryLimit ?? m.memoryLimit) / (1024 * 1024)) : '—'} MiB`}
+              right={`${Math.round(storeMem)}% used`}
             />
           </SlTile>
         </SlTiles>
@@ -656,14 +686,16 @@ function CachePane({
           values.
         </Note>
         <SlStatStrip>
-          <SlStatCell label="cpu" value={Math.round(m.cpuPercent)} unit="%" />
+          <SlStatCell label="cpu" value={Math.round(storeCpu)} unit="%" />
           <SlStatCell
             label="p99 · 9m"
             value={m.p99Latency9m > 0 ? Math.round(m.p99Latency9m) : Math.round(m.p99Latency)}
             unit="ms"
           />
           <SlStatCell label="rejects" value={fmtInt(m.redisRejectedRate ?? 0)} />
-          <SlStatCell label="clients" value={fmtInt(m.redisConnectedClients ?? 0)} />
+          {(m.redisConnectedClients ?? 0) > 0 ? (
+            <SlStatCell label="clients" value={fmtInt(m.redisConnectedClients)} />
+          ) : null}
         </SlStatStrip>
         <Note mark="i">
           Rejects are connections refused by the engine (e.g. at maxclients). Command counters are
@@ -699,37 +731,20 @@ function CachePane({
         />
         <SlTiles>
           <SlTile>
-            <SlTileLab>Write flush time</SlTileLab>
-            <SlTileVal>
-              {m.avgLatency > 0 ? Math.round(m.avgLatency * 1000) : '—'}
-              <SlUnit>ms</SlUnit>
-            </SlTileVal>
-          </SlTile>
-          <SlTile>
-            <SlTileLab>Pending flush queue</SlTileLab>
-            <SlTileVal tone="green">
-              {fmtInt(m.queueDepth)}
-              <SlUnit>writes</SlUnit>
-            </SlTileVal>
-            <SlTileFoot>
-              <span className="flag green" style={{ border: 'none', padding: 0 }}>STABLE</span>
-            </SlTileFoot>
-          </SlTile>
-          <SlTile>
             <SlTileLab>Proxy CPU utilization</SlTileLab>
-            <SlTileVal tone={isCpuUtilWarn(m.cpuPercent) ? 'amber' : undefined}>
-              {Math.round(m.cpuPercent)}
+            <SlTileVal tone={isCpuUtilWarn(proxyCpu) ? 'amber' : undefined}>
+              {Math.round(proxyCpu)}
               <SlUnit>%</SlUnit>
             </SlTileVal>
-            <SlBarInline pct={m.cpuPercent} cells={18} hot={isCpuUtilWarn(m.cpuPercent)} />
+            <SlBarInline pct={proxyCpu} cells={18} hot={isCpuUtilWarn(proxyCpu)} />
           </SlTile>
           <SlTile>
             <SlTileLab>Proxy memory utilization</SlTileLab>
-            <SlTileVal tone={isMemUtilWarn(memPct) ? 'amber' : undefined}>
-              {Math.round(memPct)}
+            <SlTileVal tone={isMemUtilWarn(proxyMem) ? 'amber' : undefined}>
+              {Math.round(proxyMem)}
               <SlUnit>%</SlUnit>
             </SlTileVal>
-            <SlBarInline pct={memPct} cells={18} hot={isMemUtilWarn(memPct)} />
+            <SlBarInline pct={proxyMem} cells={18} hot={isMemUtilWarn(proxyMem)} />
           </SlTile>
         </SlTiles>
         <Note mark="?">Time from cache acknowledgment to durable database write.</Note>
@@ -896,9 +911,11 @@ function MqPane({
         {view.showGraphs ? (
           <SlGraphWrap
             title="Publish vs consume · last 10s"
-            sub="solid publish · dashed consume"
+            sub="solid publish · dashed consume · same scale"
             data={pubSeries}
             secondary={conSeries}
+            primaryLabel="publish"
+            secondaryLabel="consume"
             height={58}
           />
         ) : null}
@@ -1014,9 +1031,9 @@ function WorkerPane({
           index="01"
           title="Is background processing falling behind?"
           subtitle="Logical job execution speed and health."
-          rateLabel="Process rate"
-          rateValue={fmtRate(processRate)}
-          rateUnit="/s"
+          rateLabel={view.timeframe === 'session' ? 'Total jobs' : 'Process rate'}
+          rateValue={view.timeframe === 'session' ? fmtInt(bucket.totalRequests) : fmtRate(processRate)}
+          rateUnit={view.timeframe === 'session' ? '' : '/s'}
           rateSpark={procSeries}
           ratePeak={procSeries.length ? Math.max(...procSeries) : processRate}
           latencyMs={selectedLatencyMs(bucket, view.timeframe, view.latencyQuantile)}
@@ -1120,7 +1137,7 @@ function WorkerPane({
           subtitle="Per-pod share, readiness, and restarts."
         />
         {status ? <SlPodStatus ready={status.ready} warn={status.warn} bad={status.bad} /> : null}
-        <SlPodTable columns={['pod', 'jobs/s', 'cpu', 'mem']} rows={rows} />
+        <SlPodTable columns={['pod', 'jobs/s', view.latencyQuantile, 'cpu', 'mem']} rows={rows} />
         <Note mark="i">
           {rows.length <= 1
             ? 'Single replica — no failover capacity. A kill or eviction drains nothing until it restarts.'
@@ -1185,7 +1202,11 @@ function LoadBalancerPane({
             </SlTileVal>
             {view.showGraphs ? <StacklabSparkline data={rpsSeries} /> : null}
             {view.showGraphs ? (
-              <SlTileFoot graph left="window 10s" right={`peak ${Math.max(...rpsSeries, m.requestRate)}`} />
+              <SlTileFoot
+                graph
+                left="window 10s"
+                right={`peak ${fmtRate(Math.max(...rpsSeries, m.requestRate))}`}
+              />
             ) : null}
           </SlTile>
           <SlTile>
@@ -1225,7 +1246,7 @@ function LoadBalancerPane({
             Observed split is <em>{skewSplit}</em>.{' '}
           </>
         ) : null}
-        Round-robin assigns requests sequentially, but connection reuse skews the observed split.
+        {algo} assigns requests in order, but connection reuse can skew the observed split.
       </p>
     )
     return (
@@ -1249,7 +1270,7 @@ function LoadBalancerPane({
           body={skewBody}
         />
         <Note mark="i">
-          Round-robin assigns requests sequentially, but connection reuse skews the observed split.
+          {algo} assigns requests in order, but connection reuse can skew the observed split.
         </Note>
       </SlPaneSection>
     )
