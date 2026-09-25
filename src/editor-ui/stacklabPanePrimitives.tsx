@@ -288,7 +288,7 @@ export function SlGraphWrap({
     <div className="graph-wrap graph">
       <div className="graph-head">
         <span className="lab">{title}</span>
-        <span className="lab">{readout ?? sub}</span>
+        <span className={`lab${readout ? ' is-readout' : ''}`}>{readout ?? sub}</span>
       </div>
       <div
         className="graph-box"
@@ -301,7 +301,12 @@ export function SlGraphWrap({
         }}
         onMouseLeave={() => setHover(null)}
       >
-        <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" aria-hidden>
+        <svg
+          viewBox={`0 0 ${W} ${height}`}
+          preserveAspectRatio="none"
+          aria-hidden
+          style={{ pointerEvents: 'none' }}
+        >
           <line className="axis" x1="0" y1={height - PB} x2={W} y2={height - PB} />
           {index != null ? (
             <line

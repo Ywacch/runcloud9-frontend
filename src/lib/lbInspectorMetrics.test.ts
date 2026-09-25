@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import {
+  lbBackendConfigValue,
   lbBackendResourceLimits,
   lbBackendSkewLabel,
   lbBackendTableRows,
   lbInspectorBackendPods,
+  lbSkewExplanation,
   sumPodRequestRates,
 } from './lbInspectorMetrics'
 
@@ -87,6 +89,57 @@ describe('lbBackendTableRows', () => {
     expect(rows[1]?.share).toBe('42%')
     expect(rows[0]?.rps).toBe('58')
     expect(rows[0]?.p99).toBe('5.2 ms')
+  })
+})
+
+describe('lbSkewExplanation', () => {
+  it('uses algorithm-specific copy', () => {
+    expect(lbSkewExplanation('least_time')).toContain('least time')
+    expect(lbSkewExplanation('round-robin')).toContain('round-robin')
+    expect(lbSkewExplanation('ip_hash')).toContain('ip hash')
+  })
+})
+
+describe('lbBackendConfigValue', () => {
+  const lb: CanvasNode = {
+    id: 'lb-1',
+    type: 'load_balancer',
+    label: 'LB',
+    position: [0, 0, 0],
+    status: 'healthy',
+    config: {},
+  }
+  const app: CanvasNode = {
+    id: 'app-1',
+    type: 'compute',
+    label: 'App server',
+    position: [0, 0, 0],
+    status: 'healthy',
+    config: { replicas: 3 },
+  }
+  const edge: CanvasEdge = {
+    id: 'e1',
+    sourceId: 'lb-1',
+    targetId: 'app-1',
+    protocol: 'http',
+    animated: false,
+  }
+
+  it('includes replica count from canvas config', () => {
+    expect(
+      lbBackendConfigValue('lb-1', { e1: edge }, { 'lb-1': lb, 'app-1': app }),
+    ).toBe('App server ×3')
+  })
+
+  it('shows live pod count when it differs from configured replicas', () => {
+    expect(
+      lbBackendConfigValue(
+        'lb-1',
+        { e1: edge },
+        { 'lb-1': lb, 'app-1': app },
+        { backendPods: [{ name: 'p1' }, { name: 'p2' }] } as unknown as MetricsBucket,
+      ),
+    ).toBe('App server · 2 pods live')
   })
 })
 

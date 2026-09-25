@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { logComponentMatches } from '../lib/logComponent'
@@ -70,6 +70,27 @@ export function StacklabLogPanel({
   const frozenRef = useRef(filtered)
   if (!openKey) frozenRef.current = filtered
   const shown = (openKey ? frozenRef.current : filtered).slice(-MAX_LOG_ROWS)
+  const listRef = useRef<HTMLDivElement>(null)
+  const scrollTopRef = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    if (scrollTopRef.current == null) return
+    const scrollEl =
+      listRef.current?.closest('.body') ??
+      listRef.current?.parentElement ??
+      null
+    if (scrollEl) scrollEl.scrollTop = scrollTopRef.current
+    scrollTopRef.current = null
+  }, [openKey, shown.length])
+
+  const toggleRow = (key: string, open: boolean) => {
+    const scrollEl =
+      listRef.current?.closest('.body') ??
+      listRef.current?.parentElement ??
+      null
+    if (scrollEl) scrollTopRef.current = scrollEl.scrollTop
+    setOpenKey(open ? null : key)
+  }
 
   return (
     <section className="sec">
@@ -104,7 +125,7 @@ export function StacklabLogPanel({
       {shown.length === 0 ? (
         <div className="log-empty">NO EVENTS AT THIS LEVEL IN THE CURRENT WINDOW</div>
       ) : (
-        <div className="log-list">
+        <div className="log-list" ref={listRef}>
           {shown.map((line) => {
             const key = String(line.id ?? `${line.timestamp}:${line.message}`)
             const open = openKey === key
@@ -120,7 +141,7 @@ export function StacklabLogPanel({
                   aria-expanded={hasDetail ? open : undefined}
                   onClick={() => {
                     if (!hasDetail) return
-                    setOpenKey(open ? null : key)
+                    toggleRow(key, open)
                   }}
                 >
                   <span className="log-ts">{ts(line.timestamp)}</span>

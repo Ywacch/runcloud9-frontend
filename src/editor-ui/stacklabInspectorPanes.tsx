@@ -22,8 +22,10 @@ import {
   lbBackendTableRows,
   lbConnectedComputeNodes,
   lbInspectorBackendPods,
+  lbSkewExplanation,
 } from '../lib/lbInspectorMetrics'
 import { lbBackendCount } from '../lib/inspectorCapabilities'
+import { dbQueryHeadline } from '../lib/metricTimeframe'
 import {
   POD_RATE_DISCLAIMER,
   SESSION_CACHE_TOTALS_HINT,
@@ -313,6 +315,7 @@ function DatabasePane({
   if (metricGroup === 'app-load') {
     const errPct = m.errorRate * 100
     const errHot = errPct >= 0.25
+    const qHead = dbQueryHeadline(m, view.timeframe)
     return (
       <SlPaneSection>
         <SlSecHead
@@ -322,10 +325,12 @@ function DatabasePane({
         />
         <SlTiles triad>
           <SlTile>
-            <SlTileLab>Query rate</SlTileLab>
+            <SlTileLab>{qHead.label}</SlTileLab>
             <SlTileVal>
-              {fmtRate(m.dbQueryRate)}
-              <SlUnit>/s</SlUnit>
+              {view.timeframe === 'session'
+                ? fmtInt(qHead.sessionTotal)
+                : fmtRate(qHead.liveRate)}
+              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
           </SlTile>
           <SlTile>
@@ -647,6 +652,9 @@ function CachePane({
   }
 
   if (metricGroup === 'engine') {
+    const cmdLive = m.redisOpsPerSec ?? m.requestRate
+    const cmdSession =
+      (m.storageIo?.readTotal9m ?? 0) + (m.storageIo?.writeTotal9m ?? 0)
     return (
       <SlPaneSection>
         <SlSecHead
@@ -656,10 +664,14 @@ function CachePane({
         />
         <SlTiles>
           <SlTile>
-            <SlTileLab>Commands</SlTileLab>
+            <SlTileLab>
+              {view.timeframe === 'session' ? 'Total commands' : 'Commands'}
+            </SlTileLab>
             <SlTileVal>
-              {fmtRate(m.redisOpsPerSec ?? m.requestRate)}
-              <SlUnit>/s</SlUnit>
+              {view.timeframe === 'session' && cmdSession > 0
+                ? fmtInt(cmdSession)
+                : fmtRate(cmdLive)}
+              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
             <div className="tile-split">
               <span><b>hits</b> <s>{fmtRate(hits)}</s></span>
@@ -1162,7 +1174,8 @@ function LoadBalancerPane({
 }: StacklabInspectorPaneProps) {
   const [skewOpen, setSkewOpen] = useState(false)
   const allMetrics = useMetricsStore((s) => s.metrics)
-  const algo = lbAlgorithmForDeploy(node.config.lbAlgorithm)
+  const algo = lbAlgorithmForDeploy(node.config.algorithm ?? node.config.lbAlgorithm)
+  const skewNote = lbSkewExplanation(algo)
   const connectedBackends = useMemo(
     () => lbConnectedComputeNodes(node.id, edges, nodes),
     [node.id, edges, nodes],
@@ -1195,10 +1208,14 @@ function LoadBalancerPane({
         />
         <SlTiles>
           <SlTile>
-            <SlTileLab>Requests routed</SlTileLab>
+            <SlTileLab>
+              {view.timeframe === 'session' ? 'Total requests routed' : 'Requests routed'}
+            </SlTileLab>
             <SlTileVal>
-              {fmtInt(m.requestRate)}
-              <SlUnit>rps</SlUnit>
+              {view.timeframe === 'session'
+                ? fmtInt(m.totalRequests)
+                : fmtInt(m.requestRate)}
+              {view.timeframe === 'live' ? <SlUnit>rps</SlUnit> : null}
             </SlTileVal>
             {view.showGraphs ? <StacklabSparkline data={rpsSeries} /> : null}
             {view.showGraphs ? (
@@ -1246,7 +1263,7 @@ function LoadBalancerPane({
             Observed split is <em>{skewSplit}</em>.{' '}
           </>
         ) : null}
-        {algo} assigns requests in order, but connection reuse can skew the observed split.
+        {skewNote}
       </p>
     )
     return (
@@ -1263,15 +1280,13 @@ function LoadBalancerPane({
         <SlBeList rows={beRows} />
         <SlDisc
           id="lbdist"
-          title="Why distribution is uneven"
+          title="Why distribution could be uneven"
           tag="AMBER"
           open={skewOpen}
           onToggle={() => setSkewOpen((v) => !v)}
           body={skewBody}
         />
-        <Note mark="i">
-          {algo} assigns requests in order, but connection reuse can skew the observed split.
-        </Note>
+        <Note mark="i">{skewNote}</Note>
       </SlPaneSection>
     )
   }

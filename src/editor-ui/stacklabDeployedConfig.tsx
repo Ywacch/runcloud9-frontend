@@ -2,7 +2,7 @@ import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { isProxyCacheStrategy } from '../lib/cacheTopologyStrategy'
 import { fmtCpuMilliCores, fmtMemMB } from '../lib/format'
-import { lbConnectedComputeNodes } from '../lib/lbInspectorMetrics'
+import { lbBackendConfigValue } from '../lib/lbInspectorMetrics'
 import { normalizeRedisEvictionPolicy } from '../lib/redisEvictionPolicy'
 import { getResourceProfilesCached } from '../lib/resourceProfileStore'
 import {
@@ -219,12 +219,11 @@ export function deployedConfigRows(
     }
 
     case 'load_balancer': {
-      const backends = lbConnectedComputeNodes(node.id, edges, nodes)
-      const backendLabels = backends.map((backend) => backend.label).join(', ')
+      const backendLine = lbBackendConfigValue(node.id, edges, nodes, m)
       const rows: DeployedConfigRow[] = [
         { key: 'algorithm', value: lbAlgorithmLabel(c.algorithm ?? c.lbAlgorithm) },
       ]
-      if (backendLabels) rows.push({ key: 'backends', value: backendLabels })
+      if (backendLine) rows.push({ key: 'backends', value: backendLine })
       const maxConn =
         m && m.lbConnectionLimit > 0 ? m.lbConnectionLimit : Number(c.maxConnections ?? 1024)
       if (maxConn > 0) rows.push({ key: 'max connections', value: String(maxConn) })

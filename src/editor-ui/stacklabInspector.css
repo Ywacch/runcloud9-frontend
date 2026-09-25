@@ -223,7 +223,7 @@
 .sl-inspector .crumb-tail .ok{color:var(--green)}
 .sl-inspector .crumb-tail .bad{color:var(--red)}
 .sl-inspector .crumb-tail .am{color:var(--amber)}
-.sl-inspector .body{overflow-y:auto;overflow-x:hidden;flex:1 1 auto;scrollbar-width:thin}
+.sl-inspector .body{overflow-y:auto;overflow-x:hidden;flex:1 1 auto;scrollbar-width:thin;overflow-anchor:none}
 .sl-inspector .body::-webkit-scrollbar{width:9px}
 .sl-inspector .body::-webkit-scrollbar-track{background:transparent;border-left:1px solid var(--rule)}
 .sl-inspector .body::-webkit-scrollbar-thumb{background:rgba(232,233,229,.16)}
@@ -292,8 +292,9 @@
 .sl-inspector .graph-wrap::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
     background-image:radial-gradient(rgba(232,233,229,.08) 1px,transparent 1.1px);background-size:8px 8px}
 .sl-inspector .graph-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;position:relative;gap:8px}
-.sl-inspector .graph-box{position:relative;height:64px}
-.sl-inspector .graph-box svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.sl-inspector .graph-head .lab.is-readout{color:var(--ink);font-weight:500;letter-spacing:.02em}
+.sl-inspector .graph-box{position:relative;height:64px;z-index:1;cursor:crosshair}
+.sl-inspector .graph-box svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 .sl-inspector .hist-line{fill:none;stroke:rgba(232,233,229,.42);stroke-width:1.2}
 .sl-inspector .hist-fill{fill:rgba(232,233,229,.07)}
 .sl-inspector .trace{fill:none;stroke:rgba(232,233,229,.55);stroke-width:1.2}
@@ -642,7 +643,7 @@
 .sl-inspector .logbar-filter button:hover{background:rgba(232,233,229,.07);color:var(--ink-2)}
 .sl-inspector .logbar-filter button.is-on{background:var(--ink);color:#0C0D10}
 .sl-inspector .log-empty{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--ink-4);padding:14px 0;text-align:center}
-.sl-inspector .log-list{border-top:1px solid var(--rule)}
+.sl-inspector .log-list{border-top:1px solid var(--rule);overflow-anchor:none}
 .sl-inspector .log-row{border-bottom:1px solid var(--rule)}
 .sl-inspector .log-row:last-child{border-bottom:none}
 .sl-inspector .log-head{display:grid;grid-template-columns:60px 40px 1fr 12px;gap:8px;width:100%;text-align:left;
