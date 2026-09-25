@@ -50,7 +50,12 @@ export type CheckoutStartedSource =
   | 'unknown'
 
 export type SummaryDismissAction = 'close' | 'redeploy' | 'open_canvas'
-export type SummarySlideGroup = 'highlights' | 'outcome' | 'replay' | 'topology'
+export type SummarySlideGroup =
+  | 'highlights'
+  | 'outcome'
+  | 'replay'
+  | 'postmortem'
+  | 'topology'
 export type JourneyPanelContext = 'design' | 'live'
 export type InspectorContext = 'design' | 'live'
 export type DeployWaitExitStatus =

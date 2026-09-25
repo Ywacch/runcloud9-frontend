@@ -13,6 +13,7 @@ import {
 import { resetDesignStorytellingUi } from '../../lib/resetStorytellingUi'
 import { clearSessionLayout } from '../../lib/sessionLayoutStore'
 import { SHOW_SIMULATION_UI } from '../../lib/featureFlags'
+import type { AIPostmortem } from '../../lib/aiPostmortem'
 import type { SessionEventSummary } from '../../lib/eventsSummaryFromApi'
 import type {
   ClientLatencyInterval,
@@ -115,6 +116,8 @@ export interface SessionSummary {
   storagePeaks?: StoragePeakSummary
   /** Client-path p99 per 5s window from `metrics_summary.client_latency_history`. */
   clientLatencyHistory?: ClientLatencyInterval[]
+  /** Verified post-mortem from `metrics_summary.ai_postmortem`. */
+  aiPostmortem?: AIPostmortem
   componentSummaries: Record<
     string,
     {
