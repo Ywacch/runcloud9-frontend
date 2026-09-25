@@ -15,9 +15,12 @@ import {
   type SummaryDismissAction,
 } from '../lib/analytics'
 import { dispatchRequestDeploy } from '../lib/deployEvents'
+import type { PostmortemClaim } from '../lib/aiPostmortem'
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
 import { highlightEventSearchText } from '../lib/highlightCaption'
 import { HighlightPanel } from './HighlightReel'
+import { ModelInferenceBadge } from './ModelInferenceBadge'
+import { ViewTraceButton } from './ViewTraceButton'
 import { MetricChart } from './MetricChart'
 import { ClientLatencyBoxChart } from './ClientLatencyBoxChart'
 
@@ -53,13 +56,14 @@ const SPARK_SERIES = [
 ] as const
 
 type SparkKey = (typeof SPARK_SERIES)[number]['key']
-type SlideGroup = 'highlights' | 'outcome' | 'replay' | 'topology'
+type SlideGroup = 'highlights' | 'outcome' | 'replay' | 'postmortem' | 'topology'
 
 type SummarySlide = {
   id: string
   group: SlideGroup
   groupLabel: string
   event?: SessionEventSummary
+  claim?: PostmortemClaim
 }
 
 function eventTokens(event: SessionEventSummary): string {
@@ -102,6 +106,22 @@ function buildSlides(summary: SessionSummary): SummarySlide[] {
       event,
     })
   })
+  const postmortem = summary.aiPostmortem
+  if (postmortem) {
+    slides.push({
+      id: 'postmortem-summary',
+      group: 'postmortem',
+      groupLabel: 'Post-mortem',
+    })
+    postmortem.claims.forEach((claim, i) => {
+      slides.push({
+        id: `postmortem-claim-${i}`,
+        group: 'postmortem',
+        groupLabel: 'Post-mortem',
+        claim,
+      })
+    })
+  }
   if (summary.steadyState || (summary.clientLatencyHistory?.length ?? 0) >= 4) {
     slides.push({ id: 'outcome', group: 'outcome', groupLabel: 'Steady state' })
   }
@@ -270,9 +290,9 @@ export function SessionSummaryView({
               }`}
             >
               {g.groupLabel}
-              {g.group === 'highlights' && count > 1 ? (
+              {(g.group === 'highlights' || g.group === 'postmortem') && count > 1 ? (
                 <span className="ml-1.5 font-mono text-[11px] text-[var(--c9-muted)]">
-                  {active ? `${eventOrdinal}/${count}` : count}
+                  {active && g.group === 'highlights' ? `${eventOrdinal}/${count}` : count}
                 </span>
               ) : null}
             </button>
@@ -420,6 +440,50 @@ function SlideCopy({
     )
   }
 
+  if (slide.group === 'postmortem') {
+    const pm = summary.aiPostmortem
+    if (slide.claim) {
+      return (
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--c9-muted)]">
+              {slide.claim.aspect.replaceAll('_', ' ')}
+            </span>
+            {slide.claim.grounding === 'inferred' ? <ModelInferenceBadge /> : null}
+          </div>
+          <h3 className="mt-3 text-base font-semibold text-[var(--c9-text-heading)]">
+            {slide.claim.components.length > 0
+              ? slide.claim.components.join(' · ')
+              : slide.claim.scope}
+          </h3>
+          <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-text)]">
+            {slide.claim.text}
+          </p>
+          {slide.claim.requestId ? (
+            <p className="mt-4">
+              <ViewTraceButton requestId={slide.claim.requestId} />
+            </p>
+          ) : null}
+        </div>
+      )
+    }
+    return (
+      <div>
+        <h3 className="text-base font-semibold text-[var(--c9-text-heading)]">Post-mortem</h3>
+        <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-text)]">
+          {pm?.summary || 'No post-mortem summary for this run.'}
+        </p>
+        {pm?.insufficientEvidence.length ? (
+          <ul className="mt-4 list-disc space-y-1 pl-4 text-sm text-[var(--c9-muted)]">
+            {pm.insufficientEvidence.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    )
+  }
+
   if (slide.group === 'outcome') {
     return (
       <div>
@@ -490,6 +554,31 @@ function SlideVisuals({
   summary: SessionSummary
   slide: SummarySlide
 }) {
+  if (slide.group === 'postmortem') {
+    const refs = slide.claim?.factRefs ?? []
+    if (refs.length === 0) {
+      return (
+        <p className="text-sm text-[var(--c9-muted)]">
+          Claims cite facts from the session ledger. Open Highlights for the timeline.
+        </p>
+      )
+    }
+    return (
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--c9-muted)]">
+          Cited facts
+        </p>
+        <ul className="mt-3 space-y-2">
+          {refs.map((ref) => (
+            <li key={ref} className="font-mono text-xs text-[var(--c9-text)]">
+              {ref}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   if (slide.group === 'highlights' && slide.event) {
     const keys = relatedSparkKeys(slide.event)
     const sparks = summary.sessionSparklines

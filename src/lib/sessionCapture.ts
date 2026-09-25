@@ -1,6 +1,8 @@
 import { getDeployment } from './api'
 import { discardWsEventsStorage } from './wsEventsPersist'
 import { clearLiveSessionPersist } from './liveSessionStorage'
+import { parseAIPostmortem } from './aiPostmortem'
+import { parseAIPostmortem } from './aiPostmortem'
 import { parseEventsSummary } from './eventsSummaryFromApi'
 import { mergeHighlightEvents } from './sessionFacts'
 import {
@@ -171,6 +173,7 @@ function mergeApiMetricsSummary(
   const clientLatencyHistory = parseClientLatencyHistory(
     apiMetricsSummary.client_latency_history,
   )
+  const aiPostmortem = parseAIPostmortem(apiMetricsSummary.ai_postmortem) ?? undefined
 
   let duration = base.duration
   if (dur != null && dur > 0) {
@@ -200,6 +203,7 @@ function mergeApiMetricsSummary(
     clientLatencyHistory: clientLatencyHistory?.length
       ? clientLatencyHistory
       : undefined,
+    aiPostmortem,
   }
 }
 
