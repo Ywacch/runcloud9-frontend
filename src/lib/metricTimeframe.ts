@@ -18,6 +18,23 @@ export function inspectorThroughputColumnLabel(
   return timeframe === 'session' ? 'total' : liveLabel
 }
 
+/** Single-line throughput cell for replica tables (avoids wrapping the grid). */
+export function replicaThroughputTableCell(
+  pod: PodReplicaMetrics,
+  timeframe: MetricsTimeframe,
+  sumSessionTotals: number,
+): string {
+  if (timeframe === 'session') {
+    const total = pod.totalRequests ?? 0
+    if (sumSessionTotals > 0 && total > 0) {
+      const pct = Math.round((total / sumSessionTotals) * 100)
+      return `${fmtInt(total)} · ${pct}%`
+    }
+    return fmtInt(total)
+  }
+  return fmtInt(Math.round(pod.requestRate))
+}
+
 export interface RedHeadlineFields {
   throughputLabel: string
   throughputDisplay: string

@@ -19,6 +19,19 @@ describe('parseResourceUsageSource', () => {
   })
 })
 
+describe('componentToBucket latency units', () => {
+  it('converts p50 and p95 from seconds to milliseconds like p99', () => {
+    const bucket = componentToBucket({
+      p50Latency: 0.001,
+      p95Latency: 0.003,
+      p99Latency: 0.05,
+    })
+    expect(bucket.p50Latency).toBe(1)
+    expect(bucket.p95Latency).toBe(3)
+    expect(bucket.p99Latency).toBe(50)
+  })
+})
+
 describe('componentToBucket resource sources', () => {
   it('maps cpuSource and memSource onto the bucket', () => {
     const bucket = componentToBucket({

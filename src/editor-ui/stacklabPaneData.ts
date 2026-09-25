@@ -7,7 +7,12 @@ import {
 } from '../lib/latencyQuantile'
 import type { LatencyQuantile } from '../lib/latencyQuantile'
 import { fmtErrorRate, fmtLatencyCell, fmtMemMB } from '../lib/format'
-import { redHeadlines, replicaListRows, type MetricsTimeframe } from '../lib/metricTimeframe'
+import {
+  redHeadlines,
+  replicaListRows,
+  replicaThroughputTableCell,
+  type MetricsTimeframe,
+} from '../lib/metricTimeframe'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import { rollup, samplesFromCompute } from '../lib/instanceRollup'
@@ -106,18 +111,17 @@ export function podTableRows(
   selectedName?: string | null,
   onSelect?: (name: string) => void,
 ) {
-  const rows = replicaListRows(m.podReplicas, timeframe, {
+  const pods = m.podReplicas
+  const sumSessionTotals = pods.reduce((s, p) => s + (p.totalRequests ?? 0), 0)
+  const rows = replicaListRows(pods, timeframe, {
     clusterRps: m.requestRate,
     cpuLimitCores: m.cpuLimit,
     memoryLimitBytes: m.memoryLimit,
     quantile,
   })
-  return rows.map((row) => ({
+  return rows.map((row, i) => ({
     name: compactPodName(row.name) || row.name,
-    rps:
-      timeframe === 'session'
-        ? row.primaryText
-        : row.primaryText.replace(/\s*rps$/i, '').trim(),
+    rps: replicaThroughputTableCell(pods[i]!, timeframe, sumSessionTotals),
     latency: row.latencyMs != null && row.latencyMs > 0 ? fmtLatencyCell(row.latencyMs) : '—',
     cpu: row.cpuPct != null ? `${Math.round(row.cpuPct)}%` : '—',
     mem: row.memPct != null ? `${Math.round(row.memPct)}%` : '—',
