@@ -221,6 +221,8 @@ export function lerpMetricsBucket(
       t,
     ),
     evictionsPerSec: lerpNum(a.evictionsPerSec ?? 0, b.evictionsPerSec ?? 0, t),
+    evictionsLast9m: lerpRound(a.evictionsLast9m ?? 0, b.evictionsLast9m ?? 0, t),
+    expirationsLast9m: lerpRound(a.expirationsLast9m ?? 0, b.expirationsLast9m ?? 0, t),
     expirationsPerSec: lerpNum(
       a.expirationsPerSec ?? 0,
       b.expirationsPerSec ?? 0,

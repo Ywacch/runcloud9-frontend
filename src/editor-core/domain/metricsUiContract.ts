@@ -100,6 +100,8 @@ export interface ComponentLayerMetrics {
   /** Engine-agnostic store rates (backing-store layer only on the wire). */
   evictionsPerSec?: number
   expirationsPerSec?: number
+  evictionsLast9m?: number
+  expirationsLast9m?: number
   restartCount?: number
   /** Primary-side replay lag in seconds (Postgres replica layers only). */
   replicationLagSeconds?: number
@@ -404,6 +406,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
     const redisRejected = num(r.redisRejectedRate)
     const evictions = num(r.evictionsPerSec)
     const expirations = num(r.expirationsPerSec)
+    const evictionsLast9m = Math.round(num(r.evictionsLast9m))
+    const expirationsLast9m = Math.round(num(r.expirationsLast9m))
     const replicationLag = num(r.replicationLagSeconds)
     const syncState = typeof r.syncState === 'string' ? r.syncState.trim() : ''
     const lagBytesRaw = r.lagBytes
@@ -440,6 +444,8 @@ export function parseComponentLayers(raw: unknown): ComponentLayerMetrics[] {
       redisRejectedRate: redisRejected > 0 ? redisRejected : undefined,
       evictionsPerSec: evictions > 0 ? evictions : undefined,
       expirationsPerSec: expirations > 0 ? expirations : undefined,
+      evictionsLast9m: evictionsLast9m > 0 ? evictionsLast9m : undefined,
+      expirationsLast9m: expirationsLast9m > 0 ? expirationsLast9m : undefined,
       restartCount: restartCount > 0 ? restartCount : undefined,
       replicationLagSeconds:
         replicationLag > 0 || r.replicationLagSeconds === 0 ? replicationLag : undefined,

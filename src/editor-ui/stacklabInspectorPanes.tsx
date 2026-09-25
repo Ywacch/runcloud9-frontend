@@ -31,7 +31,7 @@ import {
   inspectorThroughputColumnLabel,
   storageIoThroughputFields,
 } from '../lib/metricTimeframe'
-import { bucketLatencyField } from '../lib/latencyQuantile'
+import { bucketLatencyField, layerLatencyMs } from '../lib/latencyQuantile'
 import {
   POD_RATE_DISCLAIMER,
   SESSION_CACHE_TOTALS_HINT,
@@ -290,62 +290,28 @@ function DatabasePane({
     ? findDbLayer(m.layers, selectedInstanceId)
     : undefined
 
-  if (layer && selectedInstanceId !== 'cluster') {
-    const sqlHead = dbLayerAppSqlHeadline(layer, view.timeframe)
-    return (
-      <SlPaneSection>
-        <SlSecHead
-          index="02"
-          title={layer.role === 'replica' ? 'Replica layer' : 'Primary layer'}
-          subtitle="Instance scope metrics for this database layer."
-        />
-        <SlTiles triad>
-          <SlTile>
-            <SlTileLab>{sqlHead.label}</SlTileLab>
-            <SlTileVal>
-              {view.timeframe === 'session'
-                ? fmtInt(sqlHead.sessionTotal)
-                : fmtRate(sqlHead.liveRate)}
-              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
-            </SlTileVal>
-          </SlTile>
-          <SlTile>
-            <SlTileLab>CPU</SlTileLab>
-            <SlTileVal>
-              {m.cpuLimit > 0 ? Math.round((layer.cpuUsage / m.cpuLimit) * 100) : 0}
-              <SlUnit>%</SlUnit>
-            </SlTileVal>
-          </SlTile>
-          <SlTile>
-            <SlTileLab>Replication lag</SlTileLab>
-            <SlTileVal>
-              {layer.replicationLagSeconds != null
-                ? layer.replicationLagSeconds.toFixed(1)
-                : '—'}
-              <SlUnit>s</SlUnit>
-            </SlTileVal>
-          </SlTile>
-        </SlTiles>
-      </SlPaneSection>
-    )
-  }
-
   if (metricGroup === 'app-load') {
     const errPct = m.errorRate * 100
-    const errHot = view.timeframe === 'live' && errPct >= 0.25
-    const qHead = dbQueryHeadline(m, view.timeframe)
-    const latMs =
-      view.timeframe === 'session'
+    const errHot = view.timeframe === 'live' && errPct >= 0.25 && !layer
+    const qHead = layer
+      ? dbLayerAppSqlHeadline(layer, view.timeframe)
+      : dbQueryHeadline(m, view.timeframe)
+    const latMs = layer
+      ? layerLatencyMs(layer, view.latencyQuantile, view.timeframe)
+      : view.timeframe === 'session'
         ? bucketLatencyField(m, view.latencyQuantile, view.timeframe)
         : m.dbQueryLatency > 0
           ? m.dbQueryLatency * 1000
           : 0
+    const instanceSubtitle = layer
+      ? `App SQL for ${layer.role === 'replica' ? 'replica' : 'primary'} layer ${layer.id}.`
+      : 'App SQL on the hot path — what clients intended.'
     return (
       <SlPaneSection>
         <SlSecHead
           index="01"
           title="How hard is the app hitting the database?"
-          subtitle="App SQL on the hot path — what clients intended."
+          subtitle={instanceSubtitle}
         />
         <SlTiles triad>
           <SlTile>
@@ -406,15 +372,25 @@ function DatabasePane({
   }
 
   if (metricGroup === 'engine-work') {
+    const ioBucket =
+      layer?.storageIo != null ? { ...m, storageIo: layer.storageIo } : m
     const ioTiles = storageIoThroughputFields(
-      m,
+      ioBucket,
       view.timeframe,
       'Rows scanned',
       'Rows written',
       fmtRate,
     )
-    const scannedLive = m.storageIo?.readRate ?? 0
-    const writtenLive = m.storageIo?.writeRate ?? 0
+    const scannedLive = ioBucket.storageIo?.readRate ?? 0
+    const writtenLive = ioBucket.storageIo?.writeRate ?? 0
+    const layerCpuPct =
+      layer && layer.cpuLimit > 0
+        ? Math.min(100, (layer.cpuUsage / layer.cpuLimit) * 100)
+        : m.cpuPercent
+    const layerMemPct =
+      layer && layer.memoryLimit > 0
+        ? Math.min(100, (layer.memoryBytes / layer.memoryLimit) * 100)
+        : m.memPercent
     return (
       <SlPaneSection>
         <SlHint direction="back" onClick={() => onSelectMetricGroup?.('app-load')}>
@@ -424,7 +400,11 @@ function DatabasePane({
         <SlSecHead
           index="02"
           title="How much work is Postgres doing?"
-          subtitle="Engine work (all clients) — every session, not just the app."
+          subtitle={
+            layer
+              ? `Engine work on ${layer.role === 'replica' ? 'replica' : 'primary'} ${layer.id}.`
+              : 'Engine work (all clients) — every session, not just the app.'
+          }
         />
         <SlCounter
           label={ioTiles.readLabel}
@@ -470,19 +450,19 @@ function DatabasePane({
         <SlSecHead index="03" title="Engine utilization" subtitle="CPU and memory handling database work." />
         <SlGauge
           label="CPU · engine"
-          value={Math.round(m.cpuPercent)}
+          value={Math.round(layerCpuPct)}
           unit="%"
-          pct={m.cpuPercent}
-          hot={isCpuUtilWarn(m.cpuPercent)}
+          pct={layerCpuPct}
+          hot={isCpuUtilWarn(layerCpuPct)}
           footLeft={resourceWarnFootLabel(WARNING_CPU)}
           footRight="engine CPU"
         />
         <SlGauge
           label="Memory · shared buffers"
-          value={Math.round(m.memPercent)}
+          value={Math.round(layerMemPct)}
           unit="%"
-          pct={m.memPercent}
-          hot={isMemUtilWarn(m.memPercent)}
+          pct={layerMemPct}
+          hot={isMemUtilWarn(layerMemPct)}
           footLeft="cache hit from exporter"
           footRight="no evictions"
         />
@@ -687,7 +667,15 @@ function CachePane({
           />
         ) : null}
         <SlStatStrip>
-          <SlStatCell label="evictions" value={fmtRate(m.evictionsPerSec ?? 0)} unit="/s · 10s" />
+          <SlStatCell
+            label="evictions"
+            value={
+              view.timeframe === 'session'
+                ? fmtInt(m.evictionsLast9m ?? 0)
+                : fmtRate(m.evictionsPerSec ?? 0)
+            }
+            unit={view.timeframe === 'session' ? 'total' : '/s · 10s'}
+          />
           <SlStatCell label="keys" value={fmtInt(m.redisKeyspaceHits ?? 0)} />
           <SlStatCell label="policy" value={evictionPolicy} />
           <SlStatCell label="engine" value={m.storageEngine || 'redis'} />

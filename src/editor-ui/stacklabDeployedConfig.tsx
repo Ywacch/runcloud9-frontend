@@ -162,12 +162,15 @@ export function deployedConfigRows(
       }
       const ttlSeconds = Number(c.cacheTtlSeconds ?? 0)
       rows.push(
+        { key: 'cpu limit', value: cpuLimitLine(node, m) },
         { key: 'maxmemory', value: memLimitLine(node, m) },
         { key: 'policy', value: policy },
+        {
+          key: 'ttl',
+          value:
+            Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? `${ttlSeconds} s` : 'none',
+        },
       )
-      if (Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
-        rows.push({ key: 'ttl', value: `${ttlSeconds} s` })
-      }
       if (clients.length > 0) {
         rows.push({
           key: 'client',

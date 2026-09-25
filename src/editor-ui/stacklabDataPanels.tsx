@@ -2,8 +2,32 @@ import { useState, type ReactNode } from 'react'
 import type { ColumnInfo, IndexInfo } from '../lib/introspectApi'
 import { SlSecHead } from './stacklabPanePrimitives'
 
-export function SlDataHead({ subtitle }: { subtitle: string }) {
-  return <SlSecHead index="D" title="What is actually in there?" subtitle={subtitle} />
+export function SlDataHead({
+  subtitle,
+  onRefresh,
+  refreshing,
+}: {
+  subtitle: string
+  onRefresh?: () => void
+  refreshing?: boolean
+}) {
+  return (
+    <>
+      <SlSecHead index="D" title="What is actually in there?" subtitle={subtitle} />
+      {onRefresh ? (
+        <div className="data-toolbar">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+      ) : null}
+    </>
+  )
 }
 
 export function SlDataError({
@@ -65,11 +89,12 @@ export function formatRowCount(n: number): string {
 
 export function fmtTtlHuman(ttl: number, complex = false): string {
   if (ttl < 0) return complex ? 'TTL none' : 'TTL —'
-  if (ttl > 0 && ttl < 1) return `TTL ${Math.round(ttl * 1000)} ms`
-  if (ttl < 60) return `TTL ${Math.round(ttl)} s`
-  if (ttl < 3_600) return `TTL ${Math.round(ttl / 60)} m`
-  if (ttl < 86_400) return `TTL ${Math.round(ttl / 3_600)} h`
-  return `TTL ${Math.round(ttl / 86_400)} d`
+  if (ttl > 0 && ttl < 1) {
+    const ms = Math.round(ttl * 1000)
+    return complex ? `${ms}ms(TTL)` : `${ms}ms(TTL)`
+  }
+  const sec = Math.round(ttl)
+  return complex ? `${sec}s(TTL)` : `${sec}s(TTL)`
 }
 
 export function fmtKeySize(bytes: number): string {
@@ -207,7 +232,7 @@ export function highlightSql(src: string): ReactNode[] {
 
 function indexTypeLabel(idx: IndexInfo): string {
   const match = idx.definition?.match(/USING\s+(\w+)/i)
-  const method = match ? match[1].toLowerCase() : 'btree'
+  const method = match ? match[1].toLowerCase() : 'unknown'
   if (idx.primary || idx.unique) return `${method} · unique`
   return method
 }
@@ -423,6 +448,8 @@ export function SlKeyCard({
   ttl,
   value,
   loading,
+  selected,
+  onSelect,
 }: {
   name: string
   type: string
@@ -430,6 +457,8 @@ export function SlKeyCard({
   ttl: number
   value: unknown
   loading?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const complex = type.toLowerCase() !== 'string' && type.toLowerCase() !== 'none'
@@ -437,13 +466,18 @@ export function SlKeyCard({
   const expandable = preview?.expandable ?? false
 
   return (
-    <div className={`kc${open ? ' is-open' : ''}`}>
-      <div className="kc-top">
+    <div className={`kc${open ? ' is-open' : ''}${selected ? ' is-selected' : ''}`}>
+      <button
+        type="button"
+        className="kc-top"
+        onClick={onSelect}
+        disabled={!onSelect}
+      >
         <span className="kc-name">{name}</span>
         <span className="kc-type">{type}</span>
         <span className="kc-size">{fmtKeySize(sizeBytes)}</span>
         <span className="kc-ttl">{fmtTtlHuman(ttl, complex)}</span>
-      </div>
+      </button>
       {loading ? (
         <div className="kc-prev nul">loading…</div>
       ) : preview ? (

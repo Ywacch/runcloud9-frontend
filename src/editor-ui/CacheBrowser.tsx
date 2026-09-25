@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchKeyValue, fetchKeys, type KeyInfo } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { trackEvent } from '../lib/analytics'
 import { SlSecHead } from './stacklabPanePrimitives'
 import { SlDataError, SlDataHead, SlKeyCard } from './stacklabDataPanels'
+
+const DATA_POLL_MS = 8000
+const SCAN_PAGE_SIZE = 50
 
 interface CacheBrowserProps {
   deploymentId: string
@@ -27,7 +30,11 @@ export function CacheBrowser({
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [valueLoading, setValueLoading] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const selectedKeyRef = useRef<string | null>(null)
+  selectedKeyRef.current = selectedKey
 
   useEffect(() => {
     setPattern((current) =>
@@ -58,47 +65,75 @@ export function CacheBrowser({
     [deploymentId, component],
   )
 
-  const scanFromStart = useCallback(
-    async (pat: string) => {
-      setError(null)
-      setLoading(true)
-      setKeys([])
-      setKeyCount(null)
-      setNextCursor(0)
-      setValues({})
-      setValueLoading({})
+  const reloadSelectedKey = useCallback(
+    async (key: string) => {
+      setValueLoading((prev) => ({ ...prev, [key]: true }))
       try {
-        const res = await fetchKeys(deploymentId, component, pat, 0, 50)
+        const kv = await fetchKeyValue(deploymentId, component, key)
+        setValues((prev) => ({ ...prev, [key]: kv.value }))
+      } catch {
+        setValues((prev) => ({ ...prev, [key]: null }))
+      } finally {
+        setValueLoading((prev) => ({ ...prev, [key]: false }))
+      }
+    },
+    [deploymentId, component],
+  )
+
+  const scanFromStart = useCallback(
+    async (pat: string, opts?: { soft?: boolean }) => {
+      const selection = selectedKeyRef.current
+      setError(null)
+      if (opts?.soft) setRefreshing(true)
+      else setLoading(true)
+      try {
+        const res = await fetchKeys(deploymentId, component, pat, 0, SCAN_PAGE_SIZE)
         setKeys(res.keys)
         setNextCursor(res.cursor)
         setKeyCount(Number.isFinite(res.keyCount) ? Number(res.keyCount) : null)
-        const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-        trackEvent('data_inspector_used', {
-          template,
-          componentType: component,
-          operationCategory: 'scan_keys',
-        })
+        if (!opts?.soft) {
+          const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+          trackEvent('data_inspector_used', {
+            template,
+            componentType: component,
+            operationCategory: 'scan_keys',
+          })
+        }
+        if (selection && !res.keys.some((k) => k.key === selection)) {
+          setSelectedKey(null)
+        }
         void loadValues(res.keys)
+        if (selection && res.keys.some((k) => k.key === selection)) {
+          void reloadSelectedKey(selection)
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to scan keys')
-        setKeys([])
+        if (!opts?.soft) setKeys([])
       } finally {
         setLoading(false)
+        setRefreshing(false)
       }
     },
-    [deploymentId, component, loadValues],
+    [deploymentId, component, loadValues, reloadSelectedKey],
   )
 
   useEffect(() => {
     void scanFromStart(pattern)
   }, [deploymentId, component, pattern, scanFromStart])
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void scanFromStart(pattern, { soft: true })
+    }, DATA_POLL_MS)
+    return () => window.clearInterval(id)
+  }, [pattern, scanFromStart])
+
   const loadMore = useCallback(async () => {
     if (nextCursor <= 0) return
     setError(null)
     setLoading(true)
     try {
-      const res = await fetchKeys(deploymentId, component, pattern, nextCursor, 50)
+      const res = await fetchKeys(deploymentId, component, pattern, nextCursor, SCAN_PAGE_SIZE)
       setKeys((k) => [...k, ...res.keys])
       setNextCursor(res.cursor)
       if (Number.isFinite(res.keyCount)) {
@@ -112,7 +147,7 @@ export function CacheBrowser({
     }
   }, [deploymentId, component, pattern, nextCursor, loadValues])
 
-  const refresh = () => void scanFromStart(pattern)
+  const refresh = () => void scanFromStart(pattern, { soft: true })
 
   const stringKeys = keys.filter((k) => {
     const t = k.type.toLowerCase()
@@ -124,9 +159,27 @@ export function CacheBrowser({
   })
   const noExpiryKeys = keys.filter((k) => k.ttl === -1)
 
+  const renderKeyCard = (k: KeyInfo) => (
+    <SlKeyCard
+      key={k.key}
+      name={k.key}
+      type={k.type}
+      sizeBytes={k.memory}
+      ttl={k.ttl}
+      value={values[k.key]}
+      loading={valueLoading[k.key]}
+      selected={selectedKey === k.key}
+      onSelect={() => setSelectedKey(k.key)}
+    />
+  )
+
   return (
     <>
-      <SlDataHead subtitle="Keys, sizes, and TTLs. Values are app-side mappings." />
+      <SlDataHead
+        subtitle="Keys, sizes, and TTLs. Values are app-side mappings."
+        onRefresh={refresh}
+        refreshing={refreshing}
+      />
 
       {patterns.length > 1 ? (
         <div className="seg" role="group" aria-label="Key pattern" style={{ marginBottom: 12 }}>
@@ -159,17 +212,7 @@ export function CacheBrowser({
 
       {stringKeys.length > 0 ? (
         <div className="keyset">
-          {stringKeys.map((k) => (
-            <SlKeyCard
-              key={k.key}
-              name={k.key}
-              type={k.type}
-              sizeBytes={k.memory}
-              ttl={k.ttl}
-              value={values[k.key]}
-              loading={valueLoading[k.key]}
-            />
-          ))}
+          {stringKeys.map((k) => renderKeyCard(k))}
         </div>
       ) : null}
 
@@ -202,17 +245,7 @@ export function CacheBrowser({
             subtitle="Complex types collapse to a head line. Expand for a truncated preview."
           />
           <div className="keyset">
-            {complexKeys.map((k) => (
-              <SlKeyCard
-                key={k.key}
-                name={k.key}
-                type={k.type}
-                sizeBytes={k.memory}
-                ttl={k.ttl}
-                value={values[k.key]}
-                loading={valueLoading[k.key]}
-              />
-            ))}
+            {complexKeys.map((k) => renderKeyCard(k))}
           </div>
           <p className="note">
             <b>i</b>
