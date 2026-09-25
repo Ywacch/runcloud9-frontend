@@ -322,10 +322,7 @@ export function InspectorPanel() {
         String(node.config.cacheStrategy ?? 'cache-aside')
       : null
   const showMetricBreadcrumb =
-    liveTab === 'metrics' &&
-    node != null &&
-    node.type !== 'client' &&
-    (!selectedInstanceId || selectedInstanceId === 'cluster')
+    liveTab === 'metrics' && node != null && node.type !== 'client'
   const showLiveInstanceTabs =
     showInstanceTabs &&
     (liveTab === 'metrics' || liveTab === 'logs') &&

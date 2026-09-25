@@ -9,6 +9,7 @@ import {
   dbLayerXactHeadline,
   feedPushHeadline,
   inspectorThroughputColumnLabel,
+  replicaThroughputTableCell,
   podCpuPercent,
   podHistorySeries,
   podMemPercent,
@@ -201,6 +202,23 @@ describe('inspectorThroughputColumnLabel', () => {
     expect(inspectorThroughputColumnLabel('live', 'rps')).toBe('rps')
     expect(inspectorThroughputColumnLabel('session', 'rps')).toBe('total')
     expect(inspectorThroughputColumnLabel('session', 'jobs/s')).toBe('total')
+  })
+})
+
+describe('replicaThroughputTableCell', () => {
+  it('formats session totals on one line with share', () => {
+    const pod = {
+      name: 'a',
+      ready: true,
+      requestRate: 50,
+      p99LatencyMs: 1,
+      totalRequests: 7500,
+      cpuUsage: 0,
+      errorRate: 0,
+      memoryBytes: 0,
+    }
+    expect(replicaThroughputTableCell(pod, 'session', 10_000)).toBe('7,500 · 75%')
+    expect(replicaThroughputTableCell(pod, 'live', 0)).toBe('50')
   })
 })
 

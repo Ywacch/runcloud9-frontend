@@ -402,7 +402,8 @@
 .sl-inspector .pod-table{margin-top:11px;border-top:1px solid var(--rule)}
 .sl-inspector .pt{display:grid;grid-template-columns:1fr 52px 44px 44px;gap:6px;padding:5px 0 4px;border-bottom:1px solid var(--rule);
     font-family:var(--mono);font-size:10px;color:var(--ink-2);align-items:center}
-.sl-inspector .pt.lat{grid-template-columns:minmax(0,1fr) 52px 64px 40px 40px}
+.sl-inspector .pt.lat{grid-template-columns:minmax(0,1fr) minmax(84px,96px) 56px 40px 40px}
+.sl-inspector .pt.lat .r.throughput{white-space:nowrap;font-size:9.5px;letter-spacing:.01em}
 .sl-inspector .pt.h{color:var(--ink-4);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;border-bottom-color:var(--rule-2)}
 .sl-inspector .pt .r{text-align:right}
 .sl-inspector .pt .am{color:var(--amber)}

@@ -429,7 +429,7 @@ export function SlPodTable({
               <span className={`st ${row.selected ? 'ok' : 'ok'}`} />
               {row.name}
             </span>
-            <span className="r">{row.rps}</span>
+            <span className="r throughput">{row.rps}</span>
             {withLatency ? <span className="r">{row.latency ?? '—'}</span> : null}
             <span className={`r${row.cpuTone ? ` ${row.cpuTone}` : ''}`}>{row.cpu}</span>
             <span className={`r${row.memTone ? ` ${row.memTone}` : ''}`}>{row.mem}</span>
