@@ -46,4 +46,9 @@ describe('inspectorMetricGroups', () => {
       showTimeframe: false,
     })
   })
+
+  it('message queue flow and backlog hide session toggle (rates only)', () => {
+    expect(panelViewVisibilityForGroup('flow').showTimeframe).toBe(false)
+    expect(panelViewVisibilityForGroup('backlog').showTimeframe).toBe(false)
+  })
 })

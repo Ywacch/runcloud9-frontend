@@ -4,6 +4,7 @@ import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { fmtInt, fmtLatencyCell } from './format'
 import { compactPodName, replicaBreakdownFromPods } from './replicaMetricsDisplay'
+import { clampAppServerReplicas, type LiveLBAlgorithm } from './replicaConfig'
 
 /** Sum live per-pod request rates (matches backend Prometheus rollup). */
 export function sumPodRequestRates(pods: PodReplicaMetrics[]): number {
@@ -76,6 +77,62 @@ export function lbBackendTableRows(
       memTone: isMemUtilWarn(row.memPercent) ? 'am' : undefined,
     }
   })
+}
+
+export function lbAlgorithmDisplayName(algo: LiveLBAlgorithm): string {
+  switch (algo) {
+    case 'least_conn':
+      return 'least connections'
+    case 'least_time':
+      return 'least time'
+    case 'ip_hash':
+      return 'ip hash'
+    case 'random':
+      return 'random'
+    default:
+      return 'round-robin'
+  }
+}
+
+/** Inspector copy for uneven backend share (algorithm-specific, not round-robin boilerplate). */
+export function lbSkewExplanation(algo: LiveLBAlgorithm): string {
+  switch (algo) {
+    case 'ip_hash':
+      return 'ip hash pins a client subnet to one backend, so an uneven split is normal when clients cluster or connections stay open.'
+    case 'least_conn':
+      return 'least connections favors backends with fewer active connections, but keep-alive reuse can still skew what you observe.'
+    case 'least_time':
+      return 'least time favors lower-latency backends, but keep-alive reuse can still skew what you observe.'
+    case 'random':
+      return 'random picks a backend per request, but keep-alive reuse can still skew what you observe.'
+    default:
+      return 'round-robin rotates across backends in order, but keep-alive reuse can skew what you observe.'
+  }
+}
+
+/** Live config backends line: compute labels with replica counts from canvas config. */
+export function lbBackendConfigValue(
+  lbNodeId: string,
+  edges: Record<string, CanvasEdge>,
+  nodes: Record<string, CanvasNode>,
+  m?: MetricsBucket,
+): string | null {
+  const backends = lbConnectedComputeNodes(lbNodeId, edges, nodes)
+  if (backends.length === 0) return null
+  const podCount = m?.backendPods?.length ?? 0
+  if (podCount > 0 && backends.length === 1) {
+    const backend = backends[0]!
+    const configured = clampAppServerReplicas(backend.config.replicas)
+    if (podCount !== configured) {
+      return `${backend.label} · ${podCount} pods live`
+    }
+  }
+  return backends
+    .map((backend) => {
+      const reps = clampAppServerReplicas(backend.config.replicas)
+      return reps > 1 ? `${backend.label} ×${reps}` : backend.label
+    })
+    .join(', ')
 }
 
 export function lbBackendSkewLabel(pods: PodReplicaMetrics[]): string | null {

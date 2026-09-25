@@ -124,15 +124,16 @@ export function panelViewVisibilityForGroup(groupId: InspectorMetricGroupId): {
   switch (groupId) {
     case 'health':
     case 'app-load':
-    case 'flow':
     case 'hit-rate':
     case 'proxy':
     case 'routing':
       return { showGraphs: true, showLatency: true, showTimeframe: true }
+    case 'flow':
+    case 'backlog':
+      return { showGraphs: true, showLatency: false, showTimeframe: false }
     case 'internals':
     case 'engine':
     case 'engine-work':
-    case 'backlog':
     case 'backends':
       return { showGraphs: true, showLatency: false, showTimeframe: true }
     case 'replication':
