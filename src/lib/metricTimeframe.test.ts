@@ -8,6 +8,7 @@ import {
   dbLayerAppSqlHeadline,
   dbLayerXactHeadline,
   feedPushHeadline,
+  inspectorThroughputColumnLabel,
   podCpuPercent,
   podHistorySeries,
   podMemPercent,
@@ -192,6 +193,14 @@ describe('cacheHeadlines', () => {
     expect(h.throughputLabel).not.toContain('(9m)')
     expect(cacheHitRateDisplay(h.hitRatePct)).toContain('%')
     expect(h.throughputDisplay).toContain('4,216')
+  })
+})
+
+describe('inspectorThroughputColumnLabel', () => {
+  it('switches replica table header for session', () => {
+    expect(inspectorThroughputColumnLabel('live', 'rps')).toBe('rps')
+    expect(inspectorThroughputColumnLabel('session', 'rps')).toBe('total')
+    expect(inspectorThroughputColumnLabel('session', 'jobs/s')).toBe('total')
   })
 })
 

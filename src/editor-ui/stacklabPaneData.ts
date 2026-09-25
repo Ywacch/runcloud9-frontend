@@ -114,7 +114,10 @@ export function podTableRows(
   })
   return rows.map((row) => ({
     name: compactPodName(row.name) || row.name,
-    rps: row.primaryText.replace(/\s*rps$/i, '').trim(),
+    rps:
+      timeframe === 'session'
+        ? row.primaryText
+        : row.primaryText.replace(/\s*rps$/i, '').trim(),
     latency: row.latencyMs != null && row.latencyMs > 0 ? fmtLatencyCell(row.latencyMs) : '—',
     cpu: row.cpuPct != null ? `${Math.round(row.cpuPct)}%` : '—',
     mem: row.memPct != null ? `${Math.round(row.memPct)}%` : '—',
