@@ -440,7 +440,7 @@ export function SlPodTable({
             <button
               key={row.name}
               type="button"
-              className={`pt rowsel${row.selected ? ' is-on' : ''}`}
+              className={`pt${withLatency ? ' lat' : ''} rowsel${row.selected ? ' is-on' : ''}`}
               aria-current={row.selected ? 'true' : undefined}
               onClick={row.onSelect}
             >
@@ -449,7 +449,7 @@ export function SlPodTable({
           )
         }
         return (
-          <div key={row.name} className="pt">
+          <div key={row.name} className={`pt${withLatency ? ' lat' : ''}`}>
             {inner}
           </div>
         )
