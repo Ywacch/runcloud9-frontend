@@ -5,7 +5,7 @@ import { trackEvent } from '../lib/analytics'
 import { SlSecHead } from './stacklabPanePrimitives'
 import { SlDataError, SlDataHead, SlKeyCard } from './stacklabDataPanels'
 
-const DATA_POLL_MS = 8000
+const DATA_POLL_MS = 5000
 const SCAN_PAGE_SIZE = 50
 
 interface CacheBrowserProps {
