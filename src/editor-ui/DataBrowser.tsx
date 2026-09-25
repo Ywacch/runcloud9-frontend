@@ -28,7 +28,7 @@ import {
 } from './stacklabDataPanels'
 
 const PAGE_LIMIT = 6
-const DATA_POLL_MS = 8000
+const DATA_POLL_MS = 5000
 
 interface DataBrowserProps {
   deploymentId: string
@@ -182,6 +182,14 @@ export function DataBrowser({
     ? Math.min(rows.total, page * (rows.limit || PAGE_LIMIT))
     : 0
 
+  const rowCountForTable = useCallback(
+    (table: TableInfo) => {
+      if (table.name === selectedTable && rows != null) return rows.total
+      return table.rowCount
+    },
+    [selectedTable, rows],
+  )
+
   if (error && tables.length === 0 && !loading) {
     return <SlDataError message={error} onRetry={() => void loadTablesAndIndexes()} />
   }
@@ -239,7 +247,7 @@ export function DataBrowser({
             }}
           >
             <span>{t.name}</span>
-            <span className="r">{formatRowCount(t.rowCount)}</span>
+            <span className="r">{formatRowCount(rowCountForTable(t))}</span>
           </button>
         )
       })}
@@ -276,7 +284,7 @@ export function DataBrowser({
           <SlSecHead
             index="D4"
             title="Rows"
-            subtitle={`${rows.total.toLocaleString()} rows · newest first. Click a row to inspect every column.`}
+            subtitle="Newest first. Click a row to inspect every column."
           />
           {loading && rows.rows.length === 0 ? (
             <p className="note">
