@@ -13,6 +13,7 @@ import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
 import {
   trackEvent,
   type SummaryDismissAction,
+  type SummarySlideGroup,
 } from '../lib/analytics'
 import { dispatchRequestDeploy } from '../lib/deployEvents'
 import type { PostmortemClaim } from '../lib/aiPostmortem'
@@ -56,11 +57,9 @@ const SPARK_SERIES = [
 ] as const
 
 type SparkKey = (typeof SPARK_SERIES)[number]['key']
-type SlideGroup = 'highlights' | 'outcome' | 'replay' | 'postmortem' | 'topology'
-
 type SummarySlide = {
   id: string
-  group: SlideGroup
+  group: SummarySlideGroup
   groupLabel: string
   event?: SessionEventSummary
   claim?: PostmortemClaim
@@ -163,7 +162,7 @@ export function SessionSummaryView({
   }, [summary.template, summary.duration, summary.eventsSummary?.length])
   const slide = slides[Math.min(index, slides.length - 1)] ?? slides[0]
   const groups = useMemo(() => {
-    const seen = new Set<SlideGroup>()
+    const seen = new Set<SummarySlideGroup>()
     return slides.filter((s) => {
       if (seen.has(s.group)) return false
       seen.add(s.group)
@@ -188,7 +187,7 @@ export function SessionSummaryView({
   )
 
   const goToGroup = useCallback(
-    (group: SlideGroup) => {
+    (group: SummarySlideGroup) => {
       const i = slides.findIndex((s) => s.group === group)
       if (i >= 0) setIndex(i)
     },

@@ -2,7 +2,6 @@ import { getDeployment } from './api'
 import { discardWsEventsStorage } from './wsEventsPersist'
 import { clearLiveSessionPersist } from './liveSessionStorage'
 import { parseAIPostmortem } from './aiPostmortem'
-import { parseAIPostmortem } from './aiPostmortem'
 import { parseEventsSummary } from './eventsSummaryFromApi'
 import { mergeHighlightEvents } from './sessionFacts'
 import {
