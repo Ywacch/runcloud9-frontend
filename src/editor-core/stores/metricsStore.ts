@@ -90,6 +90,8 @@ export interface MetricsBucket {
   /** Engine-agnostic cache store rates (Redis fills them today). */
   evictionsPerSec?: number
   expirationsPerSec?: number
+  evictionsLast9m?: number
+  expirationsLast9m?: number
   cacheHits: number
   cacheMisses: number
   cacheHitsLast9m: number

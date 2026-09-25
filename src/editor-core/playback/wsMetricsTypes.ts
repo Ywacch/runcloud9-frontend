@@ -14,6 +14,8 @@ export interface WsComponentMetrics {
   redisAvgLatency?: number
   redisConnectedClients?: number
   evictionsPerSec?: number
+  evictionsLast9m?: number
+  expirationsLast9m?: number
   expirationsPerSec?: number
   cpuUsage?: number
   memoryUsage?: number

@@ -114,6 +114,8 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     redisConnectedClients: cm.redisConnectedClients ?? 0,
     evictionsPerSec: cm.evictionsPerSec ?? 0,
     expirationsPerSec: cm.expirationsPerSec ?? 0,
+    evictionsLast9m: Math.round(cm.evictionsLast9m ?? 0),
+    expirationsLast9m: Math.round(cm.expirationsLast9m ?? 0),
     cacheHits: Math.round(cm.cacheHits ?? 0),
     cacheMisses: Math.round(cm.cacheMisses ?? 0),
     cacheHitsLast9m: Math.round(cm.cacheHitsLast9m ?? 0),

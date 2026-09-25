@@ -28,6 +28,7 @@ import {
 } from './stacklabDataPanels'
 
 const PAGE_LIMIT = 6
+const DATA_POLL_MS = 8000
 
 interface DataBrowserProps {
   deploymentId: string
@@ -61,13 +62,15 @@ export function DataBrowser({
   const [indexes, setIndexes] = useState<IndexInfo[] | null>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const showReplicaToggle = !hideTargetToggle && readReplicaCount >= 1
 
-  const loadTablesAndIndexes = useCallback(async () => {
+  const loadTablesAndIndexes = useCallback(async (opts?: { soft?: boolean }) => {
     setError(null)
-    setLoading(true)
+    if (opts?.soft) setRefreshing(true)
+    else setLoading(true)
     try {
       const [tList, idxList] = await Promise.all([
         fetchTables(deploymentId, component, introspectOpts),
@@ -91,6 +94,7 @@ export function DataBrowser({
       setSelectedTable(null)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [deploymentId, component, introspectOpts])
 
@@ -106,7 +110,8 @@ export function DataBrowser({
     async (table: string, pageNum: number, opts?: { refreshOnly?: boolean }) => {
       if (!table) return
       setError(null)
-      if (!opts?.refreshOnly) setLoading(true)
+      if (opts?.refreshOnly) setRefreshing(true)
+      else setLoading(true)
       try {
         const [r, s] = await Promise.all([
           fetchRows(deploymentId, component, table, {
@@ -132,10 +137,24 @@ export function DataBrowser({
         setSchema(null)
       } finally {
         setLoading(false)
+        setRefreshing(false)
       }
     },
     [deploymentId, component, introspectOpts],
   )
+
+  const refreshAll = useCallback(() => {
+    void loadTablesAndIndexes({ soft: true })
+    if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
+  }, [loadTablesAndIndexes, loadTableData, selectedTable, page])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void loadTablesAndIndexes({ soft: true })
+      if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
+    }, DATA_POLL_MS)
+    return () => window.clearInterval(id)
+  }, [loadTablesAndIndexes, loadTableData, selectedTable, page])
 
   useEffect(() => {
     if (!selectedTable) {
@@ -169,7 +188,11 @@ export function DataBrowser({
 
   return (
     <>
-      <SlDataHead subtitle="Schema, indexes, and rows for the selected table." />
+      <SlDataHead
+        subtitle="Schema, indexes, and rows for the selected table."
+        onRefresh={refreshAll}
+        refreshing={refreshing}
+      />
 
       {showReplicaToggle ? (
         <div className="pcfg-field" style={{ paddingTop: 0 }}>
