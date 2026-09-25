@@ -671,15 +671,23 @@ export type SlBeRow = {
   memTone?: 'am'
 }
 
-export function SlBeList({ rows }: { rows: SlBeRow[] }) {
+export function SlBeList({
+  rows,
+  throughputCol = 'rps',
+  latencyCol = 'p99',
+}: {
+  rows: SlBeRow[]
+  throughputCol?: string
+  latencyCol?: string
+}) {
   return (
     <div className="be-list">
       <div className="be h">
         <span>backend</span>
-        <span className="r">rps</span>
+        <span className="r">{throughputCol}</span>
         <span className="r">cpu</span>
         <span className="r">mem</span>
-        <span className="r">p99</span>
+        <span className="r">{latencyCol}</span>
         <span className="r">share</span>
       </div>
       {rows.map((row) => (

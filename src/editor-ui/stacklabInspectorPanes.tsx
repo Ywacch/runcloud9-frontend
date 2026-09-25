@@ -25,7 +25,13 @@ import {
   lbSkewExplanation,
 } from '../lib/lbInspectorMetrics'
 import { lbBackendCount } from '../lib/inspectorCapabilities'
-import { dbQueryHeadline } from '../lib/metricTimeframe'
+import {
+  dbLayerAppSqlHeadline,
+  dbQueryHeadline,
+  inspectorThroughputColumnLabel,
+  storageIoThroughputFields,
+} from '../lib/metricTimeframe'
+import { bucketLatencyField } from '../lib/latencyQuantile'
 import {
   POD_RATE_DISCLAIMER,
   SESSION_CACHE_TOTALS_HINT,
@@ -243,7 +249,16 @@ function ComputePane({
         {status ? (
           <SlPodStatus ready={status.ready} bad={status.bad} warn={status.warn} />
         ) : null}
-        <SlPodTable columns={['pod', 'rps', view.latencyQuantile, 'cpu', 'mem']} rows={rows} />
+        <SlPodTable
+          columns={[
+            'pod',
+            inspectorThroughputColumnLabel(view.timeframe, 'rps'),
+            view.latencyQuantile,
+            'cpu',
+            'mem',
+          ]}
+          rows={rows}
+        />
         <Note mark="i">
           {spotlight ? (
             <>
@@ -276,6 +291,7 @@ function DatabasePane({
     : undefined
 
   if (layer && selectedInstanceId !== 'cluster') {
+    const sqlHead = dbLayerAppSqlHeadline(layer, view.timeframe)
     return (
       <SlPaneSection>
         <SlSecHead
@@ -285,10 +301,12 @@ function DatabasePane({
         />
         <SlTiles triad>
           <SlTile>
-            <SlTileLab>Query rate</SlTileLab>
+            <SlTileLab>{sqlHead.label}</SlTileLab>
             <SlTileVal>
-              {fmtRate(layer.cpuUsage > 0 ? m.dbQueryRate : 0)}
-              <SlUnit>/s</SlUnit>
+              {view.timeframe === 'session'
+                ? fmtInt(sqlHead.sessionTotal)
+                : fmtRate(sqlHead.liveRate)}
+              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
           </SlTile>
           <SlTile>
@@ -314,8 +332,14 @@ function DatabasePane({
 
   if (metricGroup === 'app-load') {
     const errPct = m.errorRate * 100
-    const errHot = errPct >= 0.25
+    const errHot = view.timeframe === 'live' && errPct >= 0.25
     const qHead = dbQueryHeadline(m, view.timeframe)
+    const latMs =
+      view.timeframe === 'session'
+        ? bucketLatencyField(m, view.latencyQuantile, view.timeframe)
+        : m.dbQueryLatency > 0
+          ? m.dbQueryLatency * 1000
+          : 0
     return (
       <SlPaneSection>
         <SlSecHead
@@ -334,9 +358,11 @@ function DatabasePane({
             </SlTileVal>
           </SlTile>
           <SlTile>
-            <SlTileLab>Error rate</SlTileLab>
+            <SlTileLab>{view.timeframe === 'session' ? 'Errors' : 'Error rate'}</SlTileLab>
             <SlTileVal tone={errHot ? 'amber' : undefined}>
-              {fmtErrorRate(m.errorRate)}
+              {view.timeframe === 'session'
+                ? fmtInt(m.totalErrors9m)
+                : fmtErrorRate(m.errorRate)}
             </SlTileVal>
             {errHot ? (
               <SlTileFoot>
@@ -345,9 +371,13 @@ function DatabasePane({
             ) : null}
           </SlTile>
           <SlTile>
-            <SlTileLab>Latency (p99)</SlTileLab>
+            <SlTileLab>
+              {view.timeframe === 'session'
+                ? `Latency ${view.latencyQuantile}`
+                : 'Latency (p99)'}
+            </SlTileLab>
             <SlTileVal>
-              {m.dbQueryLatency > 0 ? Math.round(m.dbQueryLatency * 1000) : '—'}
+              {latMs > 0 ? Math.round(latMs) : '—'}
               <SlUnit>ms</SlUnit>
             </SlTileVal>
           </SlTile>
@@ -376,9 +406,15 @@ function DatabasePane({
   }
 
   if (metricGroup === 'engine-work') {
-    const io = m.storageIo
-    const scanned = io?.readRate ?? 0
-    const written = io?.writeRate ?? 0
+    const ioTiles = storageIoThroughputFields(
+      m,
+      view.timeframe,
+      'Rows scanned',
+      'Rows written',
+      fmtRate,
+    )
+    const scannedLive = m.storageIo?.readRate ?? 0
+    const writtenLive = m.storageIo?.writeRate ?? 0
     return (
       <SlPaneSection>
         <SlHint direction="back" onClick={() => onSelectMetricGroup?.('app-load')}>
@@ -391,20 +427,42 @@ function DatabasePane({
           subtitle="Engine work (all clients) — every session, not just the app."
         />
         <SlCounter
-          label="Rows scanned"
-          tag="RAW COUNTER"
-          value={fmtRate(scanned)}
-          unit="/s"
-          bandData={historySeries(history, 'dbQueryRate').map((v) => v / Math.max(m.dbQueryRate, 1))}
-          cum={`session total ${fmtInt(m.dbTotalQueries)} rows`}
+          label={ioTiles.readLabel}
+          tag={view.timeframe === 'session' ? 'SESSION TOTAL' : 'RAW COUNTER'}
+          value={
+            view.timeframe === 'session'
+              ? ioTiles.readValue
+              : fmtRate(scannedLive)
+          }
+          unit={view.timeframe === 'session' ? '' : '/s'}
+          bandData={
+            view.timeframe === 'live'
+              ? historySeries(history, 'dbQueryRate').map((v) => v / Math.max(m.dbQueryRate, 1))
+              : undefined
+          }
+          cum={
+            view.timeframe === 'session'
+              ? 'cluster session window'
+              : `session total ${fmtInt(m.dbTotalQueries)} rows`
+          }
         />
         <SlCounter
-          label="Rows written"
-          tag="RAW COUNTER"
-          value={fmtRate(written)}
-          unit="/s"
-          bandData={historySeries(history, 'dbQueryRate').map((v) => v / Math.max(m.dbQueryRate, 1) * 0.4)}
-          cum="engine write path"
+          label={ioTiles.writeLabel}
+          tag={view.timeframe === 'session' ? 'SESSION TOTAL' : 'RAW COUNTER'}
+          value={
+            view.timeframe === 'session'
+              ? ioTiles.writeValue
+              : fmtRate(writtenLive)
+          }
+          unit={view.timeframe === 'session' ? '' : '/s'}
+          bandData={
+            view.timeframe === 'live'
+              ? historySeries(history, 'dbQueryRate').map(
+                  (v) => (v / Math.max(m.dbQueryRate, 1)) * 0.4,
+                )
+              : undefined
+          }
+          cum={view.timeframe === 'session' ? 'cluster session window' : 'engine write path'}
         />
         <Note mark="i">
           Counters, not rates: these are engine operations after planning, joins, and fanout.
@@ -674,8 +732,18 @@ function CachePane({
               {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
             <div className="tile-split">
-              <span><b>hits</b> <s>{fmtRate(hits)}</s></span>
-              <span><b>miss</b> <s>{fmtRate(misses)}</s></span>
+              <span>
+                <b>hits</b>{' '}
+                <s>
+                  {view.timeframe === 'session' ? fmtInt(hits) : fmtRate(hits)}
+                </s>
+              </span>
+              <span>
+                <b>miss</b>{' '}
+                <s>
+                  {view.timeframe === 'session' ? fmtInt(misses) : fmtRate(misses)}
+                </s>
+              </span>
             </div>
           </SlTile>
           <SlTile>
@@ -1149,7 +1217,16 @@ function WorkerPane({
           subtitle="Per-pod share, readiness, and restarts."
         />
         {status ? <SlPodStatus ready={status.ready} warn={status.warn} bad={status.bad} /> : null}
-        <SlPodTable columns={['pod', 'jobs/s', view.latencyQuantile, 'cpu', 'mem']} rows={rows} />
+        <SlPodTable
+          columns={[
+            'pod',
+            inspectorThroughputColumnLabel(view.timeframe, 'jobs/s'),
+            view.latencyQuantile,
+            'cpu',
+            'mem',
+          ]}
+          rows={rows}
+        />
         <Note mark="i">
           {rows.length <= 1
             ? 'Single replica — no failover capacity. A kill or eviction drains nothing until it restarts.'
@@ -1189,7 +1266,7 @@ function LoadBalancerPane({
   )
   const rpsSeries = historySeries(history, 'requestRate')
   const cpuSeries = historySeries(history, 'cpuPercent')
-  const skewSplit = lbBackendSkewLabel(backendPods)
+  const skewSplit = lbBackendSkewLabel(backendPods, view.timeframe)
   const allBackendsHealthy =
     backendPods.length > 0 && backendPods.every((pod) => pod.ready)
   const backendLimits = lbBackendResourceLimits(node.id, edges, nodes, allMetrics)
@@ -1255,7 +1332,12 @@ function LoadBalancerPane({
   }
 
   if (metricGroup === 'backends') {
-    const beRows = lbBackendTableRows(m, backendLimits)
+    const beRows = lbBackendTableRows(
+      m,
+      backendLimits,
+      view.timeframe,
+      view.latencyQuantile,
+    )
     const skewBody = (
       <p>
         {skewSplit ? (
@@ -1277,7 +1359,11 @@ function LoadBalancerPane({
           title="How is traffic split across backends?"
           subtitle={`Per-backend share and health. Algorithm: ${algo}.`}
         />
-        <SlBeList rows={beRows} />
+        <SlBeList
+          rows={beRows}
+          throughputCol={inspectorThroughputColumnLabel(view.timeframe, 'rps')}
+          latencyCol={view.latencyQuantile}
+        />
         <SlDisc
           id="lbdist"
           title="Why distribution could be uneven"

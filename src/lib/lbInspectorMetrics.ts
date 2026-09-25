@@ -3,7 +3,13 @@ import type { PodReplicaMetrics } from '../editor-core/domain/metricsUiContract'
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { fmtInt, fmtLatencyCell } from './format'
-import { compactPodName, replicaBreakdownFromPods } from './replicaMetricsDisplay'
+import type { LatencyQuantile } from './latencyQuantile'
+import { podLatencyMs } from './latencyQuantile'
+import {
+  type MetricsTimeframe,
+  replicaListRows,
+} from './metricTimeframe'
+import { compactPodName } from './replicaMetricsDisplay'
 import { clampAppServerReplicas, type LiveLBAlgorithm } from './replicaConfig'
 
 /** Sum live per-pod request rates (matches backend Prometheus rollup). */
@@ -55,26 +61,42 @@ export type LbBackendTableRow = {
 export function lbBackendTableRows(
   m: MetricsBucket,
   limits: { cpuLimitCores: number; memoryLimitBytes: number },
+  timeframe: MetricsTimeframe,
+  quantile: LatencyQuantile = 'p99',
 ): LbBackendTableRow[] {
   const pods = lbInspectorBackendPods(m)
   const totalRps = sumPodRequestRates(pods) || m.requestRate
-  const breakdown = replicaBreakdownFromPods(
-    pods,
-    limits.cpuLimitCores,
-    limits.memoryLimitBytes,
-  )
-  return breakdown.map((row) => {
-    const share = totalRps > 0 ? Math.round((row.qps / totalRps) * 100) : 0
+  const sumTotals = pods.reduce((s, p) => s + (p.totalRequests ?? 0), 0)
+  const listRows = replicaListRows(pods, timeframe, {
+    clusterRps: totalRps,
+    cpuLimitCores: limits.cpuLimitCores,
+    memoryLimitBytes: limits.memoryLimitBytes,
+    quantile,
+  })
+
+  return pods.map((pod, i) => {
+    const row = listRows[i]!
+    const share =
+      timeframe === 'session'
+        ? sumTotals > 0
+          ? Math.round(((pod.totalRequests ?? 0) / sumTotals) * 100)
+          : 0
+        : totalRps > 0
+          ? Math.round((pod.requestRate / totalRps) * 100)
+          : 0
+    const throughput =
+      timeframe === 'session' ? pod.totalRequests ?? 0 : pod.requestRate
+    const latMs = podLatencyMs(pod, quantile, timeframe)
     return {
-      name: compactPodName(row.podName) || row.podName,
-      rps: fmtInt(row.qps),
-      cpu: `${Math.round(row.cpuPercent)}%`,
-      mem: `${Math.round(row.memPercent)}%`,
-      p99: row.latencyMs > 0 ? fmtLatencyCell(row.latencyMs) : '—',
+      name: compactPodName(pod.name) || pod.name,
+      rps: fmtInt(throughput),
+      cpu: row.cpuPct != null ? `${Math.round(row.cpuPct)}%` : '—',
+      mem: row.memPct != null ? `${Math.round(row.memPct)}%` : '—',
+      p99: latMs > 0 ? fmtLatencyCell(latMs) : '—',
       share: `${share}%`,
-      status: row.ready ? 'ok' : 'bad',
-      cpuTone: isCpuUtilWarn(row.cpuPercent) ? 'am' : undefined,
-      memTone: isMemUtilWarn(row.memPercent) ? 'am' : undefined,
+      status: pod.ready ? 'ok' : 'bad',
+      cpuTone: row.cpuPct != null && isCpuUtilWarn(row.cpuPct) ? 'am' : undefined,
+      memTone: row.memPct != null && isMemUtilWarn(row.memPct) ? 'am' : undefined,
     }
   })
 }
@@ -135,7 +157,18 @@ export function lbBackendConfigValue(
     .join(', ')
 }
 
-export function lbBackendSkewLabel(pods: PodReplicaMetrics[]): string | null {
+export function lbBackendSkewLabel(
+  pods: PodReplicaMetrics[],
+  timeframe: MetricsTimeframe = 'live',
+): string | null {
+  if (timeframe === 'session') {
+    const total = pods.reduce((s, p) => s + (p.totalRequests ?? 0), 0)
+    if (pods.length < 2 || total <= 0) return null
+    const shares = pods
+      .map((pod) => Math.round(((pod.totalRequests ?? 0) / total) * 100))
+      .sort((a, b) => b - a)
+    return shares.join(' / ')
+  }
   const total = sumPodRequestRates(pods)
   if (pods.length < 2 || total <= 0) return null
   const shares = pods

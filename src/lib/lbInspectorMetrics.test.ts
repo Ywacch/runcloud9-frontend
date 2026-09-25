@@ -83,12 +83,52 @@ describe('lbBackendTableRows', () => {
         perBackendRps: {},
       } as unknown as MetricsBucket,
       { cpuLimitCores: 1, memoryLimitBytes: 512 * 1024 * 1024 },
+      'live',
     )
     expect(rows).toHaveLength(2)
     expect(rows[0]?.share).toBe('58%')
     expect(rows[1]?.share).toBe('42%')
     expect(rows[0]?.rps).toBe('58')
     expect(rows[0]?.p99).toBe('5.2 ms')
+  })
+
+  it('uses session totals and share for backend pods', () => {
+    const rows = lbBackendTableRows(
+      {
+        backendPods: [
+          {
+            name: 'app-roll-a',
+            ready: true,
+            requestRate: 58,
+            p99LatencyMs: 5.2,
+            p99Latency9mMs: 12,
+            totalRequests: 7500,
+            cpuUsage: 0.41,
+            errorRate: 0,
+            memoryBytes: 180 * 1024 * 1024,
+          },
+          {
+            name: 'app-roll-b',
+            ready: true,
+            requestRate: 42,
+            p99LatencyMs: 4.9,
+            p99Latency9mMs: 11,
+            totalRequests: 2500,
+            cpuUsage: 0.38,
+            errorRate: 0,
+            memoryBytes: 170 * 1024 * 1024,
+          },
+        ],
+        perBackendRps: {},
+      } as unknown as MetricsBucket,
+      { cpuLimitCores: 1, memoryLimitBytes: 512 * 1024 * 1024 },
+      'session',
+      'p99',
+    )
+    expect(rows[0]?.rps).toBe('7,500')
+    expect(rows[0]?.share).toBe('75%')
+    expect(rows[1]?.share).toBe('25%')
+    expect(rows[0]?.p99).toBe('12.0 ms')
   })
 })
 

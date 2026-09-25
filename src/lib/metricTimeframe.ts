@@ -10,6 +10,14 @@ import {
 
 export type MetricsTimeframe = 'live' | 'session'
 
+/** Replica / backend table column for request throughput vs session totals. */
+export function inspectorThroughputColumnLabel(
+  timeframe: MetricsTimeframe,
+  liveLabel: string,
+): string {
+  return timeframe === 'session' ? 'total' : liveLabel
+}
+
 export interface RedHeadlineFields {
   throughputLabel: string
   throughputDisplay: string
