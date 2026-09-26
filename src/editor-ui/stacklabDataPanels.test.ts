@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { fmtTtlHuman } from './stacklabDataPanels'
+import { fmtTtlHuman, formatRowCount } from './stacklabDataPanels'
+
+describe('formatRowCount', () => {
+  it('formats the full integer with grouping', () => {
+    expect(formatRowCount(1_000_123)).toBe('1,000,123')
+    expect(formatRowCount(1_025_000)).toBe('1,025,000')
+    expect(formatRowCount(235_400)).toBe('235,400')
+  })
+})
 
 describe('fmtTtlHuman', () => {
   it('formats sub-second TTL in milliseconds', () => {

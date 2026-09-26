@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchIndexes,
   fetchRows,
@@ -64,8 +64,24 @@ export function DataBrowser({
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rowCountsByTable, setRowCountsByTable] = useState<Record<string, number>>({})
+  const [rowsTable, setRowsTable] = useState<string | null>(null)
+  const tableFetchSeq = useRef(0)
 
   const showReplicaToggle = !hideTargetToggle && readReplicaCount >= 1
+
+  const mergeTableRowCounts = useCallback((list: TableInfo[]) => {
+    setRowCountsByTable((prev) => {
+      const next = { ...prev }
+      for (const t of list) {
+        const fromList = t.rowCount > 0 ? t.rowCount : 0
+        const cached = prev[t.name]
+        if (cached != null) next[t.name] = Math.max(cached, fromList)
+        else if (fromList > 0) next[t.name] = fromList
+      }
+      return next
+    })
+  }, [])
 
   const loadTablesAndIndexes = useCallback(async (opts?: { soft?: boolean }) => {
     setError(null)
@@ -77,6 +93,7 @@ export function DataBrowser({
         fetchIndexes(deploymentId, component, introspectOpts),
       ])
       setTables(tList)
+      mergeTableRowCounts(tList)
       setIndexes(idxList)
       setSelectedTable((prev) =>
         prev && tList.some((x) => x.name === prev) ? prev : (tList[0]?.name ?? null),
@@ -96,10 +113,11 @@ export function DataBrowser({
       setLoading(false)
       setRefreshing(false)
     }
-  }, [deploymentId, component, introspectOpts])
+  }, [deploymentId, component, introspectOpts, mergeTableRowCounts])
 
   useEffect(() => {
     setPage(1)
+    setRowCountsByTable({})
   }, [instanceId, legacyTarget, hideTargetToggle])
 
   useEffect(() => {
@@ -109,6 +127,7 @@ export function DataBrowser({
   const loadTableData = useCallback(
     async (table: string, pageNum: number, opts?: { refreshOnly?: boolean }) => {
       if (!table) return
+      const seq = ++tableFetchSeq.current
       setError(null)
       if (opts?.refreshOnly) setRefreshing(true)
       else setLoading(true)
@@ -123,7 +142,10 @@ export function DataBrowser({
           }),
           fetchSchema(deploymentId, component, table, introspectOpts),
         ])
+        if (seq !== tableFetchSeq.current) return
         setRows(r)
+        setRowsTable(table)
+        setRowCountsByTable((prev) => ({ ...prev, [table]: r.total }))
         setSchema(s)
         const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
         trackEvent('data_inspector_used', {
@@ -132,8 +154,10 @@ export function DataBrowser({
           operationCategory: 'fetch_rows',
         })
       } catch (e) {
+        if (seq !== tableFetchSeq.current) return
         setError(e instanceof Error ? e.message : 'Failed to load table data')
         setRows(null)
+        setRowsTable(null)
         setSchema(null)
       } finally {
         setLoading(false)
@@ -159,9 +183,13 @@ export function DataBrowser({
   useEffect(() => {
     if (!selectedTable) {
       setRows(null)
+      setRowsTable(null)
       setSchema(null)
       return
     }
+    setRows(null)
+    setRowsTable(null)
+    setSchema(null)
     void loadTableData(selectedTable, page)
   }, [selectedTable, page, loadTableData])
 
@@ -184,10 +212,10 @@ export function DataBrowser({
 
   const rowCountForTable = useCallback(
     (table: TableInfo) => {
-      if (table.name === selectedTable && rows != null) return rows.total
+      if (table.name in rowCountsByTable) return rowCountsByTable[table.name]
       return table.rowCount
     },
-    [selectedTable, rows],
+    [rowCountsByTable],
   )
 
   if (error && tables.length === 0 && !loading) {
@@ -267,7 +295,7 @@ export function DataBrowser({
         </p>
       ) : null}
 
-      {selectedTable && schema && schema.length > 0 ? (
+      {selectedTable && rowsTable === selectedTable && schema && schema.length > 0 ? (
         <SlSchemaBlock
           table={selectedTable}
           columns={schema}
@@ -279,7 +307,7 @@ export function DataBrowser({
         <SlIndexesTable indexes={indexes} tableName={selectedTable} />
       ) : null}
 
-      {selectedTable && rows ? (
+      {selectedTable && rows && rowsTable === selectedTable ? (
         <>
           <SlSecHead
             index="D4"
