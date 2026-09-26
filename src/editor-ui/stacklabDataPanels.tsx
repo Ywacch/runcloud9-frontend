@@ -81,10 +81,8 @@ export function SlDataPager({
 }
 
 export function formatRowCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 10_000) return `${(n / 1_000).toFixed(1)}k`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return n.toLocaleString()
+  if (!Number.isFinite(n) || n < 0) return '0'
+  return Math.round(n).toLocaleString()
 }
 
 export function fmtTtlHuman(ttl: number, complex = false): string {
