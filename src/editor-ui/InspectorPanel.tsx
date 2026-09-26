@@ -564,7 +564,7 @@ export function InspectorPanel() {
                 </nav>
               ) : null}
               {showLiveStickyChrome ? (
-                <div className="shrink-0">
+                <div className="shrink-0 inspector-sticky-chrome">
                   {showLiveInstanceTabs ? (
                     <DbInstanceTabBar
                       tabs={instanceTabs}
