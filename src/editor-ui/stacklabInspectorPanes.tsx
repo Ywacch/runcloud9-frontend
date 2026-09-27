@@ -9,13 +9,26 @@ import {
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
-import { fmtErrorRate, fmtInt, fmtMemMB, fmtRate } from '../lib/format'
+import { FMT_EMPTY, fmtBytes, fmtErrorRate, fmtInt, fmtMemMB, fmtRate } from '../lib/format'
 import { bucketSessionQuantileAvailable } from '../lib/latencyQuantile'
 import type { InspectorMetricGroupId } from '../lib/inspectorMetricGroups'
 import type { PanelViewState } from './inspectorPanelUi'
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import { findDbLayer } from '../lib/dbInstanceScope'
-import { clampReadReplicas, lbAlgorithmForDeploy, replicationModeFromConfig } from '../lib/replicaConfig'
+import {
+  appLatencyCommitWaitNote,
+  engineClientScopeNote,
+  replicationModeMeaning,
+} from '../lib/dbReplicationDisplay'
+import { readConsistencyFromConfig } from '../lib/readConsistency'
+import {
+  clampReadReplicas,
+  lbAlgorithmForDeploy,
+  normalizeReplicationModeForDeploy,
+  normalizeSyncCommitLevelForDeploy,
+  replicationModeFromConfig,
+  syncCommitLevelFromConfig,
+} from '../lib/replicaConfig'
 import {
   lbBackendResourceLimits,
   lbBackendSkewLabel,
@@ -39,7 +52,20 @@ import {
   SESSION_REPLICA_BREAKDOWN_HINT,
   SESSION_STORAGE_ENGINE_HINT,
 } from '../lib/metricHelp'
-import { shouldShowKeyspaceDriftHint } from '../lib/storageIoDisplay'
+import {
+  fanoutScanModelEstimate,
+  formatDbQueriesPerSec,
+  parseDbQuerySource,
+  shouldShowKeyspaceDriftHint,
+  storageIoSessionLabel,
+  storageReadTileLabel,
+  storageWriteTileLabel,
+} from '../lib/storageIoDisplay'
+import {
+  StacklabDbEngineFootnotes,
+  StacklabDbPatternBridge,
+  StacklabDbReplicationBody,
+} from './stacklabDbPanels'
 import {
   cacheHitRatePct,
   computeClusterP99,
@@ -63,8 +89,6 @@ import {
   SlGraphWrap,
   SlHint,
   SlIdentLine,
-  SlKv,
-  SlKvList,
   SlPaneSection,
   SlPodStatus,
   SlPodTable,
@@ -282,6 +306,7 @@ function DatabasePane({
   metricGroup,
   selectedInstanceId,
   onSelectMetricGroup,
+  templateMetrics,
 }: StacklabInspectorPaneProps) {
   const [freshOpen, setFreshOpen] = useState(false)
   const maxConn = m.maxConnections > 0 ? m.maxConnections : Number(node.config.maxConnections ?? 100)
@@ -306,6 +331,39 @@ function DatabasePane({
     const instanceSubtitle = layer
       ? `App SQL for ${layer.role === 'replica' ? 'replica' : 'primary'} layer ${layer.id}.`
       : 'App SQL on the hot path — what clients intended.'
+    const dbQuerySource = parseDbQuerySource(m.dbQuerySource)
+    const liveQueriesDisplay = layer
+      ? `${fmtRate(qHead.liveRate)}/s`
+      : formatDbQueriesPerSec(
+          m.dbQueryRate,
+          dbQuerySource,
+          m.storageIo?.readRate ?? 0,
+          m.requestRate > 0 || m.dbQueryRate > 0,
+        )
+    const queriesTileValue =
+      view.timeframe === 'session'
+        ? fmtInt(qHead.sessionTotal)
+        : liveQueriesDisplay === 'No app queries' || liveQueriesDisplay === FMT_EMPTY
+          ? '—'
+          : liveQueriesDisplay.replace(/\/s$/, '')
+    const queriesShowUnit =
+      view.timeframe === 'live' &&
+      queriesTileValue !== '—' &&
+      liveQueriesDisplay.endsWith('/s')
+    const deployReplication = normalizeReplicationModeForDeploy(
+      replicationModeFromConfig(node.config.replicationMode),
+      clampReadReplicas(node.config.readReplicas),
+    )
+    const commitWaitNote =
+      layer?.role === 'replica'
+        ? null
+        : appLatencyCommitWaitNote(
+            deployReplication,
+            normalizeSyncCommitLevelForDeploy(
+              syncCommitLevelFromConfig(node.config.syncCommitLevel),
+              deployReplication,
+            ),
+          )
     return (
       <SlPaneSection>
         <SlSecHead
@@ -317,10 +375,8 @@ function DatabasePane({
           <SlTile>
             <SlTileLab>{qHead.label}</SlTileLab>
             <SlTileVal>
-              {view.timeframe === 'session'
-                ? fmtInt(qHead.sessionTotal)
-                : fmtRate(qHead.liveRate)}
-              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
+              {queriesTileValue}
+              {queriesShowUnit ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
           </SlTile>
           <SlTile>
@@ -349,6 +405,7 @@ function DatabasePane({
           </SlTile>
         </SlTiles>
         <Note mark="?">SQL from app-server instrumentation only.</Note>
+        {commitWaitNote ? <Note mark="i">{commitWaitNote}</Note> : null}
         <Note mark="i">{POD_RATE_DISCLAIMER}</Note>
         {view.showGraphs ? (
           <SlGraphWrap title="Query rate · last 10s" sub="app SQL" data={qSeries} height={58} />
@@ -374,15 +431,33 @@ function DatabasePane({
   if (metricGroup === 'engine-work') {
     const ioBucket =
       layer?.storageIo != null ? { ...m, storageIo: layer.storageIo } : m
+    const engine = (ioBucket.storageEngine ?? 'postgresql').trim()
+    const io = ioBucket.storageIo
+    const readLabelRaw = io ? storageReadTileLabel(io, engine) : 'Rows scanned'
+    const writeLabelRaw = io ? storageWriteTileLabel(io, engine) : 'Rows written'
+    const readLabel = storageIoSessionLabel(readLabelRaw)
+    const writeLabel = storageIoSessionLabel(writeLabelRaw)
     const ioTiles = storageIoThroughputFields(
       ioBucket,
       view.timeframe,
-      'Rows scanned',
-      'Rows written',
+      readLabel,
+      writeLabel,
       fmtRate,
     )
-    const scannedLive = ioBucket.storageIo?.readRate ?? 0
-    const writtenLive = ioBucket.storageIo?.writeRate ?? 0
+    const scannedLive = io?.readRate ?? 0
+    const writtenLive = io?.writeRate ?? 0
+    const readHistory = history.map((h) =>
+      layer ? h.layers.find((l) => l.id === layer.id)?.storageIo?.readRate ?? 0 : h.storageIo?.readRate ?? 0,
+    )
+    const writeHistory = history.map((h) =>
+      layer ? h.layers.find((l) => l.id === layer.id)?.storageIo?.writeRate ?? 0 : h.storageIo?.writeRate ?? 0,
+    )
+    const modelEstimate = fanoutScanModelEstimate(templateMetrics)
+    const scopeRole = layer
+      ? layer.role === 'replica'
+        ? 'replica'
+        : 'primary'
+      : (m.storageRole ?? 'primary')
     const layerCpuPct =
       layer && layer.cpuLimit > 0
         ? Math.min(100, (layer.cpuUsage / layer.cpuLimit) * 100)
@@ -406,47 +481,58 @@ function DatabasePane({
               : 'Engine work (all clients) — every session, not just the app.'
           }
         />
+        <StacklabDbPatternBridge
+          m={ioBucket}
+          dbQueryRate={layer?.dbQueryRate ?? m.dbQueryRate}
+          modelEstimate={modelEstimate}
+        />
         <SlCounter
           label={ioTiles.readLabel}
-          tag={view.timeframe === 'session' ? 'SESSION TOTAL' : 'RAW COUNTER'}
+          tag={view.timeframe === 'session' ? 'SESSION TOTAL' : 'ENGINE RATE'}
           value={
             view.timeframe === 'session'
               ? ioTiles.readValue
               : fmtRate(scannedLive)
           }
           unit={view.timeframe === 'session' ? '' : '/s'}
-          bandData={
-            view.timeframe === 'live'
-              ? historySeries(history, 'dbQueryRate').map((v) => v / Math.max(m.dbQueryRate, 1))
-              : undefined
-          }
+          bandData={view.timeframe === 'live' ? readHistory : undefined}
           cum={
             view.timeframe === 'session'
-              ? 'cluster session window'
-              : `session total ${fmtInt(m.dbTotalQueries)} rows`
+              ? 'engine read counter · session window'
+              : io?.source?.trim() || 'postgres_exporter'
           }
         />
         <SlCounter
           label={ioTiles.writeLabel}
-          tag={view.timeframe === 'session' ? 'SESSION TOTAL' : 'RAW COUNTER'}
+          tag={view.timeframe === 'session' ? 'SESSION TOTAL' : 'ENGINE RATE'}
           value={
             view.timeframe === 'session'
               ? ioTiles.writeValue
               : fmtRate(writtenLive)
           }
           unit={view.timeframe === 'session' ? '' : '/s'}
-          bandData={
-            view.timeframe === 'live'
-              ? historySeries(history, 'dbQueryRate').map(
-                  (v) => (v / Math.max(m.dbQueryRate, 1)) * 0.4,
-                )
-              : undefined
-          }
-          cum={view.timeframe === 'session' ? 'cluster session window' : 'engine write path'}
+          bandData={view.timeframe === 'live' ? writeHistory : undefined}
+          cum={view.timeframe === 'session' ? 'engine write counter · session window' : 'write path'}
         />
         <Note mark="i">
-          Counters, not rates: these are engine operations after planning, joins, and fanout.
+          {engineClientScopeNote(clampReadReplicas(node.config.readReplicas))}
         </Note>
+        <StacklabDbEngineFootnotes io={io} role={scopeRole} />
+        {io && io.bytesUsed > 0 ? (
+          <SlRow
+            title="Data size"
+            subtitle="database footprint"
+            value={fmtBytes(io.bytesUsed)}
+          />
+        ) : null}
+        {io && io.errorRate > 0 ? (
+          <SlRow
+            title="Rollbacks"
+            subtitle="transaction rollbacks"
+            value={fmtRate(io.errorRate)}
+            unit={<SlUnit>/s</SlUnit>}
+          />
+        ) : null}
         <SlSecHead index="03" title="Engine utilization" subtitle="CPU and memory handling database work." />
         <SlGauge
           label="CPU · engine"
@@ -458,13 +544,13 @@ function DatabasePane({
           footRight="engine CPU"
         />
         <SlGauge
-          label="Memory · shared buffers"
+          label="Memory · container"
           value={Math.round(layerMemPct)}
           unit="%"
           pct={layerMemPct}
           hot={isMemUtilWarn(layerMemPct)}
-          footLeft="cache hit from exporter"
-          footRight="no evictions"
+          footLeft={resourceWarnFootLabel(WARNING_MEM)}
+          footRight="vs limit"
         />
         <SlDisc
           id="db-fresh"
@@ -485,70 +571,55 @@ function DatabasePane({
   }
 
   if (metricGroup === 'replication') {
-    const lagLayer = m.layers.find((l) => l.role === 'replica')
-    const lag = lagLayer?.replicationLagSeconds ?? 0
-    const inSync = lag < 2
     return (
       <SlPaneSection>
-        <SlSecHead
-          index="04"
-          title="Is the replica keeping up?"
-          subtitle="WAL shipping and replay lag on the standby."
-        />
-        <SlTiles>
-          <SlTile>
-            <SlTileLab>Replay lag</SlTileLab>
-            <SlTileVal tone={inSync ? 'green' : 'amber'}>
-              {lag.toFixed(1)}
-              <SlUnit>s</SlUnit>
-            </SlTileVal>
-            <SlTileFoot>
-              <span className={`flag ${inSync ? 'green' : 'amber'}`} style={{ border: 'none', padding: 0 }}>
-                {inSync ? 'IN SYNC' : 'LAGGING'}
-              </span>
-            </SlTileFoot>
-          </SlTile>
-          <SlTile>
-            <SlTileLab>Replay rate</SlTileLab>
-            <SlTileVal>
-              {fmtRate(m.dbQueryRate)}
-              <SlUnit>/s</SlUnit>
-            </SlTileVal>
-            <SlTileFoot left="wal apply" />
-          </SlTile>
-        </SlTiles>
-        <Note mark="i">Lag is measured at the standby, not from the primary&apos;s WAL position.</Note>
-        <SlKvList>
-          <SlKv keyLabel="standby count" value={String(clampReadReplicas(node.config.readReplicas))} tone="ok" />
-          <SlKv keyLabel="sync mode" value={replicationModeFromConfig(node.config.replicationMode)} />
-        </SlKvList>
+        <StacklabDbReplicationBody m={m} node={node} />
       </SlPaneSection>
     )
   }
 
   if (metricGroup === 'tradeoffs') {
-    const lagLayer = m.layers.find((l) => l.role === 'replica')
-    const lag = lagLayer?.replicationLagSeconds ?? 0
+    const replicas = clampReadReplicas(node.config.readReplicas)
+    const mode = normalizeReplicationModeForDeploy(
+      replicationModeFromConfig(node.config.replicationMode),
+      replicas,
+    )
+    const policy = readConsistencyFromConfig(node.config.readConsistency)
+    const offloadsReads = replicas >= 1 && policy !== 'leader-only'
+    const lagLayer = m.layers.find((l) => l.role === 'replica' && l.connectedOnPrimary !== false)
+    const lag = lagLayer?.replicationLagSeconds
     return (
       <SlPaneSection>
         <SlSecHead
           index="05"
           title="What does this shape cost you?"
-          subtitle="One primary plus a replica buys reads at the price of lag."
+          subtitle={replicationModeMeaning(mode, policy)}
         />
         <SlTrade
-          leftLabel="with replica"
+          leftLabel={offloadsReads ? 'with replica reads' : 'primary reads'}
           leftValue={fmtRate(m.dbQueryRate)}
           leftUnit="/s"
-          leftSub="reads are spread off the primary"
+          leftSub={
+            offloadsReads ? 'reads can leave the primary' : 'reads stay on the primary'
+          }
           rightLabel="cost"
-          rightValue={lag.toFixed(1)}
+          rightValue={lag != null && Number.isFinite(lag) ? lag.toFixed(1) : '—'}
           rightUnit="s"
-          rightSub="stale reads on replica"
+          rightSub={
+            offloadsReads
+              ? 'replay lag on a standby'
+              : mode === 'async'
+                ? 'no standby durability on commit'
+                : 'commit waits on a standby'
+          }
           note={
             <>
-              <b>Tradeoff:</b> every read you move to a replica buys primary headroom and pays in
-              staleness. Once lag passes ~2 s the split stops being a win for user-visible reads.
+              <b>Tradeoff:</b>{' '}
+              {offloadsReads
+                ? 'Moving reads to a standby buys primary headroom and pays in replay lag.'
+                : mode === 'async'
+                  ? 'Async acks the write on the primary before a standby has it.'
+                  : 'Synchronous commit holds the write until a standby confirms it.'}
             </>
           }
         />
