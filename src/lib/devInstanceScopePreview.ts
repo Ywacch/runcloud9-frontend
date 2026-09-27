@@ -131,6 +131,7 @@ function layerMetrics(
 ): ComponentLayerMetrics {
   const cpuUsage = 0.08 + index * 0.03
   const memBytes = (128 + index * 32) * 1024 * 1024
+  const isReplica = role === 'replica'
   return {
     id,
     role,
@@ -142,7 +143,11 @@ function layerMetrics(
     cpuIsEstimated: false,
     memIsEstimated: false,
     requestRate: 40 + index * 12,
-    replicationLagSeconds: role === 'replica' ? 0.04 + index * 0.02 : undefined,
+    replicationLagSeconds: isReplica ? 0.04 + index * 0.02 : undefined,
+    syncState: isReplica ? (index === 0 ? 'sync' : 'async') : undefined,
+    lagBytes: isReplica ? 4096 * (index + 1) : undefined,
+    promotionCandidate: isReplica && index === 0,
+    connectedOnPrimary: isReplica,
     dbQueryRate: role === 'primary' ? 18 + index * 4 : 12 + index * 3,
     p50LatencyMs: 12 + index * 4,
     p99LatencyMs: 45 + index * 18,
@@ -153,6 +158,9 @@ function layerMetrics(
       writeTotal9m: 900 + index * 200,
       unit: 'rows/s',
       source: 'postgres_exporter',
+      scope: isReplica ? 'replica read path' : 'all clients',
+      readLabel: 'Rows scanned/s',
+      writeLabel: 'Rows written/s',
     }),
   }
 }
@@ -252,7 +260,23 @@ function buildDatabaseMetrics(
       writeTotal9m: 2_100,
       unit: 'rows/s',
       source: 'postgres_exporter',
+      scope: 'all clients',
+      footnote: 'Engine counters include app SQL and background workers.',
+      pattern: replicaCount > 1 ? 'fanout' : 'point-lookup',
+      patternNote:
+        replicaCount > 1
+          ? 'Worker batch reads can scan many rows per app query.'
+          : 'Short lookups track app query rate closely.',
+      bytesUsed: 1.1 * 1024 * 1024 * 1024,
+      bytesLimit: 4 * 1024 * 1024 * 1024,
+      errorRate: 0.015,
+      readLabel: 'Rows scanned/s',
+      writeLabel: 'Rows written/s',
     }),
+    backendReplicas:
+      replicaCount > 1
+        ? { desired: replicaCount - 1, ready: replicaCount - 1 }
+        : null,
     p50Latency: 18,
     p95Latency: 42,
     p99Latency: 88,
@@ -461,6 +485,10 @@ export function syncDevInstanceScopeMetrics(
 
   seedDevInspectorLogs(nodes)
   ensureDevLoadgenFixture()
+  useMetricsStore.getState().setTemplateMetrics({
+    'worker.consume_rate': 52,
+    'worker.fanout_size_avg': 285,
+  })
   const svgById = new Map(svgNodes.map((node) => [node.id, node]))
 
   for (const node of Object.values(nodes)) {
