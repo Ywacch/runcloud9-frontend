@@ -295,15 +295,26 @@
     background-image:radial-gradient(rgba(232,233,229,.08) 1px,transparent 1.1px);background-size:8px 8px}
 .sl-inspector .graph-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;position:relative;gap:8px}
 .sl-inspector .graph-head .lab.is-readout{color:var(--ink);font-weight:500;letter-spacing:.02em}
-.sl-inspector .graph-box{position:relative;height:64px;z-index:1;cursor:crosshair}
+.sl-inspector .graph-box{position:relative;height:64px;z-index:1;cursor:default}
 .sl-inspector .graph-box svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 .sl-inspector .hist-line{fill:none;stroke:rgba(232,233,229,.42);stroke-width:1.2}
 .sl-inspector .hist-fill{fill:rgba(232,233,229,.07)}
 .sl-inspector .trace{fill:none;stroke:rgba(232,233,229,.55);stroke-width:1.2}
-.sl-inspector .trace.dash{stroke:rgba(232,233,229,.3);stroke-dasharray:3 3}
+.sl-inspector .trace.is-primary{stroke:rgba(232,233,229,.55)}
+.sl-inspector .trace.is-secondary{stroke:var(--red);stroke-opacity:.72}
+.sl-inspector .trace.dash{stroke-dasharray:3 3}
+.sl-inspector .trace.dash:not(.is-secondary){stroke:rgba(232,233,229,.3)}
 .sl-inspector .axis{stroke:rgba(232,233,229,.18)}
 .sl-inspector .mk{stroke:rgba(232,233,229,.30);stroke-dasharray:2 3}
 .sl-inspector .mk.on{stroke:var(--ink);stroke-dasharray:none}
+.sl-inspector .trace-dot{fill:var(--ink)}
+.sl-inspector .trace-dot.is-secondary{fill:var(--red)}
+.sl-inspector .graph-tip{position:absolute;top:2px;z-index:2;transform:translate(-50%,0);pointer-events:none;
+    border:1px solid var(--rule-3);background:var(--bg);padding:3px 7px 4px;font-family:var(--mono);
+    font-size:11px;font-weight:500;line-height:1;letter-spacing:-.01em;white-space:nowrap}
+.sl-inspector .graph-tip-sep{color:var(--ink-4);margin:0 6px;font-weight:400}
+.sl-inspector .graph-tip-v.is-primary{color:var(--ink)}
+.sl-inspector .graph-tip-v.is-secondary{color:var(--red)}
 .sl-inspector .mk-sq{fill:var(--ink)}
 .sl-inspector .mk-lab{font-family:var(--mono);font-size:8px;letter-spacing:.08em;fill:var(--ink-3)}
 .sl-inspector .mk-lab.on{fill:var(--ink)}
