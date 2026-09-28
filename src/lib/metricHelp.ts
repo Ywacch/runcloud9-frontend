@@ -50,6 +50,15 @@ export const SESSION_CACHE_TOTALS_DISCLOSURE_HINT =
 export const SESSION_STORAGE_ENGINE_HINT =
   'Redis or Postgres engine commands and rows from the exporter, including scrapes. Not app logical cache hits or playground GET counts.'
 
+export const CACHE_KEYSPACE_HITS_HELP =
+  'Redis counted a string-key lookup that found data (usually GET). This is a speed per second, not how many keys sit in memory.'
+
+export const CACHE_KEYSPACE_MISSES_HELP =
+  'Redis counted a string-key lookup that found nothing (usually GET on a missing key). Compare with app misses above when you use cache-aside GET/SET.'
+
+export const CACHE_TIMELINES_COUNT_HELP =
+  'How many user timelines Redis holds right now (timeline:* keys). Feed read speed is on the push and pull tiles above.'
+
 export const POD_RATE_DISCLAIMER =
   'RPS/QPS may be slightly off because Prometheus queries run against individual pods.'
 
