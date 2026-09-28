@@ -3,6 +3,7 @@ import {
   appLatencyCommitWaitNote,
   engineClientScopeNote,
   fmtLagBytes,
+  fmtReplicaSyncStateCompact,
   fmtReplicationLagSeconds,
   maxConnectedReplicationLagSeconds,
   promotionCandidateLayer,
@@ -28,6 +29,11 @@ function replica(partial: Partial<ComponentLayerMetrics>): ComponentLayerMetrics
 }
 
 describe('dbReplicationDisplay', () => {
+  it('compact sync_state fits standby tables', () => {
+    expect(fmtReplicaSyncStateCompact('quorum')).toBe('quorum')
+    expect(fmtReplicaSyncStateCompact(undefined)).toBe('async')
+  })
+
   it('formats lag and bytes', () => {
     expect(fmtReplicationLagSeconds(0)).toBe('0 s')
     expect(fmtLagBytes(8192)).toBe('8.0 KiB')

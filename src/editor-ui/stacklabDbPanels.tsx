@@ -5,7 +5,7 @@ import {
   connectedReplicaSyncStates,
   fmtLagBytes,
   fmtReplicaRollout,
-  fmtReplicaSyncState,
+  fmtReplicaSyncStateCompact,
   fmtReplicationLagSeconds,
   isReplicaConnectedOnPrimary,
   liveSyncStateSummary,
@@ -202,28 +202,32 @@ export function StacklabDbReplicationBody({
         <>
           <SlSpacer />
           <div className="pod-table" style={{ marginTop: 0 }}>
-            <div className="pt idx h">
+            <div className="pt replica h">
               <span>standby</span>
               <span className="r">replay lag</span>
-              <span className="r">wal / sync</span>
+              <span className="r">wal</span>
+              <span className="r">sync</span>
             </div>
             {replicaLayers.map((layer) => {
               const disconnected = !isReplicaConnectedOnPrimary(layer)
               return (
-                <div key={layer.id} className="pt idx">
-                  <span>
+                <div key={layer.id} className="pt replica">
+                  <span title={layer.id}>
                     {layer.id}
                     {layer.promotionCandidate && !disconnected ? ' · pick' : ''}
                   </span>
                   <span className="r">
                     {disconnected
-                      ? 'not on primary'
+                      ? 'off primary'
                       : fmtReplicationLagSeconds(layer.replicationLagSeconds)}
                   </span>
                   <span className="r">
+                    {fmtLagBytes(layer.lagBytes)}
+                  </span>
+                  <span className="r">
                     {disconnected
-                      ? fmtLagBytes(layer.lagBytes)
-                      : `${fmtLagBytes(layer.lagBytes)} · ${fmtReplicaSyncState(layer.syncState)}`}
+                      ? '—'
+                      : fmtReplicaSyncStateCompact(layer.syncState)}
                   </span>
                 </div>
               )
