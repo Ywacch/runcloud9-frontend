@@ -9,6 +9,7 @@ import {
   StacklabLatencyLegend,
   StacklabNote,
   StacklabSparkline,
+  stacklabSeriesPoint,
   stacklabTracePath,
 } from './stacklabMetricsUi'
 
@@ -254,8 +255,7 @@ export function SlGraphWrap({
   data,
   dashed,
   secondary,
-  primaryLabel = 'value',
-  secondaryLabel,
+  formatValue = fmtRate,
 }: {
   title: string
   sub: string
@@ -266,6 +266,7 @@ export function SlGraphWrap({
   secondary?: number[]
   primaryLabel?: string
   secondaryLabel?: string
+  formatValue?: (value: number) => string
 }) {
   const [hover, setHover] = useState<number | null>(null)
   if (data.length < 2) return null
@@ -278,17 +279,30 @@ export function SlGraphWrap({
     ? stacklabTracePath(secondarySeries, W, height, PB, scaleMax)
     : null
   const index = hover != null ? Math.min(data.length - 1, Math.max(0, hover)) : null
-  const readout =
-    index != null
-      ? secondarySeries
-        ? `${primaryLabel} ${fmtRate(data[index])} · ${secondaryLabel ?? 'other'} ${fmtRate(secondarySeries[Math.min(index, secondarySeries.length - 1)])}`
-        : `${primaryLabel} ${fmtRate(data[index])}`
+  const hoverX = index != null ? (index / (data.length - 1)) * 100 : null
+  const primaryPt =
+    index != null ? stacklabSeriesPoint(data, index, W, height, PB, scaleMax) : null
+  const secondaryPt =
+    index != null && secondarySeries
+      ? stacklabSeriesPoint(
+          secondarySeries,
+          Math.min(index, secondarySeries.length - 1),
+          W,
+          height,
+          PB,
+          scaleMax,
+        )
+      : null
+  const primaryValue = index != null ? formatValue(data[index]) : null
+  const secondaryValue =
+    index != null && secondarySeries
+      ? formatValue(secondarySeries[Math.min(index, secondarySeries.length - 1)])
       : null
   return (
     <div className="graph-wrap graph">
       <div className="graph-head">
         <span className="lab">{title}</span>
-        <span className={`lab${readout ? ' is-readout' : ''}`}>{readout ?? sub}</span>
+        <span className="lab">{sub}</span>
       </div>
       <div
         className="graph-box"
@@ -301,6 +315,24 @@ export function SlGraphWrap({
         }}
         onMouseLeave={() => setHover(null)}
       >
+        {hoverX != null && primaryValue != null ? (
+          <div
+            className="graph-tip"
+            style={{ left: `${hoverX}%` }}
+            role="tooltip"
+            aria-hidden={false}
+          >
+            {secondaryValue != null ? (
+              <>
+                <span className="graph-tip-v is-primary">{primaryValue}</span>
+                <span className="graph-tip-sep" aria-hidden>·</span>
+                <span className="graph-tip-v is-secondary">{secondaryValue}</span>
+              </>
+            ) : (
+              <span className="graph-tip-v is-primary">{primaryValue}</span>
+            )}
+          </div>
+        ) : null}
         <svg
           viewBox={`0 0 ${W} ${height}`}
           preserveAspectRatio="none"
@@ -310,15 +342,28 @@ export function SlGraphWrap({
           <line className="axis" x1="0" y1={height - PB} x2={W} y2={height - PB} />
           {index != null ? (
             <line
-              className="mk"
+              className="mk on"
               x1={(index / (data.length - 1)) * W}
               y1={0}
               x2={(index / (data.length - 1)) * W}
               y2={height - PB}
             />
           ) : null}
-          <path className={`trace${dashed ? ' dash' : ''}`} d={primary} />
-          {secondaryPath ? <path className="trace dash" d={secondaryPath} /> : null}
+          <path className={`trace is-primary${dashed ? ' dash' : ''}`} d={primary} />
+          {secondaryPath ? (
+            <path className="trace dash is-secondary" d={secondaryPath} />
+          ) : null}
+          {primaryPt ? (
+            <circle className="trace-dot is-primary" cx={primaryPt.x} cy={primaryPt.y} r={2.6} />
+          ) : null}
+          {secondaryPt ? (
+            <circle
+              className="trace-dot is-secondary"
+              cx={secondaryPt.x}
+              cy={secondaryPt.y}
+              r={2.6}
+            />
+          ) : null}
         </svg>
       </div>
     </div>

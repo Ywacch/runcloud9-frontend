@@ -24,6 +24,26 @@ export function stacklabTracePath(
   return d
 }
 
+/** SVG coordinates for one sample on a trace (shared scale for overlaid series). */
+export function stacklabSeriesPoint(
+  data: number[],
+  index: number,
+  width = 360,
+  height = 52,
+  paddingBottom = 12,
+  scaleMax?: number,
+): { x: number; y: number } | null {
+  if (data.length < 2 || index < 0 || index >= data.length) return null
+  const max =
+    scaleMax != null && scaleMax > 0 ? scaleMax : Math.max(...data, 1)
+  const x = (index / (data.length - 1)) * width
+  const y =
+    height -
+    paddingBottom -
+    (data[index] / max) * (height - paddingBottom - 4)
+  return { x, y }
+}
+
 export function stacklabSparkPoints(data: number[], width = 100, height = 24): string {
   if (data.length < 2) return ''
   const max = Math.max(...data, 1)
