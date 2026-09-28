@@ -18,6 +18,11 @@ import {
 } from '../lib/resolveProvisionedLimits'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import { normalizeWriteBehindIntervalSeconds } from '../lib/writeBehindInterval'
+import {
+  effectiveWorkerConcurrency,
+  effectiveWorkerPrefetch,
+  formatEffectiveWorkerInt,
+} from '../lib/workerDeployDefaults'
 import { SlKv, SlKvList } from './stacklabPanePrimitives'
 
 export type DeployedConfigRow = {
@@ -89,6 +94,28 @@ function memLimitLine(node: CanvasNode, m?: MetricsBucket): string {
 function lbAlgorithmLabel(raw: unknown): string {
   const algo = lbAlgorithmForDeploy(raw)
   return algo.replace(/_/g, '-')
+}
+
+function consumerPrefetchLine(workers: CanvasNode[]): string {
+  if (workers.length === 0) {
+    return formatEffectiveWorkerInt(effectiveWorkerPrefetch({}))
+  }
+  const labels = workers.map((worker) => {
+    const reps = clampWorkerReplicas(worker.config.replicas)
+    const label = reps > 1 ? `${worker.label} ×${reps}` : worker.label
+    const prefetch = effectiveWorkerPrefetch(worker.config)
+    return `${label}: ${formatEffectiveWorkerInt(prefetch)}`
+  })
+  if (workers.length === 1) {
+    return formatEffectiveWorkerInt(effectiveWorkerPrefetch(workers[0]!.config))
+  }
+  const unique = new Set(
+    workers.map((worker) => effectiveWorkerPrefetch(worker.config).n),
+  )
+  if (unique.size === 1) {
+    return formatEffectiveWorkerInt(effectiveWorkerPrefetch(workers[0]!.config))
+  }
+  return labels.join(', ')
 }
 
 export function deployedConfigRows(
@@ -187,16 +214,21 @@ export function deployedConfigRows(
       const rows: DeployedConfigRow[] = [
         { key: 'queue', value: `${queueName} · ${durable ? 'durable' : 'transient'}` },
         { key: 'broker memory', value: memLimitLine(node, m) },
-      ]
-      const prefetch = Number(c.workerPrefetch ?? m?.workerSaturation ?? 0)
-      if (prefetch > 0) rows.push({ key: 'prefetch', value: String(Math.round(prefetch)) })
-      rows.push({ key: 'ack mode', value: 'manual · batch' })
-      if (workers.length > 0) {
-        rows.push({
+        { key: 'consumer prefetch', value: consumerPrefetchLine(workers) },
+        { key: 'ack mode', value: 'manual · batch' },
+        {
           key: 'consumers',
-          value: workers.map((worker) => `${worker.label} ×1`).join(', '),
-        })
-      }
+          value:
+            workers.length > 0
+              ? workers
+                  .map((worker) => {
+                    const reps = clampWorkerReplicas(worker.config.replicas)
+                    return reps > 1 ? `${worker.label} ×${reps}` : worker.label
+                  })
+                  .join(', ')
+              : 'none wired',
+        },
+      ]
       return rows
     }
 
@@ -207,17 +239,21 @@ export function deployedConfigRows(
         { key: 'replicas', value: replicaLine(m, replicas) },
         { key: 'cpu limit', value: cpuLimitLine(node, m) },
         { key: 'mem limit', value: memLimitLine(node, m) },
-      ]
-      const prefetch = Number(c.workerPrefetch ?? 0)
-      if (prefetch > 0) rows.push({ key: 'prefetch', value: String(prefetch) })
-      const concurrency = Number(c.workerConcurrency ?? 0)
-      if (concurrency > 0) rows.push({ key: 'concurrency', value: String(concurrency) })
-      if (mq) {
-        rows.push({
+        {
+          key: 'prefetch',
+          value: formatEffectiveWorkerInt(effectiveWorkerPrefetch(c)),
+        },
+        {
+          key: 'concurrency',
+          value: formatEffectiveWorkerInt(effectiveWorkerConcurrency(c)),
+        },
+        {
           key: 'upstream',
-          value: `rabbit://${serviceSlug(mq.label)}:5672`,
-        })
-      }
+          value: mq
+            ? `rabbit://${serviceSlug(mq.label)}:5672`
+            : 'not wired',
+        },
+      ]
       return rows
     }
 

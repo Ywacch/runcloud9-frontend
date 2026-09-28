@@ -89,4 +89,47 @@ describe('deployedConfigRows', () => {
     expect(rows.find((row) => row.key === 'backends')?.value).toBe('app-1, app-2')
     expect(rows.find((row) => row.key === 'max connections')?.value).toBe('1024')
   })
+
+  it('shows effective worker mq settings with defaults', () => {
+    const worker = node({
+      id: 'w',
+      type: 'worker',
+      label: 'Fanout Worker',
+      config: { replicas: 1 },
+    })
+    const rows = deployedConfigRows(worker, { w: worker }, {}, undefined)
+    expect(rows.find((row) => row.key === 'prefetch')?.value).toBe('10 (default)')
+    expect(rows.find((row) => row.key === 'concurrency')?.value).toBe('1 (default)')
+    expect(rows.find((row) => row.key === 'upstream')?.value).toBe('not wired')
+  })
+
+  it('shows mq consumer prefetch and unwired consumers', () => {
+    const mq = node({
+      id: 'mq',
+      type: 'message_queue',
+      label: 'Orders MQ',
+      config: {},
+    })
+    const rows = deployedConfigRows(mq, { mq }, {}, undefined)
+    expect(rows.find((row) => row.key === 'consumer prefetch')?.value).toBe(
+      '10 (default)',
+    )
+    expect(rows.find((row) => row.key === 'consumers')?.value).toBe('none wired')
+  })
+
+  it('derives mq prefetch from wired worker config', () => {
+    const mq = node({ id: 'mq', type: 'message_queue', label: 'MQ', config: {} })
+    const worker = node({
+      id: 'w',
+      type: 'worker',
+      label: 'worker',
+      config: { workerPrefetch: 4 },
+    })
+    const edges: Record<string, CanvasEdge> = {
+      e1: { id: 'e1', sourceId: 'mq', targetId: 'w', protocol: 'tcp', animated: false },
+    }
+    const rows = deployedConfigRows(mq, { mq, w: worker }, edges, undefined)
+    expect(rows.find((row) => row.key === 'consumer prefetch')?.value).toBe('4')
+    expect(rows.find((row) => row.key === 'consumers')?.value).toBe('worker')
+  })
 })
