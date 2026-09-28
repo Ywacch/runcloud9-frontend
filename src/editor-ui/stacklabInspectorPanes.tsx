@@ -677,13 +677,19 @@ function CachePane({
       : memPct
 
   if (metricGroup === 'hit-rate') {
+    const isTimelineStore = strategy === 'timeline-store'
     const hitTone = hitPct != null && hitPct >= 80 ? 'green' : hitPct != null && hitPct < 50 ? 'amber' : undefined
+    const feedPushRate = m.feedRequestRatePush ?? 0
     return (
       <SlPaneSection>
         <SlSecHead
           index="01"
           title="Did caching actually help?"
-          subtitle="How often the app avoided a database round trip."
+          subtitle={
+            isTimelineStore
+              ? 'When fanout timelines had posts vs empty (push reads never fall back to Postgres).'
+              : 'How often the app avoided a database round trip.'
+          }
         />
         <SlTiles>
           <SlTile>
@@ -713,9 +719,34 @@ function CachePane({
             />
           </SlTile>
         </SlTiles>
-        <Note mark="?">App logical hits and misses, not Redis GET/SET command counters.</Note>
+        {isTimelineStore ? (
+          <SlTiles>
+            <SlTile>
+              <SlTileLab>Feed reads · push</SlTileLab>
+              <SlTileVal>
+                {feedPushRate > 0 ? fmtRate(feedPushRate) : '—'}
+                <SlUnit>/s</SlUnit>
+              </SlTileVal>
+              <SlTileFoot left="social_feed_request_total" right="10s window" />
+            </SlTile>
+            <SlTile>
+              <SlTileLab>Feed reads · pull</SlTileLab>
+              <SlTileVal>
+                {(m.feedRequestRatePull ?? 0) > 0 ? fmtRate(m.feedRequestRatePull ?? 0) : '—'}
+                <SlUnit>/s</SlUnit>
+              </SlTileVal>
+              <SlTileFoot left="no cache node" right="10s window" />
+            </SlTile>
+          </SlTiles>
+        ) : null}
+        <Note mark="?">
+          {isTimelineStore
+            ? 'Hit = timeline returned posts. Miss = empty timeline; still no Postgres on push reads.'
+            : 'App logical hits and misses, not Redis GET/SET command counters.'}
+        </Note>
         {view.timeframe === 'session' ? <Note mark="↔">{SESSION_CACHE_TOTALS_HINT}</Note> : null}
-        {shouldShowKeyspaceDriftHint(
+        {!isTimelineStore &&
+        shouldShowKeyspaceDriftHint(
           hits,
           misses,
           m.redisKeyspaceHits ?? 0,
@@ -746,7 +777,12 @@ function CachePane({
             }
             unit={view.timeframe === 'session' ? 'total' : '/s · 10s'}
           />
-          <SlStatCell label="keys" value={fmtInt(m.redisKeyspaceHits ?? 0)} />
+          <SlStatCell
+            label={isTimelineStore ? 'timelines' : 'keys'}
+            value={fmtInt(
+              isTimelineStore ? (m.timelineKeyCount ?? 0) : (m.redisKeyspaceHits ?? 0),
+            )}
+          />
           <SlStatCell label="policy" value={evictionPolicy} />
           <SlStatCell label="engine" value={m.storageEngine || 'redis'} />
         </SlStatStrip>
@@ -757,10 +793,17 @@ function CachePane({
           open={noCacheOpen}
           onToggle={() => setNoCacheOpen((v) => !v)}
           body={
-            <p>
-              Remove the cache and <em>{fmtRate(hits)}/s</em> of hit traffic becomes Postgres
-              queries — higher load on the database under the same app traffic.
-            </p>
+            isTimelineStore ? (
+              <p>
+                Remove the cache and feed reads use Postgres pull mode instead of Redis
+                timelines — fanout materialization no longer applies on the read path.
+              </p>
+            ) : (
+              <p>
+                Remove the cache and <em>{fmtRate(hits)}/s</em> of hit traffic becomes Postgres
+                queries — higher load on the database under the same app traffic.
+              </p>
+            )
           }
         />
       </SlPaneSection>

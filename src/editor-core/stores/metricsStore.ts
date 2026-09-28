@@ -96,6 +96,11 @@ export interface MetricsBucket {
   cacheMisses: number
   cacheHitsLast9m: number
   cacheMissesLast9m: number
+  /** social-feed: count of timeline:* keys in Redis */
+  timelineKeyCount?: number
+  /** social-feed: rate(social_feed_request_total) by mode */
+  feedRequestRatePush?: number
+  feedRequestRatePull?: number
 
   // DB-specific
   dbQueryRate: number
