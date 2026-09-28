@@ -44,6 +44,17 @@ export function stacklabSeriesPoint(
   return { x, y }
 }
 
+/** Sparkline bar heights (percent) — matches components-2.html `v * 100` on peak-normalized samples. */
+export function counterBandPercents(samples: number[]): number[] {
+  if (samples.length === 0) return []
+  const peak = Math.max(...samples, 0)
+  if (peak <= 0) return samples.map(() => 15)
+  return samples.map((v) => {
+    if (!Number.isFinite(v) || v <= 0) return 0
+    return Math.max(15, Math.min(100, Math.round((v / peak) * 100)))
+  })
+}
+
 export function stacklabSparkPoints(data: number[], width = 100, height = 24): string {
   if (data.length < 2) return ''
   const max = Math.max(...data, 1)

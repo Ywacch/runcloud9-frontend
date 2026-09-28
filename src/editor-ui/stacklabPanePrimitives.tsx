@@ -9,6 +9,7 @@ import {
   StacklabLatencyLegend,
   StacklabNote,
   StacklabSparkline,
+  counterBandPercents,
   stacklabSeriesPoint,
   stacklabTracePath,
 } from './stacklabMetricsUi'
@@ -532,6 +533,8 @@ export function SlCounter({
   value,
   unit,
   bandData,
+  bandUnit,
+  formatBandSample = fmtRate,
   cum,
 }: {
   label: string
@@ -539,8 +542,24 @@ export function SlCounter({
   value: ReactNode
   unit?: string
   bandData?: number[]
+  /** Suffix on per-bar tooltips (e.g. `/s`). */
+  bandUnit?: string
+  formatBandSample?: (v: number) => string
   cum?: string
 }) {
+  const [bandHover, setBandHover] = useState<number | null>(null)
+  const samples =
+    bandData && bandData.length > 0 ? bandData.slice(-56) : []
+  const percents = counterBandPercents(samples)
+  const bandTip =
+    bandHover != null && samples[bandHover] !== undefined
+      ? `${formatBandSample(samples[bandHover])}${bandUnit ?? ''}`
+      : null
+  const bandTipLeft =
+    bandHover != null && samples.length > 0
+      ? `${((bandHover + 0.5) / samples.length) * 100}%`
+      : undefined
+
   return (
     <div className="counter">
       <div className="ct-head">
@@ -551,10 +570,30 @@ export function SlCounter({
         {value}
         {unit ? <span className="u">{unit}</span> : null}
       </div>
-      {bandData && bandData.length > 0 ? (
-        <div className="band">
-          {bandData.slice(-56).map((v, i) => (
-            <i key={i} style={{ height: `${Math.round(v * 100)}%` }} />
+      {samples.length > 0 ? (
+        <div
+          className="band band-live"
+          onMouseMove={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            if (rect.width <= 0) return
+            const ratio = (event.clientX - rect.left) / rect.width
+            setBandHover(
+              Math.min(samples.length - 1, Math.max(0, Math.floor(ratio * samples.length))),
+            )
+          }}
+          onMouseLeave={() => setBandHover(null)}
+        >
+          {bandTip && bandTipLeft ? (
+            <span className="band-tip" style={{ left: bandTipLeft }} role="tooltip">
+              {bandTip}
+            </span>
+          ) : null}
+          {samples.map((v, i) => (
+            <i
+              key={i}
+              className={bandHover === i ? 'is-on' : undefined}
+              style={{ height: `${percents[i] ?? 15}%` }}
+            />
           ))}
         </div>
       ) : (

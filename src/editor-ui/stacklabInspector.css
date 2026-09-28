@@ -380,17 +380,22 @@
 .sl-inspector .scale-caret{position:absolute;top:1px;width:2px;height:19px;background:var(--ink)}
 .sl-inspector .util.is-hot .scale-caret{background:var(--amber)}
 .sl-inspector .scale-foot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink-4);margin-top:3px}
-.sl-inspector .counter{border:1px solid var(--rule);background:rgba(232,233,229,.02);padding:10px 11px 9px;position:relative}
+.sl-inspector .counter{border:1px solid var(--rule);background:rgba(232,233,229,.02);padding:10px 11px 9px;position:relative;overflow:visible}
 .sl-inspector .counter+.counter{margin-top:8px}
 .sl-inspector .ct-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .sl-inspector .ct-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
 .sl-inspector .ct-tag{font-family:var(--mono);font-size:8px;letter-spacing:.14em;color:var(--ink-4);border:1px solid var(--rule);
     padding:1px 4px}
-.sl-inspector .ct-v{font-family:var(--mono);font-size:29px;font-weight:500;line-height:1;margin-top:8px;letter-spacing:-.02em}
+.sl-inspector .ct-v{font-family:var(--mono);font-size:29px;font-weight:500;line-height:1;margin-top:8px;letter-spacing:-.02em;white-space:nowrap}
 .sl-inspector .ct-v .u{font-size:12px;color:var(--ink-3);margin-left:4px}
 .sl-inspector .ct-cum{font-family:var(--mono);font-size:9px;color:var(--ink-4);margin-top:6px}
-.sl-inspector .band{display:flex;gap:1px;height:13px;align-items:flex-end;margin-top:8px}
-.sl-inspector .band i{flex:1 1 0;background:rgba(232,233,229,.30);height:15%}
+.sl-inspector .band{display:flex;gap:1px;height:13px;align-items:flex-end;margin-top:8px;overflow:hidden}
+.sl-inspector .band.band-live{overflow:visible}
+.sl-inspector .band i{flex:1 1 0;background:rgba(232,233,229,.30);height:15%;min-height:0}
+.sl-inspector .band i.is-on{background:rgba(232,233,229,.48)}
+.sl-inspector .band-tip{position:absolute;bottom:calc(100% + 4px);z-index:2;transform:translateX(-50%);pointer-events:none;
+    border:1px solid var(--rule-3);background:var(--bg);padding:2px 5px;font-family:var(--mono);font-size:9.5px;font-weight:500;
+    line-height:1;color:var(--ink);white-space:nowrap;letter-spacing:.02em}
 .sl-inspector .gauge{margin-top:13px}
 .sl-inspector .gauge:first-of-type{margin-top:2px}
 .sl-inspector .gauge-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px}
