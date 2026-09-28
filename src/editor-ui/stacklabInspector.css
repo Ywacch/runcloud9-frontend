@@ -276,7 +276,8 @@
 .sl-inspector .stat-cell{padding:9px 10px 8px;border-right:1px solid var(--rule);min-width:0}
 .sl-inspector .stat-cell:last-child{border-right:none}
 .sl-inspector .stat-lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;
-    color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;min-width:0}
+.sl-inspector .stat-lab>span{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sl-inspector .stat-v{font-family:var(--mono);font-size:18px;font-weight:500;line-height:1.1;
     margin-top:6px;letter-spacing:-.01em;color:var(--ink)}
 .sl-inspector .stat-v .u{font-size:10px;color:var(--ink-3);margin-left:2px;letter-spacing:.02em}

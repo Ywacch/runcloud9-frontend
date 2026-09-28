@@ -25,6 +25,8 @@ import {
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
 import {
+  CACHE_KEYSPACE_HITS_HELP,
+  CACHE_KEYSPACE_MISSES_HELP,
   SESSION_CACHE_THROUGHPUT_LABEL,
   SESSION_CACHE_TOTALS_DISCLOSURE_HINT,
   SESSION_CACHE_TOTALS_HINT,
@@ -511,12 +513,14 @@ export function CacheSessionTotalsDisclosure({
             <StatBlock
               label="Keyspace hits/s"
               value={`${fmtRate(m.redisKeyspaceHits)}/s`}
+              help={CACHE_KEYSPACE_HITS_HELP}
             />
           }
           right={
             <StatBlock
               label="Keyspace misses/s"
               value={`${fmtRate(m.redisKeyspaceMisses)}/s`}
+              help={CACHE_KEYSPACE_MISSES_HELP}
             />
           }
         />

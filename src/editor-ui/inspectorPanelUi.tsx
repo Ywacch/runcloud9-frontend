@@ -22,6 +22,7 @@ import type {
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import type { LatencyQuantile } from '../lib/latencyQuantile'
 import { StacklabSparkline } from './stacklabMetricsUi'
+import { MetricHelpIcon } from './MetricHelpIcon'
 
 export type MetricsTimeframe = 'live' | 'session'
 
@@ -307,6 +308,7 @@ export function StatBlock({
   view,
   graph,
   valueClassName = '',
+  help,
 }: {
   label?: string
   labelNode?: ReactNode
@@ -323,7 +325,10 @@ export function StatBlock({
     view?.showGraphs !== false && sparkData != null && sparkData.length >= 2
   return (
     <div className="tile">
-      <div className="tile-lab">{labelNode ?? label}</div>
+      <div className="tile-lab flex items-center gap-1">
+        {labelNode ?? label}
+        {help ? <MetricHelpIcon title={help} /> : null}
+      </div>
       <div className={`tile-v num ${valueClassName}`.trim()}>
         <span>{value}</span>
         {unit ? <span className="u">{unit}</span> : null}

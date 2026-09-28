@@ -12,6 +12,7 @@ import {
   stacklabSeriesPoint,
   stacklabTracePath,
 } from './stacklabMetricsUi'
+import { MetricHelpIcon } from './MetricHelpIcon'
 
 export function SlPaneSection({ children }: { children: ReactNode }) {
   return <section className="sec">{children}</section>
@@ -633,14 +634,19 @@ export function SlStatCell({
   label,
   value,
   unit,
+  help,
 }: {
   label: string
   value: ReactNode
   unit?: string
+  help?: string
 }) {
   return (
     <div className="stat-cell">
-      <div className="stat-lab">{label}</div>
+      <div className="stat-lab">
+        <span>{label}</span>
+        {help ? <MetricHelpIcon title={help} /> : null}
+      </div>
       <div className="stat-v num">
         {value}
         {unit ? <span className="u">{unit}</span> : null}
