@@ -309,10 +309,14 @@
 .sl-inspector .mk.on{stroke:var(--ink);stroke-dasharray:none}
 .sl-inspector .trace-dot{fill:var(--ink)}
 .sl-inspector .trace-dot.is-secondary{fill:var(--red)}
-.sl-inspector .graph-tip{position:absolute;top:2px;z-index:2;transform:translate(-50%,0);pointer-events:none;
-    border:1px solid var(--rule-3);background:var(--bg);padding:3px 7px 4px;font-family:var(--mono);
-    font-size:11px;font-weight:500;line-height:1;letter-spacing:-.01em;white-space:nowrap}
-.sl-inspector .graph-tip-sep{color:var(--ink-4);margin:0 6px;font-weight:400}
+.sl-inspector .graph-leg{letter-spacing:.06em;text-transform:lowercase;font-size:9px}
+.sl-inspector .graph-leg-v.is-primary{color:var(--ink)}
+.sl-inspector .graph-leg-v.is-secondary{color:var(--red)}
+.sl-inspector .graph-leg-sep{color:var(--ink-4);margin:0 3px;font-weight:400}
+.sl-inspector .graph-tip{position:absolute;top:1px;z-index:2;transform:translate(-50%,0);pointer-events:none;
+    border:1px solid var(--rule-3);background:var(--bg);padding:2px 5px;font-family:var(--mono);
+    font-size:10px;font-weight:500;line-height:1.15;letter-spacing:.02em;white-space:nowrap}
+.sl-inspector .graph-tip-sep{color:var(--ink-4);margin:0 3px;font-weight:400}
 .sl-inspector .graph-tip-v.is-primary{color:var(--ink)}
 .sl-inspector .graph-tip-v.is-secondary{color:var(--red)}
 .sl-inspector .mk-sq{fill:var(--ink)}

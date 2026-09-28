@@ -248,6 +248,16 @@ export function SlUtilHelp({ children }: { children: ReactNode }) {
   return <div className="util-help">{children}</div>
 }
 
+function SlGraphDualLegend({ primary, secondary }: { primary: string; secondary: string }) {
+  return (
+    <span className="lab graph-leg">
+      <span className="graph-leg-v is-primary">{primary}</span>
+      <span className="graph-leg-sep" aria-hidden>·</span>
+      <span className="graph-leg-v is-secondary">{secondary}</span>
+    </span>
+  )
+}
+
 export function SlGraphWrap({
   title,
   sub,
@@ -255,15 +265,18 @@ export function SlGraphWrap({
   data,
   dashed,
   secondary,
+  primaryLabel,
+  secondaryLabel,
   formatValue = fmtRate,
 }: {
   title: string
-  sub: string
+  sub?: string
   height?: number
   data: number[]
   dashed?: boolean
   /** Optional second series, drawn dashed on the same vertical scale. */
   secondary?: number[]
+  /** When set with secondary series, right header uses compact colored legend. */
   primaryLabel?: string
   secondaryLabel?: string
   formatValue?: (value: number) => string
@@ -298,11 +311,20 @@ export function SlGraphWrap({
     index != null && secondarySeries
       ? formatValue(secondarySeries[Math.min(index, secondarySeries.length - 1)])
       : null
+  const dualLegend =
+    secondarySeries && primaryLabel?.trim() && secondaryLabel?.trim()
+      ? { primary: primaryLabel.trim(), secondary: secondaryLabel.trim() }
+      : null
+  const headRight = dualLegend
+    ? <SlGraphDualLegend primary={dualLegend.primary} secondary={dualLegend.secondary} />
+    : sub
+      ? <span className="lab">{sub}</span>
+      : null
   return (
     <div className="graph-wrap graph">
       <div className="graph-head">
         <span className="lab">{title}</span>
-        <span className="lab">{sub}</span>
+        {headRight}
       </div>
       <div
         className="graph-box"

@@ -728,8 +728,7 @@ function CachePane({
         ) : null}
         {view.showGraphs ? (
           <SlGraphWrap
-            title="Hits vs misses · last 10s"
-            sub="solid hits · dashed misses"
+            title="Hits vs misses · 10s"
             data={hitSeries}
             secondary={missSeries}
             primaryLabel="hits"
@@ -1049,8 +1048,7 @@ function MqPane({
         </SlTiles>
         {view.showGraphs ? (
           <SlGraphWrap
-            title="Publish vs consume · last 10s"
-            sub="solid publish · dashed consume · same scale"
+            title="Publish vs consume · 10s"
             data={pubSeries}
             secondary={conSeries}
             primaryLabel="publish"
