@@ -34,6 +34,14 @@ export function fmtReplicaSyncState(syncState: string | undefined): string {
   return state
 }
 
+/** Standby table: keep sync_state on one line. */
+export function fmtReplicaSyncStateCompact(syncState: string | undefined): string {
+  const state = syncState?.trim()
+  if (!state) return 'async'
+  if (state === 'quorum') return 'quorum'
+  return state
+}
+
 export function maxConnectedReplicationLagSeconds(
   layers: ComponentLayerMetrics[],
 ): number | undefined {
