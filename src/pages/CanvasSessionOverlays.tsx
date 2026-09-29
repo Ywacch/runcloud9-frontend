@@ -8,6 +8,7 @@ import {
   InspectorAlertWatcher,
   ProvisioningOverlay,
   RejoinBanner,
+  SessionEndingOverlay,
   SimulationOverlay,
 } from '../editor-ui'
 import { PROVISION_FAILED_HEADLINE } from '../lib/provisionCopy'
@@ -107,6 +108,7 @@ export function CanvasSessionOverlays({
           </div>
         </div>
       ) : null}
+      <SessionEndingOverlay />
       {mode === 'live' ? (
         <>
           <ChaosOverlayTicker />

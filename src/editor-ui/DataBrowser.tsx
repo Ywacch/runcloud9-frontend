@@ -16,6 +16,11 @@ import {
   type SelectedInstanceId,
 } from '../lib/dbInstanceScope'
 import { trackEvent } from '../lib/analytics'
+import {
+  introspectErrorMessage,
+  isDeploymentInactiveError,
+  LIVE_SESSION_ENDED_MESSAGE,
+} from '../lib/liveSessionEnding'
 import { SlSecHead } from './stacklabPanePrimitives'
 import {
   formatRowCount,
@@ -67,23 +72,63 @@ export function DataBrowser({
   const [rowCountsByTable, setRowCountsByTable] = useState<Record<string, number>>({})
   const [rowsTable, setRowsTable] = useState<string | null>(null)
   const tableFetchSeq = useRef(0)
+  const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
 
   const showReplicaToggle = !hideTargetToggle && readReplicaCount >= 1
+
+  const resolveInspectorError = useCallback(
+    (err: unknown) => {
+      const inactive = liveSessionEnding || isDeploymentInactiveError(err)
+      return {
+        message: inactive ? LIVE_SESSION_ENDED_MESSAGE : introspectErrorMessage(err),
+        showRetry: !inactive,
+      }
+    },
+    [liveSessionEnding],
+  )
 
   const mergeTableRowCounts = useCallback((list: TableInfo[]) => {
     setRowCountsByTable((prev) => {
       const next = { ...prev }
       for (const t of list) {
-        const fromList = t.rowCount > 0 ? t.rowCount : 0
+        const fromList = Math.max(0, t.rowCount)
         const cached = prev[t.name]
         if (cached != null) next[t.name] = Math.max(cached, fromList)
-        else if (fromList > 0) next[t.name] = fromList
+        else next[t.name] = fromList
       }
       return next
     })
   }, [])
 
-  const loadTablesAndIndexes = useCallback(async (opts?: { soft?: boolean }) => {
+  const refreshAllTableTotals = useCallback(
+    async (tableNames: string[], exclude?: string) => {
+      const names = exclude ? tableNames.filter((n) => n !== exclude) : tableNames
+      if (names.length === 0) return
+      const settled = await Promise.allSettled(
+        names.map((name) =>
+          fetchRows(deploymentId, component, name, {
+            page: 1,
+            limit: 1,
+            order: 'desc',
+            target: introspectOpts.target,
+            layerId: introspectOpts.layerId,
+          }).then((r) => ({ name, total: r.total })),
+        ),
+      )
+      const updates: Record<string, number> = {}
+      for (const result of settled) {
+        if (result.status === 'fulfilled') {
+          updates[result.value.name] = result.value.total
+        }
+      }
+      if (Object.keys(updates).length === 0) return
+      setRowCountsByTable((prev) => ({ ...prev, ...updates }))
+    },
+    [deploymentId, component, introspectOpts],
+  )
+
+  const loadTablesAndIndexes = useCallback(async (opts?: { soft?: boolean; countRefreshExclude?: string | null }) => {
+    if (useCanvasStore.getState().liveSessionEnding) return
     setError(null)
     if (opts?.soft) setRefreshing(true)
     else setLoading(true)
@@ -94,6 +139,10 @@ export function DataBrowser({
       ])
       setTables(tList)
       mergeTableRowCounts(tList)
+      void refreshAllTableTotals(
+        tList.map((t) => t.name),
+        opts?.countRefreshExclude ?? undefined,
+      )
       setIndexes(idxList)
       setSelectedTable((prev) =>
         prev && tList.some((x) => x.name === prev) ? prev : (tList[0]?.name ?? null),
@@ -105,7 +154,8 @@ export function DataBrowser({
         operationCategory: 'list_tables',
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load tables')
+      const { message } = resolveInspectorError(e)
+      setError(message || 'Failed to load tables')
       setTables([])
       setIndexes([])
       setSelectedTable(null)
@@ -113,7 +163,14 @@ export function DataBrowser({
       setLoading(false)
       setRefreshing(false)
     }
-  }, [deploymentId, component, introspectOpts, mergeTableRowCounts])
+  }, [
+    deploymentId,
+    component,
+    introspectOpts,
+    mergeTableRowCounts,
+    refreshAllTableTotals,
+    resolveInspectorError,
+  ])
 
   useEffect(() => {
     setPage(1)
@@ -127,6 +184,7 @@ export function DataBrowser({
   const loadTableData = useCallback(
     async (table: string, pageNum: number, opts?: { refreshOnly?: boolean }) => {
       if (!table) return
+      if (useCanvasStore.getState().liveSessionEnding) return
       const seq = ++tableFetchSeq.current
       setError(null)
       if (opts?.refreshOnly) setRefreshing(true)
@@ -155,7 +213,8 @@ export function DataBrowser({
         })
       } catch (e) {
         if (seq !== tableFetchSeq.current) return
-        setError(e instanceof Error ? e.message : 'Failed to load table data')
+        const { message } = resolveInspectorError(e)
+        setError(message || 'Failed to load table data')
         setRows(null)
         setRowsTable(null)
         setSchema(null)
@@ -164,21 +223,23 @@ export function DataBrowser({
         setRefreshing(false)
       }
     },
-    [deploymentId, component, introspectOpts],
+    [deploymentId, component, introspectOpts, resolveInspectorError],
   )
 
   const refreshAll = useCallback(() => {
-    void loadTablesAndIndexes({ soft: true })
+    if (liveSessionEnding) return
+    void loadTablesAndIndexes({ soft: true, countRefreshExclude: selectedTable })
     if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
-  }, [loadTablesAndIndexes, loadTableData, selectedTable, page])
+  }, [loadTablesAndIndexes, loadTableData, selectedTable, page, liveSessionEnding])
 
   useEffect(() => {
+    if (liveSessionEnding) return
     const id = window.setInterval(() => {
-      void loadTablesAndIndexes({ soft: true })
+      void loadTablesAndIndexes({ soft: true, countRefreshExclude: selectedTable })
       if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
     }, DATA_POLL_MS)
     return () => window.clearInterval(id)
-  }, [loadTablesAndIndexes, loadTableData, selectedTable, page])
+  }, [loadTablesAndIndexes, loadTableData, selectedTable, page, liveSessionEnding])
 
   useEffect(() => {
     if (!selectedTable) {
@@ -218,15 +279,24 @@ export function DataBrowser({
     [rowCountsByTable],
   )
 
+  const allowDataRetry =
+    !liveSessionEnding && error !== LIVE_SESSION_ENDED_MESSAGE
+
   if (error && tables.length === 0 && !loading) {
-    return <SlDataError message={error} onRetry={() => void loadTablesAndIndexes()} />
+    return (
+      <SlDataError
+        message={error}
+        onRetry={() => void loadTablesAndIndexes()}
+        showRetry={allowDataRetry}
+      />
+    )
   }
 
   return (
     <>
       <SlDataHead
         subtitle="Schema, indexes, and rows for the selected table."
-        onRefresh={refreshAll}
+        onRefresh={liveSessionEnding ? undefined : refreshAll}
         refreshing={refreshing}
       />
 
@@ -286,6 +356,7 @@ export function DataBrowser({
           onRetry={() => {
             if (selectedTable) void loadTableData(selectedTable, page, { refreshOnly: true })
           }}
+          showRetry={allowDataRetry}
         />
       ) : null}
 

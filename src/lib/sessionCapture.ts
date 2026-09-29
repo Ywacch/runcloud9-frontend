@@ -284,6 +284,7 @@ export function exitLiveSessionDueToRemoteEnd(): void {
     s.setMode('design')
     s.setDeploymentId(null)
     s.setLiveSessionEndsAt(null)
+    s.setLiveSessionEnding(false)
     s.setLiveSessionStartedAt(null)
     s.setAllEdgesAnimated(false)
     useMetricsStore.getState().clearMetrics()
