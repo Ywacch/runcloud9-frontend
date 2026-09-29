@@ -588,7 +588,7 @@ export function SlCounter({
               {bandTip}
             </span>
           ) : null}
-          {samples.map((v, i) => (
+          {samples.map((_, i) => (
             <i
               key={i}
               className={bandHover === i ? 'is-on' : undefined}
