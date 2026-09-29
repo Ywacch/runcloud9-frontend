@@ -12,6 +12,12 @@ import {
   SlDataHead,
   SlJsonBlock,
 } from './stacklabDataPanels'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import {
+  introspectErrorMessage,
+  isDeploymentInactiveError,
+  LIVE_SESSION_ENDED_MESSAGE,
+} from '../lib/liveSessionEnding'
 
 function headMessageLabel(body: string): string {
   try {
@@ -42,6 +48,15 @@ export function QueueBrowser({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [peeking, setPeeking] = useState(false)
+  const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
+
+  const resolveInspectorError = useCallback(
+    (err: unknown) => {
+      const inactive = liveSessionEnding || isDeploymentInactiveError(err)
+      return inactive ? LIVE_SESSION_ENDED_MESSAGE : introspectErrorMessage(err)
+    },
+    [liveSessionEnding],
+  )
 
   const primaryQueue = useMemo(() => {
     const preferred = queues.find((q) => q.name === queueName)
@@ -54,6 +69,7 @@ export function QueueBrowser({
   )
 
   const load = useCallback(async () => {
+    if (useCanvasStore.getState().liveSessionEnding) return
     setLoading(true)
     setError(null)
     try {
@@ -65,11 +81,11 @@ export function QueueBrowser({
         return preferred?.name ?? list[0]?.name ?? null
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(resolveInspectorError(e))
     } finally {
       setLoading(false)
     }
-  }, [deploymentId, component, queueName])
+  }, [deploymentId, component, queueName, resolveInspectorError])
 
   useEffect(() => {
     void load()
@@ -82,7 +98,7 @@ export function QueueBrowser({
     try {
       setPeek(await fetchPeek(deploymentId, component, selected))
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(resolveInspectorError(e))
     } finally {
       setPeeking(false)
     }
@@ -107,7 +123,11 @@ export function QueueBrowser({
     return (
       <>
         <SlDataHead subtitle={subtitle} />
-        <SlDataError message={error} onRetry={() => void load()} />
+        <SlDataError
+          message={error}
+          onRetry={() => void load()}
+          showRetry={!liveSessionEnding && error !== LIVE_SESSION_ENDED_MESSAGE}
+        />
       </>
     )
   }
@@ -134,7 +154,13 @@ export function QueueBrowser({
         </div>
       ) : null}
 
-      {error ? <SlDataError message={error} onRetry={() => void load()} /> : null}
+      {error ? (
+        <SlDataError
+          message={error}
+          onRetry={() => void load()}
+          showRetry={!liveSessionEnding && error !== LIVE_SESSION_ENDED_MESSAGE}
+        />
+      ) : null}
 
       {selectedQueue ? (
         <SlKvList flush>

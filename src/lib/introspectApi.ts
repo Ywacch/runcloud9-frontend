@@ -1,6 +1,11 @@
 import { DEPLOYMENTS_API_PREFIX } from './api'
 import { getAccessToken } from './auth'
 import { devIntrospectFixture, isDevInspectorDeployment } from './devInspectorFixtures'
+import {
+  IntrospectHttpError,
+  notifyDeploymentInactiveIfEnding,
+  parseIntrospectErrorBody,
+} from './liveSessionEnding'
 
 const API_BASE = DEPLOYMENTS_API_PREFIX
 
@@ -104,7 +109,13 @@ async function introspectGet<T>(
   const res = await fetch(url, { headers: authHeaders() })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
+    if (res.status === 410) {
+      notifyDeploymentInactiveIfEnding()
+    }
+    throw new IntrospectHttpError(
+      res.status,
+      parseIntrospectErrorBody(text, res.status),
+    )
   }
   return res.json() as Promise<T>
 }

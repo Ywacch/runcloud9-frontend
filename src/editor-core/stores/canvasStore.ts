@@ -161,6 +161,8 @@ interface CanvasState {
   loadedVariationId: string | null
   /** Client-side session end (deploy + N minutes) for countdown. */
   liveSessionEndsAt: number | null
+  /** True after the session clock elapses until we return to design mode. */
+  liveSessionEnding: boolean
   /** When the live session clock started (running_at or enter-live). */
   liveSessionStartedAt: number | null
   sessionSummary: SessionSummary | null
@@ -216,6 +218,7 @@ interface CanvasState {
   setTemplatePresetMode: (mode: 'full' | 'explorer' | null) => void
   setLoadedVariationId: (id: string | null) => void
   setLiveSessionEndsAt: (t: number | null) => void
+  setLiveSessionEnding: (ending: boolean) => void
   setLiveSessionStartedAt: (t: number | null) => void
   setSessionSummary: (summary: SessionSummary | null) => void
   setNarrativeHighlightNodeIds: (ids: string[]) => void
@@ -282,6 +285,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   templatePresetMode: null,
   loadedVariationId: null,
   liveSessionEndsAt: null,
+  liveSessionEnding: false,
   liveSessionStartedAt: null,
   sessionSummary: null,
   narrativeHighlightNodeIds: [],
@@ -590,6 +594,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setLiveSessionEndsAt: (liveSessionEndsAt) => set({ liveSessionEndsAt }),
 
+  setLiveSessionEnding: (liveSessionEnding) => set({ liveSessionEnding }),
+
   setLiveSessionStartedAt: (liveSessionStartedAt) => set({ liveSessionStartedAt }),
 
   setSessionSummary: (sessionSummary) => set({ sessionSummary }),
@@ -674,6 +680,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionEnding: false,
       liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
@@ -707,6 +714,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionEnding: false,
       liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
@@ -740,6 +748,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionEnding: false,
       liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,
@@ -774,6 +783,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       loadedVariationId: null,
       deploymentId: null,
       liveSessionEndsAt: null,
+      liveSessionEnding: false,
       liveSessionStartedAt: null,
       sessionSummary: null,
       movementLocked: false,

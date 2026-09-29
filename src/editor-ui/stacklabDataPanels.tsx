@@ -33,17 +33,30 @@ export function SlDataHead({
 export function SlDataError({
   message,
   onRetry,
+  showRetry = true,
 }: {
   message: string
-  onRetry: () => void
+  onRetry?: () => void
+  showRetry?: boolean
 }) {
+  const canRetry = showRetry && onRetry != null
   return (
     <p className="note amber">
       <b>!</b>
-      {message}{' '}
-      <button type="button" className="btn ghost" onClick={onRetry} style={{ marginLeft: 6 }}>
-        Retry
-      </button>
+      {message}
+      {canRetry ? (
+        <>
+          {' '}
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={onRetry}
+            style={{ marginLeft: 6 }}
+          >
+            Retry
+          </button>
+        </>
+      ) : null}
     </p>
   )
 }

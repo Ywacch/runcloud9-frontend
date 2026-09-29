@@ -41,6 +41,11 @@ import {
   exitLiveSessionDueToRemoteEnd,
   isTerminalDeploymentStatus,
 } from '../lib/sessionCapture'
+import {
+  isLiveSessionPastEnd,
+  SESSION_END_FORCE_MS,
+  SESSION_END_STATUS_POLL_MS,
+} from '../lib/liveSessionEnding'
 import { parseRunningAtMs } from '../lib/sessionMinutes'
 import { CLIENT_LOADGEN_ID, spawnClientLoadgenNode } from '../lib/spawnClientNode'
 import {
@@ -117,6 +122,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   )
   const simRunning = useSimulationStore((s) => s.running)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
+  const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
   const nodes = useCanvasStore((s) => s.nodes)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
 
@@ -463,6 +469,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           live.setAllEdgesAnimated(true)
           live.setLiveSessionStartedAt(runningAt ?? Date.now())
           live.setLiveSessionEndsAt(endsAt)
+          live.setLiveSessionEnding(false)
           // Keep the current selection when entering live so the inspector stays open
           // while metrics stream in (clearing here caused an empty sidebar race).
           live.setPendingSource(null)
@@ -513,6 +520,7 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
           const stTerminated = useCanvasStore.getState()
           stTerminated.setDeploymentId(null)
           stTerminated.setLiveSessionEndsAt(null)
+          stTerminated.setLiveSessionEnding(false)
           stTerminated.setLiveSessionStartedAt(null)
           stTerminated.setMode('design')
           stTerminated.setAllEdgesAnimated(false)
@@ -575,39 +583,58 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
   }, [terminationMessage])
 
   useEffect(() => {
-    if (mode !== 'live') return
-    if (!deploymentId) return
-    if (!useCanvasStore.getState().liveSessionEndsAt) return
+    if (mode !== 'live' || !deploymentId || !liveSessionEndsAt) return
 
-    const tick = window.setInterval(() => {
-      const now = Date.now()
-      const st = useCanvasStore.getState()
-      const endsAt = st.liveSessionEndsAt
-      if (!endsAt || now < endsAt) return
-      void getDeployment(deploymentId)
-        .then((dep) => {
-          if (isTerminalDeploymentStatus(dep.status)) {
-            window.clearInterval(tick)
-            exitLiveSessionDueToRemoteEnd()
-            return
-          }
-          useMetricsStore
-            .getState()
-            .setStreamWarning(
-              'Session end is pending confirmation from the backend. Retrying...',
-            )
-        })
-        .catch(() => {
-          useMetricsStore
-            .getState()
-            .setStreamWarning(
-              'Could not confirm session end. Staying in live view and retrying...',
-            )
-        })
-    }, 1000)
+    let clockId: number | null = null
+    let statusPollId: number | null = null
+    let forceTimer: number | null = null
+    let endingStarted = false
 
-    return () => window.clearInterval(tick)
-  }, [mode, deploymentId])
+    const beginSessionEnding = () => {
+      if (endingStarted) return
+      endingStarted = true
+      if (clockId != null) {
+        window.clearInterval(clockId)
+        clockId = null
+      }
+      const live = useCanvasStore.getState()
+      live.setLiveSessionEnding(true)
+      useMetricsStore.getState().setStreamWarning(null)
+
+      const tryFinish = () => {
+        void getDeployment(deploymentId)
+          .then((dep) => {
+            if (isTerminalDeploymentStatus(dep.status)) {
+              exitLiveSessionDueToRemoteEnd()
+            }
+          })
+          .catch(() => {
+            /* wait for force timer or a 410 from introspect */
+          })
+      }
+
+      tryFinish()
+      statusPollId = window.setInterval(tryFinish, SESSION_END_STATUS_POLL_MS)
+      forceTimer = window.setTimeout(() => {
+        exitLiveSessionDueToRemoteEnd()
+      }, SESSION_END_FORCE_MS)
+    }
+
+    const onClock = () => {
+      if (isLiveSessionPastEnd(useCanvasStore.getState().liveSessionEndsAt)) {
+        beginSessionEnding()
+      }
+    }
+
+    onClock()
+    clockId = window.setInterval(onClock, 500)
+
+    return () => {
+      if (clockId != null) window.clearInterval(clockId)
+      if (statusPollId != null) window.clearInterval(statusPollId)
+      if (forceTimer != null) window.clearTimeout(forceTimer)
+    }
+  }, [mode, deploymentId, liveSessionEndsAt])
 
   useEffect(() => {
     if (mode !== 'simulate') {

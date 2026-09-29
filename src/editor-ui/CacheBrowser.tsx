@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchKeyValue, fetchKeys, type KeyInfo } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { trackEvent } from '../lib/analytics'
+import {
+  introspectErrorMessage,
+  isDeploymentInactiveError,
+  LIVE_SESSION_ENDED_MESSAGE,
+} from '../lib/liveSessionEnding'
 import { SlSecHead } from './stacklabPanePrimitives'
 import { SlDataError, SlDataHead, SlKeyCard } from './stacklabDataPanels'
 
@@ -35,6 +40,15 @@ export function CacheBrowser({
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const selectedKeyRef = useRef<string | null>(null)
   selectedKeyRef.current = selectedKey
+  const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
+
+  const resolveInspectorError = useCallback(
+    (err: unknown) => {
+      const inactive = liveSessionEnding || isDeploymentInactiveError(err)
+      return inactive ? LIVE_SESSION_ENDED_MESSAGE : introspectErrorMessage(err)
+    },
+    [liveSessionEnding],
+  )
 
   useEffect(() => {
     setPattern((current) =>
@@ -82,6 +96,7 @@ export function CacheBrowser({
 
   const scanFromStart = useCallback(
     async (pat: string, opts?: { soft?: boolean }) => {
+      if (useCanvasStore.getState().liveSessionEnding) return
       const selection = selectedKeyRef.current
       setError(null)
       if (opts?.soft) setRefreshing(true)
@@ -107,14 +122,14 @@ export function CacheBrowser({
           void reloadSelectedKey(selection)
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to scan keys')
+        setError(resolveInspectorError(e) || 'Failed to scan keys')
         if (!opts?.soft) setKeys([])
       } finally {
         setLoading(false)
         setRefreshing(false)
       }
     },
-    [deploymentId, component, loadValues, reloadSelectedKey],
+    [deploymentId, component, loadValues, reloadSelectedKey, resolveInspectorError],
   )
 
   useEffect(() => {
@@ -122,11 +137,12 @@ export function CacheBrowser({
   }, [deploymentId, component, pattern, scanFromStart])
 
   useEffect(() => {
+    if (liveSessionEnding) return
     const id = window.setInterval(() => {
       void scanFromStart(pattern, { soft: true })
     }, DATA_POLL_MS)
     return () => window.clearInterval(id)
-  }, [pattern, scanFromStart])
+  }, [pattern, scanFromStart, liveSessionEnding])
 
   const loadMore = useCallback(async () => {
     if (nextCursor <= 0) return
@@ -141,11 +157,11 @@ export function CacheBrowser({
       }
       void loadValues(res.keys)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load more keys')
+      setError(resolveInspectorError(e) || 'Failed to load more keys')
     } finally {
       setLoading(false)
     }
-  }, [deploymentId, component, pattern, nextCursor, loadValues])
+  }, [deploymentId, component, pattern, nextCursor, loadValues, resolveInspectorError])
 
   const refresh = () => void scanFromStart(pattern, { soft: true })
 
@@ -177,7 +193,7 @@ export function CacheBrowser({
     <>
       <SlDataHead
         subtitle="Keys, sizes, and TTLs. Values are app-side mappings."
-        onRefresh={refresh}
+        onRefresh={liveSessionEnding ? undefined : refresh}
         refreshing={refreshing}
       />
 
@@ -196,7 +212,13 @@ export function CacheBrowser({
         </div>
       ) : null}
 
-      {error ? <SlDataError message={error} onRetry={refresh} /> : null}
+      {error ? (
+        <SlDataError
+          message={error}
+          onRetry={refresh}
+          showRetry={!liveSessionEnding && error !== LIVE_SESSION_ENDED_MESSAGE}
+        />
+      ) : null}
 
       {loading && keys.length === 0 ? (
         <p className="note">
