@@ -59,6 +59,9 @@ export const CACHE_KEYSPACE_MISSES_HELP =
 export const CACHE_TIMELINES_COUNT_HELP =
   'How many user timelines Redis holds right now (timeline:* keys). Feed read speed is on the push and pull tiles above.'
 
+export const DB_POSTGRES_CONNECTIONS_HELP =
+  'Open client sessions on Postgres right now (idle and active). The limit is the server max_connections setting, not per-app pool size.'
+
 export const POD_RATE_DISCLAIMER =
   'RPS/QPS may be slightly off because Prometheus queries run against individual pods.'
 

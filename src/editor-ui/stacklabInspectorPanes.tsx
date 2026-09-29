@@ -48,6 +48,7 @@ import { bucketLatencyField, layerLatencyMs } from '../lib/latencyQuantile'
 import {
   CACHE_KEYSPACE_HITS_HELP,
   CACHE_TIMELINES_COUNT_HELP,
+  DB_POSTGRES_CONNECTIONS_HELP,
   POD_RATE_DISCLAIMER,
   SESSION_CACHE_TOTALS_HINT,
   SESSION_LATENCY_P99_HELP,
@@ -413,8 +414,8 @@ function DatabasePane({
           <SlGraphWrap title="Query rate · last 10s" sub="app SQL" data={qSeries} height={58} />
         ) : null}
         <SlRow
-          title="Connection pool"
-          subtitle="app clients · primary"
+          title="Connections"
+          subtitle="open now · max_connections"
           value={fmtInt(m.dbActiveConnections)}
           unit={<SlUnit>/ {maxConn}</SlUnit>}
           flag={
@@ -423,6 +424,7 @@ function DatabasePane({
               : { text: 'PRESSURE', tone: 'amber' }
           }
         />
+        <Note mark="?">{DB_POSTGRES_CONNECTIONS_HELP}</Note>
         <SlHint direction="forward" onClick={() => onSelectMetricGroup?.('engine-work')}>
           This shows up as engine work →
         </SlHint>
@@ -498,6 +500,7 @@ function DatabasePane({
           }
           unit={view.timeframe === 'session' ? '' : '/s'}
           bandData={view.timeframe === 'live' ? readHistory : undefined}
+          bandUnit={view.timeframe === 'live' ? '/s' : undefined}
           cum={
             view.timeframe === 'session'
               ? 'engine read counter · session window'
@@ -514,6 +517,7 @@ function DatabasePane({
           }
           unit={view.timeframe === 'session' ? '' : '/s'}
           bandData={view.timeframe === 'live' ? writeHistory : undefined}
+          bandUnit={view.timeframe === 'live' ? '/s' : undefined}
           cum={view.timeframe === 'session' ? 'engine write counter · session window' : 'write path'}
         />
         <Note mark="i">
@@ -1181,6 +1185,7 @@ function MqPane({
           value={fmtRate(con)}
           unit="/s"
           bandData={bandSeries}
+          bandUnit="/s"
           cum={queueCum}
         />
       </SlPaneSection>

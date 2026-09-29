@@ -1288,7 +1288,7 @@ export function DbDiagnosticsDisclosure({
     <InspectorDisclosure title="Internals">
       <div className="space-y-2 font-mono text-[11px] text-gray-300">
         <div>
-          Active connections · {fmtInt(m.dbActiveConnections)} / {fmtInt(maxConn)}
+          Open connections · {fmtInt(m.dbActiveConnections)} / {fmtInt(maxConn)}
           <CapacityBar pct={connPct} warnAt={60} criticalAt={85} />
       </div>
         {io && io.bytesUsed > 0 ? (
