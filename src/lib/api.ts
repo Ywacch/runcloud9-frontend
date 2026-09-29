@@ -710,3 +710,10 @@ export function connectLogsWS(id: string): WebSocket {
   const url = token ? `${base}?token=${encodeURIComponent(token)}` : base
   return new WebSocket(url)
 }
+
+export function connectChatWS(id: string): WebSocket {
+  const base = `${buildWsBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/chat`
+  const token = getAccessToken()
+  const url = token ? `${base}?token=${encodeURIComponent(token)}` : base
+  return new WebSocket(url)
+}

@@ -12,6 +12,7 @@ import {
   CanvasContextMenu,
   DesignToolStrip,
   InspectorPanel,
+  InspectorChatDrawer,
   LiveMetricsDrawer,
   LiveSessionStrip,
   LogPanel,
@@ -231,6 +232,7 @@ export default function SvgCanvasPage() {
           />
         ) : null}
         </div>
+        <InspectorChatDrawer />
         <LiveMetricsDrawer />
         </div>
       </div>
