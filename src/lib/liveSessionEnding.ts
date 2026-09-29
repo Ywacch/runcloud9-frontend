@@ -1,6 +1,3 @@
-import { exitLiveSessionDueToRemoteEnd } from './sessionCapture'
-import { useCanvasStore } from '../editor-core/stores/canvasStore'
-
 /** After the client session clock hits zero, finish within this window. */
 export const SESSION_END_FORCE_MS = 25_000
 
@@ -64,12 +61,4 @@ export function isDeploymentInactiveError(err: unknown): boolean {
     )
   }
   return false
-}
-
-/** When the session clock has passed or we are wrapping up, 410 means exit live. */
-export function notifyDeploymentInactiveIfEnding(): void {
-  const st = useCanvasStore.getState()
-  if (st.mode !== 'live') return
-  if (!st.liveSessionEnding && !isLiveSessionPastEnd(st.liveSessionEndsAt)) return
-  exitLiveSessionDueToRemoteEnd()
 }

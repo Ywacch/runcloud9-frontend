@@ -1,11 +1,8 @@
 import { DEPLOYMENTS_API_PREFIX } from './api'
 import { getAccessToken } from './auth'
 import { devIntrospectFixture, isDevInspectorDeployment } from './devInspectorFixtures'
-import {
-  IntrospectHttpError,
-  notifyDeploymentInactiveIfEnding,
-  parseIntrospectErrorBody,
-} from './liveSessionEnding'
+import { IntrospectHttpError, parseIntrospectErrorBody } from './liveSessionEnding'
+import { notifyDeploymentInactiveIfEnding } from './liveSessionEndingNotify'
 
 const API_BASE = DEPLOYMENTS_API_PREFIX
 
