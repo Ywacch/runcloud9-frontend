@@ -17,6 +17,7 @@ import {
   CanvasErrorBoundary,
   DesignToolStrip,
   InspectorPanel,
+  InspectorChatDrawer,
   LiveMetricsDrawer,
   LiveSessionStrip,
   LogPanel,
@@ -196,6 +197,7 @@ export default function CanvasPage() {
           />
         ) : null}
         </div>
+        <InspectorChatDrawer />
         <LiveMetricsDrawer />
         </div>
       </div>

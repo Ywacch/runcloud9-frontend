@@ -129,6 +129,8 @@ export function LiveSessionStrip() {
   })
   const metricsDrawerOpen = useLiveChromeStore((s) => s.metricsDrawerOpen)
   const setMetricsDrawerOpen = useLiveChromeStore((s) => s.setMetricsDrawerOpen)
+  const chatDrawerOpen = useLiveChromeStore((s) => s.chatDrawerOpen)
+  const setChatDrawerOpen = useLiveChromeStore((s) => s.setChatDrawerOpen)
 
   const [remaining, setRemaining] = useState(0)
   const [rps, setRps] = useState(templateDefaultRps)
@@ -254,9 +256,10 @@ export function LiveSessionStrip() {
       setActiveTraceId(null)
       setLoadOpen(false)
       setMetricsDrawerOpen(false)
+      setChatDrawerOpen(false)
       setLoadgenPrompt(false)
     }
-  }, [mode, setActiveTraceId, setMetricsDrawerOpen])
+  }, [mode, setActiveTraceId, setChatDrawerOpen, setMetricsDrawerOpen])
 
   useEffect(() => {
     const prev = prevLiveSessionRef.current
@@ -792,6 +795,24 @@ export function LiveSessionStrip() {
                 ) : null}
               </button>
             ) : null}
+
+            <button
+              type="button"
+              aria-expanded={chatDrawerOpen}
+              aria-label="Session assistant"
+              onClick={() => setChatDrawerOpen(!chatDrawerOpen)}
+              className={hudChromeBtn}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M3 4h10v6H6l-3 3V4z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Assistant
+            </button>
 
             <button
               type="button"
