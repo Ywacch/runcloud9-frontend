@@ -93,7 +93,6 @@ import {
   type DeployModalMode,
   type DeployStep,
 } from './DeployModal'
-import { PredictionCards } from './PredictionCards'
 import {
   TemplateModal,
   templateTitleForId,
@@ -1012,7 +1011,6 @@ export function Sidebar() {
             {graphHonestyIssue}
           </p>
         ) : null}
-        {!live ? <PredictionCards /> : null}
       </div>
       <div
         className={`space-y-2 border-t border-[var(--c9-border)] bg-[var(--c9-surface)]/80 p-4 ${
