@@ -90,6 +90,8 @@ export interface LoadProfile {
   distribution?: Record<string, number>
   scheduleId?: string
   actorParams?: Record<string, number>
+  /** Distinct logical identities the pressure lane draws from. Omit for the template pool. */
+  activeUsers?: number
 }
 
 export interface LoadgenPhaseSpec {
