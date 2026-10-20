@@ -9,6 +9,7 @@ import { backendComponentToCanvasType } from '../lib/typeMapping'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore, type WsEvent } from '../editor-core/stores/metricsStore'
 import { useStorytellingStore } from '../editor-core/stores/storytellingStore'
+import { FidelityBadge } from './FidelityBadge'
 import { NarrativeCard } from './NarrativeCard'
 
 function formatTime(iso: string): string {
@@ -210,6 +211,7 @@ export function EventTimeline() {
                         </span>
                       ) : null}
                       <span className="text-[var(--c9-text)]">{e.title}</span>
+                      {e.detail?.fidelity ? <FidelityBadge fidelity={e.detail.fidelity} /> : null}
                       {isPredicted(e) ? (
                         <span className="rounded bg-cyan-500/20 px-1 text-[8px] font-semibold uppercase text-cyan-200">
                           predicted

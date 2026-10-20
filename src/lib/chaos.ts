@@ -156,6 +156,13 @@ export type ChaosScenarioCopyOpts = {
   targetPod?: string
 }
 
+export type FidelityTag = 'real' | 'simulated' | 'compressed'
+
+/** Current chaos scenarios actually disrupt the cluster, so they are real. */
+export function chaosScenarioFidelity(_scenario: ChaosScenario): FidelityTag {
+  return 'real'
+}
+
 export function chaosScenarioLabel(
   scenario: ChaosScenario,
   opts?: ChaosScenarioCopyOpts,

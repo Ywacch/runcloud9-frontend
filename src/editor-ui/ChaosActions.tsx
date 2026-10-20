@@ -4,6 +4,7 @@ import { debugAuthError, mapAuthErrorMessage } from '../lib/authErrorMessage'
 import {
   chaosContextForNode,
   chaosScenarioConfirm,
+  chaosScenarioFidelity,
   chaosScenarioLabel,
   chaosScenarioSubtitle,
   chaosScenariosForTarget,
@@ -20,6 +21,7 @@ import { ApiError } from '../lib/apiError'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
+import { FidelityBadge } from './FidelityBadge'
 
 const ARM_SECONDS = 6
 
@@ -211,6 +213,7 @@ export function ChaosActions({
               onClick={() => setMenuOpen((v) => !v)}
             >
               <span>{selected ? chaosScenarioLabel(selected, copyOpts) : '—'}</span>
+              {selected ? <FidelityBadge fidelity={chaosScenarioFidelity(selected)} /> : null}
               <span className="car">▾</span>
             </button>
             <div className={`chaos-menu${menuOpen ? ' is-open' : ''}`} id={menuId} role="menu">
