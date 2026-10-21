@@ -1774,6 +1774,36 @@ function TypeFields({
                   />
                 </PcfgField>
               ) : null}
+              <PcfgField
+                label="Replica apply delay"
+                htmlFor="db-replica-apply-delay"
+                sub="Simulated recovery_min_apply_delay per standby (ms). One value for all, or comma-separated per replica."
+              >
+                <div className="numfld">
+                  <input
+                    id="db-replica-apply-delay"
+                    type="text"
+                    className="numfld-in"
+                    disabled={readOnly}
+                    placeholder={readReplicas === 1 ? '0' : '0,1500'}
+                    value={replicaApplyDelayMsDisplay(c.replicaApplyDelayMs)}
+                    onChange={(e) => {
+                      if (readOnly) return
+                      const v = e.target.value.trim()
+                      if (!v) {
+                        updateConfig({ replicaApplyDelayMs: undefined })
+                        return
+                      }
+                      updateConfig({ replicaApplyDelayMs: v })
+                    }}
+                  />
+                  <span className="numfld-unit">ms</span>
+                </div>
+                <p className="note" style={{ marginTop: 8 }}>
+                  Equal delays on every standby produce stale reads but rarely stagger reply-before-parent
+                  effects; use different values per replica to teach lag divergence.
+                </p>
+              </PcfgField>
             </>
           ) : null}
           {simulationMode ? (
@@ -1902,6 +1932,14 @@ function TypeFields({
     default:
       return null
   }
+}
+
+function replicaApplyDelayMsDisplay(raw: unknown): string {
+  if (raw == null || raw === '') return ''
+  if (Array.isArray(raw)) {
+    return raw.map((v) => String(v)).join(',')
+  }
+  return String(raw)
 }
 
 /** Test and story helper for database TypeFields. */
