@@ -7,12 +7,17 @@ import type { EventVisibility } from '../domain/eventVisibility'
 import { parseEventVisibility } from '../domain/eventVisibility'
 import { useChaosStore } from './chaosStore'
 import { useCanvasStore } from './canvasStore'
+import {
+  type ConversationLaneVU,
+  conversationLaneFingerprint,
+} from '../../lib/conversationsToggle'
 
 export type WorkloadEventKind =
   | 'loadgen_start'
   | 'loadgen_stop'
   | 'loadgen_rate'
   | 'loadgen_mix'
+  | 'vu_gap_warning'
   | 'chaos_inject'
   | 'chaos_heal'
   | 'standby_reclone'
@@ -196,6 +201,8 @@ export interface LiveLoadgenState {
   phaseIndex?: number
   /** Effective endpoint weights from the running loadgen (METHOD path → weight). */
   distribution?: Record<string, number>
+  /** Closed-loop VU lane stats when conversations are running. */
+  vu?: ConversationLaneVU
 }
 
 /** Buffered WS ticks for system teaching charts (~2s cadence). */
@@ -236,7 +243,8 @@ function loadgenPayloadEqual(
     a.recentLatenciesMs === b.recentLatenciesMs &&
     a.distribution === b.distribution &&
     a.statusCodes === b.statusCodes &&
-    a.stale === b.stale
+    a.stale === b.stale &&
+    conversationLaneFingerprint(a.vu) === conversationLaneFingerprint(b.vu)
   )
 }
 

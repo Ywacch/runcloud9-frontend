@@ -274,6 +274,20 @@ describe('normalizeWsEvents workload anchors', () => {
     })
   })
 
+  it('keeps vu_gap_warning workload kind', () => {
+    const [event] = normalizeWsEvents([
+      {
+        timestamp: '2026-05-01T12:00:10Z',
+        type: 'workload',
+        source: 'loadgen',
+        kind: 'vu_gap_warning',
+        title: 'Reply gap warning',
+        description: 'gap too wide',
+      },
+    ])
+    expect(event.kind).toBe('vu_gap_warning')
+  })
+
   it('keeps kind standby_reclone from chaos follow-up events', () => {
     const [event] = normalizeWsEvents([
       {
