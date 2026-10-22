@@ -55,6 +55,24 @@ describe('loadSessionPrefs helpers', () => {
     expect(summary).toContain('30s ×4')
   })
 
+  it('round-trips activeUsers and drops garbage values', () => {
+    writeLoadSessionPrefs('dep-users', { rps: 50, activeUsers: 500 })
+    expect(readLoadSessionPrefs('dep-users')).toMatchObject({
+      rps: 50,
+      activeUsers: 500,
+    })
+    const map = JSON.parse(localStorage.getItem('runcloud9_load_session_prefs')!) as Record<
+      string,
+      { rps: number; activeUsers?: unknown }
+    >
+    map['dep-bad'] = { rps: 40, activeUsers: 'nope' }
+    localStorage.setItem('runcloud9_load_session_prefs', JSON.stringify(map))
+    expect(readLoadSessionPrefs('dep-bad')).toMatchObject({ rps: 40 })
+    expect(readLoadSessionPrefs('dep-bad')?.activeUsers).toBeUndefined()
+    writeLoadSessionPrefs('dep-plain', { rps: 30 })
+    expect(readLoadSessionPrefs('dep-plain')?.activeUsers).toBeUndefined()
+  })
+
   it('persists conversations preference per deployment', () => {
     writeLoadSessionPrefs('dep-a', {
       rps: 40,

@@ -1,4 +1,5 @@
 import type { LoadgenConfigView, LoadgenPhaseSpec } from './api'
+import { MAX_ACTIVE_USERS } from './pressureLaneLabel'
 
 const STORAGE_KEY = 'runcloud9_load_session_prefs'
 
@@ -8,6 +9,33 @@ export interface LoadSessionPrefs {
   actorParams?: Record<string, number>
   distribution?: Record<string, number>
   conversations?: boolean
+  activeUsers?: number
+}
+
+/** Drops invalid activeUsers while keeping the rest of a stored row. */
+export function normalizeStoredActiveUsers(value: unknown): number | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    return undefined
+  }
+  if (value < 1) return undefined
+  if (value > MAX_ACTIVE_USERS) return MAX_ACTIVE_USERS
+  return value
+}
+
+function sanitizePrefsRow(row: LoadSessionPrefs): LoadSessionPrefs {
+  const activeUsers = normalizeStoredActiveUsers(row.activeUsers)
+  const out: LoadSessionPrefs = {
+    rps: row.rps,
+    scheduleId: row.scheduleId,
+    actorParams: row.actorParams,
+    distribution: row.distribution,
+    conversations: row.conversations,
+  }
+  if (activeUsers !== undefined) {
+    out.activeUsers = activeUsers
+  }
+  return out
 }
 
 type PersistedMap = Record<string, LoadSessionPrefs>
@@ -28,7 +56,7 @@ export function readLoadSessionPrefs(deploymentId: string): LoadSessionPrefs | n
   if (!deploymentId.trim()) return null
   const row = readMap()[deploymentId]
   if (!row || !Number.isFinite(row.rps) || row.rps < 1) return null
-  return row
+  return sanitizePrefsRow(row)
 }
 
 export function writeLoadSessionPrefs(

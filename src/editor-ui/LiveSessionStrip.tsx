@@ -28,6 +28,7 @@ import {
   formatSchedulePhaseSummary,
   readLoadSessionPrefs,
   writeLoadSessionPrefs,
+  type LoadSessionPrefs,
 } from '../lib/loadSessionPrefs'
 import type { LoadgenActorParamSpec, LoadgenEndpointSpec } from '../lib/api'
 import {
@@ -42,9 +43,15 @@ import {
 import { getTopologyFlags } from '../lib/componentRole'
 import { clampReadReplicas } from '../lib/replicaConfig'
 import {
+  conversationLaneMetrics,
   conversationLaneSummary,
   conversationsDefaultOn,
 } from '../lib/conversationsToggle'
+import {
+  activeUsersPressureTooltip,
+  MAX_ACTIVE_USERS,
+  pressureLaneLabel,
+} from '../lib/pressureLaneLabel'
 import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import {
@@ -143,6 +150,10 @@ export function LiveSessionStrip() {
   const [actorParams, setActorParams] = useState<Record<string, number>>({})
   const [mixPercents, setMixPercents] = useState<number[]>([])
   const [conversations, setConversations] = useState(false)
+  const [activeUsers, setActiveUsers] = useState<number | null>(null)
+  const [activeUsersCapNotice, setActiveUsersCapNotice] = useState<string | null>(
+    null,
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const lastPatchRef = useRef<{ rps: number; distSnap: string } | null>(null)
@@ -212,6 +223,8 @@ export function LiveSessionStrip() {
           ? prefs.conversations
           : conversationsDefault,
       )
+      setActiveUsers(prefs.activeUsers ?? null)
+      setActiveUsersCapNotice(null)
       if (endpoints.length > 1 && prefs.distribution) {
         setMixPercents(distributionToPercents(endpoints, prefs.distribution))
       } else if (endpoints.length > 1) {
@@ -233,6 +246,8 @@ export function LiveSessionStrip() {
     setScheduleId(defaultScheduleId(cfg))
     setActorParams(defaultActorParams(cfg))
     setConversations(conversationsDefault)
+    setActiveUsers(null)
+    setActiveUsersCapNotice(null)
     if (endpoints.length > 1) {
       setMixPercents(defaultEndpointPercents(endpoints))
     } else {
@@ -451,13 +466,21 @@ export function LiveSessionStrip() {
     return percentsToDistribution(loadEndpoints, mixPercents)
   }, [hasMixControls, loadEndpoints, mixPercents])
 
-  const buildSessionPrefs = useCallback(() => {
-    const prefs = { rps, scheduleId, actorParams, conversations }
+  const buildSessionPrefs = useCallback((): LoadSessionPrefs => {
+    const prefs: LoadSessionPrefs = {
+      rps,
+      scheduleId,
+      actorParams,
+      conversations,
+    }
+    if (activeUsers != null && activeUsers > 0) {
+      prefs.activeUsers = activeUsers
+    }
     if (mixDistribution) {
       return { ...prefs, distribution: mixDistribution }
     }
     return prefs
-  }, [rps, scheduleId, actorParams, mixDistribution, conversations])
+  }, [rps, scheduleId, actorParams, mixDistribution, conversations, activeUsers])
 
   useEffect(() => {
     if (!deploymentId || loadRunning) return
@@ -567,6 +590,7 @@ export function LiveSessionStrip() {
           conversations && resolvedLoadgenConfig?.conversations
             ? resolvedLoadgenConfig.conversations
             : undefined,
+        ...(activeUsers != null && activeUsers > 0 ? { activeUsers } : {}),
       })
       lastPatchRef.current = {
         rps,
@@ -580,6 +604,7 @@ export function LiveSessionStrip() {
         durationSeconds: 0,
         scheduleId: scheduleId || undefined,
         ...(showConversationsToggle ? { conversations } : {}),
+        ...(activeUsers != null && activeUsers > 0 ? { activeUsers } : {}),
         ...(deploymentId ? { deploymentId } : {}),
         ...(liveSessionStartedAt
           ? {
@@ -612,6 +637,7 @@ export function LiveSessionStrip() {
     conversations,
     resolvedLoadgenConfig,
     showConversationsToggle,
+    activeUsers,
   ])
 
   const onStopLoad = useCallback(async () => {
@@ -718,6 +744,15 @@ export function LiveSessionStrip() {
       : fmtRate(throughput)
   const loadPhaseLabel =
     !devDesignPreview && loadgen?.currentPhase ? loadgen.currentPhase : null
+  const pressureLabel = loadRunning
+    ? pressureLaneLabel({
+        rps: runningRps,
+        activeUsers,
+        conversationVUs: loadgen?.vu
+          ? conversationLaneMetrics(loadgen.vu).vus
+          : null,
+      })
+    : ''
   const sessionTitle =
     mode === 'live' && deploymentId
       ? deploymentId
@@ -974,7 +1009,7 @@ export function LiveSessionStrip() {
                         loadPhaseLabel ? ` · ${loadPhaseLabel}` : ''
                       }${
                         runningTotal > 0 ? ` · ${fmtInt(runningTotal)} total` : ''
-                      }`
+                      }${pressureLabel ? ` · ${pressureLabel}` : ''}`
                     : '\u00a0'}
                 </p>
                 <div className="c9-load-panel-body">
@@ -1013,6 +1048,57 @@ export function LiveSessionStrip() {
                       )
                     }}
                   />
+                </div>
+                <div className="c9-load-panel-field">
+                  <label
+                    htmlFor="live-load-users"
+                    title={
+                      activeUsers != null && activeUsers > 0
+                        ? activeUsersPressureTooltip({
+                            activeUsers,
+                            rps,
+                          })
+                        : undefined
+                    }
+                  >
+                    Users
+                  </label>
+                  <input
+                    id="live-load-users"
+                    type="number"
+                    min={1}
+                    max={MAX_ACTIVE_USERS}
+                    placeholder="template default"
+                    disabled={loadRunning}
+                    value={activeUsers == null ? '' : String(activeUsers)}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim()
+                      if (raw === '') {
+                        setActiveUsers(null)
+                        setActiveUsersCapNotice(null)
+                        return
+                      }
+                      const n = Number(raw)
+                      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+                        return
+                      }
+                      if (n === 0) {
+                        setActiveUsers(null)
+                        setActiveUsersCapNotice(null)
+                        return
+                      }
+                      if (n > MAX_ACTIVE_USERS) {
+                        setActiveUsers(MAX_ACTIVE_USERS)
+                        setActiveUsersCapNotice('Capped at 10,000')
+                        return
+                      }
+                      setActiveUsers(n)
+                      setActiveUsersCapNotice(null)
+                    }}
+                  />
+                  {activeUsersCapNotice ? (
+                    <p className="c9-load-panel-hint">{activeUsersCapNotice}</p>
+                  ) : null}
                 </div>
                 {hasMixControls ? (
                   <>
