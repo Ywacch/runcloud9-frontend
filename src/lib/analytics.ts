@@ -182,6 +182,7 @@ export type AnalyticsEventMap = {
     scheduleId?: string
     deploymentId?: string
     time_to_loadgen_ms?: number
+    conversations?: boolean
   }
   loadgen_stopped: { template: string; liveSeconds: number; deploymentId?: string }
   journey_panel_opened: { template: string; context: 'design' | 'live' }

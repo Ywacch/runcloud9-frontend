@@ -7,6 +7,7 @@ export interface LoadSessionPrefs {
   scheduleId?: string
   actorParams?: Record<string, number>
   distribution?: Record<string, number>
+  conversations?: boolean
 }
 
 type PersistedMap = Record<string, LoadSessionPrefs>

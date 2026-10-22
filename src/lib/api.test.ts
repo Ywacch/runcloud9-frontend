@@ -86,6 +86,48 @@ describe('auth headers for protected deployment calls', () => {
     expect(body.actorParams).toEqual({ celebrityPostPct: 90 })
   })
 
+  it('includes vu in startLoadGen JSON body when set', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('abc123')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      status: 200,
+      statusText: 'OK',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const vu = {
+      behaviors: [
+        { name: 'conversation_starter', count: 2 },
+        { name: 'replier', count: 2 },
+      ],
+    }
+    await startLoadGen('dep-1', { rps: 20, vu })
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(body.vu).toEqual(vu)
+  })
+
+  it('omits vu and activeUsers when unset or zero', async () => {
+    vi.mocked(getAccessToken).mockReturnValue('abc123')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      status: 200,
+      statusText: 'OK',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await startLoadGen('dep-1', { rps: 20, activeUsers: 0 })
+    let body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(body.vu).toBeUndefined()
+    expect(body.activeUsers).toBeUndefined()
+
+    await startLoadGen('dep-1', { rps: 20, activeUsers: 500 })
+    body = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))
+    expect(body.activeUsers).toBe(500)
+  })
+
   it('sends Authorization on PATCH updateLoadGen', async () => {
     vi.mocked(getAccessToken).mockReturnValue('abc123')
     const fetchMock = vi.fn().mockResolvedValue({

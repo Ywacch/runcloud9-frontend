@@ -40,6 +40,11 @@ import {
   redistributePercents,
 } from '../lib/trafficMix'
 import { getTopologyFlags } from '../lib/componentRole'
+import { clampReadReplicas } from '../lib/replicaConfig'
+import {
+  conversationLaneSummary,
+  conversationsDefaultOn,
+} from '../lib/conversationsToggle'
 import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
 import {
@@ -137,6 +142,7 @@ export function LiveSessionStrip() {
   const [scheduleId, setScheduleId] = useState('')
   const [actorParams, setActorParams] = useState<Record<string, number>>({})
   const [mixPercents, setMixPercents] = useState<number[]>([])
+  const [conversations, setConversations] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const lastPatchRef = useRef<{ rps: number; distSnap: string } | null>(null)
@@ -166,6 +172,11 @@ export function LiveSessionStrip() {
     maxHeight: number
   } | null>(null)
 
+  const dbNode = useMemo(
+    () => Object.values(nodes).find((n) => n.type === 'database'),
+    [nodes],
+  )
+
   useEffect(() => {
     if (devDesignPreview) return
     if (!snapshotTemplateId || loadgenConfig) return
@@ -186,10 +197,21 @@ export function LiveSessionStrip() {
     const cfg = resolvedLoadgenConfig
     const endpoints = cfg?.endpoints ?? []
     const prefs = deploymentId ? readLoadSessionPrefs(deploymentId) : null
+    const readReplicas = clampReadReplicas(dbNode?.config?.readReplicas)
+    const conversationsDefault = conversationsDefaultOn({
+      conversationsOffered: Boolean(cfg?.conversations),
+      readReplicas,
+      replicaApplyDelayMs: dbNode?.config?.replicaApplyDelayMs,
+    })
     if (prefs) {
       setRps(clampLoadgenRpsToMax(prefs.rps, maxLoadgenRps))
       setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
       setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
+      setConversations(
+        typeof prefs.conversations === 'boolean'
+          ? prefs.conversations
+          : conversationsDefault,
+      )
       if (endpoints.length > 1 && prefs.distribution) {
         setMixPercents(distributionToPercents(endpoints, prefs.distribution))
       } else if (endpoints.length > 1) {
@@ -210,6 +232,7 @@ export function LiveSessionStrip() {
     setRps(defaultRps)
     setScheduleId(defaultScheduleId(cfg))
     setActorParams(defaultActorParams(cfg))
+    setConversations(conversationsDefault)
     if (endpoints.length > 1) {
       setMixPercents(defaultEndpointPercents(endpoints))
     } else {
@@ -223,6 +246,7 @@ export function LiveSessionStrip() {
     devDesignPreview,
     templateDefaultRps,
     maxLoadgenRps,
+    dbNode,
   ])
 
   useEffect(() => {
@@ -331,6 +355,7 @@ export function LiveSessionStrip() {
   }, [nodes])
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
+  const showConversationsToggle = Boolean(resolvedLoadgenConfig?.conversations)
 
   const allJourneys = useMemo(
     () => getJourneys(snapshotTemplateId, topology, storytelling),
@@ -416,6 +441,10 @@ export function LiveSessionStrip() {
   const loadEndpoints = resolvedLoadgenConfig?.endpoints ?? []
   const hasMixControls = loadEndpoints.length > 1
   const hasSchedulePicker = (resolvedLoadgenConfig?.schedules?.length ?? 0) > 0
+  const conversationSummary = useMemo(
+    () => conversationLaneSummary(loadgen?.vu),
+    [loadgen?.vu],
+  )
 
   const mixDistribution = useMemo(() => {
     if (!hasMixControls) return undefined
@@ -423,12 +452,12 @@ export function LiveSessionStrip() {
   }, [hasMixControls, loadEndpoints, mixPercents])
 
   const buildSessionPrefs = useCallback(() => {
-    const prefs = { rps, scheduleId, actorParams }
+    const prefs = { rps, scheduleId, actorParams, conversations }
     if (mixDistribution) {
       return { ...prefs, distribution: mixDistribution }
     }
     return prefs
-  }, [rps, scheduleId, actorParams, mixDistribution])
+  }, [rps, scheduleId, actorParams, mixDistribution, conversations])
 
   useEffect(() => {
     if (!deploymentId || loadRunning) return
@@ -534,6 +563,10 @@ export function LiveSessionStrip() {
         actorParams:
           Object.keys(actorParams).length > 0 ? actorParams : undefined,
         distribution: mixDistribution,
+        vu:
+          conversations && resolvedLoadgenConfig?.conversations
+            ? resolvedLoadgenConfig.conversations
+            : undefined,
       })
       lastPatchRef.current = {
         rps,
@@ -546,6 +579,7 @@ export function LiveSessionStrip() {
         rps,
         durationSeconds: 0,
         scheduleId: scheduleId || undefined,
+        ...(showConversationsToggle ? { conversations } : {}),
         ...(deploymentId ? { deploymentId } : {}),
         ...(liveSessionStartedAt
           ? {
@@ -575,6 +609,9 @@ export function LiveSessionStrip() {
     devDesignPreview,
     mixDistribution,
     buildSessionPrefs,
+    conversations,
+    resolvedLoadgenConfig,
+    showConversationsToggle,
   ])
 
   const onStopLoad = useCallback(async () => {
@@ -1047,6 +1084,25 @@ export function LiveSessionStrip() {
                     </div>
                   )
                 })}
+                {showConversationsToggle ? (
+                  <div className="c9-load-panel-field">
+                    <label className="flex items-center gap-2 text-[13px]">
+                      <input
+                        type="checkbox"
+                        checked={conversations}
+                        disabled={loadRunning}
+                        onChange={(e) => setConversations(e.target.checked)}
+                      />
+                      Conversations
+                    </label>
+                    {loadRunning ? (
+                      <p className="c9-load-panel-hint">Stop load to change</p>
+                    ) : null}
+                    {loadRunning && conversationSummary ? (
+                      <p className="c9-load-panel-hint">{conversationSummary}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 </div>
                 <div className="c9-load-panel-footer">
                 <button

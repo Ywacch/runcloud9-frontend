@@ -55,6 +55,8 @@ function workloadAnchorLabel(event: WsEvent): string | null {
       return 'rate change'
     case 'loadgen_mix':
       return 'mix change'
+    case 'vu_gap_warning':
+      return 'reply gap'
     case 'chaos_inject':
       return 'chaos'
     case 'chaos_heal':

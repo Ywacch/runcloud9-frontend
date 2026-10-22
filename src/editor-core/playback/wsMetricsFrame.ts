@@ -7,6 +7,7 @@ import {
 import { parseComponentFreshness } from '../../lib/metricsFreshness'
 import { parseDbQuerySource } from '../../lib/storageIoDisplay'
 import { CLIENT_LOADGEN_ID } from '../../lib/spawnClientNode'
+import type { ConversationLaneVU } from '../../lib/conversationsToggle'
 import { backendComponentToCanvasType } from '../../lib/typeMapping'
 import {
   parseBackendReplicas,
@@ -32,6 +33,37 @@ import {
   type WsEvent,
 } from '../stores/metricsStore'
 import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
+
+function parseLoadgenVu(raw: unknown): ConversationLaneVU | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const o = raw as Record<string, unknown>
+  const behaviorsRaw = o.behaviors
+  const observerRaw = o.observer
+  const behaviors: ConversationLaneVU['behaviors'] = {}
+  if (behaviorsRaw && typeof behaviorsRaw === 'object' && !Array.isArray(behaviorsRaw)) {
+    for (const [name, stat] of Object.entries(behaviorsRaw as Record<string, unknown>)) {
+      if (!stat || typeof stat !== 'object' || Array.isArray(stat)) continue
+      const row = stat as Record<string, unknown>
+      behaviors[name] = {
+        vus: Number.isFinite(Number(row.vus)) ? Number(row.vus) : undefined,
+        requests: Number.isFinite(Number(row.requests))
+          ? Number(row.requests)
+          : undefined,
+      }
+    }
+  }
+  let observer: ConversationLaneVU['observer']
+  if (observerRaw && typeof observerRaw === 'object' && !Array.isArray(observerRaw)) {
+    const obs = observerRaw as Record<string, unknown>
+    observer = {
+      threadReads: Number.isFinite(Number(obs.threadReads))
+        ? Number(obs.threadReads)
+        : undefined,
+    }
+  }
+  if (Object.keys(behaviors).length === 0 && !observer) return undefined
+  return { behaviors, observer }
+}
 
 function parseLoadgenDistribution(raw: unknown): Record<string, number> | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
@@ -182,6 +214,7 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       e.kind === 'loadgen_stop' ||
       e.kind === 'loadgen_rate' ||
       e.kind === 'loadgen_mix' ||
+      e.kind === 'vu_gap_warning' ||
       e.kind === 'chaos_inject' ||
       e.kind === 'chaos_heal' ||
       e.kind === 'standby_reclone'
@@ -403,6 +436,7 @@ export function applyWsFrameToStore(
       currentPhase: typeof lg.currentPhase === 'string' ? lg.currentPhase : undefined,
       phaseIndex: Number.isFinite(Number(lg.phaseIndex)) ? Number(lg.phaseIndex) : undefined,
       distribution: parseLoadgenDistribution(lg.distribution),
+      vu: parseLoadgenVu(lg.vu),
     })
   }
 

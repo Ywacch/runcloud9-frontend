@@ -92,6 +92,19 @@ export interface LoadProfile {
   actorParams?: Record<string, number>
   /** Distinct logical identities the pressure lane draws from. Omit for the template pool. */
   activeUsers?: number
+  /** Closed-loop conversation behaviors beside the pressure lane. */
+  vu?: LoadgenVUConfig
+}
+
+export interface LoadgenVUBehavior {
+  name: string
+  count: number
+  params?: Record<string, unknown>
+}
+
+export interface LoadgenVUConfig {
+  behaviors: LoadgenVUBehavior[]
+  seed?: number
 }
 
 export interface LoadgenPhaseSpec {
@@ -131,6 +144,7 @@ export interface LoadgenConfigView {
   endpoints?: LoadgenEndpointSpec[]
   params?: LoadgenActorParamSpec[]
   schedules?: LoadgenScheduleSpec[]
+  conversations?: LoadgenVUConfig
 }
 
 export interface TemplateInfo {
@@ -581,6 +595,11 @@ export async function startLoadGen(
     distribution: profile?.distribution,
     scheduleId: profile?.scheduleId,
     actorParams: profile?.actorParams,
+  }
+  if (profile?.vu) body.vu = profile.vu
+  const users = profile?.activeUsers
+  if (users != null && Number.isFinite(users) && users > 0) {
+    body.activeUsers = users
   }
   const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/loadgen`, {
     method: 'POST',
