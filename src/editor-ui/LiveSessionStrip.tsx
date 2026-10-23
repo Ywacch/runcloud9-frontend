@@ -48,9 +48,10 @@ import {
   conversationsDefaultOn,
 } from '../lib/conversationsToggle'
 import {
-  activeUsersPressureTooltip,
+  identityPressureTooltip,
   MAX_ACTIVE_USERS,
   pressureLaneLabel,
+  usersFieldHint,
 } from '../lib/pressureLaneLabel'
 import { computeSystemAggregates } from '../editor-core/domain/systemMetrics'
 import { getJourneys, journeyById } from '../lib/requestJourney'
@@ -744,15 +745,27 @@ export function LiveSessionStrip() {
       : fmtRate(throughput)
   const loadPhaseLabel =
     !devDesignPreview && loadgen?.currentPhase ? loadgen.currentPhase : null
+  const identityCount =
+    loadgen?.identityCount !== undefined ? loadgen.identityCount : null
   const pressureLabel = loadRunning
     ? pressureLaneLabel({
         rps: runningRps,
-        activeUsers,
+        identityCount,
         conversationVUs: loadgen?.vu
           ? conversationLaneMetrics(loadgen.vu).vus
           : null,
       })
     : ''
+  const usersHint =
+    resolvedLoadgenConfig?.identity != null
+      ? usersFieldHint({
+          running: loadRunning,
+          requested: activeUsers,
+          identityCount,
+          identitiesSeen:
+            loadgen?.identitiesSeen !== undefined ? loadgen.identitiesSeen : null,
+        })
+      : null
   const sessionTitle =
     mode === 'live' && deploymentId
       ? deploymentId
@@ -1049,57 +1062,61 @@ export function LiveSessionStrip() {
                     }}
                   />
                 </div>
-                <div className="c9-load-panel-field">
-                  <label
-                    htmlFor="live-load-users"
-                    title={
-                      activeUsers != null && activeUsers > 0
-                        ? activeUsersPressureTooltip({
-                            activeUsers,
-                            rps,
-                          })
-                        : undefined
-                    }
-                  >
-                    Users
-                  </label>
-                  <input
-                    id="live-load-users"
-                    type="number"
-                    min={1}
-                    max={MAX_ACTIVE_USERS}
-                    placeholder="template default"
-                    disabled={loadRunning}
-                    value={activeUsers == null ? '' : String(activeUsers)}
-                    onChange={(e) => {
-                      const raw = e.target.value.trim()
-                      if (raw === '') {
-                        setActiveUsers(null)
+                {resolvedLoadgenConfig?.identity ? (
+                  <div className="c9-load-panel-field">
+                    <label
+                      htmlFor="live-load-users"
+                      title={
+                        loadRunning && identityCount != null && identityCount > 0
+                          ? identityPressureTooltip({
+                              identityCount,
+                              rps: runningRps,
+                            })
+                          : undefined
+                      }
+                    >
+                      Users
+                    </label>
+                    <input
+                      id="live-load-users"
+                      type="number"
+                      min={1}
+                      max={MAX_ACTIVE_USERS}
+                      placeholder="default pool"
+                      disabled={loadRunning}
+                      value={activeUsers == null ? '' : String(activeUsers)}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim()
+                        if (raw === '') {
+                          setActiveUsers(null)
+                          setActiveUsersCapNotice(null)
+                          return
+                        }
+                        const n = Number(raw)
+                        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+                          return
+                        }
+                        if (n === 0) {
+                          setActiveUsers(null)
+                          setActiveUsersCapNotice(null)
+                          return
+                        }
+                        if (n > MAX_ACTIVE_USERS) {
+                          setActiveUsers(MAX_ACTIVE_USERS)
+                          setActiveUsersCapNotice('Capped at 10,000')
+                          return
+                        }
+                        setActiveUsers(n)
                         setActiveUsersCapNotice(null)
-                        return
-                      }
-                      const n = Number(raw)
-                      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
-                        return
-                      }
-                      if (n === 0) {
-                        setActiveUsers(null)
-                        setActiveUsersCapNotice(null)
-                        return
-                      }
-                      if (n > MAX_ACTIVE_USERS) {
-                        setActiveUsers(MAX_ACTIVE_USERS)
-                        setActiveUsersCapNotice('Capped at 10,000')
-                        return
-                      }
-                      setActiveUsers(n)
-                      setActiveUsersCapNotice(null)
-                    }}
-                  />
-                  {activeUsersCapNotice ? (
-                    <p className="c9-load-panel-hint">{activeUsersCapNotice}</p>
-                  ) : null}
-                </div>
+                      }}
+                    />
+                    {usersHint ? (
+                      <p className="c9-load-panel-hint">{usersHint}</p>
+                    ) : activeUsersCapNotice ? (
+                      <p className="c9-load-panel-hint">{activeUsersCapNotice}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {hasMixControls ? (
                   <>
                     <p className="c9-load-panel-hint font-medium text-[var(--c9-text)]">

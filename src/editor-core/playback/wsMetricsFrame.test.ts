@@ -380,6 +380,40 @@ describe('applyWsFrameToStore loadgen latencies', () => {
     expect(lg?.scheduleId).toBe('world_cup_goal')
   })
 
+  it('stores identityCount and identitiesSeen when present', () => {
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: true,
+          targetRps: 220,
+          actualRps: 220,
+          identityCount: 60,
+          identitiesSeen: 42,
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    const lg = useMetricsStore.getState().loadgen
+    expect(lg?.identityCount).toBe(60)
+    expect(lg?.identitiesSeen).toBe(42)
+  })
+
+  it('leaves identity fields undefined when omitted', () => {
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: true,
+          targetRps: 50,
+          actualRps: 50,
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    const lg = useMetricsStore.getState().loadgen
+    expect(lg?.identityCount).toBeUndefined()
+    expect(lg?.identitiesSeen).toBeUndefined()
+  })
+
   it('stores distribution from WS loadgen payload', () => {
     applyWsFrameToStore(
       {

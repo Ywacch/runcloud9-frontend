@@ -138,4 +138,5 @@ export const DEV_LOADGEN_CONFIG: LoadgenConfigView = {
     { key: 'celebrityPostPct', type: 'percent', default: 5, min: 0, max: 100 },
     { key: 'readAfterPostBoost', type: 'float', default: 1, min: 1, max: 5 },
   ],
+  identity: { param: 'userId' },
 }
