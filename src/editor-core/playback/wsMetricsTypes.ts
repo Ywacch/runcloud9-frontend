@@ -127,6 +127,8 @@ export interface WsDeploymentMetrics {
     currentPhase?: string
     phaseIndex?: number
     distribution?: Record<string, number>
+    identityCount?: number
+    identitiesSeen?: number
     vu?: {
       behaviors?: Record<
         string,

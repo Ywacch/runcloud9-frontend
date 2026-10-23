@@ -65,6 +65,13 @@ function parseLoadgenVu(raw: unknown): ConversationLaneVU | undefined {
   return { behaviors, observer }
 }
 
+function parseOptionalLoadgenCount(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return undefined
+  return n
+}
+
 function parseLoadgenDistribution(raw: unknown): Record<string, number> | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
   const out: Record<string, number> = {}
@@ -437,6 +444,8 @@ export function applyWsFrameToStore(
       phaseIndex: Number.isFinite(Number(lg.phaseIndex)) ? Number(lg.phaseIndex) : undefined,
       distribution: parseLoadgenDistribution(lg.distribution),
       vu: parseLoadgenVu(lg.vu),
+      identityCount: parseOptionalLoadgenCount(lg.identityCount),
+      identitiesSeen: parseOptionalLoadgenCount(lg.identitiesSeen),
     })
   }
 

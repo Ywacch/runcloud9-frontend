@@ -203,6 +203,10 @@ export interface LiveLoadgenState {
   distribution?: Record<string, number>
   /** Closed-loop VU lane stats when conversations are running. */
   vu?: ConversationLaneVU
+  /** Distinct identity values the pressure lane can send (from metrics). */
+  identityCount?: number
+  /** Distinct client ids sent on the pressure lane since start. */
+  identitiesSeen?: number
 }
 
 /** Buffered WS ticks for system teaching charts (~2s cadence). */
@@ -244,6 +248,8 @@ function loadgenPayloadEqual(
     a.distribution === b.distribution &&
     a.statusCodes === b.statusCodes &&
     a.stale === b.stale &&
+    a.identityCount === b.identityCount &&
+    a.identitiesSeen === b.identitiesSeen &&
     conversationLaneFingerprint(a.vu) === conversationLaneFingerprint(b.vu)
   )
 }

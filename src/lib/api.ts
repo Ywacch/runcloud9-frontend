@@ -139,12 +139,17 @@ export interface LoadgenEndpointSpec {
 }
 
 /** Projected load UI config from GET /templates/{id}/loadgen. */
+export interface LoadgenIdentityView {
+  param: string
+}
+
 export interface LoadgenConfigView {
   defaultRps?: number
   endpoints?: LoadgenEndpointSpec[]
   params?: LoadgenActorParamSpec[]
   schedules?: LoadgenScheduleSpec[]
   conversations?: LoadgenVUConfig
+  identity?: LoadgenIdentityView
 }
 
 export interface TemplateInfo {
