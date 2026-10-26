@@ -32,6 +32,11 @@ import {
   type MetricsBucket,
   type WsEvent,
 } from '../stores/metricsStore'
+import {
+  findReplyBeforeParentEntry,
+  parsePhenomena,
+} from '../../lib/phenomena/parsePhenomena'
+import { saveLedgerCache } from '../../lib/phenomena/ledgerCache'
 import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
 
 function parseLoadgenVu(raw: unknown): ConversationLaneVU | undefined {
@@ -377,6 +382,21 @@ export function applyWsFrameToStore(
 
   if (payload.templateMetrics && Object.keys(payload.templateMetrics).length > 0) {
     setTemplateMetrics(payload.templateMetrics)
+  }
+
+  const phenomena = parsePhenomena(payload.phenomena)
+  const ledgerNamespace =
+    (typeof payload.namespace === 'string' && payload.namespace.trim()
+      ? payload.namespace.trim()
+      : null) ?? useCanvasStore.getState().deploymentId
+  useMetricsStore.getState().setPhenomena(phenomena, ledgerNamespace)
+  const ledgerEntry = findReplyBeforeParentEntry(phenomena)
+  if (ledgerEntry && ledgerNamespace && typeof sessionStorage !== 'undefined') {
+    const at =
+      typeof payload.timestamp === 'string' && payload.timestamp
+        ? payload.timestamp
+        : new Date().toISOString()
+    saveLedgerCache(sessionStorage, ledgerNamespace, ledgerEntry, at)
   }
 
   const ev = normalizeWsEvents(payload.events)

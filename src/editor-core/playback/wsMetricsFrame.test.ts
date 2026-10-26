@@ -544,11 +544,71 @@ describe('applyWsFrameToStore batching', () => {
     )
     unsubMetrics()
     unsubCanvas()
-    expect(metricsSpy).toHaveBeenCalledTimes(1)
+    expect(metricsSpy).toHaveBeenCalledTimes(2)
     expect(canvasSpy).toHaveBeenCalledTimes(1)
     expect(useMetricsStore.getState().metrics['n-app']?.requestRate).toBe(10)
     expect(useMetricsStore.getState().metrics['n-db']?.dbQueryRate).toBe(5)
     expect(useCanvasStore.getState().nodes['n-app'].status).toBe('degraded')
+  })
+})
+
+describe('applyWsFrameToStore phenomena', () => {
+  beforeEach(() => {
+    useMetricsStore.setState({ phenomena: [], ledgerNamespace: null })
+  })
+
+  it('parses phenomena and tolerates absence', () => {
+    applyWsFrameToStore(
+      {
+        namespace: 'ns-lab',
+        phenomena: [
+          {
+            phenomenon: 'reply_before_parent',
+            fidelity: 'simulated',
+            cost: { readsAffected: 3 },
+            baseRate: { perThousand: 30, denominator: 'all thread reads', reads: 100 },
+            sources: ['app'],
+          },
+        ],
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    expect(useMetricsStore.getState().phenomena).toHaveLength(1)
+    expect(useMetricsStore.getState().phenomena[0].cost.readsAffected).toBe(3)
+    expect(useMetricsStore.getState().ledgerNamespace).toBe('ns-lab')
+
+    applyWsFrameToStore({}, { appendCharts: false, pushEvents: false })
+    expect(useMetricsStore.getState().phenomena).toHaveLength(0)
+  })
+})
+
+describe('applyWsFrameToStore phenomena', () => {
+  beforeEach(() => {
+    useMetricsStore.setState({ phenomena: [], ledgerNamespace: null })
+  })
+
+  it('parses phenomena and tolerates absence', () => {
+    applyWsFrameToStore(
+      {
+        namespace: 'ns-lab',
+        phenomena: [
+          {
+            phenomenon: 'reply_before_parent',
+            fidelity: 'simulated',
+            cost: { readsAffected: 3 },
+            baseRate: { perThousand: 30, denominator: 'all thread reads', reads: 100 },
+            sources: ['app'],
+          },
+        ],
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    expect(useMetricsStore.getState().phenomena).toHaveLength(1)
+    expect(useMetricsStore.getState().phenomena[0].cost.readsAffected).toBe(3)
+    expect(useMetricsStore.getState().ledgerNamespace).toBe('ns-lab')
+
+    applyWsFrameToStore({}, { appendCharts: false, pushEvents: false })
+    expect(useMetricsStore.getState().phenomena).toHaveLength(0)
   })
 })
 

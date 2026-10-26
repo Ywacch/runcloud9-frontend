@@ -1,0 +1,31 @@
+{
+  "phenomenon": "reply_before_parent",
+  "fidelity": "simulated",
+  "cost": { "readsAffected": 37 },
+  "baseRate": {
+    "perThousand": 212,
+    "denominator": "observer thread reads in window",
+    "reads": 175
+  },
+  "expected": { "minPerThousand": 150, "maxPerThousand": 400 },
+  "examples": [
+    {
+      "requestId": "req-dev-fixture-1",
+      "at": "2026-06-01T12:04:31.000Z",
+      "detail": {
+        "rootId": "42",
+        "replyId": "9001",
+        "parentId": "9000",
+        "repliesHost": "postgres-replica-1",
+        "parentsHost": "postgres-replica-2"
+      }
+    }
+  ],
+  "cause": {
+    "readConsistency": "replica",
+    "replicaApplyDelayMs": [0, 1500],
+    "readReplicas": 2
+  },
+  "sources": ["app", "observer"],
+  "detectionMayBeIncomplete": false
+}

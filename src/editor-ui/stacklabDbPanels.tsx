@@ -1,5 +1,13 @@
+import { useMemo } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import { devInspectorLivePreviewEnabled } from '../lib/devInspectorMode'
+import { findReplyBeforeParentEntry, parsePhenomena } from '../lib/phenomena/parsePhenomena'
+import { loadLedgerCache } from '../lib/phenomena/ledgerCache'
+import { buildReplyBeforeParentCard } from '../lib/phenomena/replyBeforeParentCard'
+import fixtureReplyBeforeParent from '../lib/phenomena/__fixtures__/replyBeforeParent.json'
+import { ReplyBeforeParentCard } from './ReplyBeforeParentCard'
 import { FMT_EMPTY, fmtInt, fmtRate } from '../lib/format'
 import {
   connectedReplicaSyncStates,
@@ -42,6 +50,32 @@ import {
   SlTiles,
 } from './stacklabPanePrimitives'
 import { StacklabNote as Note } from './stacklabMetricsUi'
+
+function devFixtureReplyBeforeParentEntry(): PhenomenonEntry | undefined {
+  if (!devInspectorLivePreviewEnabled()) return undefined
+  return findReplyBeforeParentEntry(parsePhenomena([fixtureReplyBeforeParent]))
+}
+
+/** Ledger card for reply-before-parent (live WS, session cache, or DEV fixture). */
+export function StacklabDbReplyBeforeParentSection() {
+  const phenomena = useMetricsStore((s) => s.phenomena)
+  const ledgerNamespace = useMetricsStore((s) => s.ledgerNamespace)
+  const live = findReplyBeforeParentEntry(phenomena)
+  const cached = useMemo(() => {
+    if (live || !ledgerNamespace || typeof sessionStorage === 'undefined') return undefined
+    return loadLedgerCache(sessionStorage, ledgerNamespace)
+  }, [live, ledgerNamespace, phenomena])
+  const devEntry = !live && !cached ? devFixtureReplyBeforeParentEntry() : undefined
+  const model = buildReplyBeforeParentCard(live ?? devEntry, live || devEntry ? undefined : cached)
+  if (!model) return null
+  return (
+    <>
+      <SlSpacer />
+      <ReplyBeforeParentCard model={model} />
+      <SlSpacer />
+    </>
+  )
+}
 
 export function StacklabDbPatternBridge({
   m,
@@ -145,6 +179,7 @@ export function StacklabDbReplicationBody({
 
   return (
     <>
+      <StacklabDbReplyBeforeParentSection />
       <SlSecHead
         index="04"
         title="Is the replica keeping up?"

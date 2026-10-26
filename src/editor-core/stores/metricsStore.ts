@@ -11,6 +11,8 @@ import {
   type ConversationLaneVU,
   conversationLaneFingerprint,
 } from '../../lib/conversationsToggle'
+import type { PhenomenonEntry } from '../../lib/phenomena/types'
+import { clearLedgerCache } from '../../lib/phenomena/ledgerCache'
 
 export type WorkloadEventKind =
   | 'loadgen_start'
@@ -326,6 +328,10 @@ interface MetricsState {
   events: WsEvent[]
   /** Latest template-scoped counters/gauges from backend (dot keys). */
   templateMetrics: Record<string, number>
+  /** Phenomenon ledger entries from the latest WS frame. */
+  phenomena: PhenomenonEntry[]
+  /** Namespace used for ledger sessionStorage (WS `namespace` or deployment id). */
+  ledgerNamespace: string | null
   /** Latest cascade event for a short toast; cleared on dismiss or clearMetrics. */
   cascadeToast: WsEvent | null
   invariantToast: WsEvent | null
@@ -359,6 +365,7 @@ interface MetricsState {
   setPlaybackCatchingUp: (catchingUp: boolean) => void
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
+  setPhenomena: (entries: PhenomenonEntry[], ledgerNamespace: string | null) => void
   dismissCascadeToast: () => void
   dismissInvariantToast: () => void
   setStreamWarning: (msg: string | null) => void
@@ -375,6 +382,8 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   systemSeries: [],
   events: [],
   templateMetrics: {},
+  phenomena: [],
+  ledgerNamespace: null,
   cascadeToast: null,
   invariantToast: null,
   streamWarning: null,
@@ -467,6 +476,9 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   setTemplateMetrics: (m) =>
     set({ templateMetrics: m && Object.keys(m).length ? { ...m } : {} }),
 
+  setPhenomena: (phenomena, ledgerNamespace) =>
+    set({ phenomena: [...phenomena], ledgerNamespace }),
+
   dismissCascadeToast: () => set({ cascadeToast: null }),
 
   dismissInvariantToast: () => set({ invariantToast: null }),
@@ -476,6 +488,10 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   setMetricsDegraded: (metricsDegraded) => set({ metricsDegraded }),
 
   clearMetrics: () => {
+    const ledgerNs = useMetricsStore.getState().ledgerNamespace
+    if (ledgerNs && typeof sessionStorage !== 'undefined') {
+      clearLedgerCache(sessionStorage, ledgerNs)
+    }
     useCanvasStore.getState().setNarrativeHighlightNodeIds([])
     useChaosStore.getState().clear()
     clearPlaybackSession()
@@ -487,6 +503,8 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       systemSeries: [],
       events: [],
       templateMetrics: {},
+      phenomena: [],
+      ledgerNamespace: null,
       cascadeToast: null,
       invariantToast: null,
       streamWarning: null,
