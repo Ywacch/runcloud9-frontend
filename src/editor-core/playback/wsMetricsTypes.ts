@@ -104,6 +104,7 @@ export interface WsDeploymentMetrics {
   namespace?: string
   snapshotAgeMs?: number
   collectPending?: boolean
+  phenomena?: unknown
   components?: Record<string, WsComponentMetrics>
   templateMetrics?: Record<string, number>
   events?: WsEventPayload[]
