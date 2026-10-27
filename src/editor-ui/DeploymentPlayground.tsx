@@ -7,6 +7,16 @@ import {
   parseUserPoolUserIds,
 } from '../lib/playgroundProxy'
 import { cacheHasBrowserHttpProxy } from '../lib/proxyTargets'
+import {
+  buildThreadView,
+  parseThreadPoolEntries,
+  threadPoolOptionLabel,
+  threadProxyArgs,
+  tryParseThreadResponse,
+  type ThreadPoolEntry,
+  type ThreadView,
+  type ThreadViewNode,
+} from '../lib/threadView'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { FMT_EMPTY } from '../lib/format'
 
@@ -41,6 +51,9 @@ export function DeploymentPlayground() {
   const [poolLoadError, setPoolLoadError] = useState<string | null>(null)
   const [actAsUserId, setActAsUserId] = useState('')
   const [threadRootId, setThreadRootId] = useState('')
+  const [threadPool, setThreadPool] = useState<ThreadPoolEntry[]>([])
+  const [threadPoolNotice, setThreadPoolNotice] = useState<string | null>(null)
+  const [showThreadRaw, setShowThreadRaw] = useState(false)
 
   const cacheHttp = useMemo(() => cacheHasBrowserHttpProxy(nodes), [nodes])
   const socialFeed = isSocialFeedTemplate(snapshotTemplateId)
@@ -50,15 +63,28 @@ export function DeploymentPlayground() {
     return deploymentProxyUrl(deploymentId, target, pathInput)
   }, [deploymentId, target, pathInput])
 
-  const servedBy = useMemo(
-    () => (lastBody ? parseThreadServedBy(lastBody) : null),
-    [lastBody],
-  )
+  const threadView = useMemo((): ThreadView | null => {
+    if (!lastBody || lastStatus !== 200) return null
+    const parsed = tryParseThreadResponse(lastBody)
+    if (!parsed) return null
+    return buildThreadView(parsed, Date.now())
+  }, [lastBody, lastStatus])
+
+  const servedBy = useMemo(() => {
+    if (threadView) {
+      const { servedByReplies, servedByParents } = threadView
+      if (!servedByReplies && !servedByParents) return null
+      return { replies: servedByReplies, parents: servedByParents }
+    }
+    return lastBody ? parseThreadServedBy(lastBody) : null
+  }, [lastBody, threadView])
 
   useEffect(() => {
     if (!open || !deploymentId || !socialFeed) {
       setPoolUserIds([])
       setPoolLoadError(null)
+      setThreadPool([])
+      setThreadPoolNotice(null)
       return
     }
     let cancelled = false
@@ -94,6 +120,95 @@ export function DeploymentPlayground() {
     }
   }, [open, deploymentId, socialFeed])
 
+  useEffect(() => {
+    if (!open || !deploymentId || !socialFeed) return
+    let cancelled = false
+    void (async () => {
+      const args = threadProxyArgs('thread-pool', actAsUserId)
+      try {
+        const res = await fetchDeploymentProxy(deploymentId, 'app-server', args.path, {
+          method: 'GET',
+          actAsUserId: args.actAsUserId,
+        })
+        const text = await res.text()
+        if (cancelled) return
+        if (res.status === 404) {
+          setThreadPool([])
+          setThreadPoolNotice("Thread list isn't on this image yet.")
+          return
+        }
+        if (!res.ok) {
+          setThreadPool([])
+          setThreadPoolNotice(parseProxyLayerErrorMessage(text, res.statusText))
+          return
+        }
+        let body: unknown = null
+        try {
+          body = JSON.parse(text) as unknown
+        } catch {
+          setThreadPool([])
+          setThreadPoolNotice('Invalid thread pool response')
+          return
+        }
+        const entries = parseThreadPoolEntries(body)
+        setThreadPool(entries)
+        setThreadPoolNotice(
+          entries.length === 0 ? 'No threads with replies yet.' : null,
+        )
+      } catch (e) {
+        if (!cancelled) {
+          setThreadPool([])
+          setThreadPoolNotice(e instanceof Error ? e.message : 'Failed to load threads')
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, deploymentId, socialFeed, actAsUserId])
+
+  const loadThread = useCallback(
+    async (root: string) => {
+      const trimmed = root.trim().replace(/^\/+/, '')
+      if (!trimmed || !/^\d+$/.test(trimmed)) {
+        setLastError('Enter a numeric thread root id')
+        return
+      }
+      if (!deploymentId) return
+      setTarget('app-server')
+      setMethod('GET')
+      setPathInput(`threads/${trimmed}`)
+      setPostBody('')
+      setBusy(true)
+      setLastError(null)
+      setLastBody(null)
+      setLastStatus(null)
+      setLastProxied(null)
+      setLastRequestId(null)
+      setShowThreadRaw(false)
+      try {
+        const args = threadProxyArgs(`threads/${trimmed}`, actAsUserId)
+        const res = await fetchDeploymentProxy(deploymentId, 'app-server', args.path, {
+          method: 'GET',
+          actAsUserId: args.actAsUserId,
+        })
+        setLastStatus(res.status)
+        setLastProxied(getProxiedHeaderValue(res))
+        setLastRequestId(res.headers.get('X-Request-ID'))
+        const text = await res.text()
+        if (!res.ok && getProxiedHeaderValue(res) !== 'true') {
+          setLastError(parseProxyLayerErrorMessage(text, res.statusText))
+        }
+        setLastBody(text)
+      } catch (e) {
+        setLastError(e instanceof Error ? e.message : 'Request failed')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [actAsUserId, deploymentId],
+  )
+
   const applyUrlShortenerPreset = useCallback(() => {
     setTarget('app-server')
     setMethod('POST')
@@ -102,41 +217,12 @@ export function DeploymentPlayground() {
   }, [])
 
   const runThreadQuickAction = useCallback(async () => {
-    const root = threadRootId.trim().replace(/^\/+/, '')
-    if (!root || !/^\d+$/.test(root)) {
-      setLastError('Enter a numeric thread root id')
-      return
-    }
-    if (!deploymentId) return
-    setTarget('app-server')
-    setMethod('GET')
-    setPathInput(`threads/${root}`)
-    setPostBody('')
-    setBusy(true)
-    setLastError(null)
-    setLastBody(null)
-    setLastStatus(null)
-    setLastProxied(null)
-    setLastRequestId(null)
-    try {
-      const res = await fetchDeploymentProxy(deploymentId, 'app-server', `threads/${root}`, {
-        method: 'GET',
-        actAsUserId: actAsUserId.trim() || undefined,
-      })
-      setLastStatus(res.status)
-      setLastProxied(getProxiedHeaderValue(res))
-      setLastRequestId(res.headers.get('X-Request-ID'))
-      const text = await res.text()
-      if (!res.ok && getProxiedHeaderValue(res) !== 'true') {
-        setLastError(parseProxyLayerErrorMessage(text, res.statusText))
-      }
-      setLastBody(text)
-    } catch (e) {
-      setLastError(e instanceof Error ? e.message : 'Request failed')
-    } finally {
-      setBusy(false)
-    }
-  }, [actAsUserId, deploymentId, threadRootId])
+    await loadThread(threadRootId)
+  }, [loadThread, threadRootId])
+
+  const refreshThread = useCallback(async () => {
+    await loadThread(threadRootId)
+  }, [loadThread, threadRootId])
 
   const send = useCallback(async () => {
     if (!deploymentId) return
@@ -240,6 +326,26 @@ export function DeploymentPlayground() {
               {poolLoadError ? (
                 <p className="mb-2 text-[11px] text-amber-200/90">{poolLoadError}</p>
               ) : null}
+              <label className="mb-1 block text-[var(--c9-muted)]">Thread</label>
+              <select
+                value={threadPool.some((e) => String(e.rootId) === threadRootId) ? threadRootId : ''}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setThreadRootId(id)
+                  if (id) void loadThread(id)
+                }}
+                className="mb-1 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-[var(--c9-text)]"
+              >
+                <option value="">Pick a thread…</option>
+                {threadPool.map((entry) => (
+                  <option key={entry.rootId} value={String(entry.rootId)}>
+                    {threadPoolOptionLabel(entry.rootId, entry.replyCount)}
+                  </option>
+                ))}
+              </select>
+              {threadPoolNotice ? (
+                <p className="mb-2 text-[11px] text-[var(--c9-muted)]">{threadPoolNotice}</p>
+              ) : null}
               <div className="mb-2 flex gap-2">
                 <input
                   type="text"
@@ -255,6 +361,14 @@ export function DeploymentPlayground() {
                   className="shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-1.5 text-[11px] text-[var(--c9-badge-text)] disabled:opacity-50"
                 >
                   Thread
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !threadRootId.trim()}
+                  onClick={() => void refreshThread()}
+                  className="shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-1.5 text-[11px] text-[var(--c9-badge-text)] disabled:opacity-50"
+                >
+                  Refresh
                 </button>
               </div>
             </>
@@ -366,7 +480,22 @@ export function DeploymentPlayground() {
                   <span className="font-mono">{servedBy.parents ?? '—'}</span>
                 </p>
               ) : null}
-              {lastBody != null ? (
+              {lastBody != null && threadView ? (
+                <div className="max-h-48 overflow-auto rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 p-2 text-[11px] text-[var(--c9-text)]">
+                  <ThreadCommentTree view={threadView} />
+                  <details
+                    className="mt-2 border-t border-[var(--c9-border)] pt-2"
+                    open={showThreadRaw}
+                    onToggle={(e) => setShowThreadRaw(e.currentTarget.open)}
+                  >
+                    <summary className="cursor-pointer text-[var(--c9-muted)]">Raw</summary>
+                    <pre className="mt-1 whitespace-pre-wrap break-all font-mono text-[10px]">
+                      {tryPrettyJson(lastBody)}
+                    </pre>
+                  </details>
+                </div>
+              ) : null}
+              {lastBody != null && !threadView ? (
                 <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 p-2 font-mono text-[11px] text-[var(--c9-text)]">
                   {tryPrettyJson(lastBody)}
                 </pre>
@@ -375,6 +504,34 @@ export function DeploymentPlayground() {
           ) : null}
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function ThreadCommentTree({ view }: { view: ThreadView }) {
+  return (
+    <div>
+      <ThreadCommentNode node={view.root} />
+      {view.replyCount === 0 && !view.root.missing ? (
+        <p className="mt-1 text-[var(--c9-muted)]">No replies yet</p>
+      ) : null}
+    </div>
+  )
+}
+
+function ThreadCommentNode({ node }: { node: ThreadViewNode }) {
+  return (
+    <div style={{ marginLeft: node.depth * 16 }}>
+      <p className="whitespace-pre-wrap break-words">{node.content}</p>
+      {!node.missing && node.userId != null ? (
+        <p className="text-[10px] text-[var(--c9-muted)]">
+          user {node.userId}
+          {node.ageLabel ? ` · ${node.ageLabel}` : ''}
+        </p>
+      ) : null}
+      {node.children.map((child) => (
+        <ThreadCommentNode key={`${child.id}-${child.depth}`} node={child} />
+      ))}
     </div>
   )
 }
