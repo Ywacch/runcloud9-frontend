@@ -1,5 +1,11 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { deploymentProxyUrl } from '../lib/api'
+import {
+  fetchDeploymentProxy,
+  isSocialFeedTemplate,
+  parseThreadServedBy,
+  parseUserPoolUserIds,
+} from '../lib/playgroundProxy'
 import { cacheHasBrowserHttpProxy } from '../lib/proxyTargets'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { FMT_EMPTY } from '../lib/format'
@@ -29,13 +35,64 @@ export function DeploymentPlayground() {
   const [lastProxied, setLastProxied] = useState<string | null>(null)
   const [lastBody, setLastBody] = useState<string | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
+  const [lastRequestId, setLastRequestId] = useState<string | null>(null)
+
+  const [poolUserIds, setPoolUserIds] = useState<string[]>([])
+  const [poolLoadError, setPoolLoadError] = useState<string | null>(null)
+  const [actAsUserId, setActAsUserId] = useState('')
+  const [threadRootId, setThreadRootId] = useState('')
 
   const cacheHttp = useMemo(() => cacheHasBrowserHttpProxy(nodes), [nodes])
+  const socialFeed = isSocialFeedTemplate(snapshotTemplateId)
 
   const urlPreview = useMemo(() => {
     if (!deploymentId) return ''
     return deploymentProxyUrl(deploymentId, target, pathInput)
   }, [deploymentId, target, pathInput])
+
+  const servedBy = useMemo(
+    () => (lastBody ? parseThreadServedBy(lastBody) : null),
+    [lastBody],
+  )
+
+  useEffect(() => {
+    if (!open || !deploymentId || !socialFeed) {
+      setPoolUserIds([])
+      setPoolLoadError(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetchDeploymentProxy(deploymentId, 'app-server', 'user-pool', {
+          method: 'GET',
+        })
+        const text = await res.text()
+        let body: unknown = null
+        try {
+          body = JSON.parse(text) as unknown
+        } catch {
+          /* ignore */
+        }
+        if (cancelled) return
+        if (!res.ok) {
+          setPoolLoadError(parseProxyLayerErrorMessage(text, res.statusText))
+          setPoolUserIds([])
+          return
+        }
+        setPoolLoadError(null)
+        setPoolUserIds(parseUserPoolUserIds(body))
+      } catch (e) {
+        if (!cancelled) {
+          setPoolLoadError(e instanceof Error ? e.message : 'Failed to load user pool')
+          setPoolUserIds([])
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, deploymentId, socialFeed])
 
   const applyUrlShortenerPreset = useCallback(() => {
     setTarget('app-server')
@@ -44,6 +101,43 @@ export function DeploymentPlayground() {
     setPostBody(JSON.stringify({ url: 'https://example.com' }, null, 2))
   }, [])
 
+  const runThreadQuickAction = useCallback(async () => {
+    const root = threadRootId.trim().replace(/^\/+/, '')
+    if (!root || !/^\d+$/.test(root)) {
+      setLastError('Enter a numeric thread root id')
+      return
+    }
+    if (!deploymentId) return
+    setTarget('app-server')
+    setMethod('GET')
+    setPathInput(`threads/${root}`)
+    setPostBody('')
+    setBusy(true)
+    setLastError(null)
+    setLastBody(null)
+    setLastStatus(null)
+    setLastProxied(null)
+    setLastRequestId(null)
+    try {
+      const res = await fetchDeploymentProxy(deploymentId, 'app-server', `threads/${root}`, {
+        method: 'GET',
+        actAsUserId: actAsUserId.trim() || undefined,
+      })
+      setLastStatus(res.status)
+      setLastProxied(getProxiedHeaderValue(res))
+      setLastRequestId(res.headers.get('X-Request-ID'))
+      const text = await res.text()
+      if (!res.ok && getProxiedHeaderValue(res) !== 'true') {
+        setLastError(parseProxyLayerErrorMessage(text, res.statusText))
+      }
+      setLastBody(text)
+    } catch (e) {
+      setLastError(e instanceof Error ? e.message : 'Request failed')
+    } finally {
+      setBusy(false)
+    }
+  }, [actAsUserId, deploymentId, threadRootId])
+
   const send = useCallback(async () => {
     if (!deploymentId) return
     setBusy(true)
@@ -51,8 +145,8 @@ export function DeploymentPlayground() {
     setLastBody(null)
     setLastStatus(null)
     setLastProxied(null)
+    setLastRequestId(null)
     try {
-      const url = deploymentProxyUrl(deploymentId, target, pathInput)
       const headers: Record<string, string> = {
         Accept: 'application/json',
       }
@@ -61,9 +155,15 @@ export function DeploymentPlayground() {
         headers['Content-Type'] = 'application/json'
         body = postBody
       }
-      const res = await fetch(url, { method, headers, body })
+      const res = await fetchDeploymentProxy(deploymentId, target, pathInput, {
+        method,
+        headers,
+        body,
+        actAsUserId: actAsUserId.trim() || undefined,
+      })
       setLastStatus(res.status)
       setLastProxied(getProxiedHeaderValue(res))
+      setLastRequestId(res.headers.get('X-Request-ID'))
       const text = await res.text()
       const isLikelyProxyLayerError =
         getProxiedHeaderValue(res) !== 'true' &&
@@ -87,7 +187,7 @@ export function DeploymentPlayground() {
     } finally {
       setBusy(false)
     }
-  }, [deploymentId, method, pathInput, postBody, target])
+  }, [actAsUserId, deploymentId, method, pathInput, postBody, target])
 
   if (mode !== 'live' || !deploymentId) return null
 
@@ -122,6 +222,44 @@ export function DeploymentPlayground() {
             ) : null}
           </div>
 
+          {socialFeed ? (
+            <>
+              <label className="mb-1 block text-[var(--c9-muted)]">Act as</label>
+              <select
+                value={actAsUserId}
+                onChange={(e) => setActAsUserId(e.target.value)}
+                className="mb-1 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-[var(--c9-text)]"
+              >
+                <option value="">Me (owner)</option>
+                {poolUserIds.map((id) => (
+                  <option key={id} value={id}>
+                    User {id}
+                  </option>
+                ))}
+              </select>
+              {poolLoadError ? (
+                <p className="mb-2 text-[11px] text-amber-200/90">{poolLoadError}</p>
+              ) : null}
+              <div className="mb-2 flex gap-2">
+                <input
+                  type="text"
+                  value={threadRootId}
+                  onChange={(e) => setThreadRootId(e.target.value)}
+                  placeholder="Thread root id"
+                  className="min-w-0 flex-1 rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 font-mono text-[var(--c9-text)]"
+                />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runThreadQuickAction()}
+                  className="shrink-0 rounded border border-[var(--c9-border)] bg-[var(--c9-badge-bg)] px-2 py-1.5 text-[11px] text-[var(--c9-badge-text)] disabled:opacity-50"
+                >
+                  Thread
+                </button>
+              </div>
+            </>
+          ) : null}
+
           {snapshotTemplateId === 'url-shortener' ? (
             <button
               type="button"
@@ -153,7 +291,7 @@ export function DeploymentPlayground() {
             type="text"
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
-            placeholder="e.g. shorten or abc123"
+            placeholder="e.g. shorten or threads/42"
             className="mb-2 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 font-mono text-[var(--c9-text)]"
           />
 
@@ -213,6 +351,21 @@ export function DeploymentPlayground() {
                   </>
                 ) : null}
               </p>
+              {lastRequestId ? (
+                <p className="text-[11px] text-[var(--c9-muted)]">
+                  Request id:{' '}
+                  <span className="font-mono text-[var(--c9-text)]">{lastRequestId}</span>
+                </p>
+              ) : null}
+              {servedBy ? (
+                <p className="rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 px-2 py-1 text-[11px] text-[var(--c9-text)]">
+                  Replies from{' '}
+                  <span className="font-mono">{servedBy.replies ?? '—'}</span>
+                  {' · '}
+                  parents from{' '}
+                  <span className="font-mono">{servedBy.parents ?? '—'}</span>
+                </p>
+              ) : null}
               {lastBody != null ? (
                 <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-[var(--c9-border)] bg-[var(--c9-bg)]/70 p-2 font-mono text-[11px] text-[var(--c9-text)]">
                   {tryPrettyJson(lastBody)}
