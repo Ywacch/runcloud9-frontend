@@ -4,6 +4,7 @@ import {
   CascadeToast,
   InvariantToast,
   ChaosOverlayTicker,
+  DeploymentPlayground,
   EventTimeline,
   InspectorAlertWatcher,
   ProvisioningOverlay,
@@ -111,6 +112,7 @@ export function CanvasSessionOverlays({
       <SessionEndingOverlay />
       {mode === 'live' ? (
         <>
+          <DeploymentPlayground />
           <ChaosOverlayTicker />
           <CascadeToast />
           <InvariantToast />
