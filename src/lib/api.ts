@@ -707,6 +707,9 @@ export async function listActiveChaosPartitions(
  * Build `/deployments/{id}/proxy/{component}` with optional path segments.
  * `pathSuffix` may be e.g. `shorten`, `abc123`, or `a/b` (each segment URL-encoded).
  */
+export { HEADER_ACT_AS, fetchDeploymentProxy } from './playgroundProxy'
+export type { DeploymentProxyOptions } from './playgroundProxy'
+
 export function deploymentProxyUrl(
   deploymentId: string,
   component: string,

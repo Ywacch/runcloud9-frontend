@@ -1,5 +1,6 @@
 import { DEPLOYMENTS_API_PREFIX } from './api'
 import { getAccessToken } from './auth'
+import { HEADER_ACT_AS } from './playgroundProxy'
 
 function authHeaders(): Record<string, string> {
   const token = getAccessToken()
@@ -24,6 +25,7 @@ export async function proxyRequest(
     method?: string
     body?: unknown
     requestId?: string
+    actAsUserId?: string
   },
 ): Promise<ProxyResponse> {
   const method = opts?.method ?? 'GET'
@@ -34,6 +36,8 @@ export async function proxyRequest(
     'X-Request-ID': requestId,
     'Content-Type': 'application/json',
   }
+  const actAs = opts?.actAsUserId?.trim()
+  if (actAs) headers[HEADER_ACT_AS] = actAs
   const res = await fetch(url, {
     method,
     headers,
