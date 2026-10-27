@@ -3,7 +3,7 @@ import {
   parseThreadServedBy,
   parseUserPoolUserIds,
   isSocialFeedTemplate,
-} from './playgroundProxy'
+} from './playgroundProxyModel'
 
 describe('parseUserPoolUserIds', () => {
   it('returns up to 50 digit ids as strings', () => {
