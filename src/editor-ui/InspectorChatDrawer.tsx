@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useInspectorChat } from '../editor-core/hooks/useInspectorChat'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { useAuthStore } from '../product/stores/authStore'
 import { useDevLiveStripVisible } from '../lib/devCanvasTools'
 import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import {
@@ -12,12 +13,16 @@ import { ModelInferenceBadge } from './ModelInferenceBadge'
 export function InspectorChatDrawer() {
   const open = useLiveChromeStore((s) => s.chatDrawerOpen)
   const setOpen = useLiveChromeStore((s) => s.setChatDrawerOpen)
+  const assistantEnabled = useAuthStore((s) => s.currentUser?.isInternal === true)
   const stripVisible = useDevLiveStripVisible()
   const mode = useCanvasStore((s) => s.mode)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const devPreview = devInstanceScopePreviewEnabled(mode)
   const visible =
-    open && stripVisible && (mode === 'live' || mode === 'simulate' || devPreview)
+    assistantEnabled &&
+    open &&
+    stripVisible &&
+    (mode === 'live' || mode === 'simulate' || devPreview)
 
   const { messages, budget, connected, error, sending, sendMessage } =
     useInspectorChat(deploymentId, visible && !devPreview)
