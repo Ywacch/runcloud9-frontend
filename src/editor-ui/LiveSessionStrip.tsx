@@ -100,6 +100,7 @@ export function LiveSessionStrip() {
   const liveSessionEndsAt = useCanvasStore((s) => s.liveSessionEndsAt)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
+  const assistantEnabled = currentUser?.isInternal === true
   const maxLoadgenRps = maxLoadgenRpsForUser(
     currentUser
       ? {
@@ -881,6 +882,7 @@ export function LiveSessionStrip() {
               </button>
             ) : null}
 
+            {assistantEnabled ? (
             <button
               type="button"
               aria-expanded={chatDrawerOpen}
@@ -898,6 +900,7 @@ export function LiveSessionStrip() {
               </svg>
               Assistant
             </button>
+            ) : null}
 
             <button
               type="button"
