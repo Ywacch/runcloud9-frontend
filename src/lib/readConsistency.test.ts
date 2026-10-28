@@ -16,6 +16,7 @@ describe('readConsistencyFromConfig', () => {
 
   it('accepts all wire policies case-insensitively', () => {
     expect(readConsistencyFromConfig('RYW')).toBe('ryw')
+    expect(readConsistencyFromConfig('sticky')).toBe('sticky')
     expect(readConsistencyFromConfig('monotonic')).toBe('monotonic')
     expect(readConsistencyFromConfig('ryw+monotonic')).toBe('ryw+monotonic')
   })
@@ -24,6 +25,7 @@ describe('readConsistencyFromConfig', () => {
 describe('normalizeReadConsistencyForDeploy', () => {
   it('passes through valid policies when replicas allow them', () => {
     expect(normalizeReadConsistencyForDeploy('replica', 1)).toBe('replica')
+    expect(normalizeReadConsistencyForDeploy('sticky', 1)).toBe('sticky')
     expect(normalizeReadConsistencyForDeploy('ryw', 1)).toBe('ryw')
     expect(normalizeReadConsistencyForDeploy('monotonic', 2)).toBe('monotonic')
     expect(normalizeReadConsistencyForDeploy('ryw+monotonic', 2)).toBe(

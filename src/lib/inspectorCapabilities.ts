@@ -88,7 +88,11 @@ export function showRywPolicyLine(cap: InspectorCapabilities): boolean {
 }
 
 export function showMonotonicPolicyLine(cap: InspectorCapabilities): boolean {
-  return cap.readConsistency === 'monotonic' || cap.readConsistency === 'ryw+monotonic'
+  return (
+    cap.readConsistency === 'monotonic' ||
+    cap.readConsistency === 'sticky' ||
+    cap.readConsistency === 'ryw+monotonic'
+  )
 }
 
 export function showObserverCanary(cap: InspectorCapabilities): boolean {
