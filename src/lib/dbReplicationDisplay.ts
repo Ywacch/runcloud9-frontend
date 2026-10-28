@@ -161,6 +161,8 @@ function readRoutingClause(policy: ReadConsistencyPolicy): string {
       return 'Reads stay on the primary, so this lag does not stale app reads.'
     case 'replica':
       return 'App reads may use a standby, so this lag is visible staleness.'
+    case 'sticky':
+      return 'Each client stays on one standby, so thread reads share the same replay position.'
     case 'ryw':
       return 'Read-your-writes holds a session on the primary until that client’s write is replayed.'
     case 'monotonic':

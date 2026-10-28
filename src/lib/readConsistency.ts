@@ -4,6 +4,7 @@ import { clampReadReplicas } from './replicaConfig'
 export const READ_CONSISTENCY_POLICIES = [
   'leader-only',
   'replica',
+  'sticky',
   'ryw',
   'monotonic',
   'ryw+monotonic',
@@ -18,6 +19,7 @@ const POLICY_SET = new Set<string>(READ_CONSISTENCY_POLICIES)
 export const READ_CONSISTENCY_LABEL: Record<ReadConsistencyPolicy, string> = {
   'leader-only': 'Leader only',
   replica: 'Replica (eventual)',
+  sticky: 'Sticky replica (per client)',
   ryw: 'Read-your-writes',
   monotonic: 'Monotonic reads',
   'ryw+monotonic': 'RYW + monotonic',
@@ -26,6 +28,8 @@ export const READ_CONSISTENCY_LABEL: Record<ReadConsistencyPolicy, string> = {
 export const READ_CONSISTENCY_HELP: Record<ReadConsistencyPolicy, string> = {
   'leader-only': 'All reads go to the primary. Strongest consistency, no replica offload.',
   replica: 'Reads may use a replica without session stickiness or write tracking.',
+  sticky:
+    'Each client is pinned to one replica so related reads hit the same standby.',
   ryw: 'After a write, your session reads from the primary until the replica catches up.',
   monotonic: 'Reads stick to one replica so time never appears to go backwards.',
   'ryw+monotonic': 'Combines read-your-writes with monotonic replica stickiness.',

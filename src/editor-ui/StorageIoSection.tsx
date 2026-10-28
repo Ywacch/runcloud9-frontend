@@ -870,6 +870,8 @@ function consistencyPolicyHint(policy: ReadConsistencyPolicy): string {
       return 'Leader-only: all reads hit the primary; no replica offload.'
     case 'replica':
       return 'Replica (eventual): reads are offloaded to standbys; stale replica reads are the expected tradeoff.'
+    case 'sticky':
+      return 'Sticky replica: each client pins to one standby; monotonic checks still apply.'
     case 'ryw':
       return 'Read-your-writes: app redirects hold the guarantee; RYW violations should stay near zero.'
     case 'monotonic':
