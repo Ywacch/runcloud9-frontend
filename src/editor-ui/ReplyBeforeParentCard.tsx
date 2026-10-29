@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { FidelityBadge } from './FidelityBadge'
 import type { ReplyBeforeParentCardModel } from '../lib/phenomena/replyBeforeParentCard'
+import { PHENOMENON_REPLY_BEFORE_PARENT } from '../lib/phenomena/types'
+import { trackEvent } from '../lib/analytics'
 import { StacklabNote as Note } from './stacklabMetricsUi'
 import { SlKv, SlKvList, SlSpacer } from './stacklabPanePrimitives'
 
@@ -17,6 +19,10 @@ export function ReplyBeforeParentCard({ model }: { model: ReplyBeforeParentCardM
       setCopied(false)
     }
   }, [model.example?.requestId])
+
+  const onViewTrace = useCallback(() => {
+    trackEvent('lab_trace_clicked', { phenomenon: PHENOMENON_REPLY_BEFORE_PARENT })
+  }, [])
 
   return (
     <div className="sl-phenomenon-card">
@@ -67,8 +73,8 @@ export function ReplyBeforeParentCard({ model }: { model: ReplyBeforeParentCardM
             <button
               type="button"
               className="ident-line"
-              style={{ opacity: 0.6 }}
-              disabled
+              style={{ opacity: 0.85 }}
+              onClick={onViewTrace}
               title="Trace viewer (TR-2)"
             >
               View trace

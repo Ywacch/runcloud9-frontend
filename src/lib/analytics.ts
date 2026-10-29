@@ -280,6 +280,10 @@ export type AnalyticsEventMap = {
     mode: 'request_rejected' | 'simulation_recommended'
     action: 'close' | 'dismiss' | 'simulate' | 'modify'
   }
+  lab_prediction_answered: { scenario: string; correct: boolean }
+  lab_card_opened: { phenomenon: string; msSinceFirstViolation: number | null }
+  lab_trace_clicked: { phenomenon: string }
+  lab_fix_applied: { phenomenon: string; change: string }
 }
 
 export type DeployBlockedReason =
