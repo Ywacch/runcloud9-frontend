@@ -102,6 +102,8 @@ export interface WsEventPayload {
 export interface WsDeploymentMetrics {
   timestamp?: string
   namespace?: string
+  runRole?: string
+  comparisonId?: string
   snapshotAgeMs?: number
   collectPending?: boolean
   phenomena?: unknown
