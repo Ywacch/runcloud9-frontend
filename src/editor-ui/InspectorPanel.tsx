@@ -128,6 +128,8 @@ import {
   resolveProvisionedLimits,
 } from '../lib/resolveProvisionedLimits'
 import { trackEvent } from '../lib/analytics'
+import { findReplyBeforeParentEntry } from '../lib/phenomena/parsePhenomena'
+import { PHENOMENON_REPLY_BEFORE_PARENT } from '../lib/phenomena/types'
 import { resolveCacheCanvasFocus } from '../lib/cacheCanvasFocus'
 import {
   readLatencyQuantile,
@@ -1704,6 +1706,16 @@ function TypeFields({
                       previousCategory: prev,
                       newCategory: normalized,
                     })
+                    if (
+                      normalized === 'sticky' &&
+                      prev !== 'sticky' &&
+                      findReplyBeforeParentEntry(useMetricsStore.getState().phenomena)
+                    ) {
+                      trackEvent('lab_fix_applied', {
+                        phenomenon: PHENOMENON_REPLY_BEFORE_PARENT,
+                        change: 'readConsistency=sticky',
+                      })
+                    }
                   }}
                 />
                 {showReadConsistencyClampHint ? (

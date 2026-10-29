@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
@@ -6,7 +6,9 @@ import { devInspectorLivePreviewEnabled } from '../lib/devInspectorMode'
 import { findReplyBeforeParentEntry, parsePhenomena } from '../lib/phenomena/parsePhenomena'
 import { loadLedgerCache } from '../lib/phenomena/ledgerCache'
 import { buildReplyBeforeParentCard } from '../lib/phenomena/replyBeforeParentCard'
-import type { PhenomenonEntry } from '../lib/phenomena/types'
+import { msSinceFirstViolation, markLabCardOpened } from '../lib/phenomena/pedagogyTimer'
+import { PHENOMENON_REPLY_BEFORE_PARENT, type PhenomenonEntry } from '../lib/phenomena/types'
+import { trackEvent } from '../lib/analytics'
 import fixtureReplyBeforeParent from '../lib/phenomena/__fixtures__/replyBeforeParent.json'
 import { ReplyBeforeParentCard } from './ReplyBeforeParentCard'
 import { FMT_EMPTY, fmtInt, fmtRate } from '../lib/format'
@@ -68,6 +70,18 @@ export function StacklabDbReplyBeforeParentSection() {
   }, [live, ledgerNamespace, phenomena])
   const devEntry = !live && !cached ? devFixtureReplyBeforeParentEntry() : undefined
   const model = buildReplyBeforeParentCard(live ?? devEntry, live || devEntry ? undefined : cached)
+  const cardOpenedRef = useRef(false)
+  useEffect(() => {
+    if (!model || !ledgerNamespace || cardOpenedRef.current) return
+    cardOpenedRef.current = true
+    if (typeof sessionStorage === 'undefined') return
+    if (!markLabCardOpened(sessionStorage, ledgerNamespace)) return
+    const ms = msSinceFirstViolation(sessionStorage, ledgerNamespace)
+    trackEvent('lab_card_opened', {
+      phenomenon: PHENOMENON_REPLY_BEFORE_PARENT,
+      msSinceFirstViolation: ms,
+    })
+  }, [model, ledgerNamespace])
   if (!model) return null
   return (
     <>

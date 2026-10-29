@@ -36,7 +36,12 @@ import {
   findReplyBeforeParentEntry,
   parsePhenomena,
 } from '../../lib/phenomena/parsePhenomena'
+import { trackEvent } from '../../lib/analytics'
 import { saveLedgerCache } from '../../lib/phenomena/ledgerCache'
+import { labPredictionCorrect, phenomenonHasViolation } from '../../lib/phenomena/pedagogyLab'
+import { noteFirstViolation } from '../../lib/phenomena/pedagogyTimer'
+import { PHENOMENON_REPLY_BEFORE_PARENT } from '../../lib/phenomena/types'
+import { useStorytellingStore } from '../stores/storytellingStore'
 import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
 
 function parseLoadgenVu(raw: unknown): ConversationLaneVU | undefined {
@@ -397,6 +402,24 @@ export function applyWsFrameToStore(
         ? payload.timestamp
         : new Date().toISOString()
     saveLedgerCache(sessionStorage, ledgerNamespace, ledgerEntry, at)
+    if (phenomenonHasViolation(ledgerEntry)) {
+      const frameAt =
+        typeof payload.timestamp === 'string' && payload.timestamp
+          ? Date.parse(payload.timestamp)
+          : Date.now()
+      const recorded = noteFirstViolation(
+        sessionStorage,
+        ledgerNamespace,
+        Number.isFinite(frameAt) ? frameAt : undefined,
+      )
+      if (recorded) {
+        const predicted = useStorytellingStore.getState().predictedRuleIds
+        trackEvent('lab_prediction_answered', {
+          scenario: PHENOMENON_REPLY_BEFORE_PARENT,
+          correct: labPredictionCorrect(predicted, PHENOMENON_REPLY_BEFORE_PARENT),
+        })
+      }
+    }
   }
 
   const ev = normalizeWsEvents(payload.events)
