@@ -273,6 +273,70 @@ export async function getTopologyRules(): Promise<TopologyRulesResponse> {
   return res.json() as Promise<TopologyRulesResponse>
 }
 
+export type MetaJobsFit = 'natural' | 'workable' | 'poor' | 'impossible'
+export type MetaJobsBuild = 'available' | 'not_built' | 'planned'
+
+export interface MetaJobsJob {
+  id: string
+  label: string
+  ops?: string[]
+  opMetrics?: string[]
+}
+
+export interface MetaJobsEngine {
+  id: string
+  label: string
+  family: string
+  wireCompat?: string
+  weight: string
+}
+
+export interface MetaJobsFailureDemo {
+  chaos: string
+  check: string
+}
+
+export interface MetaJobsPair {
+  job: string
+  engine: string
+  fit: MetaJobsFit
+  build: MetaJobsBuild
+  reason: string
+  fidelity: string
+  failureDemo?: MetaJobsFailureDemo
+}
+
+export interface MetaJobsGuaranteeEntry {
+  id: string
+  claim: string
+  chaos?: string
+  check?: string
+  status: 'verified' | 'unverified'
+  fidelity: string
+  pacelc?: 'partition' | 'else'
+}
+
+export interface MetaJobsGuaranteesCard {
+  job: string
+  engine: string
+  entries: MetaJobsGuaranteeEntry[]
+}
+
+export interface MetaJobsResponse {
+  catalogVersion: string
+  jobs: MetaJobsJob[]
+  engines: MetaJobsEngine[]
+  pairs: MetaJobsPair[]
+  guarantees: MetaJobsGuaranteesCard[]
+}
+
+export async function fetchMetaJobs(): Promise<MetaJobsResponse> {
+  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await fetch(`${base}/meta/jobs`)
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<MetaJobsResponse>
+}
+
 export interface CurrentUserLimits {
   maxConcurrent: number
   sessionDefaultMins: number
