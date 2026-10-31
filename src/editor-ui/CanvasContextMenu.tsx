@@ -25,8 +25,19 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
+import { useEnginePreviewStore } from '../editor-core/stores/enginePreviewStore'
 import { useAuthStore } from '../product/stores/authStore'
 import { subscribeCanvasViewportScreenRefresh } from '../canvas/utils/canvasViewportBridge'
+import { configPatchForEngine } from '../svg-canvas/bridge/canvasSvgAdapter'
+import { loadEnginesSession } from '../lib/engines/enginesSession'
+import { buildJobsPanelModel } from '../lib/engines/jobsPanelModel'
+import { previewJobEngineChange } from '../lib/engines/engineChangePreview'
+import {
+  buildEnginePickerModel,
+  type EngineGateEntry,
+  type PickerEngineOption,
+} from '../lib/engines/pickerModel'
+import type { MetaJobsResponse } from '../lib/api'
 
 const MENU_W = 260
 const MENU_MAX_H = 320
@@ -65,6 +76,11 @@ export function CanvasContextMenu() {
   const [groupId, setGroupId] = useState<string | null>(null)
   const [chaosError, setChaosError] = useState<string | null>(null)
   const [chaosBusy, setChaosBusy] = useState(false)
+  const [engineJobId, setEngineJobId] = useState<string | null>(null)
+  const [catalog, setCatalog] = useState<MetaJobsResponse | null>(null)
+  const [gates, setGates] = useState<EngineGateEntry[]>([])
+  const setEnginePreview = useEnginePreviewStore((s) => s.setPreview)
+  const enginePreview = useEnginePreviewStore((s) => s.preview)
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -73,6 +89,8 @@ export function CanvasContextMenu() {
     setGroupId(null)
     setChaosError(null)
     setChaosBusy(false)
+    setEngineJobId(null)
+    useEnginePreviewStore.getState().setPreview(null)
   }, [menu])
 
   useEffect(() => {
@@ -82,12 +100,35 @@ export function CanvasContextMenu() {
   }, [menu])
 
   useEffect(() => {
+    if (!menu || menu.kind !== 'node') return
+    let cancelled = false
+    void loadEnginesSession()
+      .then((session) => {
+        if (cancelled) return
+        setCatalog(session.catalog)
+        setGates(session.gates)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCatalog(null)
+          setGates([])
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [menu])
+
+  useEffect(() => {
     if (!menu) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
         if (groupId) setGroupId(null)
-        else close()
+        else if (engineJobId) {
+          setEngineJobId(null)
+          setEnginePreview(null)
+        } else close()
       }
     }
     const onPointerDown = (e: PointerEvent) => {
@@ -101,7 +142,7 @@ export function CanvasContextMenu() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointerDown, true)
     }
-  }, [menu, groupId, close])
+  }, [menu, groupId, engineJobId, close, setEnginePreview])
 
   useEffect(() => {
     if (!menu) return
@@ -129,6 +170,44 @@ export function CanvasContextMenu() {
       loadedVariationId,
     })
   }, [node, mode, deploymentId, chaosTargetBusy, chaosPartitionActive, loadedVariationId])
+
+  const jobsOnNode = useMemo(() => {
+    if (!node || !catalog) return []
+    const snap = useCanvasStore.getState().exportJSON()
+    return buildJobsPanelModel(snap, catalog).filter((row) => row.nodeId === node.id)
+  }, [node, catalog, nodes])
+
+  const applyEngine = (option: PickerEngineOption, jobId: string) => {
+    if (!node) return
+    if (option.state === 'not_built') {
+      trackEvent('engine_pair_requested', { job: jobId, engine: option.engine })
+      return
+    }
+    if (option.state !== 'selectable') return
+    const snap = useCanvasStore.getState().exportJSON()
+    const preview = previewJobEngineChange(snap, jobId, option.engine)
+    const st = useCanvasStore.getState()
+    if (preview.bindToNodeId) {
+      st.setJobBinding(jobId, preview.bindToNodeId)
+    }
+    if (preview.patchNodeId) {
+      const host = st.nodes[preview.patchNodeId]
+      if (host) {
+        st.updateNodeConfig(
+          preview.patchNodeId,
+          configPatchForEngine(host.type, preview.engine),
+        )
+      }
+      st.setJobBinding(jobId, preview.patchNodeId)
+    }
+    for (const id of preview.removeNodeIds) {
+      if (useCanvasStore.getState().nodes[id]) {
+        useCanvasStore.getState().removeNode(id)
+      }
+    }
+    setEnginePreview(null)
+    close()
+  }
 
   const filteredRoot = useMemo(
     () => filterCreateMenuItems(CREATE_MENU_ROOT, query),
@@ -295,9 +374,95 @@ export function CanvasContextMenu() {
       ) : node ? (
         <>
           <div className="border-b border-[var(--c9-border)] px-2.5 py-1.5 text-[10px] text-[var(--c9-muted)]">
-            <span className="text-[var(--c9-text)]">{node.label}</span>
+            {engineJobId ? (
+              <button
+                type="button"
+                className="hover:text-[var(--c9-text)]"
+                onClick={() => {
+                  setEngineJobId(null)
+                  setEnginePreview(null)
+                }}
+              >
+                {node.label}
+              </button>
+            ) : (
+              <span className="text-[var(--c9-text)]">{node.label}</span>
+            )}
+            {engineJobId ? (
+              <>
+                <span className="mx-1 opacity-50">›</span>
+                <span className="text-[var(--c9-text)]">Change engine</span>
+              </>
+            ) : null}
           </div>
+          {engineJobId && catalog ? (
+            <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+              {buildEnginePickerModel(engineJobId, catalog, gates).map((option) => {
+                const locked =
+                  option.state === 'impossible' || option.state === 'tier_locked'
+                const preview = previewJobEngineChange(
+                  useCanvasStore.getState().exportJSON(),
+                  engineJobId,
+                  option.engine,
+                )
+                return (
+                  <li key={option.engine}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={locked}
+                      className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                      onMouseEnter={() => setEnginePreview(preview)}
+                      onMouseLeave={() => setEnginePreview(null)}
+                      onClick={() => applyEngine(option, engineJobId)}
+                    >
+                      <span className="font-medium">{option.label}</span>
+                      <span className="text-[10px] text-[var(--c9-muted)]">
+                        {option.state === 'not_built'
+                          ? 'Not built yet'
+                          : option.state === 'tier_locked'
+                            ? 'Locked'
+                            : option.state === 'impossible'
+                              ? option.reason
+                              : preview.summary}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+              {enginePreview?.summary ? (
+                <li className="px-3 py-2 text-[10px] text-[var(--c9-muted)]">
+                  {enginePreview.summary}
+                </li>
+              ) : null}
+            </ul>
+          ) : (
           <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+            {mode === 'design' && !deploymentId && !loadedVariationId
+              ? jobsOnNode
+              .filter(
+                (row) =>
+                  catalog &&
+                  buildEnginePickerModel(row.jobId, catalog, gates).length > 1,
+              )
+              .map((row) => (
+                <li key={row.jobId}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
+                    onClick={() => setEngineJobId(row.jobId)}
+                  >
+                    <span className="flex-1 font-medium">
+                      {jobsOnNode.length > 1
+                        ? `Change engine · ${row.jobLabel}`
+                        : 'Change engine'}
+                    </span>
+                    <span className="text-[var(--c9-muted)]">›</span>
+                  </button>
+                </li>
+              ))
+              : null}
             {nodeActions.map((action) => {
               const key =
                 action.kind === 'chaos'
@@ -348,6 +513,7 @@ export function CanvasContextMenu() {
               )
             })}
           </ul>
+          )}
           {chaosError ? (
             <p className="border-t border-[var(--c9-border)] px-3 py-2 text-[10px] text-red-400">
               {chaosError}
