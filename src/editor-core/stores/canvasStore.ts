@@ -93,6 +93,8 @@ export interface CanvasSnapshot {
   nodes: CanvasNode[]
   edges: CanvasEdge[]
   exportedAt: string
+  /** Optional job id to node id bindings persisted with the canvas. */
+  jobBindings?: Record<string, string>
 }
 
 export interface SessionSummary {

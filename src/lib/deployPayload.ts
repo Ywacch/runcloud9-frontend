@@ -221,6 +221,9 @@ export function snapshotToDeploymentDesign(
   if (opts?.sessionMinutes != null) {
     design.sessionMinutes = opts.sessionMinutes
   }
+  if (snapshot.jobBindings && Object.keys(snapshot.jobBindings).length > 0) {
+    design.jobBindings = { ...snapshot.jobBindings }
+  }
   return design
 }
 
@@ -280,6 +283,9 @@ export function deploymentDesignToSnapshot(
     nodes,
     edges,
     exportedAt: now,
+    ...(design.jobBindings && Object.keys(design.jobBindings).length > 0
+      ? { jobBindings: { ...design.jobBindings } }
+      : {}),
   }
 }
 

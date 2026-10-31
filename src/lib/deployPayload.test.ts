@@ -604,3 +604,74 @@ describe('deploymentDesignToSnapshot', () => {
     expect(snapshot.nodes.every((n) => n.position[1] === 0.3)).toBe(true)
   })
 })
+
+describe('jobBindings passthrough', () => {
+  const urlShortenerSnapshot: CanvasSnapshot = {
+    version: '1.0',
+    templateId: 'url-shortener',
+    nodes: [
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App',
+        position: [0, 0.3, 0],
+        config: { replicas: 1 },
+        status: 'idle',
+      },
+      {
+        id: 'db-1',
+        type: 'database',
+        label: 'DB',
+        position: [3, 0.3, 0],
+        config: { engine: 'postgresql', readReplicas: 0 },
+        status: 'idle',
+      },
+    ],
+    edges: [
+      {
+        id: 'e-app-db',
+        sourceId: 'app-1',
+        targetId: 'db-1',
+        protocol: 'tcp',
+        animated: false,
+      },
+    ],
+    exportedAt: new Date().toISOString(),
+  }
+
+  it('includes jobBindings when the snapshot has them', () => {
+    const snapshot: CanvasSnapshot = {
+      ...urlShortenerSnapshot,
+      jobBindings: { main_db: 'db-1' },
+    }
+    const design = snapshotToDeploymentDesign(snapshot, { mutateCanvas: false })
+    expect(design.jobBindings).toEqual({ main_db: 'db-1' })
+  })
+
+  it('omits jobBindings when the snapshot does not set them', () => {
+    const design = snapshotToDeploymentDesign(urlShortenerSnapshot, {
+      mutateCanvas: false,
+    })
+    expect(design.jobBindings).toBeUndefined()
+  })
+
+  it('round-trips jobBindings through deploymentDesignToSnapshot', () => {
+    const design: DeploymentDesign = {
+      version: '1.0',
+      template: 'social-feed',
+      archetype: 'standard',
+      nodes: [
+        {
+          id: 'cache-1',
+          type: 'cache',
+          name: 'Redis',
+          config: { strategy: 'timeline-store' },
+        },
+      ],
+      connections: [],
+      jobBindings: { timeline: 'cache-1' },
+    }
+    const snapshot = deploymentDesignToSnapshot(design, 'social-feed')
+    expect(snapshot.jobBindings).toEqual({ timeline: 'cache-1' })
+  })
+})

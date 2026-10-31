@@ -33,6 +33,8 @@ export interface DeploymentDesign {
   connections: DeploymentConn[]
   /** Optional live session length (minutes). Honored for paid tiers only on the API. */
   sessionMinutes?: number
+  /** Optional explicit job id to canvas node id bindings. */
+  jobBindings?: Record<string, string>
 }
 
 /** Compact layout returned on deployment history list items. */
