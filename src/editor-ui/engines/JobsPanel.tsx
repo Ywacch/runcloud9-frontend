@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { configPatchForEngine } from '../../svg-canvas/bridge/canvasSvgAdapter'
-import { canvasToBackend } from '../../lib/typeMapping'
 import { loadEnginesSession } from '../../lib/engines/enginesSession'
 import {
   buildJobsPanelModel,

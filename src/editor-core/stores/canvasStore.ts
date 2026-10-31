@@ -645,7 +645,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
       hoveredNodeId: null,
-      jobBindings: snapshot.jobBindings ? { ...snapshot.jobBindings } : {},
     }),
 
   setAllEdgesAnimated: (animated) =>
