@@ -488,11 +488,11 @@ export const useMetricsStore = create<MetricsState>((set) => ({
     set({ templateMetrics: m && Object.keys(m).length ? { ...m } : {} }),
 
   setPhenomena: (phenomena, ledgerNamespace, timelineOps) =>
-    set((s) => ({
+    set({
       phenomena: [...phenomena],
       ledgerNamespace,
       ...(timelineOps !== undefined ? { timelineOps } : {}),
-    })),
+    }),
 
   dismissCascadeToast: () => set({ cascadeToast: null }),
 
