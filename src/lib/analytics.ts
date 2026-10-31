@@ -104,6 +104,7 @@ export type AnalyticsEventMap = {
     variationId?: string
   }
   engine_pair_requested: { job: string; engine: string }
+  deploy_plan_sheet_opened: { template: string; hasChanges: boolean }
   deployment_running: {
     template: string
     deploymentId: string
