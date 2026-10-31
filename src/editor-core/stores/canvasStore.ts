@@ -395,6 +395,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           s.nodes,
           nodesNorm,
           id,
+          s.jobBindings,
         ) ?? s.topologyBanner
       return {
         nodes: nodesNorm,
@@ -459,6 +460,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           s.nodes,
           nodesNorm,
           removedId,
+          s.jobBindings,
         )
         if (banner) topologyBanner = banner
       }
