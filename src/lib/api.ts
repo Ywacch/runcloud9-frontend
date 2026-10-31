@@ -20,6 +20,7 @@ import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
 import type { TopologyRulesResponse } from './topologyRulesTypes'
 import type { DesignPlan } from './engines/planSheetModel'
+import { normalizeDesignPlan } from './engines/planSheetModel'
 
 export type {
   DeploymentConn,
@@ -382,7 +383,8 @@ export async function fetchDesignPlan(payload: {
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(await readApiErrorMessage(res))
-  return res.json() as Promise<DesignPlan>
+  const raw: unknown = await res.json()
+  return normalizeDesignPlan(raw)
 }
 
 export interface CurrentUserLimits {
