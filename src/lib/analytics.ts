@@ -103,6 +103,7 @@ export type AnalyticsEventMap = {
     presetMode?: AnalyticsPresetMode
     variationId?: string
   }
+  engine_pair_requested: { job: string; engine: string }
   deployment_running: {
     template: string
     deploymentId: string
