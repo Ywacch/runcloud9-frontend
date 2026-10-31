@@ -65,6 +65,11 @@ import {
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
 import {
+  buildTimelineOpsViewModel,
+  type TimelineOpsSnapshot,
+} from '../lib/timelineOpsDisplay'
+import { TimelineOpsSection } from './TimelineOpsSection'
+import {
   StacklabDbEngineFootnotes,
   StacklabDbPatternBridge,
   StacklabDbReplicationBody,
@@ -123,6 +128,7 @@ export interface StacklabInspectorPaneProps {
   edges: Record<string, CanvasEdge>
   snapshotTemplateId: string | null
   templateMetrics: Record<string, number>
+  timelineOps: TimelineOpsSnapshot | null
   view: PanelViewState
   metricGroup: InspectorMetricGroupId
   selectedInstanceId?: SelectedInstanceId
@@ -301,6 +307,31 @@ function ComputePane({
   return null
 }
 
+function renderTimelineOpsSection(
+  timelineOps: TimelineOpsSnapshot | null,
+  m: MetricsBucket,
+  view: PanelViewState,
+  costKind: 'cache' | 'db',
+) {
+  if (!timelineOps) return null
+  const cost =
+    costKind === 'cache'
+      ? {
+          engine: timelineOps.engine,
+          timelineKeyCount: m.timelineKeyCount,
+          evictionsLive: m.evictionsPerSec,
+          evictionsSession: m.evictionsLast9m,
+        }
+      : {
+          engine: timelineOps.engine,
+          relationBytes: m.timelineRelationBytes,
+          deadTuples: m.timelineDeadTuples,
+        }
+  const model = buildTimelineOpsViewModel(timelineOps, cost, view.timeframe)
+  if (!model) return null
+  return <TimelineOpsSection model={model} />
+}
+
 function DatabasePane({
   node,
   m,
@@ -310,6 +341,7 @@ function DatabasePane({
   selectedInstanceId,
   onSelectMetricGroup,
   templateMetrics,
+  timelineOps,
 }: StacklabInspectorPaneProps) {
   const [freshOpen, setFreshOpen] = useState(false)
   const maxConn = m.maxConnections > 0 ? m.maxConnections : Number(node.config.maxConnections ?? 100)
@@ -572,6 +604,7 @@ function DatabasePane({
             </p>
           }
         />
+        {renderTimelineOpsSection(timelineOps, m, view, 'db')}
       </SlPaneSection>
     )
   }
@@ -646,6 +679,7 @@ function CachePane({
   history,
   view,
   metricGroup,
+  timelineOps,
 }: StacklabInspectorPaneProps) {
   const [noCacheOpen, setNoCacheOpen] = useState(false)
   const [wbOpen, setWbOpen] = useState(false)
@@ -798,6 +832,7 @@ function CachePane({
           <SlStatCell label="policy" value={evictionPolicy} />
           <SlStatCell label="engine" value={m.storageEngine || 'redis'} />
         </SlStatStrip>
+        {renderTimelineOpsSection(timelineOps, m, view, 'cache')}
         <SlDisc
           id="nocache"
           title="What happens if you remove the cache node"

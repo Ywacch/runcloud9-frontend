@@ -41,6 +41,7 @@ import { saveLedgerCache } from '../../lib/phenomena/ledgerCache'
 import { labPredictionCorrect, phenomenonHasViolation } from '../../lib/phenomena/pedagogyLab'
 import { noteFirstViolation } from '../../lib/phenomena/pedagogyTimer'
 import { PHENOMENON_REPLY_BEFORE_PARENT } from '../../lib/phenomena/types'
+import { parseTimelineOps } from '../../lib/timelineOpsDisplay'
 import { useStorytellingStore } from '../stores/storytellingStore'
 import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
 
@@ -173,6 +174,10 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
       cm.timelineKeyCount != null ? Math.round(cm.timelineKeyCount) : undefined,
     feedRequestRatePush: cm.feedRequestRatePush ?? undefined,
     feedRequestRatePull: cm.feedRequestRatePull ?? undefined,
+    timelineRelationBytes:
+      cm.timelineRelationBytes != null ? Math.round(cm.timelineRelationBytes) : undefined,
+    timelineDeadTuples:
+      cm.timelineDeadTuples != null ? Math.round(cm.timelineDeadTuples) : undefined,
     dbQueryRate: cm.dbQueryRate ?? 0,
     dbTotalQueries: Math.round(cm.dbTotalQueries ?? 0),
     dbQueryLatency: dbLatSec,
@@ -394,7 +399,9 @@ export function applyWsFrameToStore(
     (typeof payload.namespace === 'string' && payload.namespace.trim()
       ? payload.namespace.trim()
       : null) ?? useCanvasStore.getState().deploymentId
-  useMetricsStore.getState().setPhenomena(phenomena, ledgerNamespace)
+  useMetricsStore
+    .getState()
+    .setPhenomena(phenomena, ledgerNamespace, parseTimelineOps(payload.timeline))
   const ledgerEntry = findReplyBeforeParentEntry(phenomena)
   if (ledgerEntry && ledgerNamespace && typeof sessionStorage !== 'undefined') {
     const at =

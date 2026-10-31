@@ -8,6 +8,7 @@ import {
 import type { SelectedInstanceId } from '../lib/dbInstanceScope'
 import type { ReplicaInspectorRow } from '../lib/replicaMetricsDisplay'
 import type { PanelViewState } from './inspectorPanelUi'
+import type { TimelineOpsSnapshot } from '../lib/timelineOpsDisplay'
 import { StacklabInspectorPane } from './stacklabInspectorPanes'
 
 export function LiveMetricsTypeSection({
@@ -18,6 +19,7 @@ export function LiveMetricsTypeSection({
   nodes,
   snapshotTemplateId,
   templateMetrics,
+  timelineOps,
   view,
   onPanelViewChange,
   selectedInstanceId = null,
@@ -34,6 +36,7 @@ export function LiveMetricsTypeSection({
   nodes: Record<string, CanvasNode>
   snapshotTemplateId: string | null
   templateMetrics: Record<string, number>
+  timelineOps: TimelineOpsSnapshot | null
   loadgenActive: boolean
   view: PanelViewState
   onPanelViewChange?: (patch: Partial<PanelViewState>) => void
@@ -57,6 +60,7 @@ export function LiveMetricsTypeSection({
       edges={edges}
       snapshotTemplateId={snapshotTemplateId}
       templateMetrics={templateMetrics}
+      timelineOps={timelineOps}
       view={view}
       metricGroup={groupId}
       selectedInstanceId={selectedInstanceId}

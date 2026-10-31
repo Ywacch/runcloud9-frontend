@@ -130,6 +130,7 @@ export function LiveMetrics({
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const selectedInstanceId = useCanvasStore((s) => s.selectedInstanceId)
   const templateMetrics = useMetricsStore((s) => s.templateMetrics)
+  const timelineOps = useMetricsStore((s) => s.timelineOps)
   const loadgenActive = useMetricsStore((s) => Boolean(s.loadgen?.active))
   const simDetail = useSimulationStore((s) => s.lastInspector[nodeId])
   const simRunning = useSimulationStore((s) => s.running)
@@ -219,6 +220,7 @@ export function LiveMetrics({
         nodes={nodes}
         snapshotTemplateId={snapshotTemplateId}
         templateMetrics={templateMetrics}
+        timelineOps={timelineOps}
         loadgenActive={loadgenActive}
         view={panelView}
         metricGroup={metricGroup}
