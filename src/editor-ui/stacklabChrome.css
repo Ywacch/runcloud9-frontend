@@ -794,3 +794,78 @@
 .sl-chrome .sl-jobs-fit--locked {
   color: var(--sl-amber);
 }
+
+/* ---------- deploy plan sheet ---------- */
+.sl-plan-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.sl-plan-sheet {
+  width: min(480px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--sl-panel);
+  border: 1px solid var(--sl-rule-2);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.sl-plan-header,
+.sl-plan-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--sl-rule);
+}
+
+.sl-plan-footer {
+  border-bottom: none;
+  border-top: 1px solid var(--sl-rule);
+  flex-wrap: wrap;
+}
+
+.sl-plan-body {
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sl-plan-section--warn {
+  border-left: 3px solid var(--sl-amber);
+  padding-left: 10px;
+}
+
+.sl-plan-section-title {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sl-ink-2);
+  margin: 0 0 6px;
+}
+
+.sl-plan-lines {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--sl-ink);
+  font-size: 12px;
+}
+
+.sl-plan-close {
+  border: 1px solid var(--sl-rule);
+  background: transparent;
+  color: var(--sl-ink-2);
+  font-size: 11px;
+  padding: 4px 8px;
+}

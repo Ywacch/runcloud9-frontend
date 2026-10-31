@@ -19,6 +19,7 @@ import { ResourceBudgetApiError } from './resourceBudgetError'
 import { isResourceBudgetErrorResponse } from './sumDesignBudget'
 import type { StorytellingSpec } from './storytellingTypes'
 import type { TopologyRulesResponse } from './topologyRulesTypes'
+import type { DesignPlan } from './engines/planSheetModel'
 
 export type {
   DeploymentConn,
@@ -359,6 +360,29 @@ export async function fetchEngineGates(): Promise<EngineGatesResponse> {
     headers: authHeader() ?? {},
   })
   return res.json() as Promise<EngineGatesResponse>
+}
+
+export type {
+  DesignPlan,
+  DesignPlanJobMove,
+} from './engines/planSheetModel'
+
+/** POST /designs/plan — dry-run diff before deploy. */
+export async function fetchDesignPlan(payload: {
+  base?: DeploymentDesign
+  design: DeploymentDesign
+}): Promise<DesignPlan> {
+  const apiBase = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await apiFetch(`${apiBase}/designs/plan`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authHeader() ?? {}),
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(await readApiErrorMessage(res))
+  return res.json() as Promise<DesignPlan>
 }
 
 export interface CurrentUserLimits {

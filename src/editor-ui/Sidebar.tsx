@@ -4,8 +4,10 @@ import {
   type DeploymentResult,
   createDeployment,
   deleteDeployment,
+  fetchDesignPlan,
   getDeployment,
   getTemplates,
+  type DesignPlan,
   type TemplateInfo,
 } from '../lib/api'
 import { ensureResourceProfilesLoaded } from '../lib/resourceProfileStore'
@@ -115,7 +117,11 @@ import {
   deployAdmitStatusFromCreate,
   deployRejectReasonFromError,
 } from '../lib/deployWaitAnalytics'
+import { applyPlanRemovalsToCanvas } from '../lib/engines/applyPlanToCanvas'
+import { planHasVisibleChanges } from '../lib/engines/planSheetModel'
+import { templateHasJobsPanel } from '../lib/engines/templateJobCatalog'
 import { JobsPanel } from './engines/JobsPanel'
+import { PlanSheet } from './engines/PlanSheet'
 
 const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
@@ -177,6 +183,11 @@ export function Sidebar() {
     string | null
   >(null)
   const [deployWarnings, setDeployWarnings] = useState<TopologyWarning[]>([])
+  const [planSheetOpen, setPlanSheetOpen] = useState(false)
+  const [deployPlan, setDeployPlan] = useState<DesignPlan | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const skipPlanSheetRef = useRef(false)
   const sessionLimits = currentUser?.limits
   const { defaultMins: sessionDefaultMins, capMins: sessionCapMins } = useMemo(
     () => sessionLengthLimits(sessionLimits),
@@ -776,6 +787,45 @@ export function Sidebar() {
       return
     }
 
+    const templateId = stCheck.snapshotTemplateId
+    if (templateHasJobsPanel(templateId) && !skipPlanSheetRef.current) {
+      setPlanSheetOpen(true)
+      setPlanLoading(true)
+      setPlanError(null)
+      setDeployPlan(null)
+      try {
+        const me = useAuthStore.getState().currentUser
+        const wireMinutes = resolveDeploySessionMinutes(
+          sessionMinutesChoice,
+          me?.limits,
+        )
+        const design = snapshotToDeploymentDesign(stCheck.exportJSON(), {
+          ...(wireMinutes != null ? { sessionMinutes: wireMinutes } : {}),
+          mutateCanvas: false,
+        })
+        const plan = await fetchDesignPlan({ design })
+        setDeployPlan(plan)
+        trackEvent('deploy_plan_sheet_opened', {
+          template: templateId ?? 'unknown',
+          hasChanges: planHasVisibleChanges(plan),
+        })
+        if (!planHasVisibleChanges(plan)) {
+          setPlanSheetOpen(false)
+          skipPlanSheetRef.current = true
+          await executeDeploy()
+          skipPlanSheetRef.current = false
+        }
+      } catch (err) {
+        setPlanError(
+          err instanceof Error ? err.message : 'Could not load deploy plan',
+        )
+      } finally {
+        setPlanLoading(false)
+      }
+      return
+    }
+
+    skipPlanSheetRef.current = false
     await executeDeploy()
   }, [
     deploying,
@@ -788,6 +838,7 @@ export function Sidebar() {
     setPendingDeployAfterAuth,
     showResourceQuotaRejected,
     trackDeployBlocked,
+    sessionMinutesChoice,
   ])
 
   const handleDeploy = () => {
@@ -1251,6 +1302,25 @@ export function Sidebar() {
           setDeploySimulationMessage(null)
           setDeployResourceBudget(null)
           releaseDeployLock()
+        }}
+      />
+      <PlanSheet
+        open={planSheetOpen}
+        plan={deployPlan}
+        loading={planLoading}
+        error={planError}
+        onClose={() => {
+          setPlanSheetOpen(false)
+          setDeployPlan(null)
+          setPlanError(null)
+        }}
+        onApplyRemovals={() => {
+          if (deployPlan) applyPlanRemovalsToCanvas(deployPlan)
+        }}
+        onConfirmDeploy={() => {
+          setPlanSheetOpen(false)
+          skipPlanSheetRef.current = true
+          void executeDeploy()
         }}
       />
     </aside>
