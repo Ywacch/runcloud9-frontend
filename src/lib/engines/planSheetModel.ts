@@ -38,6 +38,69 @@ export interface DesignPlan {
   gated?: string
 }
 
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((v) => String(v))
+}
+
+/** Coerce POST /designs/plan JSON into a safe in-memory shape (API may omit null slices). */
+export function normalizeDesignPlan(raw: unknown): DesignPlan {
+  const body =
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const nodes =
+    body.nodes && typeof body.nodes === 'object'
+      ? (body.nodes as Record<string, unknown>)
+      : {}
+  const edges =
+    body.edges && typeof body.edges === 'object'
+      ? (body.edges as Record<string, unknown>)
+      : {}
+  const budget =
+    body.budget && typeof body.budget === 'object'
+      ? (body.budget as Record<string, unknown>)
+      : {}
+
+  return {
+    nodes: {
+      added: stringList(nodes.added),
+      removed: stringList(nodes.removed),
+      resized: stringList(nodes.resized),
+    },
+    edges: {
+      added: stringList(edges.added),
+      removed: stringList(edges.removed),
+    },
+    jobs: Array.isArray(body.jobs)
+      ? body.jobs.map((j) => {
+          const row = j as Record<string, unknown>
+          return {
+            job: String(row.job ?? ''),
+            from: String(row.from ?? ''),
+            to: String(row.to ?? ''),
+            fit: String(row.fit ?? ''),
+          }
+        })
+      : [],
+    budget: {
+      pods: Number(budget.pods ?? 0),
+      cpuMilli: Number(budget.cpuMilli ?? 0),
+      memMi: Number(budget.memMi ?? 0),
+      roomFits: budget.roomFits !== false,
+    },
+    guarantees: Array.isArray(body.guarantees)
+      ? body.guarantees.map((g) => {
+          const row = g as Record<string, unknown>
+          return {
+            change: String(row.change ?? ''),
+            chaos: row.chaos != null ? String(row.chaos) : undefined,
+          }
+        })
+      : [],
+    warnings: stringList(body.warnings),
+    gated: typeof body.gated === 'string' ? body.gated : undefined,
+  }
+}
+
 export interface PlanSheetSection {
   id: string
   title: string
@@ -46,24 +109,26 @@ export interface PlanSheetSection {
 }
 
 export function planHasVisibleChanges(plan: DesignPlan): boolean {
+  const p = normalizeDesignPlan(plan)
   return (
-    plan.nodes.added.length > 0 ||
-    plan.nodes.removed.length > 0 ||
-    plan.nodes.resized.length > 0 ||
-    plan.edges.added.length > 0 ||
-    plan.edges.removed.length > 0 ||
-    plan.jobs.length > 0 ||
-    plan.guarantees.length > 0 ||
-    plan.warnings.length > 0 ||
-    Boolean(plan.gated)
+    p.nodes.added.length > 0 ||
+    p.nodes.removed.length > 0 ||
+    p.nodes.resized.length > 0 ||
+    p.edges.added.length > 0 ||
+    p.edges.removed.length > 0 ||
+    p.jobs.length > 0 ||
+    p.guarantees.length > 0 ||
+    p.warnings.length > 0 ||
+    Boolean(p.gated)
   )
 }
 
 /** View-model sections for PlanSheet.tsx. */
 export function buildPlanSheetModel(plan: DesignPlan): PlanSheetSection[] {
+  const p = normalizeDesignPlan(plan)
   const sections: PlanSheetSection[] = []
 
-  if (plan.gated === 'tier') {
+  if (p.gated === 'tier') {
     sections.push({
       id: 'gated',
       title: 'Subscription',
@@ -73,61 +138,61 @@ export function buildPlanSheetModel(plan: DesignPlan): PlanSheetSection[] {
   }
 
   const topology: string[] = []
-  for (const id of plan.nodes.removed) topology.push(`Remove node ${id}`)
-  for (const id of plan.nodes.added) topology.push(`Add node ${id}`)
-  for (const id of plan.nodes.resized) topology.push(`Resize node ${id}`)
-  for (const e of plan.edges.removed) topology.push(`Remove connection ${e}`)
-  for (const e of plan.edges.added) topology.push(`Add connection ${e}`)
+  for (const id of p.nodes.removed) topology.push(`Remove node ${id}`)
+  for (const id of p.nodes.added) topology.push(`Add node ${id}`)
+  for (const id of p.nodes.resized) topology.push(`Resize node ${id}`)
+  for (const e of p.edges.removed) topology.push(`Remove connection ${e}`)
+  for (const e of p.edges.added) topology.push(`Add connection ${e}`)
   if (topology.length > 0) {
     sections.push({ id: 'topology', title: 'Topology', lines: topology })
   }
 
-  if (plan.jobs.length > 0) {
+  if (p.jobs.length > 0) {
     sections.push({
       id: 'jobs',
       title: 'Jobs',
-      lines: plan.jobs.map(
+      lines: p.jobs.map(
         (j) => `${j.job}: ${j.from || 'unbound'} → ${j.to} (${j.fit})`,
       ),
     })
   }
 
   const budgetLines: string[] = []
-  if (plan.budget.pods !== 0) {
+  if (p.budget.pods !== 0) {
     budgetLines.push(
-      `Pods ${plan.budget.pods > 0 ? '+' : ''}${plan.budget.pods}`,
+      `Pods ${p.budget.pods > 0 ? '+' : ''}${p.budget.pods}`,
     )
   }
-  if (plan.budget.cpuMilli !== 0) {
+  if (p.budget.cpuMilli !== 0) {
     budgetLines.push(
-      `CPU ${plan.budget.cpuMilli > 0 ? '+' : ''}${plan.budget.cpuMilli}m`,
+      `CPU ${p.budget.cpuMilli > 0 ? '+' : ''}${p.budget.cpuMilli}m`,
     )
   }
-  if (plan.budget.memMi !== 0) {
+  if (p.budget.memMi !== 0) {
     budgetLines.push(
-      `Memory ${plan.budget.memMi > 0 ? '+' : ''}${plan.budget.memMi} Mi`,
+      `Memory ${p.budget.memMi > 0 ? '+' : ''}${p.budget.memMi} Mi`,
     )
   }
   budgetLines.push(
-    plan.budget.roomFits ? 'Fits deploy room budget' : 'Exceeds deploy room budget',
+    p.budget.roomFits ? 'Fits deploy room budget' : 'Exceeds deploy room budget',
   )
   sections.push({ id: 'budget', title: 'Resources', lines: budgetLines })
 
-  if (plan.guarantees.length > 0) {
+  if (p.guarantees.length > 0) {
     sections.push({
       id: 'guarantees',
       title: 'Guarantees',
-      lines: plan.guarantees.map((g) =>
+      lines: p.guarantees.map((g) =>
         g.chaos ? `${g.change} (${g.chaos})` : g.change,
       ),
     })
   }
 
-  if (plan.warnings.length > 0) {
+  if (p.warnings.length > 0) {
     sections.push({
       id: 'warnings',
       title: 'Warnings',
-      lines: plan.warnings,
+      lines: p.warnings,
       tone: 'warn',
     })
   }

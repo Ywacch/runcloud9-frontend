@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { buildPlanSheetModel, type DesignPlan } from './planSheetModel'
+import {
+  buildPlanSheetModel,
+  normalizeDesignPlan,
+  planHasVisibleChanges,
+  type DesignPlan,
+} from './planSheetModel'
 
 describe('buildPlanSheetModel', () => {
+  it('normalizes API bodies with missing node diff arrays', () => {
+    const plan = normalizeDesignPlan({ nodes: {}, edges: {} })
+    expect(() => buildPlanSheetModel(plan)).not.toThrow()
+    expect(planHasVisibleChanges(plan)).toBe(false)
+  })
+
   it('summarizes timeline consolidation', () => {
     const plan: DesignPlan = {
       nodes: { added: [], removed: ['cache-1'], resized: [] },
