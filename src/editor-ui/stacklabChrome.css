@@ -733,3 +733,64 @@
 .sl-chrome .sl-body::-webkit-scrollbar-thumb {
   background: rgba(232, 233, 229, 0.16);
 }
+
+/* ---------- jobs panel ---------- */
+.sl-chrome .sl-jobs-select {
+  border: 1px solid var(--sl-rule);
+  background: var(--sl-panel-hi);
+  color: var(--sl-ink);
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.sl-chrome .sl-jobs-engines {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sl-chrome .sl-jobs-engine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--sl-rule);
+  background: var(--sl-panel-hi);
+  color: var(--sl-ink);
+  padding: 4px 8px;
+  font-size: 11px;
+  text-align: left;
+}
+
+.sl-chrome .sl-jobs-engine--active {
+  border-color: var(--sl-green);
+}
+
+.sl-chrome .sl-jobs-engine--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sl-chrome .sl-jobs-fit {
+  font-family: var(--sl-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sl-green);
+}
+
+.sl-chrome .sl-jobs-fit--impossible {
+  color: var(--sl-ink-3);
+}
+
+.sl-chrome .sl-jobs-fit--muted {
+  color: var(--sl-ink-3);
+}
+
+.sl-chrome .sl-jobs-fit--locked {
+  color: var(--sl-amber);
+}

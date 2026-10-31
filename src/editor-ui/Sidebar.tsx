@@ -115,6 +115,7 @@ import {
   deployAdmitStatusFromCreate,
   deployRejectReasonFromError,
 } from '../lib/deployWaitAnalytics'
+import { JobsPanel } from './engines/JobsPanel'
 
 const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
@@ -973,6 +974,8 @@ export function Sidebar() {
             return result
           }}
         />
+
+        <JobsPanel disabled={live || simulate || deploying} />
 
         <h2 className="sl-lab mb-2 pt-2">Canvas</h2>
         <div className="btn-stack flex flex-col gap-1.5">

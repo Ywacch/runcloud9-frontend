@@ -184,6 +184,8 @@ interface CanvasState {
   hoveredInstanceId: string | null
   /** One-shot topology UX banner (e.g. social-feed cache removal). */
   topologyBanner: string | null
+  /** Explicit job id → canvas node id bindings for deploy. */
+  jobBindings: Record<string, string>
 
   addNode: (node: CanvasNode) => void
   updateNodePosition: (id: string, pos: [number, number, number]) => void
@@ -205,6 +207,7 @@ interface CanvasState {
   setHoveredNodeId: (id: string | null) => void
   setHoveredInstanceId: (id: string | null) => void
   setTopologyBanner: (message: string | null) => void
+  setJobBinding: (job: string, nodeId: string | null) => void
   setEdgeAnimated: (id: string, animated: boolean) => void
   setMovementLocked: (locked: boolean) => void
   selectNode: (id: string | null) => void
@@ -298,6 +301,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   hoveredNodeId: null,
   hoveredInstanceId: null,
   topologyBanner: null,
+  jobBindings: {},
 
   addNode: (node) =>
     set((s) => {
@@ -400,7 +404,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         pendingSourceId: s.pendingSourceId === id ? null : s.pendingSourceId,
         hoveredNodeId: s.hoveredNodeId === id ? null : s.hoveredNodeId,
         topologyBanner,
+        jobBindings: Object.fromEntries(
+          Object.entries(s.jobBindings).filter(([, nid]) => nid !== id),
+        ),
       }
+    }),
+
+  setJobBinding: (job, nodeId) =>
+    set((s) => {
+      const key = job.trim()
+      if (!key) return s
+      const next = { ...s.jobBindings }
+      if (!nodeId?.trim()) {
+        delete next[key]
+      } else {
+        next[key] = nodeId.trim()
+      }
+      return { jobBindings: next }
     }),
 
   removeSelectedNodes: () =>
@@ -638,13 +658,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   exportJSON: () => {
     const s = get()
-    return {
+    const snap: CanvasSnapshot = {
       version: '1.0',
       templateId: s.snapshotTemplateId ?? undefined,
       nodes: Object.values(s.nodes),
       edges: Object.values(s.edges),
       exportedAt: new Date().toISOString(),
     }
+    if (Object.keys(s.jobBindings).length > 0) {
+      snap.jobBindings = { ...s.jobBindings }
+    }
+    return snap
   },
 
   undo: () => {
@@ -693,6 +717,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
       hoveredNodeId: null,
+      jobBindings: snapshot.jobBindings ? { ...snapshot.jobBindings } : {},
     })
     resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
   },
@@ -727,6 +752,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
       hoveredNodeId: null,
+      jobBindings: snapshot.jobBindings ? { ...snapshot.jobBindings } : {},
     })
     resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
   },
@@ -761,6 +787,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
       hoveredNodeId: null,
+      jobBindings: {},
     })
     resetDesignStorytellingUi({ syncPredictions: true })
   },
@@ -795,6 +822,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       walkthroughHighlightedEdgeIds: [],
       walkthroughParticipatingNodeIds: [],
       hoveredNodeId: null,
+      jobBindings: {},
     })
   },
 }))

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { isExpandToggleEligible } from '../compose/expandEligibility'
 import { useDragLiveEpoch, useSessionLayoutEpoch } from '../hooks/useEdgeRenderModel'
@@ -12,6 +13,11 @@ import {
   shouldShowProvisionedSublabel,
   statusDotColor,
 } from '../fx/nodeChrome'
+import {
+  buildJobsPanelModel,
+  jobBadgeLabelsForNode,
+} from '../../lib/engines/jobsPanelModel'
+import { templateHasJobsPanel } from '../../lib/engines/templateJobCatalog'
 
 type NodeLabelChromeProps = {
   nodes: SvgNode[]
@@ -24,6 +30,7 @@ type NodeChromeRowProps = {
   opacity: number
   showSublabel: boolean
   canvasNode: ReturnType<typeof useCanvasStore.getState>['nodes'][string]
+  jobLabels: string[]
 }
 
 function NodeChromeRow({
@@ -31,6 +38,7 @@ function NodeChromeRow({
   opacity,
   showSublabel,
   canvasNode,
+  jobLabels,
 }: NodeChromeRowProps) {
   const drag = getDragLive()
   const expanded = useExpanded(node)
@@ -111,6 +119,25 @@ function NodeChromeRow({
           {sublabel}
         </text>
       ) : null}
+      {jobLabels.length > 0 ? (
+        <text
+          x={anchors.labelX}
+          y={anchors.sublabelY + (sublabel ? 12 : 0)}
+          textAnchor="middle"
+          dominantBaseline="hanging"
+          fontSize={8}
+          fontWeight={600}
+          fontFamily="system-ui, sans-serif"
+          fill="#c4b5fd"
+          style={{
+            paintOrder: 'stroke',
+            stroke: 'rgba(0,0,0,0.7)',
+            strokeWidth: 2,
+          }}
+        >
+          {jobLabels.join(' · ')}
+        </text>
+      ) : null}
       <circle
         cx={anchors.statusX}
         cy={anchors.statusY}
@@ -134,7 +161,20 @@ export function NodeLabelChrome({
   useSessionLayoutEpoch()
   const mode = useCanvasStore((s) => s.mode)
   const canvasNodes = useCanvasStore((s) => s.nodes)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
   const showSublabel = shouldShowProvisionedSublabel(mode)
+
+  const jobLabelsByNodeId = useMemo(() => {
+    if (!templateHasJobsPanel(snapshotTemplateId)) return new Map<string, string[]>()
+    const snap = useCanvasStore.getState().exportJSON()
+    const rows = buildJobsPanelModel(snap, null)
+    const map = new Map<string, string[]>()
+    for (const node of nodes) {
+      map.set(node.id, jobBadgeLabelsForNode(node.id, rows))
+    }
+    return map
+  }, [nodes, snapshotTemplateId, canvasNodes, jobBindings])
 
   return (
     <g data-node-label-chrome style={{ pointerEvents: 'none' }}>
@@ -145,6 +185,7 @@ export function NodeLabelChrome({
           opacity={opacityById?.get(node.id) ?? 1}
           showSublabel={showSublabel}
           canvasNode={canvasNodes[node.id]}
+          jobLabels={jobLabelsByNodeId.get(node.id) ?? []}
         />
       ))}
     </g>
