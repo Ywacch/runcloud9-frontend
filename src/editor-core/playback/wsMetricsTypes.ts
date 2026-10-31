@@ -38,6 +38,8 @@ export interface WsComponentMetrics {
   timelineKeyCount?: number
   feedRequestRatePush?: number
   feedRequestRatePull?: number
+  timelineRelationBytes?: number
+  timelineDeadTuples?: number
   dbQueryRate?: number
   dbQuerySource?: string
   dbActiveConnections?: number
@@ -107,6 +109,13 @@ export interface WsDeploymentMetrics {
   snapshotAgeMs?: number
   collectPending?: boolean
   phenomena?: unknown
+  timeline?: {
+    engine?: string
+    appendRate?: number
+    appendP99Ms?: number
+    rangeP99Ms?: number
+    errorRate?: number
+  }
   components?: Record<string, WsComponentMetrics>
   templateMetrics?: Record<string, number>
   events?: WsEventPayload[]

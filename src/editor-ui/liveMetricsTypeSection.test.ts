@@ -56,6 +56,7 @@ describe('LiveMetricsTypeSection message_queue', () => {
         nodes: { 'mq-1': node },
         snapshotTemplateId: 'social-feed',
         templateMetrics: {},
+        timelineOps: null,
         loadgenActive: false,
         view: { timeframe: 'live', showGraphs: false, latencyQuantile: 'p95' },
       }),

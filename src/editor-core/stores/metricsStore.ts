@@ -13,6 +13,7 @@ import {
 } from '../../lib/conversationsToggle'
 import type { PhenomenonEntry } from '../../lib/phenomena/types'
 import { clearLedgerCache } from '../../lib/phenomena/ledgerCache'
+import type { TimelineOpsSnapshot } from '../../lib/timelineOpsDisplay'
 
 export type WorkloadEventKind =
   | 'loadgen_start'
@@ -108,6 +109,9 @@ export interface MetricsBucket {
   /** social-feed: rate(social_feed_request_total) by mode */
   feedRequestRatePush?: number
   feedRequestRatePull?: number
+  /** Postgres timelines table stats (exporter c9_timeline). */
+  timelineRelationBytes?: number
+  timelineDeadTuples?: number
 
   // DB-specific
   dbQueryRate: number
@@ -328,6 +332,8 @@ interface MetricsState {
   events: WsEvent[]
   /** Latest template-scoped counters/gauges from backend (dot keys). */
   templateMetrics: Record<string, number>
+  /** Deployment-level timeline job op metrics (append/range). */
+  timelineOps: TimelineOpsSnapshot | null
   /** Phenomenon ledger entries from the latest WS frame. */
   phenomena: PhenomenonEntry[]
   /** Namespace used for ledger sessionStorage (WS `namespace` or deployment id). */
@@ -365,7 +371,11 @@ interface MetricsState {
   setPlaybackCatchingUp: (catchingUp: boolean) => void
   pushEvents: (incoming: WsEvent[]) => void
   setTemplateMetrics: (m: Record<string, number> | undefined) => void
-  setPhenomena: (entries: PhenomenonEntry[], ledgerNamespace: string | null) => void
+  setPhenomena: (
+    entries: PhenomenonEntry[],
+    ledgerNamespace: string | null,
+    timelineOps?: TimelineOpsSnapshot | null,
+  ) => void
   dismissCascadeToast: () => void
   dismissInvariantToast: () => void
   setStreamWarning: (msg: string | null) => void
@@ -382,6 +392,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   systemSeries: [],
   events: [],
   templateMetrics: {},
+  timelineOps: null,
   phenomena: [],
   ledgerNamespace: null,
   cascadeToast: null,
@@ -476,8 +487,12 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   setTemplateMetrics: (m) =>
     set({ templateMetrics: m && Object.keys(m).length ? { ...m } : {} }),
 
-  setPhenomena: (phenomena, ledgerNamespace) =>
-    set({ phenomena: [...phenomena], ledgerNamespace }),
+  setPhenomena: (phenomena, ledgerNamespace, timelineOps) =>
+    set((s) => ({
+      phenomena: [...phenomena],
+      ledgerNamespace,
+      ...(timelineOps !== undefined ? { timelineOps } : {}),
+    })),
 
   dismissCascadeToast: () => set({ cascadeToast: null }),
 
@@ -503,6 +518,7 @@ export const useMetricsStore = create<MetricsState>((set) => ({
       systemSeries: [],
       events: [],
       templateMetrics: {},
+      timelineOps: null,
       phenomena: [],
       ledgerNamespace: null,
       cascadeToast: null,
