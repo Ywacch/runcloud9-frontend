@@ -838,6 +838,7 @@ export function Sidebar() {
     setPendingDeployAfterAuth,
     showResourceQuotaRejected,
     trackDeployBlocked,
+    sessionMinutesChoice,
   ])
 
   const handleDeploy = () => {
