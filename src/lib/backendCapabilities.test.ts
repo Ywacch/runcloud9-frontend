@@ -1,14 +1,53 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, afterEach } from 'vitest'
 import {
   BACKEND_SUPPORTS_SHARDING,
+  applyEnginesCatalog,
   backendEngineOrDefault,
   backendEnginesForType,
   backendSupportsReadReplicas,
   backendSupportsReplicas,
   isBackendSupportedEngine,
+  resetBackendEnginesCatalog,
 } from './backendCapabilities'
+import type { MetaJobsResponse } from './api'
+
+const sampleCatalog: MetaJobsResponse = {
+  catalogVersion: '2',
+  jobs: [],
+  engines: [],
+  pairs: [
+    {
+      job: 'main_db',
+      engine: 'postgresql',
+      fit: 'natural',
+      build: 'available',
+      reason: '',
+      fidelity: 'real',
+    },
+    {
+      job: 'hot_cache',
+      engine: 'redis',
+      fit: 'natural',
+      build: 'available',
+      reason: '',
+      fidelity: 'real',
+    },
+    {
+      job: 'work_queue',
+      engine: 'rabbitmq',
+      fit: 'natural',
+      build: 'available',
+      reason: '',
+      fidelity: 'real',
+    },
+  ],
+  guarantees: [],
+}
 
 describe('backendCapabilities', () => {
+  afterEach(() => {
+    resetBackendEnginesCatalog()
+  })
   it('exposes only provisioned engines', () => {
     expect(backendEnginesForType('database')).toEqual(['postgresql'])
     expect(backendEnginesForType('cache')).toEqual(['redis'])
@@ -54,5 +93,15 @@ describe('backendCapabilities', () => {
     expect(backendSupportsReadReplicas('database')).toBe(true)
     expect(backendSupportsReadReplicas('cache')).toBe(false)
     expect(backendSupportsReadReplicas('compute')).toBe(false)
+  })
+
+  it('keeps hardcoded defaults when the catalog is unavailable', () => {
+    expect(backendEnginesForType('database')).toEqual(['postgresql'])
+  })
+
+  it('uses catalog pairs with build available when applied', () => {
+    applyEnginesCatalog(sampleCatalog)
+    expect(backendEnginesForType('database')).toEqual(['postgresql'])
+    expect(backendEngineOrDefault('cache', 'memcached')).toBe('redis')
   })
 })

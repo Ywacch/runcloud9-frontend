@@ -337,6 +337,30 @@ export async function fetchMetaJobs(): Promise<MetaJobsResponse> {
   return res.json() as Promise<MetaJobsResponse>
 }
 
+export type EngineGate = 'none' | 'tier'
+
+export interface EngineGateEntry {
+  job: string
+  engine: string
+  gate: EngineGate
+}
+
+export interface EngineGatesResponse {
+  pairs: EngineGateEntry[]
+}
+
+/** GET /me/engine-gates — tier locks for job-engine pairs in the picker. */
+export async function fetchEngineGates(): Promise<EngineGatesResponse> {
+  if (shouldUseDevAccountFixtures(getAccessToken())) {
+    return { pairs: [] }
+  }
+  const base = DEPLOYMENTS_API_PREFIX.replace(/\/?deployments\/?$/, '')
+  const res = await apiFetch(`${base}/me/engine-gates`, {
+    headers: authHeader() ?? {},
+  })
+  return res.json() as Promise<EngineGatesResponse>
+}
+
 export interface CurrentUserLimits {
   maxConcurrent: number
   sessionDefaultMins: number
@@ -350,6 +374,8 @@ export interface CurrentUserLimits {
   allowProxyCache: boolean
   maxInstanceSize: string
   maxLoadgenRps: number
+  allowEngineSwap?: boolean
+  allowHeavyEngines?: boolean
 }
 
 export interface CurrentUserResponse {

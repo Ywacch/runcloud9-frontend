@@ -5,6 +5,7 @@
  * Database read replicas are provisioned via readReplicas; cache stays single-instance.
  */
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import type { MetaJobsResponse } from './api'
 
 /** Engines the backend provisions, by canvas node type. Empty = no engine choice. */
 export const BACKEND_ENGINES: Record<CanvasNode['type'], string[]> = {
@@ -15,6 +16,43 @@ export const BACKEND_ENGINES: Record<CanvasNode['type'], string[]> = {
   worker: [],
   load_balancer: [],
   client: [],
+}
+
+/** Maps catalog jobs to canvas node types for provisioned-engine lists. */
+const CATALOG_JOBS_BY_NODE_TYPE: Partial<
+  Record<CanvasNode['type'], readonly string[]>
+> = {
+  database: ['main_db'],
+  cache: ['hot_cache'],
+  message_queue: ['work_queue'],
+}
+
+let catalogEnginesByType: Partial<
+  Record<CanvasNode['type'], string[]>
+> | null = null
+
+/** Applies `/meta/jobs` pairs with `build: available` to deploy-time engine lists. */
+export function applyEnginesCatalog(catalog: MetaJobsResponse): void {
+  const next: Partial<Record<CanvasNode['type'], string[]>> = {}
+  for (const [nodeType, jobs] of Object.entries(CATALOG_JOBS_BY_NODE_TYPE) as [
+    CanvasNode['type'],
+    readonly string[],
+  ][]) {
+    const engines = new Set<string>()
+    for (const pair of catalog.pairs) {
+      if (!jobs.includes(pair.job) || pair.build !== 'available') continue
+      engines.add(pair.engine.trim().toLowerCase())
+    }
+    if (engines.size > 0) {
+      next[nodeType] = [...engines].sort()
+    }
+  }
+  catalogEnginesByType = next
+}
+
+/** Clears catalog-driven engines (tests). */
+export function resetBackendEnginesCatalog(): void {
+  catalogEnginesByType = null
 }
 
 /** Sharding is visual only — the deployer provisions one instance per component. */
@@ -29,7 +67,10 @@ export const BACKEND_REPLICA_TYPES: ReadonlySet<CanvasNode['type']> = new Set([
   'compute',
   'worker',
 ])
+
 export function backendEnginesForType(type: CanvasNode['type']): string[] {
+  const fromCatalog = catalogEnginesByType?.[type]
+  if (fromCatalog?.length) return fromCatalog
   return BACKEND_ENGINES[type] ?? []
 }
 
