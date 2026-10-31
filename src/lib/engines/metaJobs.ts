@@ -1,8 +1,11 @@
-import {
-  DEPLOYMENTS_API_PREFIX,
-  fetchMetaJobs,
-  type MetaJobsResponse,
-} from '../api'
+import type { MetaJobsResponse } from '../api'
+
+/** Mirrors `DEPLOYMENTS_API_PREFIX` in api.ts (kept local to avoid pulling auth/supabase). */
+const DEPLOYMENTS_API_PREFIX =
+  (import.meta.env.VITE_DEPLOYMENTS_API_PREFIX as string | undefined)?.replace(
+    /\/$/,
+    '',
+  ) ?? '/deployments'
 
 let cachedEtag: string | null = null
 let cachedBody: MetaJobsResponse | null = null
@@ -49,5 +52,3 @@ export async function loadMetaJobs(): Promise<MetaJobsResponse> {
   cachedBody = body
   return body
 }
-
-export { fetchMetaJobs }
