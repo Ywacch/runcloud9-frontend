@@ -27,7 +27,7 @@ import { useChaosStore } from '../editor-core/stores/chaosStore'
 import { useCanvasContextMenuStore } from '../editor-core/stores/contextMenuStore'
 import { useEnginePreviewStore } from '../editor-core/stores/enginePreviewStore'
 import { useAuthStore } from '../product/stores/authStore'
-import { subscribeCanvasViewportScreenRefresh } from '../canvas/utils/canvasViewportBridge'
+import { logoDataUrl } from '../svg-canvas/skins/logos'
 import { configPatchForEngine } from '../svg-canvas/bridge/canvasSvgAdapter'
 import { loadEnginesSession } from '../lib/engines/enginesSession'
 import { buildJobsPanelModel } from '../lib/engines/jobsPanelModel'
@@ -172,7 +172,7 @@ export function CanvasContextMenu() {
   }, [node, mode, deploymentId, chaosTargetBusy, chaosPartitionActive, loadedVariationId])
 
   const jobsOnNode = useMemo(() => {
-    if (!node || !catalog) return []
+    if (!node) return []
     const snap = useCanvasStore.getState().exportJSON()
     return buildJobsPanelModel(snap, catalog).filter((row) => row.nodeId === node.id)
   }, [node, catalog, nodes])
@@ -395,9 +395,22 @@ export function CanvasContextMenu() {
               </>
             ) : null}
           </div>
-          {engineJobId && catalog ? (
+          {engineJobId ? (
             <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-              {buildEnginePickerModel(engineJobId, catalog, gates).map((option) => {
+              {(catalog
+                ? buildEnginePickerModel(engineJobId, catalog, gates)
+                : (jobsOnNode.find((row) => row.jobId === engineJobId)?.allowedEngines ??
+                    []
+                  ).map((engine) => ({
+                    engine,
+                    label: engine,
+                    fit: 'workable' as const,
+                    build: 'available' as const,
+                    reason: '',
+                    state: 'selectable' as const,
+                    gate: 'none' as const,
+                  }))
+              ).map((option) => {
                 const locked =
                   option.state === 'impossible' || option.state === 'tier_locked'
                 const preview = previewJobEngineChange(
@@ -405,26 +418,57 @@ export function CanvasContextMenu() {
                   engineJobId,
                   option.engine,
                 )
+                const logo = logoDataUrl(option.engine)
+                const current = jobsOnNode.find((row) => row.jobId === engineJobId)
+                const active = current?.engine === option.engine
+                const fit =
+                  option.state === 'not_built'
+                    ? 'Not built yet'
+                    : option.state === 'tier_locked'
+                      ? 'Locked'
+                      : option.state === 'impossible'
+                        ? 'Impossible'
+                        : option.fit === 'natural'
+                          ? 'Natural'
+                          : option.fit === 'workable'
+                            ? 'Workable'
+                            : option.fit === 'poor'
+                              ? 'Poor'
+                              : option.fit
                 return (
                   <li key={option.engine}>
                     <button
                       type="button"
                       role="menuitem"
                       disabled={locked}
-                      className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-[var(--c9-bg)] disabled:cursor-not-allowed disabled:opacity-40 ${
+                        active ? 'bg-[var(--c9-bg)]' : ''
+                      }`}
                       onMouseEnter={() => setEnginePreview(preview)}
                       onMouseLeave={() => setEnginePreview(null)}
                       onClick={() => applyEngine(option, engineJobId)}
                     >
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-[10px] text-[var(--c9-muted)]">
-                        {option.state === 'not_built'
-                          ? 'Not built yet'
-                          : option.state === 'tier_locked'
-                            ? 'Locked'
-                            : option.state === 'impossible'
-                              ? option.reason
-                              : preview.summary}
+                      {logo ? (
+                        <img
+                          src={logo}
+                          alt=""
+                          className={`h-5 w-5 shrink-0 object-contain ${
+                            locked ? 'opacity-40 grayscale' : ''
+                          }`}
+                        />
+                      ) : (
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--c9-border)] text-[9px] uppercase">
+                          {option.engine.slice(0, 2)}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{option.label}</span>
+                        <span className="block truncate text-[10px] text-[var(--c9-muted)]">
+                          {locked ? option.reason || fit : preview.summary}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[9px] uppercase tracking-wide text-[var(--c9-muted)]">
+                        {fit}
                       </span>
                     </button>
                   </li>
@@ -438,13 +482,9 @@ export function CanvasContextMenu() {
             </ul>
           ) : (
           <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-            {mode === 'design' && !deploymentId && !loadedVariationId
+            {(mode === 'design' || mode === 'simulate') && !deploymentId
               ? jobsOnNode
-              .filter(
-                (row) =>
-                  catalog &&
-                  buildEnginePickerModel(row.jobId, catalog, gates).length > 1,
-              )
+              .filter((row) => row.allowedEngines.length > 1)
               .map((row) => (
                 <li key={row.jobId}>
                   <button
