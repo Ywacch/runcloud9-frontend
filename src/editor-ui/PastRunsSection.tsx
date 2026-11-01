@@ -8,6 +8,8 @@ import {
   type TemplateInfo,
 } from '../lib/api'
 import { sessionSummaryFromApiMetrics } from '../lib/sessionCapture'
+import { postmortemSlideState } from '../lib/postmortemPoll'
+import { useAuthStore } from '../product/stores/authStore'
 import { trackEvent } from '../lib/analytics'
 import type { SessionSummary } from '../editor-core/stores/canvasStore'
 import { SessionSummaryView } from './SessionSummary'
@@ -401,6 +403,12 @@ export function PastRunsSection() {
       {detail?.kind === 'summary' && (
         <SessionSummaryView
           summary={detail.summary}
+          postmortemSlide={postmortemSlideState({
+            postmortem: detail.summary.aiPostmortem,
+            isInternal: useAuthStore.getState().currentUser?.isInternal === true,
+            polling: false,
+            pollTimedOut: false,
+          })}
           onDismiss={() => {
             setDetail(null)
           }}

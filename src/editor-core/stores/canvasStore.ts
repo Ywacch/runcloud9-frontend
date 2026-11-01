@@ -120,6 +120,8 @@ export interface SessionSummary {
   clientLatencyHistory?: ClientLatencyInterval[]
   /** Verified post-mortem from `metrics_summary.ai_postmortem`. */
   aiPostmortem?: AIPostmortem
+  /** Namespace id for polling post-mortem after live teardown. */
+  deploymentId?: string
   componentSummaries: Record<
     string,
     {

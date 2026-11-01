@@ -19,6 +19,9 @@ import { dispatchRequestDeploy } from '../lib/deployEvents'
 import type { PostmortemClaim } from '../lib/aiPostmortem'
 import type { SessionEventSummary } from '../lib/eventsSummaryFromApi'
 import { highlightEventSearchText } from '../lib/highlightCaption'
+import { postmortemSlideState, type PostmortemSlideState } from '../lib/postmortemPoll'
+import { usePostmortemPoll } from '../editor-core/hooks/usePostmortemPoll'
+import { useAuthStore } from '../product/stores/authStore'
 import { HighlightPanel } from './HighlightReel'
 import { ModelInferenceBadge } from './ModelInferenceBadge'
 import { ViewTraceButton } from './ViewTraceButton'
@@ -63,6 +66,7 @@ type SummarySlide = {
   groupLabel: string
   event?: SessionEventSummary
   claim?: PostmortemClaim
+  postmortemKind?: 'pending' | 'error'
 }
 
 function eventTokens(event: SessionEventSummary): string {
@@ -94,8 +98,23 @@ function eventWantsStoragePeaks(event: SessionEventSummary): boolean {
   return /(db|postgres|storage|query|cache)/.test(eventTokens(event))
 }
 
-function buildSlides(summary: SessionSummary): SummarySlide[] {
+function buildSlides(summary: SessionSummary, pmSlide: PostmortemSlideState): SummarySlide[] {
   const slides: SummarySlide[] = []
+  if (pmSlide === 'pending') {
+    slides.push({
+      id: 'postmortem-pending',
+      group: 'postmortem',
+      groupLabel: 'Post-mortem',
+      postmortemKind: 'pending',
+    })
+  } else if (pmSlide === 'error') {
+    slides.push({
+      id: 'postmortem-error',
+      group: 'postmortem',
+      groupLabel: 'Post-mortem',
+      postmortemKind: 'error',
+    })
+  }
   const events = summary.eventsSummary ?? []
   events.forEach((event, i) => {
     slides.push({
@@ -106,7 +125,7 @@ function buildSlides(summary: SessionSummary): SummarySlide[] {
     })
   })
   const postmortem = summary.aiPostmortem
-  if (postmortem) {
+  if (pmSlide === 'ready' && postmortem) {
     slides.push({
       id: 'postmortem-summary',
       group: 'postmortem',
@@ -133,6 +152,7 @@ function buildSlides(summary: SessionSummary): SummarySlide[] {
 
 export interface SessionSummaryViewProps {
   summary: SessionSummary
+  postmortemSlide: PostmortemSlideState
   onDismiss: (action: SummaryDismissAction) => void
   onRedeploy?: () => void
   onOpenCanvas?: () => void
@@ -144,6 +164,7 @@ export interface SessionSummaryViewProps {
 
 export function SessionSummaryView({
   summary,
+  postmortemSlide,
   onDismiss,
   onRedeploy,
   onOpenCanvas,
@@ -152,7 +173,10 @@ export function SessionSummaryView({
   actionLabel = 'Back to Design',
   modal = true,
 }: SessionSummaryViewProps) {
-  const slides = useMemo(() => buildSlides(summary), [summary])
+  const slides = useMemo(
+    () => buildSlides(summary, postmortemSlide),
+    [summary, postmortemSlide],
+  )
   const [index, setIndex] = useState(0)
   const panelRef = useRef<HTMLDivElement>(null)
   const mountTimeRef = useRef<number | null>(null)
@@ -199,7 +223,7 @@ export function SessionSummaryView({
       const visibleSeconds = mountTimeRef.current
         ? Math.floor((Date.now() - mountTimeRef.current) / 1000)
         : 0
-      const deploymentId = useCanvasStore.getState().deploymentId
+      const deploymentId = summary.deploymentId ?? useCanvasStore.getState().deploymentId
       trackEvent('session_summary_dismissed', {
         template: summary.template ?? 'unknown',
         visibleSeconds,
@@ -440,6 +464,26 @@ function SlideCopy({
   }
 
   if (slide.group === 'postmortem') {
+    if (slide.postmortemKind === 'pending') {
+      return (
+        <div>
+          <h3 className="text-base font-semibold text-[var(--c9-text-heading)]">Post-mortem</h3>
+          <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-text)]">
+            Writing your post-mortem. This takes up to a few minutes.
+          </p>
+        </div>
+      )
+    }
+    if (slide.postmortemKind === 'error') {
+      return (
+        <div>
+          <h3 className="text-base font-semibold text-[var(--c9-text-heading)]">Post-mortem</h3>
+          <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-[var(--c9-text)]">
+            The post-mortem could not be generated for this run.
+          </p>
+        </div>
+      )
+    }
     const pm = summary.aiPostmortem
     if (slide.claim) {
       return (
@@ -733,6 +777,18 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 
 export function SessionSummary() {
   const summary = useCanvasStore((s) => s.sessionSummary)
+  const isInternal = useAuthStore((s) => s.currentUser?.isInternal === true)
+  const { polling, pollTimedOut } = usePostmortemPoll(summary)
+  const postmortemSlide = useMemo(
+    () =>
+      postmortemSlideState({
+        postmortem: summary?.aiPostmortem,
+        isInternal,
+        polling,
+        pollTimedOut,
+      }),
+    [summary?.aiPostmortem, isInternal, polling, pollTimedOut],
+  )
   const restorePredicted = useStorytellingStore((s) => s.restorePersistedPredictions)
 
   const dismiss = () => {
@@ -745,7 +801,7 @@ export function SessionSummary() {
 
   useEffect(() => {
     if (!summary) return
-    const deploymentId = useCanvasStore.getState().deploymentId
+    const deploymentId = summary.deploymentId ?? useCanvasStore.getState().deploymentId
     trackEvent('session_summary_viewed', {
       template: summary.template ?? 'unknown',
       sessionDuration: summary.duration ?? '',
@@ -766,6 +822,7 @@ export function SessionSummary() {
   return (
     <SessionSummaryView
       summary={summary}
+      postmortemSlide={postmortemSlide}
       onDismiss={() => dismiss()}
       onRedeploy={redeploy}
       modal={true}
