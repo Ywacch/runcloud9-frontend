@@ -68,6 +68,7 @@ import {
   buildTimelineOpsViewModel,
   type TimelineOpsSnapshot,
 } from '../lib/timelineOpsDisplay'
+import { scaleReplicaLabel } from '../lib/scaleStatus'
 import { TimelineOpsSection } from './TimelineOpsSection'
 import {
   StacklabDbEngineFootnotes,
@@ -119,6 +120,19 @@ import {
   SlScale,
 } from './stacklabPanePrimitives'
 import { StacklabNote as Note, StacklabSparkline } from './stacklabMetricsUi'
+
+function HpaRolloutStatusLine({ m }: { m: MetricsBucket }) {
+  const label = scaleReplicaLabel(m.scale ?? null)
+  if (!label) return null
+  return (
+    <p
+      className="mb-2 rounded-md border border-amber-700/40 bg-amber-950/40 px-2.5 py-1.5 text-[11px] font-medium text-amber-100/95"
+      role="status"
+    >
+      CPU autoscale rollout · {label}
+    </p>
+  )
+}
 
 export interface StacklabInspectorPaneProps {
   node: CanvasNode
@@ -180,6 +194,7 @@ function ComputePane({
   if (metricGroup === 'health') {
     return (
       <SlPaneSection>
+        {(m.podReplicas?.length ?? 0) <= 1 ? <HpaRolloutStatusLine m={m} /> : null}
         <SlRedHealthPane
           index="01"
           title="Is the API fast and healthy?"
@@ -279,6 +294,7 @@ function ComputePane({
           title="Which replica is carrying the load?"
           subtitle="Per-pod share, readiness, and restarts. Click a pod to spotlight it."
         />
+        <HpaRolloutStatusLine m={m} />
         {status ? (
           <SlPodStatus ready={status.ready} bad={status.bad} warn={status.warn} />
         ) : null}
@@ -1255,6 +1271,7 @@ function WorkerPane({
   if (metricGroup === 'health') {
     return (
       <SlPaneSection>
+        {(m.podReplicas?.length ?? 0) <= 1 ? <HpaRolloutStatusLine m={m} /> : null}
         <SlRedHealthPane
           index="01"
           title="Is background processing falling behind?"
@@ -1364,6 +1381,7 @@ function WorkerPane({
           title="Which replica is carrying the load?"
           subtitle="Per-pod share, readiness, and restarts."
         />
+        <HpaRolloutStatusLine m={m} />
         {status ? <SlPodStatus ready={status.ready} warn={status.warn} bad={status.bad} /> : null}
         <SlPodTable
           columns={[
