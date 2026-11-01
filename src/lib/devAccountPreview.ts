@@ -39,7 +39,7 @@ export const DEV_ENGINEER_USER: CurrentUserResponse = {
     sessionCapMins: 15,
     maxSessionsPerMonth: 20,
     allTemplates: true,
-    maxAppServerReplicas: 3,
+    maxAppServerReplicas: 5,
     allowLoadBalancer: true,
     allowMQWorker: true,
     allowProxyCache: true,

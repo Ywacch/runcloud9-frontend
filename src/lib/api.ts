@@ -398,6 +398,7 @@ export interface CurrentUserLimits {
   allowLoadBalancer: boolean
   allowMQWorker: boolean
   allowProxyCache: boolean
+  allowAutoscale?: boolean
   maxInstanceSize: string
   maxLoadgenRps: number
   allowEngineSwap?: boolean

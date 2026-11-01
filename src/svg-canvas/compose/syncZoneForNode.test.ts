@@ -107,6 +107,6 @@ describe('syncZoneForNode', () => {
   it('emits one obstacle anchor per unit (capped at platform max)', () => {
     expect(unitObstacleAnchors(node(1))).toHaveLength(1)
     expect(unitObstacleAnchors(node(3))).toHaveLength(3)
-    expect(unitObstacleAnchors(node(9))).toHaveLength(3)
+    expect(unitObstacleAnchors(node(9))).toHaveLength(5)
   })
 })

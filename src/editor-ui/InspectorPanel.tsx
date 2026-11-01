@@ -1264,6 +1264,10 @@ function TypeFields({
     userRecord,
     currentUser?.limits,
   )
+  const allowAutoscale =
+    currentUser?.limits.allowAutoscale === true ||
+    currentUser?.isInternal === true ||
+    resolveEffectiveTier(userRecord) === 'internal'
   const c = node.config
 
   switch (node.type) {
@@ -1492,6 +1496,7 @@ function TypeFields({
             updateConfig={updateConfig}
             readOnly={readOnly}
             maxReplicas={maxAppReplicas}
+            available={allowAutoscale}
           />
           {replicas > 1 ? (
             <InstanceSizeCopyFields
@@ -1943,6 +1948,7 @@ function TypeFields({
         maxInstanceSize={maxInstanceSize}
           simulationMode={simulationMode}
           maxReplicas={maxAppReplicas}
+          allowAutoscale={allowAutoscale}
         />
       )
 

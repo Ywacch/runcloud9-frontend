@@ -17,12 +17,16 @@ export function AutoscaleInspectorFields({
   updateConfig,
   readOnly = false,
   maxReplicas,
+  available = false,
 }: {
   config: Record<string, unknown>
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   readOnly?: boolean
   maxReplicas: number
+  available?: boolean
 }) {
+  const locked = !available
+  const controlsDisabled = readOnly || locked
   const enabled = autoscaleFromConfig(config.autoscale) != null
   const ac: AutoscaleConfig =
     autoscaleFromConfig(config.autoscale) ?? defaultAutoscale(maxReplicas)
@@ -31,14 +35,19 @@ export function AutoscaleInspectorFields({
     <>
       <PcfgField
         label="CPU autoscale"
-        sub="Kubernetes scales this node on CPU between min and max replicas. Admission charges the max."
+        sub={
+          locked
+            ? 'Limited to internal accounts.'
+            : 'Kubernetes scales this node on CPU between min and max replicas. Admission charges the max.'
+        }
       >
         <PcfgChk
           id="autoscale-enabled"
           label="Scale on CPU"
           checked={enabled}
-          disabled={readOnly}
+          disabled={readOnly || (locked && !enabled)}
           onChange={(on) => {
+            if (readOnly || (locked && on)) return
             if (!on) {
               updateConfig({ autoscale: undefined })
               return
@@ -55,8 +64,9 @@ export function AutoscaleInspectorFields({
               value={ac.min}
               min={APP_SERVER_REPLICA_MIN}
               max={ac.max}
-              disabled={readOnly}
+              disabled={controlsDisabled}
               onChange={(next) => {
+                if (locked) return
                 const min = clampAutoscaleMin(next, ac.max)
                 updateConfig({
                   autoscale: {
@@ -74,8 +84,9 @@ export function AutoscaleInspectorFields({
               value={ac.max}
               min={ac.min}
               max={maxReplicas}
-              disabled={readOnly}
+              disabled={controlsDisabled}
               onChange={(next) => {
+                if (locked) return
                 const max = clampAutoscaleMax(next, ac.min, maxReplicas)
                 updateConfig({
                   autoscale: {
@@ -96,8 +107,9 @@ export function AutoscaleInspectorFields({
               value={ac.targetCPUPercent}
               min={AUTOSCALE_CPU_TARGET_MIN}
               max={AUTOSCALE_CPU_TARGET_MAX}
-              disabled={readOnly}
+              disabled={controlsDisabled}
               onChange={(next) => {
+                if (locked) return
                 updateConfig({
                   autoscale: {
                     ...ac,

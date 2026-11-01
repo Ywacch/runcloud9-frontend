@@ -1,6 +1,6 @@
 /** App-server / worker replica limits (metrics-ui-contract). */
 export const APP_SERVER_REPLICA_MIN = 1
-export const APP_SERVER_REPLICA_MAX = 3
+export const APP_SERVER_REPLICA_MAX = 5
 /** Workers share the app-server horizontal scale ceiling. */
 export const WORKER_REPLICA_MIN = APP_SERVER_REPLICA_MIN
 export const WORKER_REPLICA_MAX = APP_SERVER_REPLICA_MAX

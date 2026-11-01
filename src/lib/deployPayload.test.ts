@@ -343,10 +343,10 @@ describe('deployConfigForNode', () => {
       type: 'worker',
       label: 'Worker',
       position: [0, 0, 0],
-      config: { replicas: 4 },
+      config: { replicas: 9 },
       status: 'idle',
     })
-    expect(worker.replicas).toBe(3)
+    expect(worker.replicas).toBe(5)
   })
 
   it('keeps clamped compute replicas on the deploy wire', () => {

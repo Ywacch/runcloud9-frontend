@@ -25,6 +25,7 @@ export function WorkerInspectorFields({
   simulationMode = false,
   maxInstanceSize = 'large',
   maxReplicas = WORKER_REPLICA_MAX,
+  allowAutoscale = false,
 }: {
   config: Record<string, unknown>
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
@@ -32,6 +33,7 @@ export function WorkerInspectorFields({
   simulationMode?: boolean
   maxInstanceSize?: InstanceSize
   maxReplicas?: number
+  allowAutoscale?: boolean
 }) {
   const autoscaleOn = autoscaleFromConfig(config.autoscale) != null
   const workerReplicas = clampWorkerReplicas(config.replicas ?? 1, maxReplicas)
@@ -70,6 +72,7 @@ export function WorkerInspectorFields({
         updateConfig={updateConfig}
         readOnly={readOnly}
         maxReplicas={maxReplicas}
+        available={allowAutoscale}
       />
       <PcfgField
         label="Prefetch"

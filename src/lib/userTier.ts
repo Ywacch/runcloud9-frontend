@@ -13,6 +13,7 @@ export interface TopologyLimits {
   allowLoadBalancer: boolean
   allowMQWorker: boolean
   allowProxyCache: boolean
+  allowAutoscale: boolean
 }
 
 export function resolveEffectiveTier(user: UserRecord | null): EffectiveTier {
@@ -84,31 +85,36 @@ export function topologyLimitsFromApi(limits: {
   allowLoadBalancer: boolean
   allowMQWorker: boolean
   allowProxyCache: boolean
+  allowAutoscale?: boolean
 }): TopologyLimits {
   return {
     maxAppServerReplicas: limits.maxAppServerReplicas,
     allowLoadBalancer: limits.allowLoadBalancer,
     allowMQWorker: limits.allowMQWorker,
     allowProxyCache: limits.allowProxyCache,
+    allowAutoscale: limits.allowAutoscale === true,
   }
 }
 
 export type InstanceSize = 'small' | 'medium' | 'large'
 
 export function topologyLimitsForTier(effectiveTier: EffectiveTier): TopologyLimits {
+  const allowAutoscale = effectiveTier === 'internal'
   if (effectiveTier === 'engineer' || effectiveTier === 'internal') {
     return {
-      maxAppServerReplicas: 3,
+      maxAppServerReplicas: 5,
       allowLoadBalancer: true,
       allowMQWorker: true,
       allowProxyCache: true,
+      allowAutoscale,
     }
   }
   return {
-    maxAppServerReplicas: 3,
+    maxAppServerReplicas: 5,
     allowLoadBalancer: true,
     allowMQWorker: true,
     allowProxyCache: true,
+    allowAutoscale: false,
   }
 }
 
