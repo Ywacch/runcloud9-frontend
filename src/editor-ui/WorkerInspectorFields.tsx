@@ -8,6 +8,8 @@ import { normalizeInstanceSizes } from '../lib/instanceSizes'
 import { ResourceProfileFields } from './ResourceProfileFields'
 import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
 import type { InstanceSize } from '../lib/userTier'
+import { autoscaleFromConfig } from '../lib/autoscaleConfig'
+import { AutoscaleInspectorFields } from './AutoscaleInspectorFields'
 import { PcfgField, PcfgNum, PcfgStepper } from './stacklabConfigControls'
 
 function optionalPositiveInt(raw: unknown): string {
@@ -22,14 +24,17 @@ export function WorkerInspectorFields({
   readOnly = false,
   simulationMode = false,
   maxInstanceSize = 'large',
+  maxReplicas = WORKER_REPLICA_MAX,
 }: {
   config: Record<string, unknown>
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   readOnly?: boolean
   simulationMode?: boolean
   maxInstanceSize?: InstanceSize
+  maxReplicas?: number
 }) {
-  const workerReplicas = clampWorkerReplicas(config.replicas ?? 1)
+  const autoscaleOn = autoscaleFromConfig(config.autoscale) != null
+  const workerReplicas = clampWorkerReplicas(config.replicas ?? 1, maxReplicas)
   const prefetch = optionalPositiveInt(config.workerPrefetch)
   const concurrency = optionalPositiveInt(config.workerConcurrency)
 
@@ -37,16 +42,20 @@ export function WorkerInspectorFields({
     <>
       <PcfgField
         label="Replicas"
-        sub={`Number of identical workers draining the queue in parallel. Max ${WORKER_REPLICA_MAX}.`}
+        sub={
+          autoscaleOn
+            ? 'Fixed replicas are off while CPU autoscale is enabled.'
+            : `Number of identical workers draining the queue in parallel. Max ${maxReplicas}.`
+        }
       >
         <PcfgStepper
           label="Replicas"
           value={workerReplicas}
           min={WORKER_REPLICA_MIN}
-          max={WORKER_REPLICA_MAX}
-          disabled={readOnly}
+          max={maxReplicas}
+          disabled={readOnly || autoscaleOn}
           onChange={(next) => {
-            const clamped = clampWorkerReplicas(next)
+            const clamped = clampWorkerReplicas(next, maxReplicas)
             const sizes = normalizeInstanceSizes(config, clamped)
             updateConfig({
               replicas: clamped,
@@ -56,6 +65,12 @@ export function WorkerInspectorFields({
           }}
         />
       </PcfgField>
+      <AutoscaleInspectorFields
+        config={config}
+        updateConfig={updateConfig}
+        readOnly={readOnly}
+        maxReplicas={maxReplicas}
+      />
       <PcfgField
         label="Prefetch"
         htmlFor="worker-prefetch"
