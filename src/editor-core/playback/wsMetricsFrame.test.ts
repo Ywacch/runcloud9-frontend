@@ -465,6 +465,20 @@ describe('applyWsFrameToStore loadgen latencies', () => {
     })
   })
 
+  it('stores scaleLagErrors from WS loadgen payload', () => {
+    applyWsFrameToStore(
+      {
+        loadgen: {
+          active: true,
+          targetRps: 40,
+          scaleLagErrors: 3,
+        },
+      },
+      { appendCharts: false, pushEvents: false },
+    )
+    expect(useMetricsStore.getState().loadgen?.scaleLagErrors).toBe(3)
+  })
+
   it('keeps loadgen active when stale frame reports inactive after a live run', () => {
     useMetricsStore.setState({
       loadgen: {

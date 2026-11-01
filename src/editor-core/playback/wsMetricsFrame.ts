@@ -499,6 +499,7 @@ export function applyWsFrameToStore(
       vu: parseLoadgenVu(lg.vu),
       identityCount: parseOptionalLoadgenCount(lg.identityCount),
       identitiesSeen: parseOptionalLoadgenCount(lg.identitiesSeen),
+      scaleLagErrors: parseOptionalLoadgenCount(lg.scaleLagErrors),
     })
   }
 
