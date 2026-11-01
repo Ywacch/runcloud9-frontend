@@ -1,4 +1,5 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
+import { useEffect, useState } from 'react'
 import {
   AUTOSCALE_CPU_TARGET_MAX,
   AUTOSCALE_CPU_TARGET_MIN,
@@ -11,6 +12,8 @@ import {
 } from '../lib/autoscaleConfig'
 import { APP_SERVER_REPLICA_MIN } from '../lib/replicaConfig'
 import { PcfgChk, PcfgField, PcfgStepper } from './stacklabConfigControls'
+
+const AUTOSCALE_LOCK_TIP = 'CPU autoscale is limited to internal accounts.'
 
 export function AutoscaleInspectorFields({
   config,
@@ -27,34 +30,50 @@ export function AutoscaleInspectorFields({
 }) {
   const locked = !available
   const controlsDisabled = readOnly || locked
+  const [lockHintUntil, setLockHintUntil] = useState(0)
+  const lockHint = lockHintUntil > Date.now()
   const enabled = autoscaleFromConfig(config.autoscale) != null
   const ac: AutoscaleConfig =
     autoscaleFromConfig(config.autoscale) ?? defaultAutoscale(maxReplicas)
+
+  useEffect(() => {
+    if (lockHintUntil <= Date.now()) return
+    const timer = window.setTimeout(() => setLockHintUntil(0), lockHintUntil - Date.now())
+    return () => window.clearTimeout(timer)
+  }, [lockHintUntil])
 
   return (
     <>
       <PcfgField
         label="CPU autoscale"
-        sub={
-          locked
-            ? 'Limited to internal accounts.'
-            : 'Kubernetes scales this node on CPU between min and max replicas. Admission charges the max.'
-        }
+        sub="Kubernetes scales this node on CPU between min and max replicas. Admission charges the max."
       >
-        <PcfgChk
-          id="autoscale-enabled"
-          label="Scale on CPU"
-          checked={enabled}
-          disabled={readOnly || (locked && !enabled)}
-          onChange={(on) => {
-            if (readOnly || (locked && on)) return
-            if (!on) {
-              updateConfig({ autoscale: undefined })
-              return
-            }
-            updateConfig({ autoscale: defaultAutoscale(maxReplicas) })
-          }}
-        />
+        <span title={locked ? AUTOSCALE_LOCK_TIP : undefined}>
+          <PcfgChk
+            id="autoscale-enabled"
+            label="Scale on CPU"
+            checked={enabled}
+            disabled={readOnly}
+            onChange={(on) => {
+              if (readOnly) return
+              if (locked && on) {
+                setLockHintUntil(Date.now() + 4000)
+                return
+              }
+              setLockHintUntil(0)
+              if (!on) {
+                updateConfig({ autoscale: undefined })
+                return
+              }
+              updateConfig({ autoscale: defaultAutoscale(maxReplicas) })
+            }}
+          />
+        </span>
+        {lockHint ? (
+          <p className="note amber" role="status">
+            {AUTOSCALE_LOCK_TIP}
+          </p>
+        ) : null}
       </PcfgField>
       {enabled ? (
         <>

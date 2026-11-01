@@ -20,6 +20,7 @@ import {
   type SvgNode,
 } from '../store/svgTypes'
 import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
+import { designedHorizontalReplicas } from '../../lib/autoscaleConfig'
 import { backendSupportsReplicas } from '../../lib/backendCapabilities'
 import { normalizeInstanceSizes } from '../../lib/instanceSizes'
 import { clampShards } from '../compose/composeGlyph'
@@ -103,7 +104,16 @@ export function liveDbUnitCountFromMetrics(
   return layers.length >= 1 ? layers.length : null
 }
 
-/** Overlay topology.replicas from live db layers without mutating canvas config. */
+/** Canvas unit count from live app-server or worker pods. Null when metrics have no pods yet. */
+export function livePodReplicaCount(
+  metrics: MetricsBucket | undefined,
+): number | null {
+  const n = metrics?.podReplicas?.length ?? 0
+  if (n < 1) return null
+  return Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, n))
+}
+
+/** Overlay topology.replicas from live db layers and app/worker pods without mutating canvas config. */
 export function overlayLiveDbUnitCount(
   nodes: SvgNode[],
   canvasNodes: Record<string, CanvasNode>,
@@ -112,6 +122,15 @@ export function overlayLiveDbUnitCount(
   let changed = false
   const next = nodes.map((n) => {
     const canvas = canvasNodes[n.id]
+    if (canvas?.type === 'compute' || canvas?.type === 'worker') {
+      const count = livePodReplicaCount(metrics[canvas.id])
+      if (count == null || n.topology.replicas === count) return n
+      changed = true
+      return {
+        ...n,
+        topology: { ...n.topology, replicas: count },
+      }
+    }
     if (canvas?.type !== 'database') return n
     const count = liveDbUnitCountFromMetrics(metrics[canvas.id])
     if (count == null || n.topology.replicas === count) return n
@@ -131,8 +150,7 @@ export function replicasFromCanvasNode(node: CanvasNode): number {
     return Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(n)))
   }
   if (node.type === 'load_balancer' || node.type === 'client') return 1
-  const r = Number(node.config.replicas ?? 1)
-  return Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(Number.isFinite(r) ? r : 1)))
+  return designedHorizontalReplicas(node.config)
 }
 
 export function shardsFromCanvasNode(node: CanvasNode): number {

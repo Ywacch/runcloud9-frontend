@@ -27,12 +27,13 @@ describe('unitMotionStore helpers', () => {
     ]
     const target = [{ dx: 0, dy: 0 }, { dx: 10, dy: 0 }]
     const targetIds = ['postgres', 'postgres-replica-1']
-    const { anims } = planUnitTransition(current, target, { dx: 0, dy: 0 }, 0, {
+    const { units, anims } = planUnitTransition(current, target, { dx: 0, dy: 0 }, 0, {
       targetIds,
     })
     const removed = anims.find((a) => a.id === 'postgres-replica-0')
     const kept = anims.find((a) => a.id === 'postgres-replica-1')
     expect(removed?.removeAtEnd).toBe(true)
+    expect(units.find((u) => u.id === 'postgres-replica-0')?.leaving).toBe(true)
     expect(kept?.removeAtEnd).not.toBe(true)
   })
 
