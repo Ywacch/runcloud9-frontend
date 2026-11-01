@@ -102,6 +102,28 @@ describe('ensureLoadBalancerForReplicas', () => {
     expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]).toBeUndefined()
   })
 
+  it('adds auto LB when autoscale max is above 1 and replicas stay at 1', () => {
+    useCanvasStore.setState({
+      nodes: {
+        'app-1': {
+          ...computeNode('app-1', 1),
+          config: {
+            replicas: 1,
+            instanceSize: 'small',
+            autoscale: { min: 1, max: 5, targetCPUPercent: 70 },
+          },
+        },
+      },
+      edges: {},
+    })
+
+    ensureLoadBalancerForReplicas()
+
+    expect(useCanvasStore.getState().nodes[AUTO_LOAD_BALANCER_ID]?.type).toBe(
+      'load_balancer',
+    )
+  })
+
   it('rearranges remaining nodes after auto LB is removed', () => {
     useCanvasStore.setState({
       nodes: {
