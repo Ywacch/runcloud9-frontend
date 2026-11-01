@@ -14,6 +14,7 @@ import {
 import type { PhenomenonEntry } from '../../lib/phenomena/types'
 import { clearLedgerCache } from '../../lib/phenomena/ledgerCache'
 import type { TimelineOpsSnapshot } from '../../lib/timelineOpsDisplay'
+import type { ScaleStatus } from '../../lib/scaleStatus'
 
 export type WorkloadEventKind =
   | 'loadgen_start'
@@ -24,6 +25,7 @@ export type WorkloadEventKind =
   | 'chaos_inject'
   | 'chaos_heal'
   | 'standby_reclone'
+  | 'scale'
 export type { EventVisibility } from '../domain/eventVisibility'
 
 /** Event from backend metrics stream (threshold, cascade, workload/runtime actions). */
@@ -153,6 +155,8 @@ export interface MetricsBucket {
   backendPods: PodReplicaMetrics[]
   /** K8s deployment replica status from LB tick. */
   backendReplicas: BackendReplicaStatus | null
+  /** HPA desired vs ready when CPU autoscaling targets this component. */
+  scale?: ScaleStatus | null
   /** Live pod readiness/restart state from K8s API. */
   runtimeHealth: RuntimeHealthSummary | null
   /** Per-process cache layers when proxy mode is active. */
@@ -288,6 +292,7 @@ function parsePersistedWsEvents(raw: string): WsEvent[] {
         r.kind === 'loadgen_start' ||
         r.kind === 'loadgen_stop' ||
         r.kind === 'loadgen_rate' ||
+        r.kind === 'scale' ||
         r.kind === 'loadgen_mix' ||
         r.kind === 'chaos_inject' ||
         r.kind === 'chaos_heal' ||

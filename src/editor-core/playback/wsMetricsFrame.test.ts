@@ -159,6 +159,15 @@ describe('componentToBucket resource sources', () => {
     expect(empty.expirationsPerSec).toBe(0)
   })
 
+  it('parses scale on the bucket when desired is positive', () => {
+    const bucket = componentToBucket({
+      component: 'app-server',
+      scale: { desired: 2, ready: 1 },
+    })
+    expect(bucket.scale).toEqual({ desired: 2, ready: 1 })
+    expect(componentToBucket({ component: 'app-server' }).scale).toBeNull()
+  })
+
   it('maps component freshness onto the bucket and cache layers', () => {
     const bucket = componentToBucket({
       component: 'db',
@@ -310,6 +319,28 @@ describe('normalizeWsEvents workload anchors', () => {
     expect(event.kind).toBe('standby_reclone')
     expect(event.description).toBe('standby_reclone')
     expect(event.visibility).toBe('all')
+  })
+
+  it('keeps kind scale with detail', () => {
+    const [event] = normalizeWsEvents([
+      {
+        timestamp: '2026-05-01T12:00:05Z',
+        type: 'action',
+        source: 'autoscaler',
+        kind: 'scale',
+        component: 'app-server',
+        title: 'App servers scaled',
+        description: 'CPU autoscaling uses metrics-server samples from about 60 seconds ago.',
+        detail: { from: '1', to: '2', reason: 'cpu', fidelity: 'real' },
+      },
+    ])
+    expect(event.kind).toBe('scale')
+    expect(event.detail).toEqual({
+      from: '1',
+      to: '2',
+      reason: 'cpu',
+      fidelity: 'real',
+    })
   })
 
   it('keeps a legacy runtime action unchanged when kind is missing', () => {
