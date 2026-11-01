@@ -6,6 +6,7 @@ import {
   buildJobsPanelModel,
   type JobsPanelRow,
 } from '../../lib/engines/jobsPanelModel'
+import { previewJobEngineChange } from '../../lib/engines/engineChangePreview'
 import { templateHasJobsPanel } from '../../lib/engines/templateJobCatalog'
 import { EnginePicker } from './EnginePicker'
 
@@ -19,6 +20,7 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
   const jobBindings = useCanvasStore((s) => s.jobBindings)
   const exportJSON = useCanvasStore((s) => s.exportJSON)
   const setJobBinding = useCanvasStore((s) => s.setJobBinding)
+  const removeNode = useCanvasStore((s) => s.removeNode)
   const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
 
   const [catalog, setCatalog] = useState<Awaited<
@@ -51,16 +53,43 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
   if (!templateHasJobsPanel(snapshotTemplateId)) return null
 
   const applyEngine = (row: JobsPanelRow, engine: string) => {
-    if (!row.nodeId || !catalog) return
-    const node = nodes[row.nodeId]
-    if (!node) return
     if (!row.allowedEngines.includes(engine)) return
-    updateNodeConfig(row.nodeId, configPatchForEngine(node.type, engine))
+    const preview = previewJobEngineChange(exportJSON(), row.jobId, engine)
+    if (preview.bindToNodeId) {
+      setJobBinding(row.jobId, preview.bindToNodeId)
+      updateNodeConfig(
+        preview.bindToNodeId,
+        configPatchForEngine(
+          nodes[preview.bindToNodeId]?.type ?? 'cache',
+          preview.engine,
+        ),
+      )
+    }
+    if (preview.patchNodeId) {
+      const host = nodes[preview.patchNodeId]
+      if (host) {
+        updateNodeConfig(preview.patchNodeId, configPatchForEngine(host.type, preview.engine))
+      }
+      setJobBinding(row.jobId, preview.patchNodeId)
+    }
+    for (const id of preview.removeNodeIds) {
+      if (nodes[id]) removeNode(id)
+    }
   }
 
   const bindNode = (row: JobsPanelRow, nodeId: string) => {
     if (!nodeId) {
       setJobBinding(row.jobId, null)
+      return
+    }
+    const target = nodes[nodeId]
+    if (row.jobId === 'work_queue' && target?.type === 'cache') {
+      const preview = previewJobEngineChange(exportJSON(), 'work_queue', 'redis')
+      setJobBinding(row.jobId, nodeId)
+      updateNodeConfig(nodeId, configPatchForEngine('cache', 'redis'))
+      for (const id of preview.removeNodeIds) {
+        if (nodes[id]) removeNode(id)
+      }
       return
     }
     setJobBinding(row.jobId, nodeId)
@@ -108,6 +137,7 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
                   catalog={catalog.catalog}
                   gates={catalog.gates}
                   selectedEngine={row.engine}
+                  allowedEngines={row.allowedEngines}
                   onSelectEngine={(engine) => applyEngine(row, engine)}
                 />
               ) : null}

@@ -18,6 +18,8 @@ type EnginePickerProps = {
   catalog: MetaJobsResponse
   gates: EngineGateEntry[]
   selectedEngine: string | null
+  /** When set, only these engines appear (template job allow-list). */
+  allowedEngines?: readonly string[]
   onSelectEngine: (engine: string) => void
 }
 
@@ -52,9 +54,12 @@ export function EnginePicker({
   catalog,
   gates,
   selectedEngine,
+  allowedEngines,
   onSelectEngine,
 }: EnginePickerProps) {
-  const options = buildEnginePickerModel(jobId, catalog, gates)
+  const options = buildEnginePickerModel(jobId, catalog, gates).filter(
+    (option) => !allowedEngines || allowedEngines.includes(option.engine),
+  )
 
   return (
     <ul className="sl-jobs-engines" aria-label={`Engines for ${jobId}`}>

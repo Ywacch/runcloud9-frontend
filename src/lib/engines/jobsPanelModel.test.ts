@@ -8,6 +8,7 @@ const catalog: MetaJobsResponse = {
   jobs: [
     { id: 'main_db', label: 'Main database' },
     { id: 'timeline', label: 'Timeline' },
+    { id: 'work_queue', label: 'Work queue' },
     { id: 'hot_cache', label: 'Hot cache' },
   ],
   engines: [],
@@ -107,5 +108,33 @@ describe('buildJobsPanelModel', () => {
     )
     expect(model.map((r) => r.jobId)).toEqual(['main_db', 'hot_cache'])
     expect(model.find((r) => r.jobId === 'hot_cache')?.required).toBe(false)
+  })
+
+  it('lists cache and mq as work_queue candidates on social-feed', () => {
+    const model = buildJobsPanelModel(
+      snap('social-feed', [
+        {
+          id: 'mq-1',
+          type: 'message_queue',
+          label: 'Message Queue',
+          position: [0, 0, 0],
+          config: { engine: 'rabbitmq' },
+          status: 'idle',
+        },
+        {
+          id: 'cache-1',
+          type: 'cache',
+          label: 'Redis',
+          position: [1, 0, 0],
+          config: { cacheEngine: 'redis', strategy: 'timeline-store' },
+          status: 'idle',
+        },
+      ]),
+      catalog,
+    )
+    const queue = model.find((r) => r.jobId === 'work_queue')
+    expect(queue?.candidateNodeIds).toEqual(['cache-1', 'mq-1'])
+    expect(queue?.allowedEngines).toContain('redis')
+    expect(queue?.nodeId).toBe('mq-1')
   })
 })

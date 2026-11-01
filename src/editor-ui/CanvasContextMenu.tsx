@@ -189,6 +189,13 @@ export function CanvasContextMenu() {
     const preview = previewJobEngineChange(snap, jobId, option.engine)
     const st = useCanvasStore.getState()
     if (preview.bindToNodeId) {
+      const host = st.nodes[preview.bindToNodeId]
+      if (host) {
+        st.updateNodeConfig(
+          preview.bindToNodeId,
+          configPatchForEngine(host.type, preview.engine),
+        )
+      }
       st.setJobBinding(jobId, preview.bindToNodeId)
     }
     if (preview.patchNodeId) {
@@ -398,20 +405,26 @@ export function CanvasContextMenu() {
           </div>
           {engineJobId ? (
             <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-              {(catalog
-                ? buildEnginePickerModel(engineJobId, catalog, gates)
-                : (jobsOnNode.find((row) => row.jobId === engineJobId)?.allowedEngines ??
-                    []
-                  ).map((engine) => ({
-                    engine,
-                    label: engine,
-                    fit: 'workable' as const,
-                    build: 'available' as const,
-                    reason: '',
-                    state: 'selectable' as const,
-                    gate: 'none' as const,
-                  }))
-              ).map((option) => {
+              {(() => {
+                const allowed =
+                  jobsOnNode.find((row) => row.jobId === engineJobId)?.allowedEngines
+                const options = (
+                  catalog
+                    ? buildEnginePickerModel(engineJobId, catalog, gates)
+                    : (allowed ?? []).map((engine) => ({
+                        engine,
+                        label: engine,
+                        fit: 'workable' as const,
+                        build: 'available' as const,
+                        reason: '',
+                        state: 'selectable' as const,
+                        gate: 'none' as const,
+                      }))
+                ).filter(
+                  (option) => !allowed || allowed.includes(option.engine),
+                )
+                return options
+              })().map((option) => {
                 const locked =
                   option.state === 'impossible' || option.state === 'tier_locked'
                 const preview = previewJobEngineChange(

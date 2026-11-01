@@ -56,6 +56,10 @@ function candidatesForJob(job: TemplateJobDef, nodes: CanvasNode[]): string[] {
       if (n.type === 'cache' || n.type === 'database') ids.push(n.id)
       continue
     }
+    if (job.id === 'work_queue') {
+      if (n.type === 'cache' || n.type === 'message_queue') ids.push(n.id)
+      continue
+    }
     if (n.type === job.defaultNodeType) ids.push(n.id)
   }
   return ids.sort()

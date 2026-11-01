@@ -29,6 +29,23 @@ function snap(): CanvasSnapshot {
   }
 }
 
+function snapWithMq(): CanvasSnapshot {
+  return {
+    ...snap(),
+    nodes: [
+      ...snap().nodes,
+      {
+        id: 'mq-1',
+        type: 'message_queue',
+        label: 'Message Queue',
+        position: [2, 0, 0],
+        config: { engine: 'rabbitmq' },
+        status: 'idle',
+      },
+    ],
+  }
+}
+
 describe('previewJobEngineChange', () => {
   it('moves timeline onto postgres and removes redis', () => {
     const preview = previewJobEngineChange(snap(), 'timeline', 'postgresql')
@@ -41,5 +58,11 @@ describe('previewJobEngineChange', () => {
     const preview = previewJobEngineChange(snap(), 'timeline', 'redis')
     expect(preview.removeNodeIds).toEqual([])
     expect(preview.patchNodeId).toBe('cache-1')
+  })
+
+  it('moves work_queue onto redis and removes mq when unused', () => {
+    const preview = previewJobEngineChange(snapWithMq(), 'work_queue', 'redis')
+    expect(preview.bindToNodeId).toBe('cache-1')
+    expect(preview.removeNodeIds).toEqual(['mq-1'])
   })
 })

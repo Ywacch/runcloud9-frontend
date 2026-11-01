@@ -21,7 +21,7 @@ export const TEMPLATE_JOBS: Record<string, readonly TemplateJobDef[]> = {
       defaultNodeType: cache,
       allowedEngines: ['redis', 'postgresql'],
     },
-    { id: 'work_queue', required: false, defaultNodeType: mq, allowedEngines: ['rabbitmq'] },
+    { id: 'work_queue', required: false, defaultNodeType: mq, allowedEngines: ['rabbitmq', 'redis'] },
   ],
   'social-feed-pull': [
     { id: 'main_db', required: true, defaultNodeType: db, allowedEngines: ['postgresql'] },
@@ -34,7 +34,7 @@ export const TEMPLATE_JOBS: Record<string, readonly TemplateJobDef[]> = {
   ecommerce: [
     { id: 'main_db', required: true, defaultNodeType: db, allowedEngines: ['postgresql'] },
     { id: 'hot_cache', required: false, defaultNodeType: cache, allowedEngines: ['redis'] },
-    { id: 'work_queue', required: false, defaultNodeType: mq, allowedEngines: ['rabbitmq'] },
+    { id: 'work_queue', required: false, defaultNodeType: mq, allowedEngines: ['rabbitmq', 'redis'] },
   ],
 }
 
