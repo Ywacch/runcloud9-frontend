@@ -7,6 +7,8 @@ export type MotionUnit = {
   dy: number
   opacity: number
   scale: number
+  /** True while this unit is fading out after it left the target set. */
+  leaving?: boolean
 }
 
 export type UnitAnim = {
@@ -55,7 +57,7 @@ export function motionKeyForNode(nodeId: string): string {
   const m = nodes.get(nodeId)
   if (!m) return ''
   return m.units
-    .map((u) => `${u.id}:${u.dx},${u.dy},${u.opacity},${u.scale}`)
+    .map((u) => `${u.id}:${u.dx},${u.dy},${u.opacity},${u.scale},${u.leaving ? 1 : 0}`)
     .join('|')
 }
 
@@ -147,7 +149,7 @@ export function planUnitTransition(
   for (const c of current) {
     if (!survivingIds.has(c.id)) {
       if (!animateSpawn) continue
-      nextUnits.push({ ...c })
+      nextUnits.push({ ...c, leaving: true })
       anims.push({
         id: c.id,
         fromDx: c.dx,

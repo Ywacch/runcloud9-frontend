@@ -86,6 +86,11 @@ type SpriteBackedGlyphProps = {
   onUnitPointerDown?: (unitIndex: number, e: ReactPointerEvent<SVGGElement>) => void
   onUnitPointerEnter?: (unitIndex: number) => void
   onUnitPointerLeave?: (unitIndex: number) => void
+  /** Kill highlight on every slab. Used when the stack is collapsed. */
+  chaosWholeStack?: boolean
+  /** Kill highlight only on these unit ids, plus any unit fading out. */
+  perUnitChaos?: boolean
+  chaosUnitIds?: readonly string[]
 }
 
 /** Renders extracted greyscale unit SVGs from `src/assets/components`. */
@@ -107,6 +112,9 @@ export function SpriteBackedGlyph({
   onUnitPointerDown,
   onUnitPointerEnter,
   onUnitPointerLeave,
+  chaosWholeStack = false,
+  perUnitChaos = false,
+  chaosUnitIds = [],
 }: SpriteBackedGlyphProps) {
   const spec = SPRITES[kind]
   const ordered = [...units].sort(compareUnitPaintOrder)
@@ -116,14 +124,20 @@ export function SpriteBackedGlyph({
   const perUnitSelect = selected && ordered.length <= 1
   const stroke = perUnitSelect ? '#3b82f6' : 'transparent'
   const strokeWidth = perUnitSelect ? 2.5 : 0
-  const rimStyle = resolveRimStyle(healthVisual)
+  const baseHealth: HealthVisualState =
+    perUnitChaos && healthVisual === 'chaos'
+      ? stableHealthRim
+        ? 'healthy'
+        : 'off'
+      : healthVisual
+  const rimStyle = resolveRimStyle(baseHealth)
   const rimAlpha = usePulsingAlpha(rimStyle)
-  const activeRimFilter = healthRimFilterId(healthVisual)
-  const rimFilter =
-    activeRimFilter ??
-    (stableHealthRim ? HEALTH_RIM_FILTER_IDS.healthy : null)
-  const rimOpacity = activeRimFilter ? healthRimLayerOpacity(rimAlpha) : 0
-  const mountRim = stableHealthRim || activeRimFilter != null
+  const chaosRimStyle = resolveRimStyle('chaos')
+  const chaosAlpha = usePulsingAlpha(chaosRimStyle)
+  const chaosIdSet = new Set(chaosUnitIds)
+  const baseFilter = healthRimFilterId(baseHealth)
+  const chaosFilter = healthRimFilterId('chaos')
+  const fallbackFilter = stableHealthRim ? HEALTH_RIM_FILTER_IDS.healthy : null
   const matrix = tintColorMatrixValues(tint)
   const rawId = useId().replace(/:/g, '')
   const filterId = matrix ? `sprite-tint-${rawId}` : null
@@ -154,7 +168,22 @@ export function SpriteBackedGlyph({
         onPointerEnter={interactive && !unitPick ? onPointerEnter : undefined}
         onPointerLeave={interactive && !unitPick ? onPointerLeave : undefined}
       >
-        {ordered.map((u) => (
+        {ordered.map((u) => {
+          const unitChaos =
+            chaosWholeStack ||
+            (perUnitChaos && (u.leaving === true || chaosIdSet.has(u.id)))
+          const rimFilter = unitChaos
+            ? chaosFilter
+            : (baseFilter ?? fallbackFilter)
+          const rimOpacity = unitChaos
+            ? healthRimLayerOpacity(chaosAlpha)
+            : baseFilter
+              ? healthRimLayerOpacity(rimAlpha)
+              : stableHealthRim
+                ? healthRimLayerOpacity(0)
+                : 0
+          const mountRim = rimFilter != null && (stableHealthRim || unitChaos || baseFilter != null)
+          return (
           <g key={u.id} transform={`translate(${u.dx} ${u.dy}) scale(${u.scale})`} opacity={u.opacity}>
             {interactive && unitPick ? (
               <UnitPickHit
@@ -225,7 +254,8 @@ export function SpriteBackedGlyph({
               />
             ) : null}
           </g>
-        ))}
+          )
+        })}
       </g>
     </g>
   )

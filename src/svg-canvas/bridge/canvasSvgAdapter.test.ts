@@ -225,6 +225,29 @@ describe('canvasSvgAdapter config projection', () => {
     expect(canvas.config.readReplicas).toBe(2)
   })
 
+  it('draws autoscale min until live pods arrive, then the pod count', () => {
+    const canvas = node({
+      type: 'compute',
+      config: {
+        replicas: 2,
+        autoscale: { min: 1, max: 5, targetCPUPercent: 70 },
+      },
+    })
+    const svg = canvasNodeToSvgNode(canvas)
+    expect(svg.topology.replicas).toBe(1)
+    const overlaid = overlayLiveDbUnitCount([svg], { [canvas.id]: canvas }, {
+      [canvas.id]: metricsBucket({
+        podReplicas: [
+          { name: 'app-a', ready: true },
+          { name: 'app-b', ready: true },
+          { name: 'app-c', ready: false },
+        ] as MetricsBucket['podReplicas'],
+      }),
+    })
+    expect(overlaid[0].topology.replicas).toBe(3)
+    expect(canvas.config.replicas).toBe(2)
+  })
+
   it('projects the traffic-source client into archetype client', () => {
     const svg = canvasNodeToSvgNode(
       node({

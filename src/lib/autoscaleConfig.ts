@@ -49,6 +49,14 @@ export function defaultAutoscale(maxReplicas: number = APP_SERVER_REPLICA_MAX): 
   }
 }
 
+export function designedHorizontalReplicas(
+  config: Record<string, unknown> | undefined,
+): number {
+  const ac = autoscaleFromConfig(config?.autoscale)
+  if (ac) return ac.min
+  return clampAppServerReplicas(config?.replicas ?? 1)
+}
+
 export function clampAutoscaleMin(raw: unknown, max: number): number {
   const ceiling = clampAppServerReplicas(max, max)
   const n = clampAppServerReplicas(raw, ceiling)

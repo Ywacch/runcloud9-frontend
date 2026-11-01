@@ -23,6 +23,7 @@ import { resolveSkin } from '../skins/engineSkins'
 import type { SvgNode } from '../store/svgTypes'
 import type { HealthVisualState } from '../../canvas/utils/healthVisual'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useChaosStore } from '../../editor-core/stores/chaosStore'
 import { useMetricsStore } from '../../editor-core/stores/metricsStore'
 import { sortedCanvasInstanceIds } from '../../lib/canvasInstanceScope'
 import { ClientLoadgenGlyph } from './ClientLoadgenGlyph'
@@ -49,8 +50,8 @@ function motionUnitsFromKey(key: string, fallback: MotionUnit[]): MotionUnit[] {
   return key.split('|').filter(Boolean).map((part) => {
     const colon = part.indexOf(':')
     const id = part.slice(0, colon)
-    const [dx, dy, opacity, scale] = part.slice(colon + 1).split(',').map(Number)
-    return { id, dx, dy, opacity, scale }
+    const [dx, dy, opacity, scale, leaving] = part.slice(colon + 1).split(',').map(Number)
+    return { id, dx, dy, opacity, scale, leaving: leaving === 1 }
   })
 }
 
@@ -71,9 +72,24 @@ function NodeGlyphInner({
   const canvasMode = useCanvasStore((s) => s.mode)
   const canvasNode = useCanvasStore((s) => s.nodes[node.id])
   const nodeMetrics = useMetricsStore((s) => s.metrics[node.id])
+  const podKillActive = useChaosStore((s) => {
+    const active = s.active
+    if (!active || active.scenario !== 'pod_kill') return false
+    if (node.archetype === 'app-server') return s.isTargetActive('app-server')
+    if (node.archetype === 'worker') return s.isTargetActive('worker')
+    return false
+  })
+  const chaosUnitIds = (nodeMetrics?.podReplicas ?? [])
+    .filter((pod) => pod.ready === false)
+    .map((pod) => pod.name)
   const stableHealthRim = canvasMode === 'live'
   const skin = resolveSkin(node.archetype, node.engine)
   const expanded = useExpanded(node)
+  const chaosProps = {
+    chaosWholeStack: podKillActive && !expanded,
+    perUnitChaos: podKillActive && expanded,
+    chaosUnitIds,
+  }
   const resolved = useMemo(
     () => resolveDisplayUnits(node, expanded),
     [
@@ -177,6 +193,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            {...chaosProps}
           />
         )
         break
@@ -189,6 +206,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            {...chaosProps}
           />
         )
         break
@@ -201,6 +219,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            {...chaosProps}
           />
         )
         break
@@ -213,6 +232,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            {...chaosProps}
           />
         )
         break
@@ -225,6 +245,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            {...chaosProps}
           />
         )
         break
@@ -238,6 +259,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            {...chaosProps}
           />
         )
     }
