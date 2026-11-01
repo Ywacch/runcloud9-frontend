@@ -1,10 +1,16 @@
 ﻿import { describe, expect, it } from 'vitest'
-import { easeOutCubic, planUnitTransition } from '../store/unitMotionStore'
+import { easeInOutCubic, easeOutCubic, planUnitTransition } from '../store/unitMotionStore'
 
 describe('unitMotionStore helpers', () => {
   it('easeOutCubic ends at 1', () => {
     expect(easeOutCubic(1)).toBe(1)
     expect(easeOutCubic(0)).toBe(0)
+  })
+
+  it('easeInOutCubic is flat at both ends', () => {
+    expect(easeInOutCubic(0)).toBe(0)
+    expect(easeInOutCubic(1)).toBe(1)
+    expect(easeInOutCubic(0.5)).toBe(0.5)
   })
 
   it('planUnitTransition count up spawns at primary', () => {

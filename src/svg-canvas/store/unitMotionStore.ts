@@ -30,9 +30,9 @@ type NodeMotion = {
   anims: UnitAnim[]
 }
 
-export const DURATION_MS = 200
-export const STAGGER_MS = 30
-const SPAWN_SCALE = 0.6
+export const DURATION_MS = 520
+export const STAGGER_MS = 40
+const SPAWN_SCALE = 0.92
 
 let nodes = new Map<string, NodeMotion>()
 let epoch = 0
@@ -42,6 +42,12 @@ let rafId: number | null = null
 export function easeOutCubic(t: number): number {
   const x = Math.min(1, Math.max(0, t))
   return 1 - (1 - x) ** 3
+}
+
+/** Slow at both ends so a pod fade does not jump on the first frames. */
+export function easeInOutCubic(t: number): number {
+  const x = Math.min(1, Math.max(0, t))
+  return x < 0.5 ? 4 * x * x * x : 1 - ((-2 * x + 2) ** 3) / 2
 }
 
 function unitId(index: number): string {
@@ -154,8 +160,8 @@ export function planUnitTransition(
         id: c.id,
         fromDx: c.dx,
         fromDy: c.dy,
-        toDx: primarySeat.dx,
-        toDy: primarySeat.dy,
+        toDx: c.dx,
+        toDy: c.dy,
         fromO: c.opacity,
         toO: 0,
         fromS: c.scale,
@@ -214,7 +220,7 @@ function advanceFrame(now: number): void {
         stillAnimating = true
         continue
       }
-      const t = easeOutCubic(elapsed / DURATION_MS)
+      const t = easeInOutCubic(elapsed / DURATION_MS)
       const u = unitsById.get(anim.id)
       if (!u) continue
       if (t >= 1) {
