@@ -122,6 +122,8 @@ import { LiveMetrics } from './LiveMetrics'
 import { ResourceProfileFields } from './ResourceProfileFields'
 import { InstanceSizeCopyFields } from './InstanceSizeCopyFields'
 import { WorkerInspectorFields } from './WorkerInspectorFields'
+import { AutoscaleInspectorFields } from './AutoscaleInspectorFields'
+import { autoscaleFromConfig } from '../lib/autoscaleConfig'
 import { getResourceProfilesCached } from '../lib/resourceProfileStore'
 import {
   formatProvisionedShort,
@@ -1438,8 +1440,9 @@ function TypeFields({
 
     case 'compute': {
       const replicas = clampAppServerReplicas(c.replicas ?? 1, maxAppReplicas)
+      const autoscaleOn = autoscaleFromConfig(c.autoscale) != null
       const replicasLocked = maxAppReplicas <= 1
-      const replicasDisabled = readOnly || replicasLocked
+      const replicasDisabled = readOnly || replicasLocked || autoscaleOn
       const purchaseMode = purchaseModeFromConfig(c)
       const showPurchaseMode = templateSupportsPurchaseMode(templateId)
       const pathInfo = purchasePathInfo(purchaseMode)
@@ -1452,7 +1455,9 @@ function TypeFields({
             sub={
               replicasLocked
                 ? REPLICAS_HELP_FREE
-                : 'Number of identical app-server instances to run behind the load balancer.'
+                : autoscaleOn
+                  ? 'Fixed replicas are off while CPU autoscale is enabled (deploy uses min; budget uses max).'
+                  : 'Number of identical app-server instances to run behind the load balancer.'
             }
           >
             <PcfgStepper
@@ -1482,6 +1487,12 @@ function TypeFields({
               }}
             />
           </PcfgField>
+          <AutoscaleInspectorFields
+            config={c}
+            updateConfig={updateConfig}
+            readOnly={readOnly}
+            maxReplicas={maxAppReplicas}
+          />
           {replicas > 1 ? (
             <InstanceSizeCopyFields
               idPrefix="compute"
@@ -1931,6 +1942,7 @@ function TypeFields({
           readOnly={readOnly}
         maxInstanceSize={maxInstanceSize}
           simulationMode={simulationMode}
+          maxReplicas={maxAppReplicas}
         />
       )
 
