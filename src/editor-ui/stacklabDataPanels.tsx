@@ -409,6 +409,14 @@ function memberText(value: unknown): string {
   return JSON.stringify(value)
 }
 
+function streamEntryText(value: unknown): string {
+  if (!value || typeof value !== 'object') return oneLine(value, 48)
+  const row = value as { fields?: Record<string, unknown>; body?: unknown }
+  const body = row.fields?.body ?? row.body
+  if (typeof body === 'string' && body.trim()) return oneLine(body, 48)
+  return oneLine(value, 48)
+}
+
 function previewForValue(
   type: string,
   value: unknown,
@@ -446,6 +454,23 @@ function previewForValue(
       ),
       full,
       expandable: true,
+    }
+  }
+  if (t === 'stream' && Array.isArray(value)) {
+    const arr = value as unknown[]
+    const full = JSON.stringify(value, null, 2)
+    const shown = arr.slice(0, 4).map(streamEntryText)
+    const more = arr.length - shown.length
+    return {
+      summary: (
+        <>
+          <b>{arr.length.toLocaleString()} messages</b>
+          {shown.length > 0 ? ` · ${shown.join(' · ')}` : ''}
+          {more > 0 ? ` · +${more.toLocaleString()} more` : ''}
+        </>
+      ),
+      full,
+      expandable: arr.length > 0,
     }
   }
   const full = JSON.stringify(value, null, 2)

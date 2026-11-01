@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchKeyValue, fetchKeys, type KeyInfo } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { trackEvent } from '../lib/analytics'
+import { cachePatternLabel } from '../lib/cacheBrowsePatterns'
 import {
   introspectErrorMessage,
   isDeploymentInactiveError,
@@ -17,12 +18,15 @@ interface CacheBrowserProps {
   deploymentId: string
   component: string
   keyPatterns?: string[]
+  /** Exact Redis stream keys for a work queue sharing this instance. */
+  streamKeys?: string[]
 }
 
 export function CacheBrowser({
   deploymentId,
   component,
   keyPatterns,
+  streamKeys = [],
 }: CacheBrowserProps) {
   const patterns = useMemo(
     () => (keyPatterns?.length ? keyPatterns : ['*']),
@@ -189,10 +193,16 @@ export function CacheBrowser({
     />
   )
 
+  const viewingStream = streamKeys.includes(pattern)
+
   return (
     <>
       <SlDataHead
-        subtitle="Keys, sizes, and TTLs. Values are app-side mappings."
+        subtitle={
+          viewingStream
+            ? 'Recent messages on the work-queue stream in this Redis. Reading them does not remove them.'
+            : 'Keys, sizes, and TTLs. Values are app-side mappings.'
+        }
         onRefresh={liveSessionEnding ? undefined : refresh}
         refreshing={refreshing}
       />
@@ -206,7 +216,7 @@ export function CacheBrowser({
               className={pattern === p ? 'is-on' : ''}
               onClick={() => setPattern(p)}
             >
-              {p}
+              {cachePatternLabel(p, streamKeys)}
             </button>
           ))}
         </div>
@@ -228,7 +238,10 @@ export function CacheBrowser({
 
       {!loading && keys.length === 0 ? (
         <p className="note">
-          <b>i</b>No keys match this pattern.
+          <b>i</b>
+          {viewingStream
+            ? 'No work-queue stream on this Redis yet.'
+            : 'No keys match this pattern.'}
         </p>
       ) : null}
 

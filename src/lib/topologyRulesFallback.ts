@@ -175,6 +175,8 @@ export const FALLBACK_TOPOLOGY_RULES: TopologyRulesResponse = {
         'worker "{name}" must connect to a db node (add worker -> db edge)',
       missingMqMessage:
         'worker "{name}" must connect to an mq node (add worker -> mq edge)',
+      missingQueueCacheMessage:
+        'worker "{name}" must connect to the cache that hosts the work queue (add worker -> cache edge)',
       wrongMqDirectionMessage:
         'invalid worker/mq edge direction for worker "{name}": found mq -> worker; use worker -> mq',
     },
