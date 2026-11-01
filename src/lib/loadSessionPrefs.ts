@@ -81,12 +81,12 @@ export function defaultScheduleId(config: LoadgenConfigView | null | undefined):
   return ''
 }
 
-/** True when scheduleId is empty (constant RPS) or matches a template schedule. */
+/** Maps stored or empty schedule id to a valid template schedule (prefers steady). */
 export function normalizeScheduleId(
   scheduleId: string | undefined,
   config: LoadgenConfigView | null | undefined,
 ): string {
-  if (!scheduleId?.trim()) return ''
+  if (!scheduleId?.trim()) return defaultScheduleId(config)
   const ids = new Set((config?.schedules ?? []).map((s) => s.id))
   if (ids.has(scheduleId)) return scheduleId
   return defaultScheduleId(config)

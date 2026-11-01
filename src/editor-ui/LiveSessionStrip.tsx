@@ -1163,7 +1163,6 @@ export function LiveSessionStrip() {
                       disabled={loadRunning}
                       onChange={(e) => setScheduleId(e.target.value)}
                     >
-                      <option value="">Constant load (base RPS only)</option>
                       {(resolvedLoadgenConfig?.schedules ?? []).map((sched) => (
                         <option key={sched.id} value={sched.id}>
                           {sched.label}
