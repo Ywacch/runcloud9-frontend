@@ -40,4 +40,15 @@ describe('parseAIPostmortem', () => {
     expect(parseAIPostmortem(null)).toBeNull()
     expect(parseAIPostmortem({ status: 'skipped' })).toBeNull()
   })
+
+  it('parses pending-only payload', () => {
+    const parsed = parseAIPostmortem({ status: 'pending', requestedAt: '2026-01-01T00:00:00Z' })
+    expect(parsed?.status).toBe('pending')
+    expect(parsed?.summary).toBe('')
+  })
+
+  it('parses error-only payload', () => {
+    const parsed = parseAIPostmortem({ status: 'error', generatedAt: '2026-01-01T00:00:00Z' })
+    expect(parsed?.status).toBe('error')
+  })
 })

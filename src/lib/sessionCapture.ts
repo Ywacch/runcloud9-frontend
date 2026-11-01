@@ -242,7 +242,8 @@ export function sessionSummaryFromApiMetrics(
 
 /** Idempotent: skips if a summary is already set (timer vs WS vs manual). */
 export function captureSessionSummaryWithApi(
-  apiMetricsSummary?: Record<string, unknown>
+  apiMetricsSummary?: Record<string, unknown>,
+  deploymentId?: string | null,
 ): void {
   const st = useCanvasStore.getState()
   if (st.sessionSummary != null) return
@@ -253,6 +254,7 @@ export function captureSessionSummaryWithApi(
   st.setSessionSummary({
     ...merged,
     eventsSummary: eventsSummary.length > 0 ? eventsSummary : undefined,
+    deploymentId: deploymentId?.trim() ? deploymentId.trim() : undefined,
   })
 }
 
@@ -277,7 +279,7 @@ export function exitLiveSessionDueToRemoteEnd(): void {
   }
 
   const finish = (apiMetricsSummary?: Record<string, unknown>) => {
-    captureSessionSummaryWithApi(apiMetricsSummary)
+    captureSessionSummaryWithApi(apiMetricsSummary, deploymentId)
     trackSessionEndedOnce(deploymentId, sessionEndedProperties('expired'))
     if (deploymentId) discardWsEventsStorage(deploymentId)
     const s = useCanvasStore.getState()

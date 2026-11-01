@@ -14,8 +14,11 @@ export interface PostmortemClaim {
 }
 
 /** Persisted post-mortem written by cloud9-api after teardown. */
+export type PostmortemStatus = 'pending' | 'ok' | 'skipped' | 'error'
+
+/** Persisted post-mortem written by cloud9-api after teardown. */
 export interface AIPostmortem {
-  status: string
+  status: PostmortemStatus | string
   summary: string
   claims: PostmortemClaim[]
   insufficientEvidence: string[]
@@ -63,6 +66,21 @@ export function parseAIPostmortem(raw: unknown): AIPostmortem | null {
   const row = raw as Record<string, unknown>
   const status = str(row.status)
   if (!status) return null
+  if (status === 'pending' || status === 'error') {
+    const claims = Array.isArray(row.claims)
+      ? row.claims.map(parseClaim).filter((c): c is PostmortemClaim => c != null)
+      : []
+    const insufficientEvidence = Array.isArray(row.insufficientEvidence)
+      ? row.insufficientEvidence.map((x) => String(x)).filter(Boolean)
+      : []
+    return {
+      status: status as PostmortemStatus,
+      summary: str(row.summary) ?? '',
+      claims,
+      insufficientEvidence,
+      model: str(row.model),
+    }
+  }
   const claims = Array.isArray(row.claims)
     ? row.claims.map(parseClaim).filter((c): c is PostmortemClaim => c != null)
     : []
@@ -72,7 +90,7 @@ export function parseAIPostmortem(raw: unknown): AIPostmortem | null {
   const summary = str(row.summary) ?? ''
   if (!summary && claims.length === 0 && insufficientEvidence.length === 0) return null
   return {
-    status,
+    status: status as PostmortemStatus,
     summary,
     claims,
     insufficientEvidence,

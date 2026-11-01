@@ -848,7 +848,7 @@ export function Sidebar() {
       } catch {
         apiMetrics = undefined
       }
-      captureSessionSummaryWithApi(apiMetrics)
+      captureSessionSummaryWithApi(apiMetrics, deploymentId)
       st.setMode('design')
       st.setDeploymentId(null)
       st.setLiveSessionEndsAt(null)
