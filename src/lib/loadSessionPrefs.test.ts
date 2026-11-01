@@ -39,13 +39,17 @@ describe('loadSessionPrefs helpers', () => {
     expect(defaultScheduleId(DEV_LOADGEN_CONFIG)).toBe('steady')
   })
 
-  it('defaults to constant load when only non-steady schedules exist', () => {
+  it('defaults to empty when steady is missing', () => {
     expect(
       defaultScheduleId({
         ...DEV_LOADGEN_CONFIG,
         schedules: [{ id: 'cpu_ramp', label: 'CPU ramp', phases: [] }],
       }),
     ).toBe('')
+  })
+
+  it('normalizes empty schedule to steady when present', () => {
+    expect(normalizeScheduleId('', DEV_LOADGEN_CONFIG)).toBe('steady')
   })
 
   it('drops unknown persisted schedule ids', () => {
