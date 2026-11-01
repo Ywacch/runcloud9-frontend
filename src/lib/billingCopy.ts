@@ -79,13 +79,13 @@ export const PUBLISHED_TIER_LIMITS = {
     maxConcurrent: 1,
     sessionMinsLabel: '9 min',
     maxSessionsPerMonth: 3,
-    maxAppServerReplicas: 3,
+    maxAppServerReplicas: 5,
   },
   engineer: {
     maxConcurrent: 1,
     sessionMinsLabel: '15 min',
     maxSessionsPerMonth: 20,
-    maxAppServerReplicas: 3,
+    maxAppServerReplicas: 5,
   },
 } as const
 

@@ -21,6 +21,7 @@ describe('findTopologyViolations', () => {
     allowLoadBalancer: false,
     allowMQWorker: false,
     allowProxyCache: false,
+    allowAutoscale: false,
   }
 
   it('allows proxy cache strategy on launch free tier', () => {

@@ -106,13 +106,13 @@ describe('billingCopy', () => {
       maxConcurrent: 1,
       sessionMinsLabel: '9 min',
       maxSessionsPerMonth: 3,
-      maxAppServerReplicas: 3,
+      maxAppServerReplicas: 5,
     })
     expect(PUBLISHED_TIER_LIMITS.engineer).toEqual({
       maxConcurrent: 1,
       sessionMinsLabel: '15 min',
       maxSessionsPerMonth: 20,
-      maxAppServerReplicas: 3,
+      maxAppServerReplicas: 5,
     })
   })
 

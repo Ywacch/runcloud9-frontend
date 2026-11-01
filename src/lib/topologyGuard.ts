@@ -3,7 +3,7 @@ import { isProxyOrLegacyCacheStrategy } from './cacheTopologyStrategy'
 import type { TopologyLimits } from './userTier'
 
 export interface TopologyViolation {
-  kind: 'load_balancer' | 'async' | 'replicas' | 'proxy_cache'
+    kind: 'load_balancer' | 'async' | 'replicas' | 'proxy_cache' | 'autoscale'
   message: string
 }
 
@@ -44,7 +44,19 @@ export function findTopologyViolations(
         })
       }
     }
+    if (node.type === 'worker' && node.config.autoscale != null && !limits.allowAutoscale) {
+      violations.push({
+        kind: 'autoscale',
+        message: 'CPU autoscale is limited to internal accounts.',
+      })
+    }
     if (node.type === 'compute') {
+      if (node.config.autoscale != null && !limits.allowAutoscale) {
+        violations.push({
+          kind: 'autoscale',
+          message: 'CPU autoscale is limited to internal accounts.',
+        })
+      }
       const replicas = Math.floor(Number(node.config.replicas ?? 1))
       if (
         limits.maxAppServerReplicas > 0 &&

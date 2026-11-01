@@ -66,18 +66,21 @@ describe('userTier', () => {
     ).toBe('internal')
     expect(resourceQuotaTier('internal')).toBe('internal')
     expect(topologyLimitsForTier('internal').allowLoadBalancer).toBe(true)
+    expect(topologyLimitsForTier('internal').allowAutoscale).toBe(true)
+    expect(topologyLimitsForTier('engineer').allowAutoscale).toBe(false)
+    expect(topologyLimitsForTier('free').allowAutoscale).toBe(false)
   })
 
   it('maps engineer to engineer quota', () => {
     expect(resourceQuotaTier('engineer')).toBe('engineer')
   })
 
-  it('free tier allows full topology and caps replicas at 3', () => {
+  it('free tier allows full topology and caps replicas at 5', () => {
     const limits = topologyLimitsForTier('free')
     expect(limits.allowLoadBalancer).toBe(true)
     expect(limits.allowMQWorker).toBe(true)
     expect(limits.allowProxyCache).toBe(true)
-    expect(limits.maxAppServerReplicas).toBe(3)
+    expect(limits.maxAppServerReplicas).toBe(5)
   })
 
   it('maxInstanceSizeForUser uses API limits when present', () => {

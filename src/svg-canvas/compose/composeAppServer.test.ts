@@ -22,8 +22,8 @@ describe('composeAppServerUnits', () => {
     expect(APP_SERVER_STACK_STEP).toBeLessThan(APP_SERVER_SIDE_H)
   })
 
-  it('clamps to platform max (3)', () => {
+  it('clamps to platform max (5)', () => {
     expect(composeAppServerUnits(0)).toHaveLength(1)
-    expect(composeAppServerUnits(9)).toHaveLength(3)
+    expect(composeAppServerUnits(9)).toHaveLength(5)
   })
 })

@@ -17,12 +17,15 @@ export function AutoscaleInspectorFields({
   updateConfig,
   readOnly = false,
   maxReplicas,
+  available = false,
 }: {
   config: Record<string, unknown>
   updateConfig: (patch: Partial<CanvasNode['config']>) => void
   readOnly?: boolean
   maxReplicas: number
+  available?: boolean
 }) {
+  if (!available) return null
   const enabled = autoscaleFromConfig(config.autoscale) != null
   const ac: AutoscaleConfig =
     autoscaleFromConfig(config.autoscale) ?? defaultAutoscale(maxReplicas)
