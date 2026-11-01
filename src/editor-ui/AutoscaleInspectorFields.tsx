@@ -12,8 +12,17 @@ import {
 } from '../lib/autoscaleConfig'
 import { APP_SERVER_REPLICA_MIN } from '../lib/replicaConfig'
 import { PcfgChk, PcfgField, PcfgStepper } from './stacklabConfigControls'
+import { syncAutoLoadBalancerForReplicas } from '../lib/ensureLoadBalancerForReplicas'
 
 const AUTOSCALE_LOCK_TIP = 'CPU autoscale is limited to internal accounts.'
+
+function commitAutoscale(
+  updateConfig: (patch: Partial<CanvasNode['config']>) => void,
+  patch: Partial<CanvasNode['config']>,
+) {
+  updateConfig(patch)
+  syncAutoLoadBalancerForReplicas()
+}
 
 export function AutoscaleInspectorFields({
   config,
@@ -62,10 +71,10 @@ export function AutoscaleInspectorFields({
               }
               setLockHintUntil(0)
               if (!on) {
-                updateConfig({ autoscale: undefined })
+                commitAutoscale(updateConfig, { autoscale: undefined })
                 return
               }
-              updateConfig({ autoscale: defaultAutoscale(maxReplicas) })
+              commitAutoscale(updateConfig, { autoscale: defaultAutoscale(maxReplicas) })
             }}
           />
         </span>
@@ -87,7 +96,7 @@ export function AutoscaleInspectorFields({
               onChange={(next) => {
                 if (locked) return
                 const min = clampAutoscaleMin(next, ac.max)
-                updateConfig({
+                commitAutoscale(updateConfig, {
                   autoscale: {
                     ...ac,
                     min,
@@ -107,7 +116,7 @@ export function AutoscaleInspectorFields({
               onChange={(next) => {
                 if (locked) return
                 const max = clampAutoscaleMax(next, ac.min, maxReplicas)
-                updateConfig({
+                commitAutoscale(updateConfig, {
                   autoscale: {
                     ...ac,
                     max,
@@ -129,7 +138,7 @@ export function AutoscaleInspectorFields({
               disabled={controlsDisabled}
               onChange={(next) => {
                 if (locked) return
-                updateConfig({
+                commitAutoscale(updateConfig, {
                   autoscale: {
                     ...ac,
                     targetCPUPercent: clampAutoscaleCpuTarget(next),

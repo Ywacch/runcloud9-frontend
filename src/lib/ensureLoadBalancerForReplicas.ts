@@ -8,16 +8,20 @@ import { applyAutoArrange } from './applyAutoArrange'
 import { defaultEdgeProtocol } from './defaultEdgeProtocol'
 import { createCanvasNode } from './nodeFactory'
 import { clampAppServerReplicas } from './replicaConfig'
+import { autoscaleFromConfig } from './autoscaleConfig'
 import { CLIENT_LOADGEN_ID } from './spawnClientNode'
 
 export const AUTO_LOAD_BALANCER_ID = 'auto-load-balancer'
 
 function scaledComputeNodes(nodes: Record<string, CanvasNode>): CanvasNode[] {
-  return Object.values(nodes).filter(
-    (n) =>
-      n.type === 'compute' &&
-      clampAppServerReplicas(n.config.replicas ?? 1) > 1,
-  )
+  return Object.values(nodes).filter((n) => computeNeedsLoadBalancer(n))
+}
+
+function computeNeedsLoadBalancer(node: CanvasNode): boolean {
+  if (node.type !== 'compute') return false
+  const ac = autoscaleFromConfig(node.config.autoscale)
+  if (ac && ac.max > 1) return true
+  return clampAppServerReplicas(node.config.replicas ?? 1) > 1
 }
 
 function hasLoadBalancer(nodes: Record<string, CanvasNode>): boolean {
