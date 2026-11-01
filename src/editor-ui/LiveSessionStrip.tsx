@@ -23,6 +23,7 @@ import {
 import {
   defaultActorParams,
   defaultScheduleId,
+  normalizeScheduleId,
   DEV_LOADGEN_CONFIG,
   formatActorParamLabel,
   formatSchedulePhaseSummary,
@@ -219,7 +220,7 @@ export function LiveSessionStrip() {
     })
     if (prefs) {
       setRps(clampLoadgenRpsToMax(prefs.rps, maxLoadgenRps))
-      setScheduleId(prefs.scheduleId ?? defaultScheduleId(cfg))
+      setScheduleId(normalizeScheduleId(prefs.scheduleId, cfg))
       setActorParams(prefs.actorParams ?? defaultActorParams(cfg))
       setConversations(
         typeof prefs.conversations === 'boolean'
@@ -1162,6 +1163,7 @@ export function LiveSessionStrip() {
                       disabled={loadRunning}
                       onChange={(e) => setScheduleId(e.target.value)}
                     >
+                      <option value="">Constant load (base RPS only)</option>
                       {(resolvedLoadgenConfig?.schedules ?? []).map((sched) => (
                         <option key={sched.id} value={sched.id}>
                           {sched.label}
