@@ -217,6 +217,8 @@ export interface LiveLoadgenState {
   identityCount?: number
   /** Distinct client ids sent on the pressure lane since start. */
   identitiesSeen?: number
+  /** Non-2xx loadgen responses during app-server HPA scale-up lag. */
+  scaleLagErrors?: number
 }
 
 /** Buffered WS ticks for system teaching charts (~2s cadence). */
@@ -260,6 +262,7 @@ function loadgenPayloadEqual(
     a.stale === b.stale &&
     a.identityCount === b.identityCount &&
     a.identitiesSeen === b.identitiesSeen &&
+    a.scaleLagErrors === b.scaleLagErrors &&
     conversationLaneFingerprint(a.vu) === conversationLaneFingerprint(b.vu)
   )
 }

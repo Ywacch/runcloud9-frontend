@@ -69,6 +69,7 @@ import {
   clampLoadgenRpsToMax,
   maxLoadgenRpsForUser,
 } from '../lib/userTier'
+import { scaleLagErrorLabel } from '../lib/scaleLag'
 import { useAuthStore } from '../product/stores/authStore'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
 
@@ -744,6 +745,9 @@ export function LiveSessionStrip() {
     : loadgen
       ? fmtRate(loadgen.actualRps)
       : fmtRate(throughput)
+  const scaleLagLabel = devDesignPreview
+    ? null
+    : scaleLagErrorLabel(loadgen?.scaleLagErrors)
   const loadPhaseLabel =
     !devDesignPreview && loadgen?.currentPhase ? loadgen.currentPhase : null
   const identityCount =
@@ -954,6 +958,11 @@ export function LiveSessionStrip() {
             <span className="sl-ts">
               <span className="k">Achieved</span>
               <b className="sl-num">{achievedRpsDisplay}</b>
+              {scaleLagLabel ? (
+                <span className="ml-2 text-[10px] font-normal text-amber-200/90">
+                  {scaleLagLabel}
+                </span>
+              ) : null}
             </span>
             {runningTotal > 0 ? (
               <span className="sl-ts">

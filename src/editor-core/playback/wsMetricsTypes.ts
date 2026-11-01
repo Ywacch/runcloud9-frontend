@@ -142,6 +142,7 @@ export interface WsDeploymentMetrics {
     distribution?: Record<string, number>
     identityCount?: number
     identitiesSeen?: number
+    scaleLagErrors?: number
     vu?: {
       behaviors?: Record<
         string,
