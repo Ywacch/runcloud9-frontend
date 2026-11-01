@@ -1914,7 +1914,8 @@
         "tables": [
           "users",
           "posts",
-          "follows"
+          "follows",
+          "timelines"
         ]
       },
       "mq": {
