@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   defaultActorParams,
   defaultScheduleId,
+  normalizeScheduleId,
   DEV_LOADGEN_CONFIG,
   formatActorParamLabel,
   formatSchedulePhaseSummary,
@@ -36,6 +37,28 @@ afterEach(() => {
 describe('loadSessionPrefs helpers', () => {
   it('prefers steady schedule when present', () => {
     expect(defaultScheduleId(DEV_LOADGEN_CONFIG)).toBe('steady')
+  })
+
+  it('defaults to constant load when only non-steady schedules exist', () => {
+    expect(
+      defaultScheduleId({
+        ...DEV_LOADGEN_CONFIG,
+        schedules: [{ id: 'cpu_ramp', label: 'CPU ramp', phases: [] }],
+      }),
+    ).toBe('')
+  })
+
+  it('drops unknown persisted schedule ids', () => {
+    expect(normalizeScheduleId('world_cup_goal', DEV_LOADGEN_CONFIG)).toBe(
+      'world_cup_goal',
+    )
+    expect(normalizeScheduleId('bogus', DEV_LOADGEN_CONFIG)).toBe('steady')
+    expect(
+      normalizeScheduleId('bogus', {
+        ...DEV_LOADGEN_CONFIG,
+        schedules: [{ id: 'cpu_ramp', label: 'CPU ramp', phases: [] }],
+      }),
+    ).toBe('')
   })
 
   it('builds actor defaults from config', () => {

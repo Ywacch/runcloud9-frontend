@@ -77,7 +77,19 @@ export function defaultScheduleId(config: LoadgenConfigView | null | undefined):
   const schedules = config?.schedules ?? []
   if (schedules.length === 0) return ''
   const steady = schedules.find((s) => s.id === 'steady')
-  return steady?.id ?? schedules[0]!.id
+  if (steady) return steady.id
+  return ''
+}
+
+/** True when scheduleId is empty (constant RPS) or matches a template schedule. */
+export function normalizeScheduleId(
+  scheduleId: string | undefined,
+  config: LoadgenConfigView | null | undefined,
+): string {
+  if (!scheduleId?.trim()) return ''
+  const ids = new Set((config?.schedules ?? []).map((s) => s.id))
+  if (ids.has(scheduleId)) return scheduleId
+  return defaultScheduleId(config)
 }
 
 export function defaultActorParams(
