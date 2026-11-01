@@ -42,6 +42,7 @@ import { labPredictionCorrect, phenomenonHasViolation } from '../../lib/phenomen
 import { noteFirstViolation } from '../../lib/phenomena/pedagogyTimer'
 import { PHENOMENON_REPLY_BEFORE_PARENT } from '../../lib/phenomena/types'
 import { parseTimelineOps } from '../../lib/timelineOpsDisplay'
+import { parseScaleStatus } from '../../lib/scaleStatus'
 import { useStorytellingStore } from '../stores/storytellingStore'
 import type { WsComponentMetrics, WsDeploymentMetrics, WsEventPayload } from './wsMetricsTypes'
 
@@ -208,6 +209,7 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     podReplicas: [],
     backendPods: [],
     backendReplicas: parseBackendReplicas(cm.backendReplicas),
+    scale: parseScaleStatus(cm.scale),
     runtimeHealth: parseRuntimeHealth(cm.runtimeHealth),
     layers: parseComponentLayers(cm.layers),
     freshness: parseComponentFreshness(cm.freshness),
@@ -236,6 +238,7 @@ export function normalizeWsEvents(raw: WsEventPayload[] | undefined): WsEvent[] 
       e.kind === 'loadgen_stop' ||
       e.kind === 'loadgen_rate' ||
       e.kind === 'loadgen_mix' ||
+      e.kind === 'scale' ||
       e.kind === 'vu_gap_warning' ||
       e.kind === 'chaos_inject' ||
       e.kind === 'chaos_heal' ||

@@ -79,6 +79,7 @@ export interface WsComponentMetrics {
   freshness?: unknown
   /** Observer probe counters when read replicas are deployed. */
   consistency?: unknown
+  scale?: { desired?: number; ready?: number }
 }
 
 export interface WsEventPayload {

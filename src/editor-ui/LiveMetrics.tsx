@@ -22,6 +22,7 @@ import {
   type PanelViewState,
 } from './inspectorPanelUi'
 import { LiveMetricsTypeSection } from './liveMetricsTypeSection'
+import { scaleReplicaLabel } from '../lib/scaleStatus'
 
 const EMPTY_HISTORY: MetricsBucket[] = []
 
@@ -145,6 +146,12 @@ export function LiveMetrics({
     mode === 'simulate' && simReplicaBreakdown.length > 0
       ? simReplicaBreakdown.map(replicaRowFromSimulation)
       : liveReplicaRows
+  const scaleLabel =
+    mode === 'live' &&
+    m &&
+    (node.type === 'compute' || node.type === 'worker')
+      ? scaleReplicaLabel(m.scale ?? null)
+      : null
   const [internalPanelView, setInternalPanelView] = useState<PanelViewState>(() => ({
     timeframe: 'live',
     showGraphs: true,
@@ -234,6 +241,9 @@ export function LiveMetrics({
         selectedInstanceId={selectedInstanceId}
         metricsPreviewActive={metricsPreviewActive}
       />
+      {scaleLabel ? (
+        <p className="text-[11px] text-[var(--c9-text-disabled)]">{scaleLabel}</p>
+      ) : null}
       {simInspectorCallout ? (
         <div className="space-y-2 border-t border-[var(--c9-border)] pt-4">
           <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--c9-muted)]">
