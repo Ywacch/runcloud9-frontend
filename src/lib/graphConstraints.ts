@@ -23,15 +23,30 @@ function workerOutboundMessages() {
   )
 }
 
+/** Cache node id when work_queue is bound to a cache. Empty otherwise. */
+export function workQueueCacheId(
+  nodes: Record<string, CanvasNode>,
+  jobBindings?: Record<string, string> | null,
+): string | null {
+  const id = jobBindings?.work_queue?.trim()
+  if (!id) return null
+  const node = nodes[id]
+  if (!node || semanticOf(node) !== 'cache') return null
+  return id
+}
+
 /**
  * Create-blocking whole-design issues (mirrors ganymede ValidateTopology /
  * AssessTopology presence rules + platform singletons).
  * Messages come from GET /meta/topology-rules (fallback until loaded).
  * Returns the first issue, same as BE validate stopping on the first error.
+ *
+ * jobBindings lets a Redis-hosted work_queue stand in for an mq node.
  */
 export function assessGraphConstraints(
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
+  jobBindings?: Record<string, string> | null,
 ): string | null {
   let hasApp = false
   let hasCache = false
@@ -66,7 +81,8 @@ export function assessGraphConstraints(
   if (hasCache && !hasDB) {
     return presenceMessage('cache_without_db') ?? null
   }
-  if (hasWorker && !hasMQ) {
+  const queueCacheId = workQueueCacheId(nodes, jobBindings)
+  if (hasWorker && !hasMQ && !queueCacheId) {
     return presenceMessage('worker_without_mq') ?? null
   }
   if (hasMQ && !hasWorker) {
@@ -92,6 +108,9 @@ export function assessGraphConstraints(
         const t = target ? semanticOf(target) : null
         if (t === 'db') hasDBDep = true
         if (t === 'mq') hasMQDep = true
+        if (queueCacheId && conn.targetId === queueCacheId && t === 'cache') {
+          hasMQDep = true
+        }
       }
       if (conn.targetId === workerNode.id) {
         const src = nodes[conn.sourceId]
@@ -110,6 +129,12 @@ export function assessGraphConstraints(
         return outbound
           ? formatTopologyMessage(outbound.wrongMqDirectionMessage, { name })
           : `invalid worker/mq edge direction for worker "${name}": found mq -> worker; use worker -> mq`
+      }
+      if (queueCacheId) {
+        const tmpl =
+          outbound?.missingQueueCacheMessage ||
+          'worker "{name}" must connect to the cache that hosts the work queue (add worker -> cache edge)'
+        return formatTopologyMessage(tmpl, { name })
       }
       return outbound
         ? formatTopologyMessage(outbound.missingMqMessage, { name })

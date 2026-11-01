@@ -40,6 +40,7 @@ export interface RequiredOutboundRule {
   targets: string[]
   missingDbMessage: string
   missingMqMessage: string
+  missingQueueCacheMessage?: string
   wrongMqDirectionMessage: string
 }
 
@@ -91,6 +92,9 @@ export function scrubTopologyRulesMessages(
       ...r,
       missingDbMessage: scrubEmDashCopy(r.missingDbMessage),
       missingMqMessage: scrubEmDashCopy(r.missingMqMessage),
+      missingQueueCacheMessage: r.missingQueueCacheMessage
+        ? scrubEmDashCopy(r.missingQueueCacheMessage)
+        : undefined,
       wrongMqDirectionMessage: scrubEmDashCopy(r.wrongMqDirectionMessage),
     })),
   }

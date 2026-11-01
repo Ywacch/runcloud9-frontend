@@ -87,6 +87,11 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
+import { buildJobsPanelModel } from '../lib/engines/jobsPanelModel'
+import {
+  cacheBrowsePatterns,
+  workQueueOnRedis,
+} from '../lib/cacheBrowsePatterns'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { DbInstanceTabBar } from './DbInstanceTabBar'
 import {
@@ -206,7 +211,23 @@ export function InspectorPanel() {
     snapshotTemplateId ? s.byId[snapshotTemplateId] : undefined,
   )
   const storytelling = templateInfo?.storytelling
-  const cacheKeyPatterns = templateInfo?.introspection?.cache?.keyPatterns
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
+  const exportJSON = useCanvasStore((s) => s.exportJSON)
+  const cacheBrowse = useMemo(() => {
+    const row = buildJobsPanelModel(exportJSON(), null).find((r) => r.jobId === 'work_queue')
+    const streamKeys = (templateInfo?.introspection?.mq?.queues ?? [])
+      .map((q) => q.trim())
+      .filter(Boolean)
+    const onRedis = workQueueOnRedis(row?.engine)
+    return {
+      patterns: cacheBrowsePatterns(
+        templateInfo?.introspection?.cache?.keyPatterns,
+        streamKeys,
+        onRedis,
+      ),
+      streamKeys: onRedis ? streamKeys : [],
+    }
+  }, [exportJSON, jobBindings, nodes, snapshotTemplateId, templateInfo])
 
   const inspectorNodeId =
     selectedIds.length === 1 ? selectedIds[0] : selectedId
@@ -691,7 +712,8 @@ export function InspectorPanel() {
                     <CacheBrowser
                       deploymentId={inspectorDeployment}
                       component={canvasToBackend[node.type]}
-                      keyPatterns={cacheKeyPatterns}
+                      keyPatterns={cacheBrowse.patterns}
+                      streamKeys={cacheBrowse.streamKeys}
                     />
                   </section>
                 ) : null}

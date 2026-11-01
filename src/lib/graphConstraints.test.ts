@@ -147,6 +147,55 @@ describe('assessGraphConstraints', () => {
     }
     expect(assessGraphConstraints(nodes, edges)).toMatch(/only one db/i)
   })
+
+  it('allows a worker when work_queue is bound to cache', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      cache: node('cache', 'cache', 'Redis'),
+      worker: node('worker', 'worker', 'Fan-out Worker'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'db'),
+      e2: edge('e2', 'app', 'cache'),
+      e3: edge('e3', 'worker', 'db'),
+      e4: edge('e4', 'worker', 'cache'),
+    }
+    expect(
+      assessGraphConstraints(nodes, edges, { work_queue: 'cache' }),
+    ).toBeNull()
+  })
+
+  it('still requires a message queue when work_queue is not on the cache', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      cache: node('cache', 'cache', 'Redis'),
+      worker: node('worker', 'worker', 'Fan-out Worker'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'db'),
+      e2: edge('e2', 'worker', 'db'),
+      e3: edge('e3', 'worker', 'cache'),
+    }
+    expect(assessGraphConstraints(nodes, edges)).toMatch(/message queue/i)
+  })
+
+  it('requires a worker edge to the cache that hosts the work queue', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      cache: node('cache', 'cache', 'Redis'),
+      worker: node('worker', 'worker', 'Fan-out Worker'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'db'),
+      e2: edge('e2', 'worker', 'db'),
+    }
+    expect(
+      assessGraphConstraints(nodes, edges, { work_queue: 'cache' }),
+    ).toMatch(/hosts the work queue/i)
+  })
 })
 
 describe('analyzeDeployTopology graph honesty', () => {

@@ -115,7 +115,6 @@ import {
   deployAdmitStatusFromCreate,
   deployRejectReasonFromError,
 } from '../lib/deployWaitAnalytics'
-import { JobsPanel } from './engines/JobsPanel'
 
 const SIDEBAR_COLLAPSED_KEY = 'runcloud9.sidebarCollapsed'
 
@@ -149,10 +148,12 @@ export function Sidebar() {
   const pendingDeployAfterAuth = useAuthStore((s) => s.pendingDeployAfterAuth)
   const setPendingDeployAfterAuth = useAuthStore((s) => s.setPendingDeployAfterAuth)
 
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
+
   const graphHonestyIssue = useMemo(() => {
     if (mode === 'live') return null
-    return assessGraphConstraints(nodes, edges)
-  }, [mode, nodes, edges])
+    return assessGraphConstraints(nodes, edges, jobBindings)
+  }, [mode, nodes, edges, jobBindings])
 
   const [deploying, setDeploying] = useState(false)
   const [tearing, setTearing] = useState(false)
@@ -748,6 +749,7 @@ export function Sidebar() {
       stCheck.nodes,
       stCheck.edges,
       supportsWorker,
+      stCheck.jobBindings,
     )
     if (preflight.wholeDesignIssue) {
       setDeployInvalidEdges([
@@ -974,8 +976,6 @@ export function Sidebar() {
             return result
           }}
         />
-
-        {!live && !simulate ? <JobsPanel disabled={!snapshotTemplateId} /> : null}
 
         <h2 className="sl-lab mb-2 pt-2">Canvas</h2>
         <div className="btn-stack flex flex-col gap-1.5">
