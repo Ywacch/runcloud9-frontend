@@ -29,10 +29,12 @@ import { useEnginePreviewStore } from '../editor-core/stores/enginePreviewStore'
 import { useAuthStore } from '../product/stores/authStore'
 import { subscribeCanvasViewportScreenRefresh } from '../canvas/utils/canvasViewportBridge'
 import { logoDataUrl } from '../svg-canvas/skins/logos'
-import { configPatchForEngine } from '../svg-canvas/bridge/canvasSvgAdapter'
 import { loadEnginesSession } from '../lib/engines/enginesSession'
 import { buildJobsPanelModel } from '../lib/engines/jobsPanelModel'
-import { previewJobEngineChange } from '../lib/engines/engineChangePreview'
+import {
+  applyEngineChangePreview,
+  previewJobEngineChange,
+} from '../lib/engines/engineChangePreview'
 import {
   buildEnginePickerModel,
   type EngineGateEntry,
@@ -187,32 +189,7 @@ export function CanvasContextMenu() {
     if (option.state !== 'selectable') return
     const snap = useCanvasStore.getState().exportJSON()
     const preview = previewJobEngineChange(snap, jobId, option.engine)
-    const st = useCanvasStore.getState()
-    if (preview.bindToNodeId) {
-      const host = st.nodes[preview.bindToNodeId]
-      if (host) {
-        st.updateNodeConfig(
-          preview.bindToNodeId,
-          configPatchForEngine(host.type, preview.engine),
-        )
-      }
-      st.setJobBinding(jobId, preview.bindToNodeId)
-    }
-    if (preview.patchNodeId) {
-      const host = st.nodes[preview.patchNodeId]
-      if (host) {
-        st.updateNodeConfig(
-          preview.patchNodeId,
-          configPatchForEngine(host.type, preview.engine),
-        )
-      }
-      st.setJobBinding(jobId, preview.patchNodeId)
-    }
-    for (const id of preview.removeNodeIds) {
-      if (useCanvasStore.getState().nodes[id]) {
-        useCanvasStore.getState().removeNode(id)
-      }
-    }
+    applyEngineChangePreview(preview, jobId, useCanvasStore.getState())
     setEnginePreview(null)
     close()
   }

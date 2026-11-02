@@ -1,5 +1,18 @@
-import type { CanvasNode, CanvasSnapshot } from '../../editor-core/stores/canvasStore'
+import type {
+  CanvasEdge,
+  CanvasNode,
+  CanvasSnapshot,
+} from '../../editor-core/stores/canvasStore'
+import { defaultConfigForType } from '../nodeFactory'
+import { configPatchForEngine } from '../../svg-canvas/bridge/canvasSvgAdapter'
 import { buildJobsPanelModel } from './jobsPanelModel'
+
+export interface EngineChangeCreateNode {
+  type: CanvasNode['type']
+  engine: string
+  /** Edges that touch this node move onto the new node before it is removed. */
+  replaceNodeId: string
+}
 
 export interface EngineChangePreview {
   jobId: string
@@ -10,7 +23,20 @@ export interface EngineChangePreview {
   bindToNodeId: string | null
   /** Engine patch stays on this node (in-place swap). */
   patchNodeId: string | null
+  /** Host node does not exist yet. Caller adds it, then retargets edges. */
+  createNode: EngineChangeCreateNode | null
   summary: string
+}
+
+export interface EngineCanvasOps {
+  nodes: Record<string, CanvasNode>
+  edges: Record<string, CanvasEdge>
+  addNode: (node: CanvasNode) => void
+  updateNodeConfig: (id: string, config: Record<string, unknown>) => void
+  setJobBinding: (job: string, nodeId: string | null) => void
+  removeNode: (id: string) => void
+  addEdge: (edge: CanvasEdge) => void
+  removeEdge: (id: string) => void
 }
 
 function canvasTypeForEngine(engine: string): CanvasNode['type'] | null {
@@ -34,11 +60,27 @@ function nodeLabel(nodes: CanvasNode[], id: string | null): string {
   return nodes.find((n) => n.id === id)?.label ?? id
 }
 
+function labelForNewNode(engine: string): string {
+  switch (engine) {
+    case 'redis':
+      return 'Redis'
+    case 'memcached':
+      return 'Memcached'
+    case 'rabbitmq':
+      return 'Message Queue'
+    case 'postgresql':
+      return 'PostgreSQL'
+    default:
+      return engine
+  }
+}
+
 /**
  * What the canvas would look like if `jobId` ran on `engine`.
  * In-place swaps only change the current node. Cross-type engines
  * (timeline on Postgres) bind onto an existing node and drop the old one
- * when nothing else uses it.
+ * when nothing else uses it. If that host node is missing, the preview
+ * asks the caller to add one and move edges off the node being removed.
  */
 export function previewJobEngineChange(
   snapshot: CanvasSnapshot,
@@ -59,6 +101,7 @@ export function previewJobEngineChange(
     removeNodeIds: [],
     bindToNodeId: null,
     patchNodeId: currentId,
+    createNode: null,
     summary: `${row?.jobLabel ?? jobId} stays on ${nodeLabel(nodes, currentId)}`,
   }
 
@@ -75,17 +118,33 @@ export function previewJobEngineChange(
 
   const host =
     nodes.find((n) => n.type === targetType && n.id !== current.id) ?? null
-  if (!host) {
-    return {
-      ...empty,
-      patchNodeId: null,
-      summary: `No ${targetType.replace('_', ' ')} node to host ${eng}`,
-    }
-  }
-
   const othersOnCurrent = rows.filter(
     (r) => r.jobId !== jobId && r.nodeId === current.id,
   )
+
+  if (!host) {
+    if (othersOnCurrent.length > 0) {
+      return {
+        ...empty,
+        patchNodeId: null,
+        summary: `No ${targetType.replace('_', ' ')} node to host ${eng}`,
+      }
+    }
+    return {
+      jobId,
+      engine: eng,
+      removeNodeIds: [current.id],
+      bindToNodeId: null,
+      patchNodeId: null,
+      createNode: {
+        type: targetType,
+        engine: eng,
+        replaceNodeId: current.id,
+      },
+      summary: `Adds ${labelForNewNode(eng)} and removes ${current.label}.`,
+    }
+  }
+
   const remove = othersOnCurrent.length === 0 ? [current.id] : []
 
   return {
@@ -94,8 +153,91 @@ export function previewJobEngineChange(
     removeNodeIds: remove,
     bindToNodeId: host.id,
     patchNodeId: null,
+    createNode: null,
     summary: remove.length
       ? `${row?.jobLabel ?? jobId} moves onto ${host.label}. ${current.label} is removed.`
       : `${row?.jobLabel ?? jobId} moves onto ${host.label}.`,
+  }
+}
+
+function configForCreatedNode(
+  type: CanvasNode['type'],
+  engine: string,
+): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    ...defaultConfigForType(type),
+    ...configPatchForEngine(type, engine),
+  }
+  if (type === 'cache') {
+    config.cacheStrategy = 'cache-aside'
+    config.strategy = 'cache-aside'
+  }
+  return config
+}
+
+/**
+ * Applies a preview to the canvas. A missing host node is created first.
+ * Edges move off the replaced node before that node is removed, so the
+ * store does not drop them with the node.
+ */
+export function applyEngineChangePreview(
+  preview: EngineChangePreview,
+  jobId: string,
+  ops: EngineCanvasOps,
+  ids?: { nodeId: string; edgeId: (index: number) => string },
+): void {
+  if (preview.createNode) {
+    const replace = ops.nodes[preview.createNode.replaceNodeId]
+    const pos = replace?.position ?? [0, 0, 0]
+    const nodeId = ids?.nodeId ?? crypto.randomUUID()
+    ops.addNode({
+      id: nodeId,
+      type: preview.createNode.type,
+      label: labelForNewNode(preview.createNode.engine),
+      position: [pos[0] + 1, pos[1], pos[2]],
+      config: configForCreatedNode(
+        preview.createNode.type,
+        preview.createNode.engine,
+      ),
+      status: 'idle',
+    })
+    const doomed = preview.createNode.replaceNodeId
+    const incident = Object.values(ops.edges).filter(
+      (edge) => edge.sourceId === doomed || edge.targetId === doomed,
+    )
+    incident.forEach((edge, index) => {
+      ops.removeEdge(edge.id)
+      ops.addEdge({
+        ...edge,
+        id: ids?.edgeId(index) ?? crypto.randomUUID(),
+        sourceId: edge.sourceId === doomed ? nodeId : edge.sourceId,
+        targetId: edge.targetId === doomed ? nodeId : edge.targetId,
+      })
+    })
+    ops.setJobBinding(jobId, nodeId)
+  }
+
+  if (preview.bindToNodeId) {
+    const host = ops.nodes[preview.bindToNodeId]
+    if (host) {
+      ops.updateNodeConfig(
+        preview.bindToNodeId,
+        configPatchForEngine(host.type, preview.engine),
+      )
+    }
+    ops.setJobBinding(jobId, preview.bindToNodeId)
+  }
+  if (preview.patchNodeId) {
+    const host = ops.nodes[preview.patchNodeId]
+    if (host) {
+      ops.updateNodeConfig(
+        preview.patchNodeId,
+        configPatchForEngine(host.type, preview.engine),
+      )
+    }
+    ops.setJobBinding(jobId, preview.patchNodeId)
+  }
+  for (const id of preview.removeNodeIds) {
+    if (ops.nodes[id]) ops.removeNode(id)
   }
 }

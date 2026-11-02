@@ -29,11 +29,11 @@ export const TEMPLATE_JOBS: Record<string, readonly TemplateJobDef[]> = {
   ],
   'url-shortener': [
     { id: 'main_db', required: true, defaultNodeType: db, allowedEngines: ['postgresql'] },
-    { id: 'hot_cache', required: false, defaultNodeType: cache, allowedEngines: ['redis'] },
+    { id: 'hot_cache', required: false, defaultNodeType: cache, allowedEngines: ['redis', 'memcached'] },
   ],
   ecommerce: [
     { id: 'main_db', required: true, defaultNodeType: db, allowedEngines: ['postgresql'] },
-    { id: 'hot_cache', required: false, defaultNodeType: cache, allowedEngines: ['redis'] },
+    { id: 'hot_cache', required: false, defaultNodeType: cache, allowedEngines: ['redis', 'memcached'] },
     { id: 'work_queue', required: false, defaultNodeType: mq, allowedEngines: ['rabbitmq', 'redis'] },
   ],
 }
