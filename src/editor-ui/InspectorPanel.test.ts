@@ -202,6 +202,24 @@ describe('CacheNodeInspectorFields eviction policy copy', () => {
   )
 })
 
+describe('CacheNodeInspectorFields strategy copy', () => {
+  it('states the cache-aside read path when strategy cannot be changed', () => {
+    const html = renderCacheInspector({
+      cacheStrategy: 'cache-aside',
+      topology: 'aside',
+      readOnly: true,
+    })
+
+    expect(html).toContain('Cache-aside')
+    expect(html).toContain(
+      'The app reads the cache first. A miss reads the database and writes the key back.',
+    )
+    expect(html).not.toContain('Whether writes go through the cache')
+    expect(html).toContain('allkeys-lru: least recently used')
+    expect(html).not.toContain('role="radiogroup"')
+  })
+})
+
 describe('CacheNodeInspectorFields cache TTL', () => {
   it('renders Default TTL with timed value for url-shortener default', () => {
     const html = renderCacheInspector({
@@ -256,7 +274,9 @@ describe('CacheNodeInspectorFields write-behind flush interval', () => {
     expect(html).toContain('id="cache-write-behind-interval"')
     expect(html).toContain('value="30"')
     expect(html).not.toContain(WRITE_BEHIND_INTERVAL_VALIDATION)
-    expect(html).toContain('Read-through refills Redis on miss.')
+    expect(html).toContain(
+      'A write updates the cache first. The database is flushed on a timer.',
+    )
   })
 
   it('hides the control for cache-aside and write-through on url-shortener', () => {
@@ -315,7 +335,7 @@ describe('CacheNodeInspectorFields readOnly (live Config)', () => {
     })
 
     expect(html).toContain('Strategy')
-    expect(html).toContain('write-behind')
+    expect(html).toContain('Write-behind')
     expect(html).toContain('Default TTL')
     expect(html).toContain('id="cache-ttl"')
     expect(html).toContain('Eviction policy')

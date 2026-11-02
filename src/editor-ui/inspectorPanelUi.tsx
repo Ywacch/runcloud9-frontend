@@ -51,6 +51,14 @@ export function stacklabNodeKind(type: string): string {
       return 'ROUTER'
     case 'client':
       return 'CLIENT'
+    case 'cache':
+      return 'CACHE'
+    case 'database':
+      return 'DATABASE'
+    case 'message_queue':
+      return 'QUEUE'
+    case 'worker':
+      return 'WORKER'
     default:
       return 'NODE'
   }
