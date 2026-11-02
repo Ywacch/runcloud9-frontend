@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sumMemcachedStat } from './MemcachedStatsPanel'
+import { sumMemcachedStat } from './memcachedStats'
 
 describe('sumMemcachedStat', () => {
   it('sums a stat across servers', () => {
