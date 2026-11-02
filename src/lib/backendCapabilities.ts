@@ -113,9 +113,15 @@ export function backendSupportsReadReplicas(type: CanvasNode['type']): boolean {
   return type === 'database'
 }
 
+function normalizeDatabaseEngineId(engine: unknown): string {
+  const raw = String(engine ?? '').trim().toLowerCase()
+  if (!raw || raw === 'postgres') return 'postgresql'
+  return raw
+}
+
 /** Lab lag dial (recovery_min_apply_delay) when the engines catalog marks the engine. */
 export function backendSupportsReplicaApplyDelay(engine: unknown): boolean {
-  const id = backendEngineOrDefault('database', engine) ?? 'postgresql'
+  const id = normalizeDatabaseEngineId(engine)
   if (replicaApplyDelayEngineIds) {
     return replicaApplyDelayEngineIds.has(id)
   }
