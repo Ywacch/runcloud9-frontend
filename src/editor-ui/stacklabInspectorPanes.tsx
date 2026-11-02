@@ -10,7 +10,7 @@ import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { cacheMemoryAmount } from '../lib/cacheMemoryLabel'
-import { FMT_EMPTY, fmtBytes, fmtErrorRate, fmtInt, fmtMemMB, fmtRate } from '../lib/format'
+import { FMT_EMPTY, fmtBytes, fmtCpuMilliCores, fmtErrorRate, fmtInt, fmtMemMB, fmtPct, fmtRate } from '../lib/format'
 import { bucketSessionQuantileAvailable } from '../lib/latencyQuantile'
 import type { InspectorMetricGroupId } from '../lib/inspectorMetricGroups'
 import type { PanelViewState } from './inspectorPanelUi'
@@ -731,6 +731,11 @@ function CachePane({
     storeLayer && storeLayer.memoryLimit > 0
       ? (storeLayer.memoryBytes / storeLayer.memoryLimit) * 100
       : memPct
+  const cpuEstimated = storeLayer ? storeLayer.cpuIsEstimated : m.cpuIsEstimated
+  const memEstimated = storeLayer ? storeLayer.memIsEstimated : m.memIsEstimated
+  const cpuLimitCores = storeLayer?.cpuLimit ?? m.cpuLimit
+  const memLimitBytes = storeLayer?.memoryLimit ?? m.memoryLimit
+  const memBytes = storeLayer?.memoryBytes ?? m.memoryBytes
   const proxyCpu =
     proxyLayer && proxyLayer.cpuLimit > 0
       ? (proxyLayer.cpuUsage / proxyLayer.cpuLimit) * 100
@@ -922,30 +927,44 @@ function CachePane({
           </SlTile>
           <SlTile>
             <SlTileLab>Memory used</SlTileLab>
-            <SlTileVal>
-              {(storeLayer?.memoryLimit ?? m.memoryLimit) > 0
-                ? cacheMemoryAmount(storeLayer?.memoryBytes ?? m.memoryBytes).text
-                : '—'}
-              <SlUnit>
-                {(storeLayer?.memoryLimit ?? m.memoryLimit) > 0
-                  ? cacheMemoryAmount(storeLayer?.memoryBytes ?? m.memoryBytes).unit
-                  : 'MiB'}
-              </SlUnit>
-            </SlTileVal>
-            <SlBarInline pct={storeMem} hot={isMemUtilWarn(storeMem)} />
+            {memEstimated ? (
+              <SlTileVal>{memLimitBytes > 0 ? fmtMemMB(memLimitBytes) : '—'}</SlTileVal>
+            ) : (
+              <SlTileVal>
+                {memLimitBytes > 0 ? cacheMemoryAmount(memBytes).text : '—'}
+                <SlUnit>
+                  {memLimitBytes > 0 ? cacheMemoryAmount(memBytes).unit : 'MiB'}
+                </SlUnit>
+              </SlTileVal>
+            )}
+            <SlBarInline pct={memEstimated ? 0 : storeMem} hot={isMemUtilWarn(storeMem)} />
             <SlTileFoot
-              left={`of ${(storeLayer?.memoryLimit ?? m.memoryLimit) > 0 ? Math.round((storeLayer?.memoryLimit ?? m.memoryLimit) / (1024 * 1024)) : '—'} MiB`}
-              right={`${Math.round(storeMem)}% used`}
+              left={
+                memEstimated
+                  ? 'allocated, not measured'
+                  : `of ${memLimitBytes > 0 ? Math.round(memLimitBytes / (1024 * 1024)) : '—'} MiB`
+              }
+              right={memEstimated ? undefined : `${fmtPct(storeMem)} used`}
             />
           </SlTile>
         </SlTiles>
         <Note mark="?">
           {isMemcached
-            ? 'Memory is bytes Memcached uses for items, compared with its -m limit.'
+            ? 'Memory is the memcached container working set, compared with its memory limit.'
             : 'Memory shows Redis used memory compared with maxmemory, not the raw size of stored values.'}
         </Note>
         <SlStatStrip>
-          <SlStatCell label="cpu" value={Math.round(storeCpu)} unit="%" />
+          <SlStatCell
+            label="cpu"
+            value={
+              cpuEstimated
+                ? cpuLimitCores > 0
+                  ? 'limit'
+                  : '—'
+                : fmtPct(storeCpu).replace(/%$/, '')
+            }
+            unit={cpuEstimated ? (cpuLimitCores > 0 ? fmtCpuMilliCores(cpuLimitCores) : undefined) : '%'}
+          />
           <SlStatCell
             label="p99 · 9m"
             value={
