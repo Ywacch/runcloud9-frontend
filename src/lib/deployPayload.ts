@@ -132,7 +132,11 @@ export function deployConfigForNode(
     )
     config.cacheStrategy = strat
     config.strategy = strat
-    config.evictionPolicy = normalizeRedisEvictionPolicy(config.evictionPolicy)
+    if (engine === 'memcached') {
+      delete config.evictionPolicy
+    } else {
+      config.evictionPolicy = normalizeRedisEvictionPolicy(config.evictionPolicy)
+    }
 
     // Sync instanceSize ↔ resourceProfile (BE normalize also does this).
     const redisSize =

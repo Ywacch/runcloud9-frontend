@@ -65,6 +65,7 @@ export interface ActiveChaosPartition {
 
 export interface ChaosScenarioContext {
   readReplicas?: number
+  cacheEngine?: string
 }
 
 const POD_KILL_TARGETS: ChaosTargetComponent[] = [
@@ -99,8 +100,24 @@ export function isPartitionChaosScenario(
 }
 
 export function chaosContextForNode(node: CanvasNode): ChaosScenarioContext {
-  if (node.type !== 'database') return {}
-  return { readReplicas: clampReadReplicas(node.config.readReplicas) }
+  if (node.type === 'database') {
+    return { readReplicas: clampReadReplicas(node.config.readReplicas) }
+  }
+  if (node.type === 'cache') {
+    const engine = String(node.config.cacheEngine ?? node.config.engine ?? 'redis')
+      .trim()
+      .toLowerCase()
+    return { cacheEngine: engine || 'redis' }
+  }
+  return {}
+}
+
+function cacheChaosScenarios(engine: string | undefined): ChaosScenario[] {
+  const id = (engine ?? 'redis').trim().toLowerCase() || 'redis'
+  if (id === 'redis' || id === 'memcached') {
+    return ['pod_kill', 'cache_flush', 'split_app_store']
+  }
+  return ['pod_kill']
 }
 
 export function chaosTargetForNode(
@@ -120,7 +137,7 @@ export function chaosScenariosForTarget(
 ): ChaosScenario[] {
   switch (target) {
     case 'cache':
-      return ['pod_kill', 'cache_flush', 'split_app_store']
+      return cacheChaosScenarios(ctx.cacheEngine)
     case 'db': {
       const scenarios: ChaosScenario[] = ['pod_kill']
       if (clampReadReplicas(ctx.readReplicas) >= 1) {

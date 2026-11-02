@@ -81,6 +81,17 @@ describe('chaosScenariosForTarget', () => {
       'cache_flush',
       'split_app_store',
     ])
+    expect(chaosScenariosForTarget('cache', { cacheEngine: 'redis' })).toEqual([
+      'pod_kill',
+      'cache_flush',
+      'split_app_store',
+    ])
+    expect(chaosScenariosForTarget('cache', { cacheEngine: 'memcached' })).toEqual([
+      'pod_kill',
+      'cache_flush',
+      'split_app_store',
+    ])
+    expect(chaosScenariosForTarget('cache', { cacheEngine: 'scylla' })).toEqual(['pod_kill'])
   })
 })
 

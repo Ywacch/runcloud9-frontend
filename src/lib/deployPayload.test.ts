@@ -41,6 +41,19 @@ describe('deployConfigForNode', () => {
     expect(bogus.evictionPolicy).toBe('allkeys-lru')
   })
 
+  it('drops evictionPolicy for memcached', () => {
+    const got = deployConfigForNode(
+      cacheNode({
+        engine: 'memcached',
+        cacheEngine: 'memcached',
+        cacheStrategy: 'cache-aside',
+        evictionPolicy: 'allkeys-lru',
+      }),
+    )
+    expect(got.engine).toBe('memcached')
+    expect(got.evictionPolicy).toBeUndefined()
+  })
+
   it('syncs proxyInstanceSize ↔ proxyResourceProfile for proxy strategies', () => {
     const explicit = deployConfigForNode(
       cacheNode({
@@ -198,7 +211,7 @@ describe('deployConfigForNode', () => {
     expect(mq.engine).toBe('rabbitmq')
 
     const cache = deployConfigForNode(
-      cacheNode({ cacheStrategy: 'cache-aside', cacheEngine: 'memcached' }),
+      cacheNode({ cacheStrategy: 'cache-aside', cacheEngine: 'valkey' }),
     )
     expect(cache.engine).toBe('redis')
     expect(cache.cacheEngine).toBe('redis')

@@ -1,5 +1,6 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import { cacheDeployedConfigRows } from '../lib/cacheDeployedConfig'
 import { isProxyCacheStrategy } from '../lib/cacheTopologyStrategy'
 import { fmtCpuMilliCores, fmtMemMB } from '../lib/format'
 import { lbBackendConfigValue } from '../lib/lbInspectorMetrics'
@@ -176,9 +177,9 @@ export function deployedConfigRows(
       const strategy = String(m?.cacheStrategy ?? c.cacheStrategy ?? 'cache-aside').trim()
       const policy = normalizeRedisEvictionPolicy(c.evictionPolicy)
       const clients = sources(node.id, edges, nodes, 'compute')
-      const rows: DeployedConfigRow[] = [
-        { key: 'strategy', value: strategy },
-      ]
+      const engine = String(c.cacheEngine ?? c.engine ?? 'redis')
+      const ttlSeconds = Number(c.cacheTtlSeconds ?? 0)
+      const rows: DeployedConfigRow[] = []
       if (isProxyCacheStrategy(strategy)) {
         rows.push({ key: 'sync mode', value: 'async' })
         const interval = normalizeWriteBehindIntervalSeconds(c.writeBehindIntervalSeconds)
@@ -187,23 +188,20 @@ export function deployedConfigRows(
           value: strategy === 'write-behind' ? `batch · every ${interval} s` : 'inline',
         })
       }
-      const ttlSeconds = Number(c.cacheTtlSeconds ?? 0)
       rows.push(
-        { key: 'cpu limit', value: cpuLimitLine(node, m) },
-        { key: 'maxmemory', value: memLimitLine(node, m) },
-        { key: 'policy', value: policy },
-        {
-          key: 'ttl',
-          value:
-            Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? `${ttlSeconds} s` : 'none',
-        },
+        ...cacheDeployedConfigRows({
+          engine,
+          strategy,
+          cpuLimit: cpuLimitLine(node, m),
+          memoryLimit: memLimitLine(node, m),
+          policy,
+          ttl: Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? `${ttlSeconds} s` : 'none',
+          client:
+            clients.length > 0
+              ? `${clients.map((client) => client.label).join(', ')} pool`
+              : undefined,
+        }),
       )
-      if (clients.length > 0) {
-        rows.push({
-          key: 'client',
-          value: `${clients.map((client) => client.label).join(', ')} pool`,
-        })
-      }
       return rows
     }
 
