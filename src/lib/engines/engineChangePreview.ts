@@ -33,6 +33,7 @@ export interface EngineCanvasOps {
   edges: Record<string, CanvasEdge>
   addNode: (node: CanvasNode) => void
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void
+  updateNodeLabel?: (id: string, label: string) => void
   setJobBinding: (job: string, nodeId: string | null) => void
   removeNode: (id: string) => void
   addEdge: (edge: CanvasEdge) => void
@@ -58,6 +59,40 @@ function canvasTypeForEngine(engine: string): CanvasNode['type'] | null {
 function nodeLabel(nodes: CanvasNode[], id: string | null): string {
   if (!id) return 'another node'
   return nodes.find((n) => n.id === id)?.label ?? id
+}
+
+const STOCK_NODE_LABELS = new Set([
+  'Cache',
+  'Redis',
+  'Memcached',
+  'Valkey',
+  'PostgreSQL',
+  'Message Queue',
+])
+
+function renameStockLabel(
+  ops: EngineCanvasOps,
+  node: CanvasNode,
+  engine: string,
+): void {
+  if (!ops.updateNodeLabel) return
+  if (!STOCK_NODE_LABELS.has(node.label)) return
+  const next = labelForNewNode(engine)
+  if (!next || next === node.label) return
+  ops.updateNodeLabel(node.id, next)
+}
+
+/** When the label is still a default engine name, return the name for the current engine. */
+export function alignedStockLabel(node: CanvasNode): string | null {
+  if (node.type !== 'cache' && node.type !== 'database' && node.type !== 'message_queue') {
+    return null
+  }
+  const engine = String(node.config.cacheEngine ?? node.config.engine ?? '').trim().toLowerCase()
+  if (!engine) return null
+  if (!STOCK_NODE_LABELS.has(node.label)) return null
+  const next = labelForNewNode(engine)
+  if (!next || next === node.label || !STOCK_NODE_LABELS.has(next)) return null
+  return next
 }
 
 function labelForNewNode(engine: string): string {
@@ -224,6 +259,7 @@ export function applyEngineChangePreview(
         preview.bindToNodeId,
         configPatchForEngine(host.type, preview.engine),
       )
+      renameStockLabel(ops, host, preview.engine)
     }
     ops.setJobBinding(jobId, preview.bindToNodeId)
   }
@@ -234,6 +270,7 @@ export function applyEngineChangePreview(
         preview.patchNodeId,
         configPatchForEngine(host.type, preview.engine),
       )
+      renameStockLabel(ops, host, preview.engine)
     }
     ops.setJobBinding(jobId, preview.patchNodeId)
   }

@@ -1,5 +1,5 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
-import type { TopologyFlags } from './componentRole'
+import { withCacheEngineName, type TopologyFlags } from './componentRole'
 import {
   canvasTypeToSemantic,
   classifyCanvasEdge,
@@ -63,8 +63,15 @@ export function classifyCanvasEdgeMeaning(
     return result
   }
 
+  const cacheNode = [sourceNode, targetNode].find((node) => node.type === 'cache')
+  const cacheEngine = cacheNode
+    ? String(cacheNode.config.cacheEngine ?? cacheNode.config.engine ?? 'redis')
+    : null
   return {
     ...result,
-    message: resolveEdgeMeaning(source, target, topology, storytelling),
+    message: withCacheEngineName(
+      resolveEdgeMeaning(source, target, topology, storytelling),
+      cacheEngine,
+    ),
   }
 }

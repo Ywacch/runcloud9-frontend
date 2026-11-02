@@ -104,3 +104,19 @@ export function resolveRole(
   }
   return roleSpec.base ?? roleKeyLabels[rk] ?? canvasNodeType
 }
+
+const CACHE_ENGINE_NAMES: Record<string, string> = {
+  redis: 'Redis',
+  memcached: 'Memcached',
+  valkey: 'Valkey',
+}
+
+/** Storytelling copy names Redis. Swap that word when the cache engine differs. */
+export function withCacheEngineName(
+  text: string,
+  engine: string | null | undefined,
+): string {
+  const name = CACHE_ENGINE_NAMES[String(engine ?? 'redis').trim().toLowerCase()]
+  if (!name || name === 'Redis') return text
+  return text.replaceAll('Redis', name)
+}

@@ -110,6 +110,7 @@ function renderCacheInspector(opts: {
   topology?: 'proxy' | 'aside' | 'isolated'
   updateConfig?: ReturnType<typeof vi.fn>
   readOnly?: boolean
+  cacheEngine?: string
 }): string {
   const {
     evictionPolicy = 'allkeys-lru',
@@ -120,6 +121,7 @@ function renderCacheInspector(opts: {
     topology = 'isolated',
     updateConfig = vi.fn(),
     readOnly = false,
+    cacheEngine,
   } = opts
 
   const config: CanvasNode['config'] = {
@@ -127,6 +129,7 @@ function renderCacheInspector(opts: {
     evictionPolicy,
     cacheTtlSeconds,
   }
+  if (cacheEngine) config.cacheEngine = cacheEngine
   if (writeBehindIntervalSeconds != null) {
     config.writeBehindIntervalSeconds = writeBehindIntervalSeconds
   }
@@ -200,6 +203,15 @@ describe('CacheNodeInspectorFields eviction policy copy', () => {
       expect(html).not.toContain(VOLATILE_NO_EXPIRY_WARNING)
     },
   )
+})
+
+describe('CacheNodeInspectorFields memcached', () => {
+  it('hides the Redis eviction policy control', () => {
+    const html = renderCacheInspector({ cacheEngine: 'memcached' })
+    expect(html).toContain('This deploy does not set a policy.')
+    expect(html).toContain('Least recently used')
+    expect(html).not.toContain('id="cache-eviction"')
+  })
 })
 
 describe('CacheNodeInspectorFields strategy copy', () => {

@@ -46,7 +46,8 @@ import {
   parseCacheTtlSeconds,
   showVolatileNoExpiryWarning,
 } from '../lib/cacheTtl'
-import { getTopologyFlags, resolveRole } from '../lib/componentRole'
+import { getTopologyFlags, resolveRole, withCacheEngineName } from '../lib/componentRole'
+import { alignedStockLabel } from '../lib/engines/engineChangePreview'
 import {
   APP_SERVER_REPLICA_MIN,
   LIVE_LB_ALGORITHMS,
@@ -258,13 +259,23 @@ export function InspectorPanel() {
     node?.type === 'database' &&
     nodeMetrics != null &&
     dbHasReplicaLayers(nodeMetrics.layers)
+  useEffect(() => {
+    if (!node) return
+    const next = alignedStockLabel(node)
+    if (next) updateNodeLabel(node.id, next)
+  }, [node, updateNodeLabel])
   const roleLabel = useMemo(() => {
     if (!node) return ''
-    return resolveRole(
+    const text = resolveRole(
       node.type,
       snapshotTemplateId,
       getTopologyFlags(nodes),
       storytelling,
+    )
+    if (node.type !== 'cache') return text
+    return withCacheEngineName(
+      text,
+      String(node.config.cacheEngine ?? node.config.engine ?? 'redis'),
     )
   }, [node, snapshotTemplateId, nodes, storytelling])
   const open = node !== null
@@ -874,6 +885,8 @@ export function CacheNodeInspectorFields({
   const showProxySize = isProxyCacheStrategy(selectValue)
   const proxyInstanceSize = String(c.proxyInstanceSize ?? '').trim()
   const proxyResourceProfile = String(c.proxyResourceProfile ?? '').trim()
+  const cacheEngine = String(c.cacheEngine ?? c.engine ?? 'redis').toLowerCase()
+  const memcachedEngine = cacheEngine === 'memcached'
   const evictionPolicy = normalizeRedisEvictionPolicy(c.evictionPolicy)
   const showWriteBehindInterval = showsWriteBehindIntervalControl(
     templateId,
@@ -1173,41 +1186,50 @@ export function CacheNodeInspectorFields({
           </p>
         ) : null}
       </PcfgField>
-      <PcfgField
-        label="Eviction policy"
-        sub={REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
-      >
-        <PcfgOptions
-          variant="dd"
-          id="cache-eviction"
+      {memcachedEngine ? (
+        <PcfgField
+          label="Eviction"
+          sub="Memcached removes the least recently used items when memory is full. This deploy does not set a policy."
+        >
+          <p className="pcfg-static">Least recently used</p>
+        </PcfgField>
+      ) : (
+        <PcfgField
           label="Eviction policy"
-          value={evictionPolicy}
-          disabled={readOnly}
-          options={REDIS_EVICTION_POLICIES.map((p) => ({
-            value: p,
-            label: REDIS_EVICTION_POLICY_LABEL[p],
-          }))}
-          onChange={(next) => {
-            if (readOnly) return
-            const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
-            const normalized = normalizeRedisEvictionPolicy(next)
-            updateConfig({ evictionPolicy: normalized })
-            const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
-            trackEvent('design_option_changed', {
-              template,
-              optionName: 'eviction_policy',
-              previousCategory: prev,
-              newCategory: normalized,
-            })
-          }}
-        />
-        {showVolatileWarning ? (
-          <p className="note amber" style={{ marginTop: 8 }}>
-            <b>!</b>
-            {VOLATILE_NO_EXPIRY_WARNING}
-          </p>
-        ) : null}
-      </PcfgField>
+          sub={REDIS_EVICTION_POLICY_DESCRIPTION[evictionPolicy]}
+        >
+          <PcfgOptions
+            variant="dd"
+            id="cache-eviction"
+            label="Eviction policy"
+            value={evictionPolicy}
+            disabled={readOnly}
+            options={REDIS_EVICTION_POLICIES.map((p) => ({
+              value: p,
+              label: REDIS_EVICTION_POLICY_LABEL[p],
+            }))}
+            onChange={(next) => {
+              if (readOnly) return
+              const prev = normalizeRedisEvictionPolicy(c.evictionPolicy)
+              const normalized = normalizeRedisEvictionPolicy(next)
+              updateConfig({ evictionPolicy: normalized })
+              const template = useCanvasStore.getState().snapshotTemplateId ?? 'unknown'
+              trackEvent('design_option_changed', {
+                template,
+                optionName: 'eviction_policy',
+                previousCategory: prev,
+                newCategory: normalized,
+              })
+            }}
+          />
+          {showVolatileWarning ? (
+            <p className="note amber" style={{ marginTop: 8 }}>
+              <b>!</b>
+              {VOLATILE_NO_EXPIRY_WARNING}
+            </p>
+          ) : null}
+        </PcfgField>
+      )}
       <ResourceProfileFields
         idPrefix="cache"
         nodeType="cache"
