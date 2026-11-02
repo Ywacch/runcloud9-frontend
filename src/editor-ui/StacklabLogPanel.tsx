@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useLogStore } from '../editor-core/stores/logStore'
+import { cacheLogEmptyMessage } from '../lib/cacheLogEmpty'
 import { logComponentMatches } from '../lib/logComponent'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
@@ -123,7 +124,11 @@ export function StacklabLogPanel({
       </div>
 
       {shown.length === 0 ? (
-        <div className="log-empty">NO EVENTS AT THIS LEVEL IN THE CURRENT WINDOW</div>
+        <div className="log-empty">
+          {node.type === 'cache'
+            ? cacheLogEmptyMessage(String(node.config.cacheEngine ?? node.config.engine ?? ''))
+            : cacheLogEmptyMessage(undefined)}
+        </div>
       ) : (
         <div className="log-list" ref={listRef}>
           {shown.map((line) => {

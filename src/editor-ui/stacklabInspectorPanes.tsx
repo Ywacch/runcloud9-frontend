@@ -9,6 +9,7 @@ import {
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
+import { cacheMemoryAmount } from '../lib/cacheMemoryLabel'
 import { FMT_EMPTY, fmtBytes, fmtErrorRate, fmtInt, fmtMemMB, fmtRate } from '../lib/format'
 import { bucketSessionQuantileAvailable } from '../lib/latencyQuantile'
 import type { InspectorMetricGroupId } from '../lib/inspectorMetricGroups'
@@ -923,9 +924,13 @@ function CachePane({
             <SlTileLab>Memory used</SlTileLab>
             <SlTileVal>
               {(storeLayer?.memoryLimit ?? m.memoryLimit) > 0
-                ? Math.round((storeLayer?.memoryBytes ?? m.memoryBytes) / (1024 * 1024))
+                ? cacheMemoryAmount(storeLayer?.memoryBytes ?? m.memoryBytes).text
                 : '—'}
-              <SlUnit>MiB</SlUnit>
+              <SlUnit>
+                {(storeLayer?.memoryLimit ?? m.memoryLimit) > 0
+                  ? cacheMemoryAmount(storeLayer?.memoryBytes ?? m.memoryBytes).unit
+                  : 'MiB'}
+              </SlUnit>
             </SlTileVal>
             <SlBarInline pct={storeMem} hot={isMemUtilWarn(storeMem)} />
             <SlTileFoot
@@ -943,8 +948,15 @@ function CachePane({
           <SlStatCell label="cpu" value={Math.round(storeCpu)} unit="%" />
           <SlStatCell
             label="p99 · 9m"
-            value={m.p99Latency9m > 0 ? Math.round(m.p99Latency9m) : Math.round(m.p99Latency)}
-            unit="ms"
+            value={
+              isMemcached
+                ? 'not reported'
+                : m.p99Latency9m > 0
+                  ? Math.round(m.p99Latency9m)
+                  : Math.round(m.p99Latency)
+            }
+            unit={isMemcached ? undefined : 'ms'}
+            help={isMemcached ? 'not reported by memcached_exporter' : undefined}
           />
           <SlStatCell label="rejects" value={fmtInt(m.redisRejectedRate ?? 0)} />
           {(m.redisConnectedClients ?? m.activeConnections ?? 0) > 0 ? (

@@ -1,7 +1,8 @@
 /**
  * What the deployer can actually provision today. Visual code (SVG packing,
  * engine skins) may exceed this; user-facing controls and deploy payloads must not.
- * Mirrors ganymede: no `shards` handling, DB_ENGINE defaults postgresql, cache is redis.
+ * Mirrors ganymede: no `shards` handling, DB_ENGINE defaults postgresql.
+ * Cache fallback is Redis, then Memcached. `/meta/jobs` replaces this list when it loads.
  * Database read replicas are provisioned via readReplicas; cache stays single-instance.
  */
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
@@ -10,7 +11,7 @@ import type { MetaJobsResponse } from './api'
 /** Engines the backend provisions, by canvas node type. Empty = no engine choice. */
 export const BACKEND_ENGINES: Record<CanvasNode['type'], string[]> = {
   database: ['postgresql'],
-  cache: ['redis'],
+  cache: ['redis', 'memcached'],
   message_queue: ['rabbitmq'],
   compute: [],
   worker: [],

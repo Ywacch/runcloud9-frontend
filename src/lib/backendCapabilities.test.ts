@@ -51,14 +51,14 @@ describe('backendCapabilities', () => {
   })
   it('exposes only provisioned engines', () => {
     expect(backendEnginesForType('database')).toEqual(['postgresql'])
-    expect(backendEnginesForType('cache')).toEqual(['redis'])
+    expect(backendEnginesForType('cache')).toEqual(['redis', 'memcached'])
     expect(backendEnginesForType('message_queue')).toEqual(['rabbitmq'])
     expect(backendEnginesForType('compute')).toEqual([])
   })
 
   it.each([
     ['database', 'mongodb'],
-    ['cache', 'memcached'],
+    ['cache', 'valkey'],
     ['message_queue', 'kafka'],
     ['message_queue', 'nats'],
   ] as const)('rejects unsupported %s engine %s', (type, engine) => {
@@ -71,6 +71,7 @@ describe('backendCapabilities', () => {
   it('accepts supported engines regardless of case or padding', () => {
     expect(isBackendSupportedEngine('database', ' PostgreSQL ')).toBe(true)
     expect(backendEngineOrDefault('cache', 'REDIS')).toBe('redis')
+    expect(backendEngineOrDefault('cache', 'Memcached')).toBe('memcached')
   })
 
   it('returns undefined for types without an engine choice', () => {
@@ -103,6 +104,7 @@ describe('backendCapabilities', () => {
   it('uses catalog pairs with build available when applied', () => {
     applyEnginesCatalog(sampleCatalog)
     expect(backendEnginesForType('database')).toEqual(['postgresql'])
+    expect(backendEnginesForType('cache')).toEqual(['redis'])
     expect(backendEngineOrDefault('cache', 'memcached')).toBe('redis')
     expect(backendSupportsReplicaApplyDelay('postgresql')).toBe(true)
     expect(backendSupportsReplicaApplyDelay('mysql')).toBe(false)
