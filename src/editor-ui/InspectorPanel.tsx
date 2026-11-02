@@ -83,6 +83,10 @@ import {
 } from '../lib/billingCopy'
 import { canvasToBackend } from '../lib/typeMapping'
 import {
+  backendEngineOrDefault,
+  backendSupportsReplicaApplyDelay,
+} from '../lib/backendCapabilities'
+import {
   useCanvasStore,
   type CanvasEdge,
   type CanvasNode,
@@ -1655,6 +1659,9 @@ function TypeFields({
       const syncCommitLevel = syncCommitLevelFromConfig(c.syncCommitLevel)
       const showSyncCommitLevel = requiresSynchronousReplication(replicationMode)
       const readConsistency = readConsistencyFromConfig(c.readConsistency)
+      const dbEngine = backendEngineOrDefault('database', c.engine) ?? 'postgresql'
+      const showReplicaApplyDelay =
+        readReplicas >= 1 && backendSupportsReplicaApplyDelay(dbEngine)
       const showReadConsistencyClampHint =
         readConsistencyRequiresMultipleReplicas(readConsistency) &&
         readReplicas < 2
@@ -1824,6 +1831,7 @@ function TypeFields({
                   />
                 </PcfgField>
               ) : null}
+              {showReplicaApplyDelay ? (
               <PcfgField
                 label="Replica apply delay"
                 htmlFor="db-replica-apply-delay"
@@ -1854,6 +1862,7 @@ function TypeFields({
                   effects; use different values per replica to teach lag divergence.
                 </p>
               </PcfgField>
+              ) : null}
             </>
           ) : null}
           {simulationMode ? (

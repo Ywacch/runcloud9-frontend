@@ -31,9 +31,18 @@ let catalogEnginesByType: Partial<
   Record<CanvasNode['type'], string[]>
 > | null = null
 
+let replicaApplyDelayEngineIds: Set<string> | null = null
+
 /** Applies `/meta/jobs` pairs with `build: available` to deploy-time engine lists. */
 export function applyEnginesCatalog(catalog: MetaJobsResponse): void {
   const next: Partial<Record<CanvasNode['type'], string[]>> = {}
+  const lagDial = new Set<string>()
+  for (const eng of catalog.engines ?? []) {
+    if (eng.replicaApplyDelay) {
+      lagDial.add(eng.id.trim().toLowerCase())
+    }
+  }
+  replicaApplyDelayEngineIds = lagDial.size > 0 ? lagDial : null
   for (const [nodeType, jobs] of Object.entries(CATALOG_JOBS_BY_NODE_TYPE) as [
     CanvasNode['type'],
     readonly string[],
@@ -53,6 +62,7 @@ export function applyEnginesCatalog(catalog: MetaJobsResponse): void {
 /** Clears catalog-driven engines (tests). */
 export function resetBackendEnginesCatalog(): void {
   catalogEnginesByType = null
+  replicaApplyDelayEngineIds = null
 }
 
 /** Sharding is visual only — the deployer provisions one instance per component. */
@@ -101,4 +111,19 @@ export function backendSupportsReplicas(type: CanvasNode['type']): boolean {
 /** Postgres streaming read replicas (readReplicas knob, not config.replicas). */
 export function backendSupportsReadReplicas(type: CanvasNode['type']): boolean {
   return type === 'database'
+}
+
+function normalizeDatabaseEngineId(engine: unknown): string {
+  const raw = String(engine ?? '').trim().toLowerCase()
+  if (!raw || raw === 'postgres') return 'postgresql'
+  return raw
+}
+
+/** Lab lag dial (recovery_min_apply_delay) when the engines catalog marks the engine. */
+export function backendSupportsReplicaApplyDelay(engine: unknown): boolean {
+  const id = normalizeDatabaseEngineId(engine)
+  if (replicaApplyDelayEngineIds) {
+    return replicaApplyDelayEngineIds.has(id)
+  }
+  return id === 'postgresql'
 }

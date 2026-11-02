@@ -5,6 +5,7 @@ import {
   backendEngineOrDefault,
   backendEnginesForType,
   backendSupportsReadReplicas,
+  backendSupportsReplicaApplyDelay,
   backendSupportsReplicas,
   isBackendSupportedEngine,
   resetBackendEnginesCatalog,
@@ -14,7 +15,7 @@ import type { MetaJobsResponse } from './api'
 const sampleCatalog: MetaJobsResponse = {
   catalogVersion: '2',
   jobs: [],
-  engines: [],
+  engines: [{ id: 'postgresql', label: 'PostgreSQL', family: 'relational', weight: 'light', replicaApplyDelay: true }],
   pairs: [
     {
       job: 'main_db',
@@ -103,5 +104,12 @@ describe('backendCapabilities', () => {
     applyEnginesCatalog(sampleCatalog)
     expect(backendEnginesForType('database')).toEqual(['postgresql'])
     expect(backendEngineOrDefault('cache', 'memcached')).toBe('redis')
+    expect(backendSupportsReplicaApplyDelay('postgresql')).toBe(true)
+    expect(backendSupportsReplicaApplyDelay('mysql')).toBe(false)
+  })
+
+  it('defaults lag dial to postgresql without catalog engines', () => {
+    expect(backendSupportsReplicaApplyDelay(undefined)).toBe(true)
+    expect(backendSupportsReplicaApplyDelay('mysql')).toBe(false)
   })
 })
