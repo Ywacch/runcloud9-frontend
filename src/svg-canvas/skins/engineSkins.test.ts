@@ -14,14 +14,20 @@ describe('backendSupportedEnginesForArchetype', () => {
     ).toEqual(['postgresql'])
   })
 
-  it.each([
-    ['cache', 'redis'],
-    ['message-queue', 'rabbitmq'],
-  ] as const)('narrows %s to %s', (archetype, engine) => {
+  it('narrows cache to provisioned engines', () => {
     expect(
-      backendSupportedEnginesForArchetype(archetype).map((s) => s.engine),
-    ).toEqual([engine])
+      backendSupportedEnginesForArchetype('cache').map((s) => s.engine),
+    ).toEqual(['redis', 'memcached'])
   })
+
+  it.each([['message-queue', 'rabbitmq']] as const)(
+    'narrows %s to %s',
+    (archetype, engine) => {
+      expect(
+        backendSupportedEnginesForArchetype(archetype).map((s) => s.engine),
+      ).toEqual([engine])
+    },
+  )
 
   it('leaves engine-less archetypes untouched', () => {
     expect(backendSupportedEnginesForArchetype('worker')).toEqual(
