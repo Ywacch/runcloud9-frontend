@@ -708,7 +708,14 @@ function CachePane({
   const hitSeries = historySeries(history, 'cacheHits')
   const missSeries = historySeries(history, 'cacheMisses')
   const memPct = m.memoryLimit > 0 ? (m.memoryBytes / m.memoryLimit) * 100 : m.memPercent
-  const evictionPolicy = String(node.config.evictionPolicy ?? 'lru').replace('allkeys-', '')
+  const cacheEngineId = String(
+    m.storageEngine || node.config.cacheEngine || node.config.engine || 'redis',
+  ).toLowerCase()
+  const isMemcached = cacheEngineId === 'memcached'
+  const engineTitle = isMemcached ? 'Memcached' : 'Redis'
+  const evictionPolicy = isMemcached
+    ? 'lru'
+    : String(node.config.evictionPolicy ?? 'lru').replace('allkeys-', '')
   const storeLayer = m.layers.find(
     (layer) => layer.id === 'redis-internal' || layer.role === 'backing-store',
   )
@@ -798,7 +805,9 @@ function CachePane({
         <Note mark="?">
           {isTimelineStore
             ? 'Hit = timeline returned posts. Miss = empty timeline; still no Postgres on push reads.'
-            : 'App logical hits and misses, not Redis GET/SET command counters.'}
+            : isMemcached
+              ? 'App logical hits and misses, not Memcached get command counters.'
+              : 'App logical hits and misses, not Redis GET/SET command counters.'}
         </Note>
         {view.timeframe === 'session' ? <Note mark="↔">{SESSION_CACHE_TOTALS_HINT}</Note> : null}
         {!isTimelineStore &&
@@ -881,7 +890,7 @@ function CachePane({
       <SlPaneSection>
         <SlSecHead
           index="04"
-          title="What is Redis doing with the keys?"
+          title={`What is ${engineTitle} doing with the keys?`}
           subtitle="Command mix and memory pressure at the cache node."
         />
         <SlTiles>
@@ -926,8 +935,9 @@ function CachePane({
           </SlTile>
         </SlTiles>
         <Note mark="?">
-          Memory shows Redis used memory compared with maxmemory, not the raw size of stored
-          values.
+          {isMemcached
+            ? 'Memory is bytes Memcached uses for items, compared with its -m limit.'
+            : 'Memory shows Redis used memory compared with maxmemory, not the raw size of stored values.'}
         </Note>
         <SlStatStrip>
           <SlStatCell label="cpu" value={Math.round(storeCpu)} unit="%" />
@@ -937,13 +947,17 @@ function CachePane({
             unit="ms"
           />
           <SlStatCell label="rejects" value={fmtInt(m.redisRejectedRate ?? 0)} />
-          {(m.redisConnectedClients ?? 0) > 0 ? (
-            <SlStatCell label="clients" value={fmtInt(m.redisConnectedClients)} />
+          {(m.redisConnectedClients ?? m.activeConnections ?? 0) > 0 ? (
+            <SlStatCell
+              label="clients"
+              value={fmtInt(m.redisConnectedClients || m.activeConnections)}
+            />
           ) : null}
         </SlStatStrip>
         <Note mark="i">
-          Rejects are connections refused by the engine (e.g. at maxclients). Command counters are
-          engine-side; the Hit Rate tab counts app-side logical hits and misses.
+          {isMemcached
+            ? 'Rejects count times Memcached stopped accepting connections at its connection limit. Command counters are engine-side. The Hit Rate tab counts app-side logical hits and misses.'
+            : 'Rejects are connections refused by the engine (e.g. at maxclients). Command counters are engine-side; the Hit Rate tab counts app-side logical hits and misses.'}
         </Note>
         <SlDisc
           id="key-life"
@@ -952,7 +966,9 @@ function CachePane({
           onToggle={() => setKeyLifeOpen((v) => !v)}
           body={
             <p>
-              Evictions are keys Redis removed to make room after reaching its memory limit.
+              {isMemcached
+                ? 'Evictions are items Memcached removed to make room after reaching its memory limit. '
+                : 'Evictions are keys Redis removed to make room after reaching its memory limit. '}
               Expirations are keys the store removed because their TTL ended. {SESSION_STORAGE_ENGINE_HINT}
             </p>
           }

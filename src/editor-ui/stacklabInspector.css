@@ -602,6 +602,10 @@
 .sl-inspector .pcfg-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
 .sl-inspector .pcfg-sub{font-family:var(--mono);font-size:9px;color:var(--ink-4);line-height:1.55}
 .sl-inspector .pcfg-static{font-family:var(--disp);font-size:14px;font-weight:500;color:var(--ink);letter-spacing:-.01em;line-height:1.2}
+.sl-inspector .sl-stat-list{margin:8px 0 0;display:grid;gap:6px}
+.sl-inspector .sl-stat-row{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11px}
+.sl-inspector .sl-stat-row dt{color:var(--ink-3)}
+.sl-inspector .sl-stat-row dd{margin:0;color:var(--ink)}
 .sl-inspector .pcfg-stack{display:flex;flex-direction:column;gap:0;padding:0 var(--pad) 16px}
 .sl-inspector .sec .sl-f-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;
   text-transform:uppercase;color:var(--ink-3);font-weight:400;display:block;margin-bottom:8px}

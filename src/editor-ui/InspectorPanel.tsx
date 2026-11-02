@@ -113,6 +113,7 @@ import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { isEngineerPreviewLocked } from '../lib/engineerLockedVisual'
 import { CacheBrowser } from './CacheBrowser'
+import { MemcachedStatsPanel } from './MemcachedStatsPanel'
 import { StacklabLogPanel, stacklabLogCountForNode } from './StacklabLogPanel'
 import { DataBrowser } from './DataBrowser'
 import { EngineerLockedInspectorNotice } from './EngineerLockedInspectorNotice'
@@ -713,12 +714,20 @@ export function InspectorPanel() {
                 ) : null}
                 {!clientInert && liveTab === 'data' && inspectorDeployment && node.type === 'cache' ? (
                   <section className="sec">
-                    <CacheBrowser
-                      deploymentId={inspectorDeployment}
-                      component={canvasToBackend[node.type]}
-                      keyPatterns={cacheBrowse.patterns}
-                      streamKeys={cacheBrowse.streamKeys}
-                    />
+                    {String(node.config.cacheEngine ?? node.config.engine ?? 'redis') ===
+                    'memcached' ? (
+                      <MemcachedStatsPanel
+                        deploymentId={inspectorDeployment}
+                        component={canvasToBackend[node.type]}
+                      />
+                    ) : (
+                      <CacheBrowser
+                        deploymentId={inspectorDeployment}
+                        component={canvasToBackend[node.type]}
+                        keyPatterns={cacheBrowse.patterns}
+                        streamKeys={cacheBrowse.streamKeys}
+                      />
+                    )}
                   </section>
                 ) : null}
                 {!clientInert &&
