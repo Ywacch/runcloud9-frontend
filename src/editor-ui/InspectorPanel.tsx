@@ -10,6 +10,7 @@ import {
 import {
   REDIS_EVICTION_POLICIES,
   REDIS_EVICTION_POLICY_DESCRIPTION,
+  REDIS_EVICTION_POLICY_LABEL,
   normalizeRedisEvictionPolicy,
 } from '../lib/redisEvictionPolicy'
 import {
@@ -477,10 +478,7 @@ export function InspectorPanel() {
         <>
           <header className="ins-head">
             <div className="ins-head-top">
-              <span className="kind">
-                {stacklabNodeKind(node.type)}
-                {inspectorLiveChrome ? '' : ' · PREDEPLOY'}
-              </span>
+              <span className="kind">{stacklabNodeKind(node.type)}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {import.meta.env.DEV && mode === 'design' ? (
                   <DevInspectorModeToggle compact />
@@ -542,15 +540,6 @@ export function InspectorPanel() {
                     <span>deploy {inspectorDeployment.slice(0, 8)}</span>
                   </>
                 ) : null}
-              </div>
-            ) : null}
-            {!inspectorLiveChrome ? (
-              <div className="head-meta">
-                <span>draft</span>
-                <span style={{ color: 'var(--ink-4)' }}>/</span>
-                <span>ns·prod</span>
-                <span style={{ color: 'var(--ink-4)' }}>/</span>
-                <span>not deployed</span>
               </div>
             ) : null}
           </header>
@@ -799,10 +788,7 @@ export function InspectorPanel() {
                 ) : null}
               </div>
               <div className="panel-foot">
-                <span>
-                  <span className="live-sq paused" />
-                  DRAFT · NOT DEPLOYED
-                </span>
+                <span>Not deployed</span>
               </div>
             </>
           )}
@@ -813,11 +799,26 @@ export function InspectorPanel() {
 }
 
 const CACHE_STRATEGY_LABEL: Record<string, string> = {
-  'cache-aside': 'cache-aside',
-  'timeline-store': 'timeline-store',
-  'write-through': 'write-through',
-  'write-behind': 'write-behind',
-  'read-through': 'read-through',
+  'cache-aside': 'Cache-aside',
+  'timeline-store': 'Timeline store',
+  'write-through': 'Write-through',
+  'write-behind': 'Write-behind',
+  'read-through': 'Read-through',
+}
+
+function cacheStrategyFieldSub(strategy: string): string {
+  switch (strategy) {
+    case 'write-behind':
+      return 'A write updates the cache first. The database is flushed on a timer.'
+    case 'write-through':
+    case 'read-through':
+      return 'A write updates the cache and the database before the request returns. A miss refills the cache from the database.'
+    case 'timeline-store':
+      return 'The cache holds the feed. The app reads and writes the timeline here.'
+    case 'cache-aside':
+    default:
+      return 'The app reads the cache first. A miss reads the database and writes the key back.'
+  }
 }
 
 export function CacheNodeInspectorFields({
@@ -870,9 +871,6 @@ export function CacheNodeInspectorFields({
     : available.includes(strategy)
       ? strategy
       : available[0] ?? strategy
-  const showProxyReadThroughNote = strategyReadOnly
-    ? isProxyCacheStrategy(strategy)
-    : available.some((s) => isProxyCacheStrategy(s))
   const showProxySize = isProxyCacheStrategy(selectValue)
   const proxyInstanceSize = String(c.proxyInstanceSize ?? '').trim()
   const proxyResourceProfile = String(c.proxyResourceProfile ?? '').trim()
@@ -1032,24 +1030,23 @@ export function CacheNodeInspectorFields({
 
   return (
     <>
-      <PcfgField
-        label="Strategy"
-        sub={
-          showProxyReadThroughNote
-            ? 'Proxy needs cache-to-database. Read-through refills Redis on miss.'
-            : 'Whether writes go through the cache or are written to the store first.'
-        }
-      >
-        <PcfgOptions
-          variant="seg"
-          label="Strategy"
-          value={selectValue}
-          disabled={strategyReadOnly || ambiguousTopology}
-          options={strategyOptions}
-          segWrap
-          segTight
-          onChange={applyStrategy}
-        />
+      <PcfgField label="Strategy" sub={cacheStrategyFieldSub(selectValue)}>
+        {strategyOptions.length === 1 && !ambiguousTopology ? (
+          <p className="pcfg-static">
+            {CACHE_STRATEGY_LABEL[selectValue] ?? selectValue}
+          </p>
+        ) : (
+          <PcfgOptions
+            variant="seg"
+            label="Strategy"
+            value={selectValue}
+            disabled={strategyReadOnly || ambiguousTopology}
+            options={strategyOptions}
+            segWrap
+            segTight
+            onChange={applyStrategy}
+          />
+        )}
       </PcfgField>
       {!strategyReadOnly && ambiguousTopology ? (
         <p className="note amber">
@@ -1188,7 +1185,7 @@ export function CacheNodeInspectorFields({
           disabled={readOnly}
           options={REDIS_EVICTION_POLICIES.map((p) => ({
             value: p,
-            label: p,
+            label: REDIS_EVICTION_POLICY_LABEL[p],
           }))}
           onChange={(next) => {
             if (readOnly) return

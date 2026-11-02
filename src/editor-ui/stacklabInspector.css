@@ -601,6 +601,7 @@
 .sl-inspector .pcfg-lab{display:block;margin-bottom:8px}
 .sl-inspector .pcfg-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
 .sl-inspector .pcfg-sub{font-family:var(--mono);font-size:9px;color:var(--ink-4);line-height:1.55}
+.sl-inspector .pcfg-static{font-family:var(--disp);font-size:14px;font-weight:500;color:var(--ink);letter-spacing:-.01em;line-height:1.2}
 .sl-inspector .pcfg-stack{display:flex;flex-direction:column;gap:0;padding:0 var(--pad) 16px}
 .sl-inspector .sec .sl-f-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;
   text-transform:uppercase;color:var(--ink-3);font-weight:400;display:block;margin-bottom:8px}
@@ -641,6 +642,7 @@
 .sl-inspector .dd-trig:hover{background:rgba(232,233,229,.05)}
 .sl-inspector .dd-trig[aria-expanded="true"]{border-color:var(--rule-3);background:rgba(232,233,229,.05)}
 .sl-inspector .dd-trig[disabled]{opacity:.45;cursor:not-allowed}
+.sl-inspector .dd-trig > span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sl-inspector .dd-trig .car{font-size:8px;color:var(--ink-3);flex:0 0 auto}
 .sl-inspector .dd-trig[aria-expanded="true"] .car{color:var(--ink-2)}
 .sl-inspector .dd-menu{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:12;
