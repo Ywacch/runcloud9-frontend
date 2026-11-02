@@ -291,6 +291,7 @@ export interface MetaJobsEngine {
   family: string
   wireCompat?: string
   weight: string
+  replicaApplyDelay?: boolean
 }
 
 export interface MetaJobsFailureDemo {
