@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasEdge, CanvasNode, CanvasSnapshot } from '../../editor-core/stores/canvasStore'
 import {
+  alignedStockLabel,
   applyEngineChangePreview,
   previewJobEngineChange,
   type EngineCanvasOps,
@@ -56,6 +57,36 @@ describe('previewJobEngineChange', () => {
     expect(preview.bindToNodeId).toBe('db-1')
     expect(preview.removeNodeIds).toEqual(['cache-1'])
     expect(preview.patchNodeId).toBeNull()
+  })
+
+  it('aligns a stock Redis label when the node is already memcached', () => {
+    const node = snap().nodes.find((item) => item.id === 'cache-1')
+    expect(node).toBeDefined()
+    expect(
+      alignedStockLabel({
+        ...node!,
+        config: { ...node!.config, cacheEngine: 'memcached', engine: 'memcached' },
+      }),
+    ).toBe('Memcached')
+  })
+
+  it('renames a stock Redis label when the cache engine becomes memcached', () => {
+    const preview = previewJobEngineChange(snap(), 'timeline', 'memcached')
+    const ops = memoryOps(snap())
+    applyEngineChangePreview(preview, 'timeline', ops)
+    expect(ops.nodes['cache-1']?.label).toBe('Memcached')
+    expect(ops.nodes['cache-1']?.config.cacheEngine).toBe('memcached')
+  })
+
+  it('keeps a custom cache label when the engine changes', () => {
+    const source = snap()
+    source.nodes = source.nodes.map((node) =>
+      node.id === 'cache-1' ? { ...node, label: 'Hot path' } : node,
+    )
+    const preview = previewJobEngineChange(source, 'timeline', 'memcached')
+    const ops = memoryOps(source)
+    applyEngineChangePreview(preview, 'timeline', ops)
+    expect(ops.nodes['cache-1']?.label).toBe('Hot path')
   })
 
   it('keeps redis in place for the redis engine', () => {
@@ -183,6 +214,11 @@ function memoryOps(snapshot: CanvasSnapshot): EngineCanvasOps & {
       const node = nodes[id]
       if (!node) return
       nodes[id] = { ...node, config: { ...node.config, ...config } }
+    },
+    updateNodeLabel: (id, label) => {
+      const node = nodes[id]
+      if (!node) return
+      nodes[id] = { ...node, label }
     },
     setJobBinding: (job, nodeId) => {
       if (!nodeId) {

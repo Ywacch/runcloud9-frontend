@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { clampPercent, FMT_EMPTY, fmtMs, fmtRate } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import { usesPodReplicaScope, findDbLayer } from '../lib/dbInstanceScope'
-import { getTopologyFlags, resolveRole } from '../lib/componentRole'
+import { getTopologyFlags, resolveRole, withCacheEngineName } from '../lib/componentRole'
 import {
   dbTooltipLatencyMs,
   rollup,
@@ -136,10 +136,14 @@ export function NodeTooltip({
     snapshotTemplateId ? s.byId[snapshotTemplateId]?.storytelling : undefined,
   )
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
-  const roleLabel = useMemo(
-    () => resolveRole(node.type, snapshotTemplateId, topology, storytelling),
-    [node.type, snapshotTemplateId, topology, storytelling],
-  )
+  const roleLabel = useMemo(() => {
+    const text = resolveRole(node.type, snapshotTemplateId, topology, storytelling)
+    if (node.type !== 'cache') return text
+    return withCacheEngineName(
+      text,
+      String(node.config.cacheEngine ?? node.config.engine ?? 'redis'),
+    )
+  }, [node, snapshotTemplateId, topology, storytelling])
 
   const dbWarmingUp =
     node.type === 'database' && metrics
