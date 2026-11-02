@@ -90,6 +90,8 @@ export interface KeyScanResult {
 
 export interface CacheStatsResult {
   keyCount?: number
+  /** Memcached stats keyed by server address, then stat name. */
+  stats?: Record<string, Record<string, string>>
 }
 
 async function introspectGet<T>(

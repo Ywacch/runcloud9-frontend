@@ -95,6 +95,15 @@ export function alignedStockLabel(node: CanvasNode): string | null {
   return next
 }
 
+function inPlaceEngineSummary(node: CanvasNode, engine: string): string {
+  const next = labelForNewNode(engine)
+  const current = String(node.config.cacheEngine ?? node.config.engine ?? '')
+    .trim()
+    .toLowerCase()
+  if (current === engine) return `Stays on ${next}`
+  return `Switch to ${next}`
+}
+
 function labelForNewNode(engine: string): string {
   switch (engine) {
     case 'redis':
@@ -147,7 +156,7 @@ export function previewJobEngineChange(
       ...empty,
       patchNodeId: current.id,
       bindToNodeId: null,
-      summary: `${current.label} runs ${eng}`,
+      summary: inPlaceEngineSummary(current, eng),
     }
   }
 

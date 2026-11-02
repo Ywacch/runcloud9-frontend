@@ -89,6 +89,13 @@ describe('previewJobEngineChange', () => {
     expect(ops.nodes['cache-1']?.label).toBe('Hot path')
   })
 
+  it('describes an in-place engine change without repeating the node label', () => {
+    const stay = previewJobEngineChange(snap(), 'timeline', 'redis')
+    expect(stay.summary).toBe('Stays on Redis')
+    const swap = previewJobEngineChange(snap(), 'timeline', 'memcached')
+    expect(swap.summary).toBe('Switch to Memcached')
+  })
+
   it('keeps redis in place for the redis engine', () => {
     const preview = previewJobEngineChange(snap(), 'timeline', 'redis')
     expect(preview.removeNodeIds).toEqual([])
