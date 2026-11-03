@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchCacheStats, fetchKeyValue, fetchKeys, type KeyInfo } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { cachePatternLabel } from '../lib/cacheBrowsePatterns'
+import {
+  memcachedEmptyKeysMessage,
+  memcachedExampleKeys,
+} from '../lib/memcachedKeyHints'
 import {
   introspectErrorMessage,
   isDeploymentInactiveError,
@@ -10,6 +15,7 @@ import { sumMemcachedStat } from '../lib/memcachedStats'
 import { SlDataError, SlDataHead, SlKeyCard } from './stacklabDataPanels'
 
 const POLL_MS = 5000
+const ALL_KEY_PATTERNS = 'all'
 
 const STAT_ROWS = [
   { key: 'curr_items', label: 'Items' },
@@ -29,10 +35,31 @@ function introspectFailure(err: unknown): string {
 export function MemcachedStatsPanel({
   deploymentId,
   component,
+  keyPatterns,
 }: {
   deploymentId: string
   component: string
+  keyPatterns?: string[]
 }) {
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const patterns = useMemo(
+    () => keyPatterns?.map((p) => p.trim()).filter(Boolean) ?? [],
+    [keyPatterns],
+  )
+  const browsePatterns = useMemo(
+    () => (patterns.length > 0 ? patterns : ['*']),
+    [patterns],
+  )
+  const patternTabs = useMemo(
+    () => (patterns.length > 1 ? [ALL_KEY_PATTERNS, ...patterns] : browsePatterns),
+    [patterns, browsePatterns],
+  )
+  const [pattern, setPattern] = useState(() =>
+    patterns.length > 1 ? ALL_KEY_PATTERNS : (browsePatterns[0] ?? '*'),
+  )
+  const exampleKeys = useMemo(() => memcachedExampleKeys(patterns), [patterns])
+  const listPattern =
+    pattern === ALL_KEY_PATTERNS || pattern === '*' ? undefined : pattern
   const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
   const [stats, setStats] = useState<Record<string, Record<string, string>> | undefined>()
   const [keys, setKeys] = useState<KeyInfo[]>([])
@@ -46,6 +73,12 @@ export function MemcachedStatsPanel({
   const [statsError, setStatsError] = useState<string | null>(null)
   const [keysError, setKeysError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    setPattern((current) =>
+      patternTabs.includes(current) ? current : patternTabs[0] ?? '*',
+    )
+  }, [patternTabs])
 
   const loadValue = useCallback(
     async (key: string) => {
@@ -71,7 +104,7 @@ export function MemcachedStatsPanel({
     // Do not send "*". Ecommerce does not allow that pattern.
     const [statsResult, keysResult] = await Promise.allSettled([
       fetchCacheStats(deploymentId, component),
-      fetchKeys(deploymentId, component, undefined, undefined, 50),
+      fetchKeys(deploymentId, component, listPattern, undefined, 50),
     ])
     if (statsResult.status === 'fulfilled') {
       setStats(statsResult.value.stats)
@@ -93,7 +126,7 @@ export function MemcachedStatsPanel({
       setKeysError(introspectFailure(keysResult.reason))
     }
     setRefreshing(false)
-  }, [deploymentId, component, loadValue])
+  }, [deploymentId, component, listPattern, loadValue])
 
   useEffect(() => {
     void load()
@@ -104,7 +137,7 @@ export function MemcachedStatsPanel({
   return (
     <>
       <SlDataHead
-        subtitle="Server stats, then key names. A click loads that one value."
+        subtitle="Keys from a safe dump appear below. Click one to load its value."
         onRefresh={liveSessionEnding ? undefined : () => void load()}
         refreshing={refreshing}
       />
@@ -126,39 +159,19 @@ export function MemcachedStatsPanel({
           )
         })}
       </dl>
-      <form
-        className="seg"
-        style={{ margin: '12px 0', display: 'flex', gap: 8 }}
-        onSubmit={(event) => {
-          event.preventDefault()
-          const key = lookup.trim()
-          if (!key) return
-          setSelectedKey(key)
-          void loadValue(key)
-        }}
-      >
-        <input
-          aria-label="Memcached key"
-          value={lookup}
-          onChange={(event) => setLookup(event.target.value)}
-          placeholder="key name"
-          style={{ flex: 1 }}
-        />
-        <button type="submit" className="btn ghost">
-          Get
-        </button>
-      </form>
-      {keysError ? (
-        <SlDataError
-          message={keysError}
-          onRetry={() => void load()}
-          showRetry={!liveSessionEnding && keysError !== LIVE_SESSION_ENDED_MESSAGE}
-        />
-      ) : null}
-      {!keysError && keys.length === 0 ? (
-        <p className="note">
-          <b>i</b>No keys in this dump.
-        </p>
+      {patternTabs.length > 1 ? (
+        <div className="seg" role="group" aria-label="Key pattern" style={{ marginBottom: 12 }}>
+          {patternTabs.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={pattern === p ? 'is-on' : ''}
+              onClick={() => setPattern(p)}
+            >
+              {p === ALL_KEY_PATTERNS ? 'All' : cachePatternLabel(p, [])}
+            </button>
+          ))}
+        </div>
       ) : null}
       {!keysError && keys.length > 0 ? (
         <div className="keyset">
@@ -179,6 +192,65 @@ export function MemcachedStatsPanel({
             />
           ))}
         </div>
+      ) : null}
+      {!keysError && keys.length === 0 ? (
+        <p className="note">
+          <b>i</b>{' '}
+          {memcachedEmptyKeysMessage(snapshotTemplateId, patterns)}
+        </p>
+      ) : null}
+      {exampleKeys.length > 0 ? (
+        <div className="seg" role="group" aria-label="Example keys" style={{ margin: '12px 0', flexWrap: 'wrap' }}>
+          <span className="note" style={{ marginRight: 8 }}>
+            Try:
+          </span>
+          {exampleKeys.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                setLookup(key)
+                setSelectedKey(key)
+                void loadValue(key)
+              }}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <form
+        className="seg"
+        style={{ margin: '12px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}
+        onSubmit={(event) => {
+          event.preventDefault()
+          const key = lookup.trim()
+          if (!key) return
+          setSelectedKey(key)
+          void loadValue(key)
+        }}
+      >
+        <label className="note" style={{ width: '100%' }}>
+          Or type an exact key from your app (not a glob):
+        </label>
+        <input
+          aria-label="Memcached key"
+          value={lookup}
+          onChange={(event) => setLookup(event.target.value)}
+          placeholder={exampleKeys[0] ?? 'catalog'}
+          style={{ flex: 1, minWidth: 120 }}
+        />
+        <button type="submit" className="btn ghost">
+          Get
+        </button>
+      </form>
+      {keysError ? (
+        <SlDataError
+          message={keysError}
+          onRetry={() => void load()}
+          showRetry={!liveSessionEnding && keysError !== LIVE_SESSION_ENDED_MESSAGE}
+        />
       ) : null}
       <p className="note">
         <b>i</b>A get counts as a hit and refreshes the item in the LRU.
