@@ -8,7 +8,10 @@ import {
 } from '../../lib/engines/jobsPanelModel'
 import {
   applyEngineChangePreview,
+  canShareWorkQueueRedis,
   previewJobEngineChange,
+  previewWorkQueueRedis,
+  type WorkQueueRedisMode,
 } from '../../lib/engines/engineChangePreview'
 import { templateHasJobsPanel } from '../../lib/engines/templateJobCatalog'
 import { EnginePicker } from './EnginePicker'
@@ -23,7 +26,6 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
   const jobBindings = useCanvasStore((s) => s.jobBindings)
   const exportJSON = useCanvasStore((s) => s.exportJSON)
   const setJobBinding = useCanvasStore((s) => s.setJobBinding)
-  const removeNode = useCanvasStore((s) => s.removeNode)
   const updateNodeConfig = useCanvasStore((s) => s.updateNodeConfig)
 
   const [catalog, setCatalog] = useState<Awaited<
@@ -48,6 +50,10 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
     }
   }, [snapshotTemplateId])
 
+  const [redisLayoutPick, setRedisLayoutPick] = useState<{
+    jobId: string
+  } | null>(null)
+
   const rows = useMemo(() => {
     if (!catalog || !templateHasJobsPanel(snapshotTemplateId)) return []
     return buildJobsPanelModel(exportJSON(), catalog.catalog)
@@ -55,8 +61,23 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
 
   if (!templateHasJobsPanel(snapshotTemplateId)) return null
 
+  const applyWorkQueueRedis = (mode: WorkQueueRedisMode) => {
+    const preview = previewWorkQueueRedis(exportJSON(), mode)
+    applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
+    setRedisLayoutPick(null)
+  }
+
   const applyEngine = (row: JobsPanelRow, engine: string) => {
     if (!row.allowedEngines.includes(engine)) return
+    if (row.jobId === 'work_queue' && engine === 'redis') {
+      const snap = exportJSON()
+      if (canShareWorkQueueRedis(snap)) {
+        setRedisLayoutPick({ jobId: row.jobId })
+        return
+      }
+      applyWorkQueueRedis('separate')
+      return
+    }
     const preview = previewJobEngineChange(exportJSON(), row.jobId, engine)
     applyEngineChangePreview(preview, row.jobId, useCanvasStore.getState())
   }
@@ -67,13 +88,25 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
       return
     }
     const target = nodes[nodeId]
-    if (row.jobId === 'work_queue' && target?.type === 'cache') {
-      const preview = previewJobEngineChange(exportJSON(), 'work_queue', 'redis')
-      setJobBinding(row.jobId, nodeId)
-      updateNodeConfig(nodeId, configPatchForEngine('cache', 'redis'))
-      for (const id of preview.removeNodeIds) {
-        if (nodes[id]) removeNode(id)
+    if (
+      row.jobId === 'work_queue' &&
+      target?.type === 'cache' &&
+      row.allowedEngines.includes('redis')
+    ) {
+      const snap = exportJSON()
+      const dataId = buildJobsPanelModel(snap, null).find(
+        (r) => r.jobId === 'timeline' || r.jobId === 'hot_cache',
+      )?.nodeId
+      if (dataId && nodeId === dataId && canShareWorkQueueRedis(snap)) {
+        const preview = previewWorkQueueRedis(snap, 'share')
+        applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
+        return
       }
+      setJobBinding(row.jobId, nodeId)
+      updateNodeConfig(nodeId, {
+        ...configPatchForEngine('cache', 'redis'),
+        ...(dataId && nodeId !== dataId ? { evictionPolicy: 'noeviction' } : {}),
+      })
       return
     }
     setJobBinding(row.jobId, nodeId)
@@ -116,14 +149,37 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
                 </select>
               </label>
               {row.nodeId && catalog ? (
-                <EnginePicker
-                  jobId={row.jobId}
-                  catalog={catalog.catalog}
-                  gates={catalog.gates}
-                  selectedEngine={row.engine}
-                  allowedEngines={row.allowedEngines}
-                  onSelectEngine={(engine) => applyEngine(row, engine)}
-                />
+                <>
+                  <EnginePicker
+                    jobId={row.jobId}
+                    catalog={catalog.catalog}
+                    gates={catalog.gates}
+                    selectedEngine={row.engine}
+                    allowedEngines={row.allowedEngines}
+                    onSelectEngine={(engine) => applyEngine(row, engine)}
+                  />
+                  {redisLayoutPick?.jobId === row.jobId ? (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[10px] text-[var(--sl-ink-3)]">
+                        Redis layout
+                      </p>
+                      <button
+                        type="button"
+                        className="sl-jobs-engine w-full"
+                        onClick={() => applyWorkQueueRedis('share')}
+                      >
+                        Share timeline Redis
+                      </button>
+                      <button
+                        type="button"
+                        className="sl-jobs-engine w-full"
+                        onClick={() => applyWorkQueueRedis('separate')}
+                      >
+                        Separate queue Redis
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </li>
           ))}

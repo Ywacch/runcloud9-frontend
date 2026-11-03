@@ -10,9 +10,15 @@ import { buildJobsPanelModel } from './jobsPanelModel'
 export interface EngineChangeCreateNode {
   type: CanvasNode['type']
   engine: string
-  /** Edges that touch this node move onto the new node before it is removed. */
-  replaceNodeId: string
+  /** When set, edges move off this node and it may be removed after the new node exists. */
+  replaceNodeId?: string
+  /** When set without replaceNodeId, only offsets the new node’s position. */
+  positionNearNodeId?: string
+  /** Redis maxmemory-policy for a new cache node (work-queue split). */
+  evictionPolicy?: string
 }
+
+export type WorkQueueRedisMode = 'share' | 'separate'
 
 export interface EngineChangePreview {
   jobId: string
@@ -104,6 +110,151 @@ function inPlaceEngineSummary(node: CanvasNode, engine: string): string {
   return `Switch to ${next}`
 }
 
+function cacheEngine(node: CanvasNode): string {
+  return String(node.config.cacheEngine ?? node.config.engine ?? '')
+    .trim()
+    .toLowerCase()
+}
+
+function dataCacheJobRow(rows: ReturnType<typeof buildJobsPanelModel>) {
+  return rows.find((r) => r.jobId === 'timeline' || r.jobId === 'hot_cache')
+}
+
+/** True when work_queue can share the timeline or hot-cache Redis node. */
+export function canShareWorkQueueRedis(snapshot: CanvasSnapshot): boolean {
+  const rows = buildJobsPanelModel(snapshot, null)
+  const data = dataCacheJobRow(rows)
+  if (!data?.nodeId) return false
+  const node = snapshot.nodes.find((n) => n.id === data.nodeId)
+  if (!node || node.type !== 'cache') return false
+  return cacheEngine(node) === 'redis'
+}
+
+/**
+ * Preview moving work_queue onto Redis Streams (share vs separate layout).
+ */
+export function previewWorkQueueRedis(
+  snapshot: CanvasSnapshot,
+  mode: WorkQueueRedisMode,
+): EngineChangePreview {
+  const jobId = 'work_queue'
+  const eng = 'redis'
+  const nodes = snapshot.nodes
+  const rows = buildJobsPanelModel(snapshot, null)
+  const row = rows.find((r) => r.jobId === jobId)
+  const currentId = row?.nodeId ?? null
+  const current = currentId ? nodes.find((n) => n.id === currentId) : undefined
+  const dataRow = dataCacheJobRow(rows)
+  const dataCacheId = dataRow?.nodeId ?? null
+
+  const mqNode = nodes.find((n) => n.type === 'message_queue') ?? null
+  const removeMqIfIdle = (keepNodeId: string | null): string[] => {
+    if (!mqNode || mqNode.id === keepNodeId) return []
+    const othersOnMq = rows.filter(
+      (r) => r.jobId !== jobId && r.nodeId === mqNode.id,
+    )
+    return othersOnMq.length === 0 ? [mqNode.id] : []
+  }
+
+  if (mode === 'share') {
+    if (!dataCacheId) {
+      return {
+        jobId,
+        engine: eng,
+        removeNodeIds: [],
+        bindToNodeId: null,
+        patchNodeId: null,
+        createNode: null,
+        summary: 'No Redis cache hosts timeline or hot cache',
+      }
+    }
+    const host = nodes.find((n) => n.id === dataCacheId)
+    if (!host || host.type !== 'cache' || cacheEngine(host) !== 'redis') {
+      return {
+        jobId,
+        engine: eng,
+        removeNodeIds: [],
+        bindToNodeId: null,
+        patchNodeId: null,
+        createNode: null,
+        summary: 'Share requires a Redis timeline or hot-cache node',
+      }
+    }
+    return {
+      jobId,
+      engine: eng,
+      removeNodeIds: removeMqIfIdle(dataCacheId),
+      bindToNodeId: dataCacheId,
+      patchNodeId: null,
+      createNode: null,
+      summary: `${row?.jobLabel ?? jobId} shares ${host.label} with ${dataRow?.jobLabel ?? 'data'}.`,
+    }
+  }
+
+  // separate: second Redis for the queue, or a lone queue Redis when there is no data cache.
+  const mqReplace =
+    current?.type === 'message_queue'
+      ? current.id
+      : mqNode && rows.find((r) => r.jobId === jobId)?.nodeId === mqNode.id
+        ? mqNode.id
+        : mqNode?.id ?? null
+
+  if (mqReplace && nodes.find((n) => n.id === mqReplace)) {
+    const replace = nodes.find((n) => n.id === mqReplace)!
+    const othersOnReplace = rows.filter(
+      (r) => r.jobId !== jobId && r.nodeId === replace.id,
+    )
+    const remove =
+      replace.type === 'message_queue' && othersOnReplace.length === 0
+        ? [replace.id]
+        : []
+    return {
+      jobId,
+      engine: eng,
+      removeNodeIds: remove,
+      bindToNodeId: null,
+      patchNodeId: null,
+      createNode: {
+        type: 'cache',
+        engine: eng,
+        replaceNodeId: replace.id,
+        evictionPolicy: 'noeviction',
+      },
+      summary: dataCacheId
+        ? `${row?.jobLabel ?? jobId} gets its own Redis (noeviction); ${dataRow?.jobLabel ?? 'data'} stays on ${nodeLabel(nodes, dataCacheId)}.`
+        : `Adds Redis for ${row?.jobLabel ?? jobId} and removes ${replace.label}.`,
+    }
+  }
+
+  const anchor = dataCacheId ?? currentId
+  if (!anchor || !nodes.find((n) => n.id === anchor)) {
+    return {
+      jobId,
+      engine: eng,
+      removeNodeIds: [],
+      bindToNodeId: null,
+      patchNodeId: null,
+      createNode: null,
+      summary: 'No node to anchor a queue Redis',
+    }
+  }
+
+  return {
+    jobId,
+    engine: eng,
+    removeNodeIds: [],
+    bindToNodeId: null,
+    patchNodeId: null,
+    createNode: {
+      type: 'cache',
+      engine: eng,
+      positionNearNodeId: anchor,
+      evictionPolicy: 'noeviction',
+    },
+    summary: `${row?.jobLabel ?? jobId} gets its own Redis (noeviction); ${dataRow?.jobLabel ?? 'data'} stays on ${nodeLabel(nodes, dataCacheId)}.`,
+  }
+}
+
 function labelForNewNode(engine: string): string {
   switch (engine) {
     case 'redis':
@@ -138,6 +289,10 @@ export function previewJobEngineChange(
   const current = currentId ? nodes.find((n) => n.id === currentId) : undefined
   const targetType = canvasTypeForEngine(engine)
   const eng = engine.trim().toLowerCase()
+
+  if (jobId === 'work_queue' && eng === 'redis') {
+    return previewWorkQueueRedis(snapshot, 'separate')
+  }
 
   const empty: EngineChangePreview = {
     jobId,
@@ -219,6 +374,16 @@ function configForCreatedNode(
   return config
 }
 
+function configForPreviewCreateNode(
+  create: EngineChangeCreateNode,
+): Record<string, unknown> {
+  const config = configForCreatedNode(create.type, create.engine)
+  if (create.evictionPolicy) {
+    config.evictionPolicy = create.evictionPolicy
+  }
+  return config
+}
+
 /**
  * Applies a preview to the canvas. A missing host node is created first.
  * Edges move off the replaced node before that node is removed, so the
@@ -231,33 +396,34 @@ export function applyEngineChangePreview(
   ids?: { nodeId: string; edgeId: (index: number) => string },
 ): void {
   if (preview.createNode) {
-    const replace = ops.nodes[preview.createNode.replaceNodeId]
-    const pos = replace?.position ?? [0, 0, 0]
+    const doomed = preview.createNode.replaceNodeId
+    const anchorId =
+      doomed ?? preview.createNode.positionNearNodeId ?? null
+    const anchor = anchorId ? ops.nodes[anchorId] : undefined
+    const pos = anchor?.position ?? [0, 0, 0]
     const nodeId = ids?.nodeId ?? crypto.randomUUID()
     ops.addNode({
       id: nodeId,
       type: preview.createNode.type,
       label: labelForNewNode(preview.createNode.engine),
       position: [pos[0] + 1, pos[1], pos[2]],
-      config: configForCreatedNode(
-        preview.createNode.type,
-        preview.createNode.engine,
-      ),
+      config: configForPreviewCreateNode(preview.createNode),
       status: 'idle',
     })
-    const doomed = preview.createNode.replaceNodeId
-    const incident = Object.values(ops.edges).filter(
-      (edge) => edge.sourceId === doomed || edge.targetId === doomed,
-    )
-    incident.forEach((edge, index) => {
-      ops.removeEdge(edge.id)
-      ops.addEdge({
-        ...edge,
-        id: ids?.edgeId(index) ?? crypto.randomUUID(),
-        sourceId: edge.sourceId === doomed ? nodeId : edge.sourceId,
-        targetId: edge.targetId === doomed ? nodeId : edge.targetId,
+    if (doomed && ops.nodes[doomed]) {
+      const incident = Object.values(ops.edges).filter(
+        (edge) => edge.sourceId === doomed || edge.targetId === doomed,
+      )
+      incident.forEach((edge, index) => {
+        ops.removeEdge(edge.id)
+        ops.addEdge({
+          ...edge,
+          id: ids?.edgeId(index) ?? crypto.randomUUID(),
+          sourceId: edge.sourceId === doomed ? nodeId : edge.sourceId,
+          targetId: edge.targetId === doomed ? nodeId : edge.targetId,
+        })
       })
-    })
+    }
     ops.setJobBinding(jobId, nodeId)
   }
 

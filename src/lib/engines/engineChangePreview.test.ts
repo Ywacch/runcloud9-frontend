@@ -4,6 +4,7 @@ import {
   alignedStockLabel,
   applyEngineChangePreview,
   previewJobEngineChange,
+  previewWorkQueueRedis,
   type EngineCanvasOps,
 } from './engineChangePreview'
 
@@ -102,11 +103,25 @@ describe('previewJobEngineChange', () => {
     expect(preview.patchNodeId).toBe('cache-1')
   })
 
-  it('moves work_queue onto redis and removes mq when unused', () => {
-    const preview = previewJobEngineChange(snapWithMq(), 'work_queue', 'redis')
+  it('shares work_queue redis with timeline cache and removes mq when unused', () => {
+    const preview = previewWorkQueueRedis(snapWithMq(), 'share')
     expect(preview.bindToNodeId).toBe('cache-1')
     expect(preview.removeNodeIds).toEqual(['mq-1'])
     expect(preview.createNode).toBeNull()
+  })
+
+  it('separate work_queue redis adds a second cache and removes mq', () => {
+    const preview = previewWorkQueueRedis(snapWithMq(), 'separate')
+    expect(preview.bindToNodeId).toBeNull()
+    expect(preview.createNode?.replaceNodeId).toBe('mq-1')
+    expect(preview.createNode?.evictionPolicy).toBe('noeviction')
+    expect(preview.removeNodeIds).toEqual(['mq-1'])
+  })
+
+  it('previewJobEngineChange uses separate redis layout by default', () => {
+    const preview = previewJobEngineChange(snapWithMq(), 'work_queue', 'redis')
+    expect(preview.createNode?.replaceNodeId).toBe('mq-1')
+    expect(preview.bindToNodeId).toBeNull()
   })
 
   it('adds a redis node when the timeline is on postgres and the queue is rabbit', () => {
@@ -116,6 +131,7 @@ describe('previewJobEngineChange', () => {
       type: 'cache',
       engine: 'redis',
       replaceNodeId: 'mq-1',
+      evictionPolicy: 'noeviction',
     })
     expect(preview.removeNodeIds).toEqual(['mq-1'])
   })

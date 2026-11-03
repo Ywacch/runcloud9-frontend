@@ -23,8 +23,32 @@ function workerOutboundMessages() {
   )
 }
 
-/** Cache node id when work_queue is bound to a cache. Empty otherwise. */
-export function workQueueCacheId(
+export function allowsSplitQueueCaches(
+  nodes: Record<string, CanvasNode>,
+  jobBindings?: Record<string, string> | null,
+): boolean {
+  const caches = Object.values(nodes).filter((n) => semanticOf(n) === 'cache')
+  if (caches.length !== 2) return false
+  const queueID = jobBindings?.work_queue?.trim()
+  if (!queueID) return false
+  const queueNode = nodes[queueID]
+  if (!queueNode || semanticOf(queueNode) !== 'cache') return false
+  const queueEng = String(
+    queueNode.config.cacheEngine ?? queueNode.config.engine ?? 'redis',
+  )
+    .trim()
+    .toLowerCase()
+  if (queueEng !== 'redis') return false
+  for (const key of ['timeline', 'hot_cache'] as const) {
+    const id = jobBindings?.[key]?.trim()
+    if (!id || id === queueID) continue
+    const dataNode = nodes[id]
+    if (dataNode && semanticOf(dataNode) === 'cache') return true
+  }
+  return false
+}
+
+function workQueueCacheId(
   nodes: Record<string, CanvasNode>,
   jobBindings?: Record<string, string> | null,
 ): string | null {
@@ -90,6 +114,9 @@ export function assessGraphConstraints(
   }
 
   for (const rule of getTopologyRulesCached().singletons) {
+    if (rule.nodeType === 'cache' && allowsSplitQueueCaches(nodes, jobBindings)) {
+      continue
+    }
     const count = counts.get(rule.nodeType) ?? 0
     if (count > 1) {
       return formatTopologyMessage(rule.message, { count: String(count) })
