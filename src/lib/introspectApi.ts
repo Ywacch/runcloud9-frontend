@@ -86,6 +86,7 @@ export interface KeyScanResult {
   keys: KeyInfo[]
   cursor: number
   keyCount?: number
+  truncated?: boolean
 }
 
 export interface CacheStatsResult {

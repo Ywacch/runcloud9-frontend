@@ -9,6 +9,7 @@ import {
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
+import { formatCacheLatencyMs } from '../lib/cacheLatencyLabel'
 import { cacheMemoryAmount } from '../lib/cacheMemoryLabel'
 import { FMT_EMPTY, fmtBytes, fmtCpuMilliCores, fmtErrorRate, fmtInt, fmtMemMB, fmtPct, fmtRate } from '../lib/format'
 import { bucketSessionQuantileAvailable } from '../lib/latencyQuantile'
@@ -847,7 +848,24 @@ function CachePane({
                 : fmtRate(m.evictionsPerSec ?? 0)
             }
             unit={view.timeframe === 'session' ? 'total' : '/s · 10s'}
+            help={
+              isMemcached
+                ? 'Live items removed to free memory. TTL expiry does not increment this.'
+                : undefined
+            }
           />
+          {isMemcached ? (
+            <SlStatCell
+              label="reclaimed"
+              value={
+                view.timeframe === 'session'
+                  ? fmtInt(m.expirationsLast9m ?? 0)
+                  : fmtRate(m.expirationsPerSec ?? 0)
+              }
+              unit={view.timeframe === 'session' ? 'total' : '/s · 10s'}
+              help="Expired slots reused by a later set."
+            />
+          ) : null}
           <SlStatCell
             label={isTimelineStore ? 'timelines' : 'keyspace hits'}
             value={
@@ -969,13 +987,20 @@ function CachePane({
             label="p99 · 9m"
             value={
               isMemcached
-                ? 'not reported'
+                ? (formatCacheLatencyMs(m.p99Latency9m > 0 ? m.p99Latency9m : m.p99Latency) ??
+                  'not reported')
                 : m.p99Latency9m > 0
                   ? Math.round(m.p99Latency9m)
                   : Math.round(m.p99Latency)
             }
-            unit={isMemcached ? undefined : 'ms'}
-            help={isMemcached ? 'not reported by memcached_exporter' : undefined}
+            unit={
+              isMemcached
+                ? formatCacheLatencyMs(m.p99Latency9m > 0 ? m.p99Latency9m : m.p99Latency)
+                  ? 'ms'
+                  : undefined
+                : 'ms'
+            }
+            help={isMemcached ? 'Round trip from the app.' : undefined}
           />
           <SlStatCell label="rejects" value={fmtInt(m.redisRejectedRate ?? 0)} />
           {(m.redisConnectedClients ?? m.activeConnections ?? 0) > 0 ? (
