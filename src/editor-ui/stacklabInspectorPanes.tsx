@@ -48,7 +48,7 @@ import {
 } from '../lib/metricTimeframe'
 import { bucketLatencyField, layerLatencyMs } from '../lib/latencyQuantile'
 import {
-  CACHE_KEYSPACE_HITS_HELP,
+  cacheKeyspaceHitsHelp,
   CACHE_TIMELINES_COUNT_HELP,
   DB_POSTGRES_CONNECTIONS_HELP,
   POD_RATE_DISCLAIMER,
@@ -877,7 +877,9 @@ function CachePane({
             />
           ) : null}
           <SlStatCell
-            label={isTimelineStore ? 'timelines' : 'keyspace hits'}
+            label={
+              isTimelineStore ? 'timelines' : isMemcached ? 'get hits' : 'keyspace hits'
+            }
             value={
               isTimelineStore
                 ? fmtInt(m.timelineKeyCount ?? 0)
@@ -885,7 +887,9 @@ function CachePane({
             }
             unit={isTimelineStore ? undefined : '/s · 10s'}
             help={
-              isTimelineStore ? CACHE_TIMELINES_COUNT_HELP : CACHE_KEYSPACE_HITS_HELP
+              isTimelineStore
+                ? CACHE_TIMELINES_COUNT_HELP
+                : cacheKeyspaceHitsHelp(cacheEngineId)
             }
           />
           <SlStatCell label="policy" value={evictionPolicy} />

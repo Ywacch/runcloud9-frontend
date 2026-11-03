@@ -8,6 +8,8 @@ import {
   SESSION_STORAGE_ENGINE_HINT,
   SESSION_TIMEFRAME_FOOTER,
   SESSION_TIMEFRAME_LABEL,
+  cacheKeyspaceHitsHelp,
+  cacheKeyspaceMissesHelp,
 } from './metricHelp'
 
 describe('session timeframe copy', () => {
@@ -49,5 +51,12 @@ describe('session timeframe copy', () => {
     expect(SESSION_STORAGE_ENGINE_HINT).toContain('exporter')
     expect(SESSION_STORAGE_ENGINE_HINT).toContain('Not app logical')
     expect(SESSION_STORAGE_ENGINE_HINT).not.toContain('GET/SET')
+  })
+
+  it('uses Memcached copy for keyspace tooltips when engine is memcached', () => {
+    expect(cacheKeyspaceHitsHelp('memcached')).toContain('Memcached')
+    expect(cacheKeyspaceHitsHelp('memcached')).not.toContain('Redis')
+    expect(cacheKeyspaceHitsHelp('redis')).toContain('Redis')
+    expect(cacheKeyspaceMissesHelp('memcached')).toContain('get_misses')
   })
 })
