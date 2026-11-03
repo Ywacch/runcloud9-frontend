@@ -330,7 +330,10 @@ export function previewJobEngineChange(
   const eng = engine.trim().toLowerCase()
 
   if (jobId === 'work_queue' && eng === 'redis') {
-    return previewWorkQueueRedis(snapshot, 'separate')
+    return previewWorkQueueRedis(
+      snapshot,
+      canShareWorkQueueRedis(snapshot) ? 'share' : 'separate',
+    )
   }
 
   const empty: EngineChangePreview = {

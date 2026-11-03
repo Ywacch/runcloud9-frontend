@@ -33,10 +33,7 @@ import { loadEnginesSession } from '../lib/engines/enginesSession'
 import { buildJobsPanelModel } from '../lib/engines/jobsPanelModel'
 import {
   applyEngineChangePreview,
-  canShareWorkQueueRedis,
   previewJobEngineChange,
-  previewWorkQueueRedis,
-  type WorkQueueRedisMode,
 } from '../lib/engines/engineChangePreview'
 import {
   buildEnginePickerModel,
@@ -83,7 +80,6 @@ export function CanvasContextMenu() {
   const [chaosError, setChaosError] = useState<string | null>(null)
   const [chaosBusy, setChaosBusy] = useState(false)
   const [engineJobId, setEngineJobId] = useState<string | null>(null)
-  const [redisLayoutOpen, setRedisLayoutOpen] = useState(false)
   const [catalog, setCatalog] = useState<MetaJobsResponse | null>(null)
   const [gates, setGates] = useState<EngineGateEntry[]>([])
   const setEnginePreview = useEnginePreviewStore((s) => s.setPreview)
@@ -97,7 +93,6 @@ export function CanvasContextMenu() {
     setChaosError(null)
     setChaosBusy(false)
     setEngineJobId(null)
-    setRedisLayoutOpen(false)
     useEnginePreviewStore.getState().setPreview(null)
   }, [menu])
 
@@ -133,10 +128,7 @@ export function CanvasContextMenu() {
       if (e.key === 'Escape') {
         e.preventDefault()
         if (groupId) setGroupId(null)
-        else if (redisLayoutOpen) {
-          setRedisLayoutOpen(false)
-          setEnginePreview(null)
-        } else if (engineJobId) {
+        else if (engineJobId) {
           setEngineJobId(null)
           setEnginePreview(null)
         } else close()
@@ -153,7 +145,7 @@ export function CanvasContextMenu() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointerDown, true)
     }
-  }, [menu, groupId, engineJobId, redisLayoutOpen, close, setEnginePreview])
+  }, [menu, groupId, engineJobId, close, setEnginePreview])
 
   useEffect(() => {
     if (!menu) return
@@ -188,14 +180,6 @@ export function CanvasContextMenu() {
     return buildJobsPanelModel(snap, catalog).filter((row) => row.nodeId === node.id)
   }, [node, catalog, nodes])
 
-  const applyWorkQueueLayout = (mode: WorkQueueRedisMode) => {
-    const snap = useCanvasStore.getState().exportJSON()
-    const preview = previewWorkQueueRedis(snap, mode)
-    applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
-    setEnginePreview(null)
-    close()
-  }
-
   const applyEngine = (option: PickerEngineOption, jobId: string) => {
     if (!node) return
     if (option.state === 'not_built') {
@@ -204,26 +188,11 @@ export function CanvasContextMenu() {
     }
     if (option.state !== 'selectable') return
     const snap = useCanvasStore.getState().exportJSON()
-    if (
-      jobId === 'work_queue' &&
-      option.engine === 'redis' &&
-      canShareWorkQueueRedis(snap)
-    ) {
-      setRedisLayoutOpen(true)
-      setEnginePreview(null)
-      return
-    }
     const preview = previewJobEngineChange(snap, jobId, option.engine)
     applyEngineChangePreview(preview, jobId, useCanvasStore.getState())
     setEnginePreview(null)
     close()
   }
-
-  const offerRedisLayout =
-    jobsOnNode.some(
-      (row) =>
-        row.jobId === 'work_queue' && row.allowedEngines.includes('redis'),
-    ) && canShareWorkQueueRedis(useCanvasStore.getState().exportJSON())
 
   const filteredRoot = useMemo(
     () => filterCreateMenuItems(CREATE_MENU_ROOT, query),
@@ -407,56 +376,11 @@ export function CanvasContextMenu() {
             {engineJobId ? (
               <>
                 <span className="mx-1 opacity-50">›</span>
-                {redisLayoutOpen ? (
-                  <button
-                    type="button"
-                    className="hover:text-[var(--c9-text)]"
-                    onClick={() => setRedisLayoutOpen(false)}
-                  >
-                    Change engine
-                  </button>
-                ) : (
-                  <span className="text-[var(--c9-text)]">Change engine</span>
-                )}
-                {redisLayoutOpen ? (
-                  <>
-                    <span className="mx-1 opacity-50">›</span>
-                    <span className="text-[var(--c9-text)]">Redis layout</span>
-                  </>
-                ) : null}
+                <span className="text-[var(--c9-text)]">Change engine</span>
               </>
             ) : null}
           </div>
-          {engineJobId && redisLayoutOpen ? (
-            <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-              <li>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full flex-col px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
-                  onClick={() => applyWorkQueueLayout('share')}
-                >
-                  <span className="font-medium">One Redis</span>
-                  <span className="text-[10px] text-[var(--c9-muted)]">
-                    Queue shares the timeline Redis
-                  </span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full flex-col px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
-                  onClick={() => applyWorkQueueLayout('separate')}
-                >
-                  <span className="font-medium">Two Redis nodes</span>
-                  <span className="text-[10px] text-[var(--c9-muted)]">
-                    Queue gets its own Redis
-                  </span>
-                </button>
-              </li>
-            </ul>
-          ) : engineJobId ? (
+          {engineJobId ? (
             <ul className="min-h-0 flex-1 overflow-y-auto py-1">
               {(() => {
                 const allowed =
@@ -549,38 +473,6 @@ export function CanvasContextMenu() {
             </ul>
           ) : (
           <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-            {(mode === 'design' || mode === 'simulate') &&
-            !deploymentId &&
-            offerRedisLayout ? (
-              <>
-                <li>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full flex-col px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
-                    onClick={() => applyWorkQueueLayout('share')}
-                  >
-                    <span className="font-medium">One Redis</span>
-                    <span className="text-[10px] text-[var(--c9-muted)]">
-                      Queue shares the timeline Redis
-                    </span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full flex-col px-3 py-2 text-left hover:bg-[var(--c9-bg)]"
-                    onClick={() => applyWorkQueueLayout('separate')}
-                  >
-                    <span className="font-medium">Two Redis nodes</span>
-                    <span className="text-[10px] text-[var(--c9-muted)]">
-                      Queue gets its own Redis
-                    </span>
-                  </button>
-                </li>
-              </>
-            ) : null}
             {(mode === 'design' || mode === 'simulate') && !deploymentId
               ? jobsOnNode
               .filter((row) => row.allowedEngines.length > 1)

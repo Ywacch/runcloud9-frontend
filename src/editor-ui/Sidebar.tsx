@@ -83,6 +83,7 @@ import {
   type TopologyWarning,
 } from '../lib/connectionSemantics'
 import { assessGraphConstraints } from '../lib/graphConstraints'
+import { WorkQueueLayoutSection } from './engines/WorkQueueLayoutSection'
 import {
   quotaTierFromAuth,
   topologyLimitsForTier,
@@ -1001,6 +1002,7 @@ export function Sidebar() {
             Auto arrange
           </button>
         </div>
+        <WorkQueueLayoutSection />
         {banner ? (
           <p className="rounded-none border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1.5 text-xs text-[var(--c9-text)]">
             {banner}
