@@ -135,6 +135,36 @@ describe('assessGraphConstraints', () => {
     expect(assessGraphConstraints(nodes, edges)).toMatch(/only one cache/i)
   })
 
+  it('allows two caches when work_queue is split from timeline', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      timeline: {
+        ...node('timeline', 'cache', 'Timeline Redis'),
+        config: { cacheEngine: 'redis', strategy: 'timeline-store' },
+      },
+      queue: {
+        ...node('queue', 'cache', 'Queue Redis'),
+        config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+      },
+      worker: node('worker', 'worker', 'Fan-out Worker'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'db'),
+      e2: edge('e2', 'app', 'timeline'),
+      e3: edge('e3', 'app', 'queue'),
+      e4: edge('e4', 'worker', 'db'),
+      e5: edge('e5', 'worker', 'timeline'),
+      e6: edge('e6', 'worker', 'queue'),
+    }
+    expect(
+      assessGraphConstraints(nodes, edges, {
+        work_queue: 'queue',
+        timeline: 'timeline',
+      }),
+    ).toBeNull()
+  })
+
   it('flags multiple db nodes', () => {
     const nodes = {
       app: node('app', 'compute'),

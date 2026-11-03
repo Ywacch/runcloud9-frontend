@@ -57,7 +57,9 @@ function candidatesForJob(job: TemplateJobDef, nodes: CanvasNode[]): string[] {
       continue
     }
     if (job.id === 'work_queue') {
-      if (n.type === 'cache' || n.type === 'message_queue') ids.push(n.id)
+      if (n.type === 'message_queue') ids.push(n.id)
+      // A cache hosts the queue only when the template allows Redis Streams.
+      if (n.type === 'cache' && job.allowedEngines.includes('redis')) ids.push(n.id)
       continue
     }
     if (n.type === job.defaultNodeType) ids.push(n.id)
