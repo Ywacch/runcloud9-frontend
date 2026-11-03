@@ -191,6 +191,42 @@ export function previewWorkQueueRedis(
     }
   }
 
+  // Already a Redis that is not the timeline / hot-cache node: stay there.
+  if (
+    current &&
+    current.type === 'cache' &&
+    cacheEngine(current) === 'redis' &&
+    current.id !== dataCacheId
+  ) {
+    return {
+      jobId,
+      engine: eng,
+      removeNodeIds: removeMqIfIdle(current.id),
+      bindToNodeId: null,
+      patchNodeId: current.id,
+      createNode: null,
+      summary: `Stays on ${current.label}`,
+    }
+  }
+
+  const dedicated = nodes.find(
+    (n) =>
+      n.type === 'cache' &&
+      n.id !== dataCacheId &&
+      cacheEngine(n) === 'redis',
+  )
+  if (dedicated) {
+    return {
+      jobId,
+      engine: eng,
+      removeNodeIds: removeMqIfIdle(dedicated.id),
+      bindToNodeId: dedicated.id,
+      patchNodeId: null,
+      createNode: null,
+      summary: `${row?.jobLabel ?? jobId} stays on ${dedicated.label}.`,
+    }
+  }
+
   // separate: second Redis for the queue, or a lone queue Redis when there is no data cache.
   const mqReplace =
     current?.type === 'message_queue'

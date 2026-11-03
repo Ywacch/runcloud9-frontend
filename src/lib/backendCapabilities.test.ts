@@ -101,6 +101,26 @@ describe('backendCapabilities', () => {
     expect(backendEnginesForType('database')).toEqual(['postgresql'])
   })
 
+  it('keeps a blank cache engine on redis when memcached sorts first', () => {
+    applyEnginesCatalog({
+      ...sampleCatalog,
+      pairs: [
+        ...sampleCatalog.pairs,
+        {
+          job: 'hot_cache',
+          engine: 'memcached',
+          fit: 'workable',
+          build: 'available',
+          reason: '',
+          fidelity: 'real',
+        },
+      ],
+    })
+    expect(backendEnginesForType('cache')).toEqual(['memcached', 'redis'])
+    expect(backendEngineOrDefault('cache', '')).toBe('redis')
+    expect(backendEngineOrDefault('cache', undefined)).toBe('redis')
+  })
+
   it('uses catalog pairs with build available when applied', () => {
     applyEnginesCatalog(sampleCatalog)
     expect(backendEnginesForType('database')).toEqual(['postgresql'])
