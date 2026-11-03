@@ -35,6 +35,8 @@ export interface WsComponentMetrics {
   cacheMisses?: number
   cacheHitsLast9m?: number
   cacheMissesLast9m?: number
+  cacheErrors?: number
+  cacheErrorsLast9m?: number
   timelineKeyCount?: number
   feedRequestRatePush?: number
   feedRequestRatePull?: number

@@ -22,6 +22,7 @@ export const TWEENABLE_METRIC_FIELDS = [
   'dbQueryRate',
   'cacheHits',
   'cacheMisses',
+  'cacheErrors',
 ] as const
 
 export type TweenableMetricField = (typeof TWEENABLE_METRIC_FIELDS)[number]
@@ -52,7 +53,7 @@ export function readTweenTarget(
 ): number | null {
   if (isTweenFieldAbsent(bucket, field)) return null
   const v = bucket[field]
-  return Number.isFinite(v) ? v : 0
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
 }
 
 function shouldRunTweenLoop(): boolean {

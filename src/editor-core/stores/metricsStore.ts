@@ -106,6 +106,9 @@ export interface MetricsBucket {
   cacheMisses: number
   cacheHitsLast9m: number
   cacheMissesLast9m: number
+  /** Lookups the app could not complete. Out of the hit rate. */
+  cacheErrors?: number
+  cacheErrorsLast9m?: number
   /** social-feed: count of timeline:* keys in Redis */
   timelineKeyCount?: number
   /** social-feed: rate(social_feed_request_total) by mode */

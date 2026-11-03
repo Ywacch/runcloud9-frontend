@@ -232,6 +232,8 @@ export function lerpMetricsBucket(
     cacheMisses: lerpNum(a.cacheMisses, b.cacheMisses, t),
     cacheHitsLast9m: lerpRound(a.cacheHitsLast9m, b.cacheHitsLast9m, t),
     cacheMissesLast9m: lerpRound(a.cacheMissesLast9m, b.cacheMissesLast9m, t),
+    cacheErrors: lerpNum(a.cacheErrors ?? 0, b.cacheErrors ?? 0, t),
+    cacheErrorsLast9m: lerpRound(a.cacheErrorsLast9m ?? 0, b.cacheErrorsLast9m ?? 0, t),
     dbQueryRate: resolveDbQueryRate(a, b, t, dbQuerySource),
     dbTotalQueries: lerpRound(a.dbTotalQueries, b.dbTotalQueries, t),
     dbQueryLatency: lerpNum(a.dbQueryLatency, b.dbQueryLatency, t),
