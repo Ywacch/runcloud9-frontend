@@ -5,6 +5,7 @@ import { cachePatternLabel } from '../lib/cacheBrowsePatterns'
 import {
   memcachedEmptyKeysMessage,
   memcachedExampleKeys,
+  memcachedManualKeyPlaceholder,
 } from '../lib/memcachedKeyHints'
 import {
   introspectErrorMessage,
@@ -58,6 +59,10 @@ export function MemcachedStatsPanel({
     patterns.length > 1 ? ALL_KEY_PATTERNS : (browsePatterns[0] ?? '*'),
   )
   const exampleKeys = useMemo(() => memcachedExampleKeys(patterns), [patterns])
+  const manualKeyPlaceholder = useMemo(
+    () => memcachedManualKeyPlaceholder(snapshotTemplateId, patterns),
+    [snapshotTemplateId, patterns],
+  )
   const listPattern =
     pattern === ALL_KEY_PATTERNS || pattern === '*' ? undefined : pattern
   const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
@@ -238,7 +243,7 @@ export function MemcachedStatsPanel({
           aria-label="Memcached key"
           value={lookup}
           onChange={(event) => setLookup(event.target.value)}
-          placeholder={exampleKeys[0] ?? 'catalog'}
+          placeholder={manualKeyPlaceholder}
           style={{ flex: 1, minWidth: 120 }}
         />
         <button type="submit" className="btn ghost">
