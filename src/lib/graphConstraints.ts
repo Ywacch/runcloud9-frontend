@@ -1,5 +1,6 @@
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
 import { canvasToBackend } from './typeMapping'
+import { resolvedJobNodeIds } from './engines/jobsPanelModel'
 import { getTopologyRulesCached } from './topologyRulesStore'
 import { formatTopologyMessage } from './topologyRulesTypes'
 
@@ -26,12 +27,18 @@ function workerOutboundMessages() {
 export function allowsSplitQueueCaches(
   nodes: Record<string, CanvasNode>,
   jobBindings?: Record<string, string> | null,
+  templateId?: string | null,
 ): boolean {
   const caches = Object.values(nodes).filter((n) => semanticOf(n) === 'cache')
   if (caches.length !== 2) return false
-  const queueID = jobBindings?.work_queue?.trim()
+  const resolved = resolvedJobNodeIds(
+    templateId,
+    Object.values(nodes),
+    jobBindings,
+  )
+  const queueID = resolved.work_queue?.trim()
   if (!queueID) return false
-  const queueNode = nodes[queueID]
+  const queueNode = nodeById(nodes, queueID)
   if (!queueNode || semanticOf(queueNode) !== 'cache') return false
   const queueEng = String(
     queueNode.config.cacheEngine ?? queueNode.config.engine ?? 'redis',
@@ -40,21 +47,36 @@ export function allowsSplitQueueCaches(
     .toLowerCase()
   if (queueEng !== 'redis') return false
   for (const key of ['timeline', 'hot_cache'] as const) {
-    const id = jobBindings?.[key]?.trim()
+    const id = resolved[key]?.trim()
     if (!id || id === queueID) continue
-    const dataNode = nodes[id]
+    const dataNode = nodeById(nodes, id)
     if (dataNode && semanticOf(dataNode) === 'cache') return true
   }
   return false
 }
 
+function nodeById(
+  nodes: Record<string, CanvasNode>,
+  id: string,
+): CanvasNode | undefined {
+  const direct = nodes[id]
+  if (direct?.id === id) return direct
+  return Object.values(nodes).find((n) => n.id === id)
+}
+
 function workQueueCacheId(
   nodes: Record<string, CanvasNode>,
   jobBindings?: Record<string, string> | null,
+  templateId?: string | null,
 ): string | null {
-  const id = jobBindings?.work_queue?.trim()
+  const resolved = resolvedJobNodeIds(
+    templateId,
+    Object.values(nodes),
+    jobBindings,
+  )
+  const id = (resolved.work_queue ?? jobBindings?.work_queue)?.trim()
   if (!id) return null
-  const node = nodes[id]
+  const node = nodeById(nodes, id)
   if (!node || semanticOf(node) !== 'cache') return null
   return id
 }
@@ -71,6 +93,7 @@ export function assessGraphConstraints(
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
   jobBindings?: Record<string, string> | null,
+  templateId?: string | null,
 ): string | null {
   let hasApp = false
   let hasCache = false
@@ -105,7 +128,7 @@ export function assessGraphConstraints(
   if (hasCache && !hasDB) {
     return presenceMessage('cache_without_db') ?? null
   }
-  const queueCacheId = workQueueCacheId(nodes, jobBindings)
+  const queueCacheId = workQueueCacheId(nodes, jobBindings, templateId)
   if (hasWorker && !hasMQ && !queueCacheId) {
     return presenceMessage('worker_without_mq') ?? null
   }
@@ -114,7 +137,10 @@ export function assessGraphConstraints(
   }
 
   for (const rule of getTopologyRulesCached().singletons) {
-    if (rule.nodeType === 'cache' && allowsSplitQueueCaches(nodes, jobBindings)) {
+    if (
+      rule.nodeType === 'cache' &&
+      allowsSplitQueueCaches(nodes, jobBindings, templateId)
+    ) {
       continue
     }
     const count = counts.get(rule.nodeType) ?? 0

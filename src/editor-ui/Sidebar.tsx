@@ -152,8 +152,13 @@ export function Sidebar() {
 
   const graphHonestyIssue = useMemo(() => {
     if (mode === 'live') return null
-    return assessGraphConstraints(nodes, edges, jobBindings)
-  }, [mode, nodes, edges, jobBindings])
+    return assessGraphConstraints(
+      nodes,
+      edges,
+      jobBindings,
+      snapshotTemplateId,
+    )
+  }, [mode, nodes, edges, jobBindings, snapshotTemplateId])
 
   const [deploying, setDeploying] = useState(false)
   const [tearing, setTearing] = useState(false)
@@ -750,6 +755,7 @@ export function Sidebar() {
       stCheck.edges,
       supportsWorker,
       stCheck.jobBindings,
+      stCheck.snapshotTemplateId,
     )
     if (preflight.wholeDesignIssue) {
       setDeployInvalidEdges([

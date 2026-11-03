@@ -158,10 +158,47 @@ describe('assessGraphConstraints', () => {
       e6: edge('e6', 'worker', 'queue'),
     }
     expect(
-      assessGraphConstraints(nodes, edges, {
-        work_queue: 'queue',
-        timeline: 'timeline',
-      }),
+      assessGraphConstraints(
+        nodes,
+        edges,
+        {
+          work_queue: 'queue',
+          timeline: 'timeline',
+        },
+        'social-feed',
+      ),
+    ).toBeNull()
+  })
+
+  it('allows split caches with implicit timeline binding', () => {
+    const nodes = {
+      app: node('app', 'compute'),
+      db: node('db', 'database'),
+      'cache-1': {
+        ...node('cache-1', 'cache', 'Redis'),
+        config: { cacheEngine: 'redis', strategy: 'timeline-store' },
+      },
+      'cache-2': {
+        ...node('cache-2', 'cache', 'Redis'),
+        config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+      },
+      worker: node('worker', 'worker', 'Fan-out Worker'),
+    }
+    const edges = {
+      e1: edge('e1', 'app', 'db'),
+      e2: edge('e2', 'app', 'cache-1'),
+      e3: edge('e3', 'app', 'cache-2'),
+      e4: edge('e4', 'worker', 'db'),
+      e5: edge('e5', 'worker', 'cache-1'),
+      e6: edge('e6', 'worker', 'cache-2'),
+    }
+    expect(
+      assessGraphConstraints(
+        nodes,
+        edges,
+        { work_queue: 'cache-2' },
+        'social-feed',
+      ),
     ).toBeNull()
   })
 

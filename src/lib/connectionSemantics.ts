@@ -219,8 +219,9 @@ export function assessWholeDesign(
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge> = {},
   jobBindings?: Record<string, string> | null,
+  templateId?: string | null,
 ): string | null {
-  return assessGraphConstraints(nodes, edges, jobBindings)
+  return assessGraphConstraints(nodes, edges, jobBindings, templateId)
 }
 
 export interface DeployTopologyPreflight {
@@ -237,8 +238,14 @@ export function analyzeDeployTopology(
   edges: Record<string, CanvasEdge>,
   supportsWorker: boolean,
   jobBindings?: Record<string, string> | null,
+  templateId?: string | null,
 ): DeployTopologyPreflight {
-  const wholeDesignIssue = assessGraphConstraints(nodes, edges, jobBindings)
+  const wholeDesignIssue = assessGraphConstraints(
+    nodes,
+    edges,
+    jobBindings,
+    templateId,
+  )
   const invalidEdges: DeployTopologyPreflight['invalidEdges'] = []
   const decorativeEdges: DeployTopologyPreflight['decorativeEdges'] = []
 

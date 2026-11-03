@@ -320,8 +320,8 @@ export default function SvgDesignCanvas({
   const canvasMode = useCanvasStore((s) => s.mode)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
-  const jobBindings = useCanvasStore((s) => s.jobBindings)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
   const expandEpoch = useSyncExternalStore(subscribeExpand, getExpandEpoch, () => 0)
   const metricsPickKey = useMetricsStore((s) =>
     isInstanceScopeViewportMode(canvasMode)
@@ -768,8 +768,13 @@ export default function SvgDesignCanvas({
 
   const graphHonestyIssue = useMemo(() => {
     if (canvasMode === 'live') return null
-    return assessGraphConstraints(canvasNodes, canvasEdges, jobBindings)
-  }, [canvasMode, canvasNodes, canvasEdges, jobBindings])
+    return assessGraphConstraints(
+      canvasNodes,
+      canvasEdges,
+      jobBindings,
+      snapshotTemplateId,
+    )
+  }, [canvasMode, canvasNodes, canvasEdges, jobBindings, snapshotTemplateId])
 
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
