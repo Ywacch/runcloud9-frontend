@@ -69,8 +69,6 @@ import {
 import { LatencyDistribution } from './LatencyDistribution'
 import { LatencyQuantileLabel } from './LatencyQuantileLabel'
 import {
-  CACHE_KEYSPACE_HITS_HELP,
-  CACHE_KEYSPACE_MISSES_HELP,
   cacheKeyspaceHitsHelp,
   cacheKeyspaceMissesHelp,
   LATENCY_HELP,
@@ -1443,14 +1441,14 @@ export function CacheLayerResourceBlock({
             <StatBlock
               label="Keyspace hits/s"
               value={`${fmtRate(layer.redisKeyspaceHits ?? 0)}/s`}
-              help={cacheKeyspaceHitsHelp(layer.storageEngine)}
+              help={cacheKeyspaceHitsHelp(engine)}
             />
           }
           right={
             <StatBlock
               label="Keyspace misses/s"
               value={`${fmtRate(layer.redisKeyspaceMisses ?? 0)}/s`}
-              help={cacheKeyspaceMissesHelp(layer.storageEngine)}
+              help={cacheKeyspaceMissesHelp(engine)}
             />
           }
         />

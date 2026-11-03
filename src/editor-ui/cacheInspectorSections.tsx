@@ -25,8 +25,6 @@ import {
   storageWriteTileLabel,
 } from '../lib/storageIoDisplay'
 import {
-  CACHE_KEYSPACE_HITS_HELP,
-  CACHE_KEYSPACE_MISSES_HELP,
   cacheKeyspaceHitsHelp,
   cacheKeyspaceMissesHelp,
   SESSION_CACHE_THROUGHPUT_LABEL,
