@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCacheStats, fetchKeyValue, fetchKeys, type KeyInfo } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import {
@@ -21,19 +21,18 @@ const STAT_ROWS = [
   { key: 'curr_connections', label: 'Connections' },
 ] as const
 
+function introspectFailure(err: unknown): string {
+  const inactive = useCanvasStore.getState().liveSessionEnding || isDeploymentInactiveError(err)
+  return inactive ? LIVE_SESSION_ENDED_MESSAGE : introspectErrorMessage(err)
+}
+
 export function MemcachedStatsPanel({
   deploymentId,
   component,
-  keyPatterns,
 }: {
   deploymentId: string
   component: string
-  keyPatterns?: string[]
 }) {
-  const pattern = useMemo(() => {
-    const first = keyPatterns?.map((p) => p.trim()).find(Boolean)
-    return first || '*'
-  }, [keyPatterns])
   const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
   const [stats, setStats] = useState<Record<string, Record<string, string>> | undefined>()
   const [keys, setKeys] = useState<KeyInfo[]>([])
@@ -44,7 +43,8 @@ export function MemcachedStatsPanel({
   const selectedKeyRef = useRef<string | null>(null)
   selectedKeyRef.current = selectedKey
   const [lookup, setLookup] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [statsError, setStatsError] = useState<string | null>(null)
+  const [keysError, setKeysError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadValue = useCallback(
@@ -53,11 +53,10 @@ export function MemcachedStatsPanel({
       try {
         const kv = await fetchKeyValue(deploymentId, component, key)
         setValues((prev) => ({ ...prev, [key]: kv.value }))
-        setError(null)
+        setKeysError(null)
       } catch (err) {
         setValues((prev) => ({ ...prev, [key]: null }))
-        const inactive = useCanvasStore.getState().liveSessionEnding || isDeploymentInactiveError(err)
-        setError(inactive ? LIVE_SESSION_ENDED_MESSAGE : introspectErrorMessage(err))
+        setKeysError(introspectFailure(err))
       } finally {
         setValueLoading((prev) => ({ ...prev, [key]: false }))
       }
@@ -68,26 +67,33 @@ export function MemcachedStatsPanel({
   const load = useCallback(async () => {
     if (useCanvasStore.getState().liveSessionEnding) return
     setRefreshing(true)
-    try {
-      const [statsRes, keyRes] = await Promise.all([
-        fetchCacheStats(deploymentId, component),
-        fetchKeys(deploymentId, component, pattern, 0, 50),
-      ])
-      setStats(statsRes.stats)
-      setKeys(keyRes.keys ?? [])
+    // No pattern: the API lists keys that match the template whitelist.
+    // Do not send "*". Ecommerce does not allow that pattern.
+    const [statsResult, keysResult] = await Promise.allSettled([
+      fetchCacheStats(deploymentId, component),
+      fetchKeys(deploymentId, component, undefined, undefined, 50),
+    ])
+    if (statsResult.status === 'fulfilled') {
+      setStats(statsResult.value.stats)
+      setStatsError(null)
+    } else {
+      setStatsError(introspectFailure(statsResult.reason))
+    }
+    if (keysResult.status === 'fulfilled') {
+      const keyRes = keysResult.value
+      const rows = keyRes.keys ?? []
+      setKeys(rows)
       setTruncated(Boolean(keyRes.truncated))
-      setError(null)
+      setKeysError(null)
       const open = selectedKeyRef.current
-      if (open && (keyRes.keys ?? []).some((row) => row.key === open)) {
+      if (open && rows.some((row) => row.key === open)) {
         void loadValue(open)
       }
-    } catch (err) {
-      const inactive = useCanvasStore.getState().liveSessionEnding || isDeploymentInactiveError(err)
-      setError(inactive ? LIVE_SESSION_ENDED_MESSAGE : introspectErrorMessage(err))
-    } finally {
-      setRefreshing(false)
+    } else {
+      setKeysError(introspectFailure(keysResult.reason))
     }
-  }, [deploymentId, component, pattern, loadValue])
+    setRefreshing(false)
+  }, [deploymentId, component, loadValue])
 
   useEffect(() => {
     void load()
@@ -102,11 +108,11 @@ export function MemcachedStatsPanel({
         onRefresh={liveSessionEnding ? undefined : () => void load()}
         refreshing={refreshing}
       />
-      {error ? (
+      {statsError ? (
         <SlDataError
-          message={error}
+          message={statsError}
           onRetry={() => void load()}
-          showRetry={!liveSessionEnding && error !== LIVE_SESSION_ENDED_MESSAGE}
+          showRetry={!liveSessionEnding && statsError !== LIVE_SESSION_ENDED_MESSAGE}
         />
       ) : null}
       <dl className="sl-stat-list">
@@ -142,11 +148,19 @@ export function MemcachedStatsPanel({
           Get
         </button>
       </form>
-      {keys.length === 0 ? (
+      {keysError ? (
+        <SlDataError
+          message={keysError}
+          onRetry={() => void load()}
+          showRetry={!liveSessionEnding && keysError !== LIVE_SESSION_ENDED_MESSAGE}
+        />
+      ) : null}
+      {!keysError && keys.length === 0 ? (
         <p className="note">
           <b>i</b>No keys in this dump.
         </p>
-      ) : (
+      ) : null}
+      {!keysError && keys.length > 0 ? (
         <div className="keyset">
           {keys.map((row) => (
             <SlKeyCard
@@ -165,7 +179,7 @@ export function MemcachedStatsPanel({
             />
           ))}
         </div>
-      )}
+      ) : null}
       <p className="note">
         <b>i</b>A get counts as a hit and refreshes the item in the LRU.
         {truncated ? ' This list is capped.' : ''}

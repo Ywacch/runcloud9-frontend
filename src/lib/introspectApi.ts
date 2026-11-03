@@ -3,6 +3,7 @@ import { getAccessToken } from './auth'
 import { devIntrospectFixture, isDevInspectorDeployment } from './devInspectorFixtures'
 import { IntrospectHttpError, parseIntrospectErrorBody } from './liveSessionEnding'
 import { notifyDeploymentInactiveIfEnding } from './liveSessionEndingNotify'
+import { keysListPath } from './introspectKeysQuery'
 
 const API_BASE = DEPLOYMENTS_API_PREFIX
 
@@ -195,17 +196,14 @@ export function fetchIndexes(
 export function fetchKeys(
   deploymentId: string,
   component: string,
-  pattern: string,
+  pattern?: string,
   cursor?: number,
   count?: number,
 ) {
-  const params = new URLSearchParams({ pattern })
-  if (cursor != null) params.set('cursor', String(cursor))
-  if (count != null) params.set('count', String(count))
   return introspectGet<KeyScanResult>(
     deploymentId,
     component,
-    `keys?${params}`,
+    keysListPath(pattern, cursor, count),
   )
 }
 
