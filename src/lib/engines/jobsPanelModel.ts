@@ -67,17 +67,40 @@ function candidatesForJob(job: TemplateJobDef, nodes: CanvasNode[]): string[] {
   return ids.sort()
 }
 
-function resolveNodeId(
+function resolveNodeIdForJob(
   job: TemplateJobDef,
-  snapshot: CanvasSnapshot,
   nodes: CanvasNode[],
+  jobBindings?: Record<string, string> | null,
 ): { nodeId: string | null; explicit: boolean } {
-  const explicit = snapshot.jobBindings?.[job.id]?.trim()
+  const explicit = jobBindings?.[job.id]?.trim()
   if (explicit) {
     return { nodeId: explicit, explicit: true }
   }
   const def = defaultNodeForJob(job, nodes)
   return { nodeId: def?.id ?? null, explicit: false }
+}
+
+/** Effective job → node ids (explicit canvas bindings plus template defaults). */
+export function resolvedJobNodeIds(
+  templateId: string | null | undefined,
+  nodes: CanvasNode[],
+  jobBindings?: Record<string, string> | null,
+): Record<string, string> {
+  const defs = templateJobDefs(templateId)
+  const out: Record<string, string> = {}
+  for (const job of defs) {
+    const { nodeId } = resolveNodeIdForJob(job, nodes, jobBindings)
+    if (nodeId) out[job.id] = nodeId
+  }
+  return out
+}
+
+function resolveNodeId(
+  job: TemplateJobDef,
+  snapshot: CanvasSnapshot,
+  nodes: CanvasNode[],
+): { nodeId: string | null; explicit: boolean } {
+  return resolveNodeIdForJob(job, nodes, snapshot.jobBindings)
 }
 
 /** Pure view-model for the sidebar jobs panel. */
