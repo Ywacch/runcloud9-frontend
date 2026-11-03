@@ -3,6 +3,7 @@ import type { CanvasEdge, CanvasNode, CanvasSnapshot } from '../../editor-core/s
 import {
   alignedStockLabel,
   applyEngineChangePreview,
+  canShareWorkQueueRedis,
   previewJobEngineChange,
   previewWorkQueueRedis,
   type EngineCanvasOps,
@@ -101,6 +102,16 @@ describe('previewJobEngineChange', () => {
     const preview = previewJobEngineChange(snap(), 'timeline', 'redis')
     expect(preview.removeNodeIds).toEqual([])
     expect(preview.patchNodeId).toBe('cache-1')
+  })
+
+  it('treats a timeline cache with no engine as redis', () => {
+    const source = snapWithMq()
+    source.nodes = source.nodes.map((node) =>
+      node.id === 'cache-1'
+        ? { ...node, config: { strategy: 'timeline-store' } }
+        : node,
+    )
+    expect(canShareWorkQueueRedis(source)).toBe(true)
   })
 
   it('shares work_queue redis with timeline cache and removes mq when unused', () => {

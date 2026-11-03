@@ -111,9 +111,12 @@ function inPlaceEngineSummary(node: CanvasNode, engine: string): string {
 }
 
 function cacheEngine(node: CanvasNode): string {
-  return String(node.config.cacheEngine ?? node.config.engine ?? '')
+  const raw = String(node.config.cacheEngine ?? node.config.engine ?? '')
     .trim()
     .toLowerCase()
+  // Stock timeline caches omit the engine. Deploy treats that as Redis.
+  if (!raw && node.type === 'cache') return 'redis'
+  return raw
 }
 
 function dataCacheJobRow(rows: ReturnType<typeof buildJobsPanelModel>) {
