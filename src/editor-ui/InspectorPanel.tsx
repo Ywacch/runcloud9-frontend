@@ -719,7 +719,6 @@ export function InspectorPanel() {
                       <MemcachedStatsPanel
                         deploymentId={inspectorDeployment}
                         component={canvasToBackend[node.type]}
-                        keyPatterns={cacheBrowse.patterns}
                       />
                     ) : (
                       <CacheBrowser
