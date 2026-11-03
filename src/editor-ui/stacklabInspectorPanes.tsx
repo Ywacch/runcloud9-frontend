@@ -707,6 +707,7 @@ function CachePane({
   const hitPct = cacheHitRatePct(m, view.timeframe)
   const hits = view.timeframe === 'session' ? m.cacheHitsLast9m : m.cacheHits
   const misses = view.timeframe === 'session' ? m.cacheMissesLast9m : m.cacheMisses
+  const errors = view.timeframe === 'session' ? (m.cacheErrorsLast9m ?? 0) : (m.cacheErrors ?? 0)
   const hitSeries = historySeries(history, 'cacheHits')
   const missSeries = historySeries(history, 'cacheMisses')
   const memPct = m.memoryLimit > 0 ? (m.memoryBytes / m.memoryLimit) * 100 : m.memPercent
@@ -784,8 +785,19 @@ function CachePane({
               {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
             </SlTileVal>
             <SlTileFoot
-              left="logical · app side"
+              left="cache answered"
               right={view.timeframe === 'session' ? 'session totals' : '10s window'}
+            />
+          </SlTile>
+          <SlTile>
+            <SlTileLab>Cache errors</SlTileLab>
+            <SlTileVal tone={errors > 0 ? 'amber' : undefined}>
+              {fmtInt(errors)}
+              {view.timeframe === 'live' ? <SlUnit>/s</SlUnit> : null}
+            </SlTileVal>
+            <SlTileFoot
+              left="could not ask"
+              right="out of hit rate"
             />
           </SlTile>
         </SlTiles>
@@ -812,9 +824,7 @@ function CachePane({
         <Note mark="?">
           {isTimelineStore
             ? 'Hit = timeline returned posts. Miss = empty timeline; still no Postgres on push reads.'
-            : isMemcached
-              ? 'App logical hits and misses, not Memcached get command counters.'
-              : 'App logical hits and misses, not Redis GET/SET command counters.'}
+            : 'A miss means the cache answered and the key was absent. An error means the app could not ask the cache. Errors stay out of the hit rate.'}
         </Note>
         {view.timeframe === 'session' ? <Note mark="↔">{SESSION_CACHE_TOTALS_HINT}</Note> : null}
         {!isTimelineStore &&

@@ -171,6 +171,8 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     cacheMisses: Math.round(cm.cacheMisses ?? 0),
     cacheHitsLast9m: Math.round(cm.cacheHitsLast9m ?? 0),
     cacheMissesLast9m: Math.round(cm.cacheMissesLast9m ?? 0),
+    cacheErrors: Math.round(cm.cacheErrors ?? 0),
+    cacheErrorsLast9m: Math.round(cm.cacheErrorsLast9m ?? 0),
     timelineKeyCount:
       cm.timelineKeyCount != null ? Math.round(cm.timelineKeyCount) : undefined,
     feedRequestRatePush: cm.feedRequestRatePush ?? undefined,
