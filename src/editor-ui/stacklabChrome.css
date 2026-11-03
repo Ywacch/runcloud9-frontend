@@ -270,6 +270,11 @@
   color: var(--sl-ink);
 }
 
+.sl-chrome .sl-btn.is-on {
+  border-color: var(--c9-accent);
+  color: var(--sl-ink);
+}
+
 .sl-chrome .sl-btn.danger {
   border-color: rgba(216, 82, 74, 0.55);
   color: #e88c85;

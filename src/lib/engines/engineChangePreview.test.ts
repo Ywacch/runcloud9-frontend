@@ -149,10 +149,10 @@ describe('previewJobEngineChange', () => {
     expect(preview.bindToNodeId).toBeNull()
   })
 
-  it('previewJobEngineChange uses separate redis layout by default', () => {
+  it('previewJobEngineChange shares redis when a timeline cache exists', () => {
     const preview = previewJobEngineChange(snapWithMq(), 'work_queue', 'redis')
-    expect(preview.createNode?.replaceNodeId).toBe('mq-1')
-    expect(preview.bindToNodeId).toBeNull()
+    expect(preview.bindToNodeId).toBe('cache-1')
+    expect(preview.createNode).toBeNull()
   })
 
   it('adds a redis node when the timeline is on postgres and the queue is rabbit', () => {
