@@ -118,6 +118,26 @@ describe('previewJobEngineChange', () => {
     expect(preview.removeNodeIds).toEqual(['mq-1'])
   })
 
+  it('does not add a third cache when work_queue is already on its own redis', () => {
+    const source = snapWithMq()
+    source.nodes = [
+      ...source.nodes.filter((n) => n.id !== 'mq-1'),
+      {
+        id: 'cache-q',
+        type: 'cache',
+        label: 'Redis',
+        position: [2, 0, 0],
+        config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+        status: 'idle',
+      },
+    ]
+    source.jobBindings = { work_queue: 'cache-q', timeline: 'cache-1' }
+    const preview = previewWorkQueueRedis(source, 'separate')
+    expect(preview.createNode).toBeNull()
+    expect(preview.patchNodeId).toBe('cache-q')
+    expect(preview.bindToNodeId).toBeNull()
+  })
+
   it('previewJobEngineChange uses separate redis layout by default', () => {
     const preview = previewJobEngineChange(snapWithMq(), 'work_queue', 'redis')
     expect(preview.createNode?.replaceNodeId).toBe('mq-1')

@@ -94,7 +94,21 @@ export function isBackendSupportedEngine(
   return supported.includes(engine.trim().toLowerCase())
 }
 
-/** Unsupported or blank engines fall back to the single provisioned engine. */
+const PREFERRED_BLANK_ENGINE: Partial<Record<CanvasNode['type'], string>> = {
+  cache: 'redis',
+  database: 'postgresql',
+  message_queue: 'rabbitmq',
+}
+
+function fallbackEngine(type: CanvasNode['type'], supported: string[]): string {
+  const prefer = PREFERRED_BLANK_ENGINE[type]
+  if (prefer && supported.includes(prefer)) return prefer
+  return supported[0]
+}
+
+/** Unsupported engines fall back to the first provisioned engine.
+ * A blank cache engine stays Redis even when the catalog lists Memcached first.
+ */
 export function backendEngineOrDefault(
   type: CanvasNode['type'],
   engine: unknown,
@@ -102,6 +116,7 @@ export function backendEngineOrDefault(
   const supported = backendEnginesForType(type)
   if (supported.length === 0) return undefined
   const raw = String(engine ?? '').trim().toLowerCase()
+  if (!raw) return fallbackEngine(type, supported)
   return supported.includes(raw) ? raw : supported[0]
 }
 
