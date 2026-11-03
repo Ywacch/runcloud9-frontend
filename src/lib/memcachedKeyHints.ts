@@ -34,16 +34,3 @@ export function memcachedEmptyKeysMessage(
   }
   return `No keys in this dump yet. Run load on cache-aside routes first.${exampleBit}`
 }
-
-/** Placeholder for the optional manual Get box (never use another template's keys). */
-export function memcachedManualKeyPlaceholder(
-  templateId: string | null | undefined,
-  patterns: readonly string[],
-): string {
-  const fromPatterns = memcachedExampleKeys(patterns)[0]
-  if (fromPatterns) return fromPatterns
-  const id = (templateId ?? '').trim()
-  if (id === 'url-shortener') return 'short-code'
-  if (id === 'ecommerce') return 'catalog'
-  return 'exact-key'
-}

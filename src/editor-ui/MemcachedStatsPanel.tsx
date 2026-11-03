@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchCacheStats, fetchKeyValue, fetchKeys, type KeyInfo } from '../lib/introspectApi'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { cachePatternLabel } from '../lib/cacheBrowsePatterns'
-import {
-  memcachedEmptyKeysMessage,
-  memcachedExampleKeys,
-  memcachedManualKeyPlaceholder,
-} from '../lib/memcachedKeyHints'
+import { memcachedEmptyKeysMessage, memcachedExampleKeys } from '../lib/memcachedKeyHints'
 import {
   introspectErrorMessage,
   isDeploymentInactiveError,
@@ -59,10 +55,6 @@ export function MemcachedStatsPanel({
     patterns.length > 1 ? ALL_KEY_PATTERNS : (browsePatterns[0] ?? '*'),
   )
   const exampleKeys = useMemo(() => memcachedExampleKeys(patterns), [patterns])
-  const manualKeyPlaceholder = useMemo(
-    () => memcachedManualKeyPlaceholder(snapshotTemplateId, patterns),
-    [snapshotTemplateId, patterns],
-  )
   const listPattern =
     pattern === ALL_KEY_PATTERNS || pattern === '*' ? undefined : pattern
   const liveSessionEnding = useCanvasStore((s) => s.liveSessionEnding)
@@ -74,7 +66,6 @@ export function MemcachedStatsPanel({
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const selectedKeyRef = useRef<string | null>(null)
   selectedKeyRef.current = selectedKey
-  const [lookup, setLookup] = useState('')
   const [statsError, setStatsError] = useState<string | null>(null)
   const [keysError, setKeysError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -204,7 +195,7 @@ export function MemcachedStatsPanel({
           {memcachedEmptyKeysMessage(snapshotTemplateId, patterns)}
         </p>
       ) : null}
-      {exampleKeys.length > 0 ? (
+      {!keysError && keys.length === 0 && exampleKeys.length > 0 ? (
         <div className="seg" role="group" aria-label="Example keys" style={{ margin: '12px 0', flexWrap: 'wrap' }}>
           <span className="note" style={{ marginRight: 8 }}>
             Try:
@@ -215,7 +206,6 @@ export function MemcachedStatsPanel({
               type="button"
               className="btn ghost"
               onClick={() => {
-                setLookup(key)
                 setSelectedKey(key)
                 void loadValue(key)
               }}
@@ -225,31 +215,6 @@ export function MemcachedStatsPanel({
           ))}
         </div>
       ) : null}
-      <form
-        className="seg"
-        style={{ margin: '12px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}
-        onSubmit={(event) => {
-          event.preventDefault()
-          const key = lookup.trim()
-          if (!key) return
-          setSelectedKey(key)
-          void loadValue(key)
-        }}
-      >
-        <label className="note" style={{ width: '100%' }}>
-          Or type an exact key from your app (not a glob):
-        </label>
-        <input
-          aria-label="Memcached key"
-          value={lookup}
-          onChange={(event) => setLookup(event.target.value)}
-          placeholder={manualKeyPlaceholder}
-          style={{ flex: 1, minWidth: 120 }}
-        />
-        <button type="submit" className="btn ghost">
-          Get
-        </button>
-      </form>
       {keysError ? (
         <SlDataError
           message={keysError}
