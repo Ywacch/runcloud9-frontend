@@ -133,8 +133,8 @@ describe('buildJobsPanelModel', () => {
       catalog,
     )
     const queue = model.find((r) => r.jobId === 'work_queue')
-    expect(queue?.candidateNodeIds).toEqual(['cache-1', 'mq-1'])
-    expect(queue?.allowedEngines).toContain('redis')
+    expect(queue?.candidateNodeIds).toEqual(['mq-1'])
+    expect(queue?.allowedEngines).toEqual(['rabbitmq'])
     expect(queue?.nodeId).toBe('mq-1')
   })
 })

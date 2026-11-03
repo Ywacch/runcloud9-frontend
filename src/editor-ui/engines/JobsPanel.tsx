@@ -67,7 +67,11 @@ export function JobsPanel({ disabled }: JobsPanelProps) {
       return
     }
     const target = nodes[nodeId]
-    if (row.jobId === 'work_queue' && target?.type === 'cache') {
+    if (
+      row.jobId === 'work_queue' &&
+      target?.type === 'cache' &&
+      row.allowedEngines.includes('redis')
+    ) {
       const preview = previewJobEngineChange(exportJSON(), 'work_queue', 'redis')
       setJobBinding(row.jobId, nodeId)
       updateNodeConfig(nodeId, configPatchForEngine('cache', 'redis'))
