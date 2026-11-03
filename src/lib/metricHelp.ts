@@ -56,6 +56,24 @@ export const CACHE_KEYSPACE_HITS_HELP =
 export const CACHE_KEYSPACE_MISSES_HELP =
   'Redis counted a string-key lookup that found nothing (usually GET on a missing key). Compare with app misses above when you use cache-aside GET/SET.'
 
+export const CACHE_MEMCACHED_GET_HITS_HELP =
+  'Memcached counted a get that found data (get_hits from the exporter). Rate per second, not how many items sit in memory.'
+
+export const CACHE_MEMCACHED_GET_MISSES_HELP =
+  'Memcached counted a get that found nothing (get_misses). Compare with app misses above; inspector gets also count as hits.'
+
+export function cacheKeyspaceHitsHelp(storageEngine: string | undefined): string {
+  return storageEngine?.toLowerCase() === 'memcached'
+    ? CACHE_MEMCACHED_GET_HITS_HELP
+    : CACHE_KEYSPACE_HITS_HELP
+}
+
+export function cacheKeyspaceMissesHelp(storageEngine: string | undefined): string {
+  return storageEngine?.toLowerCase() === 'memcached'
+    ? CACHE_MEMCACHED_GET_MISSES_HELP
+    : CACHE_KEYSPACE_MISSES_HELP
+}
+
 export const CACHE_TIMELINES_COUNT_HELP =
   'How many user timelines Redis holds right now (timeline:* keys). Feed read speed is on the push and pull tiles above.'
 
