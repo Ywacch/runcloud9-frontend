@@ -31,6 +31,8 @@ export interface EngineChangePreview {
   patchNodeId: string | null
   /** Host node does not exist yet. Caller adds it, then retargets edges. */
   createNode: EngineChangeCreateNode | null
+  /** Copy app and worker edges from this cache onto the queue Redis. */
+  linkQueueEdgesFromNodeId?: string | null
   summary: string
 }
 
@@ -211,6 +213,7 @@ export function previewWorkQueueRedis(
       bindToNodeId: null,
       patchNodeId: current.id,
       createNode: null,
+      linkQueueEdgesFromNodeId: dataCacheId,
       summary: `Stays on ${current.label}`,
     }
   }
@@ -229,6 +232,7 @@ export function previewWorkQueueRedis(
       bindToNodeId: dedicated.id,
       patchNodeId: null,
       createNode: null,
+      linkQueueEdgesFromNodeId: dataCacheId,
       summary: `${row?.jobLabel ?? jobId} stays on ${dedicated.label}.`,
     }
   }
@@ -404,6 +408,32 @@ export function previewJobEngineChange(
   }
 }
 
+function copyClientEdgesOnto(
+  ops: EngineCanvasOps,
+  fromId: string,
+  toId: string,
+): void {
+  const clients = Object.values(ops.nodes).filter(
+    (node) => node.type === 'compute' || node.type === 'worker',
+  )
+  for (const client of clients) {
+    const sample = Object.values(ops.edges).find(
+      (edge) => edge.sourceId === client.id && edge.targetId === fromId,
+    )
+    if (!sample) continue
+    const exists = Object.values(ops.edges).some(
+      (edge) => edge.sourceId === client.id && edge.targetId === toId,
+    )
+    if (exists) continue
+    ops.addEdge({
+      ...sample,
+      id: crypto.randomUUID(),
+      sourceId: client.id,
+      targetId: toId,
+    })
+  }
+}
+
 function configForCreatedNode(
   type: CanvasNode['type'],
   engine: string,
@@ -470,6 +500,9 @@ export function applyEngineChangePreview(
       })
     }
     ops.setJobBinding(jobId, nodeId)
+    if (!doomed && anchorId && ops.nodes[anchorId]?.type === 'cache') {
+      copyClientEdgesOnto(ops, anchorId, nodeId)
+    }
   }
 
   if (preview.bindToNodeId) {
@@ -493,6 +526,17 @@ export function applyEngineChangePreview(
       renameStockLabel(ops, host, preview.engine)
     }
     ops.setJobBinding(jobId, preview.patchNodeId)
+  }
+  const queueNodeId =
+    preview.patchNodeId ??
+    preview.bindToNodeId ??
+    null
+  if (
+    preview.linkQueueEdgesFromNodeId &&
+    queueNodeId &&
+    queueNodeId !== preview.linkQueueEdgesFromNodeId
+  ) {
+    copyClientEdgesOnto(ops, preview.linkQueueEdgesFromNodeId, queueNodeId)
   }
   const keepId = preview.bindToNodeId
   if (keepId) {

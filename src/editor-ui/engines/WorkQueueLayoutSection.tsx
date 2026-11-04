@@ -56,6 +56,12 @@ function WorkQueueLayoutButtons({
     applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
   }, [current, cacheCount, nodes, exportJSON])
 
+  useEffect(() => {
+    if (current !== 'separate') return
+    const preview = previewWorkQueueRedis(exportJSON(), 'separate')
+    applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
+  }, [current, exportJSON])
+
   const apply = (next: WorkQueueRedisMode) => {
     const preview = previewWorkQueueRedis(exportJSON(), next)
     applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
