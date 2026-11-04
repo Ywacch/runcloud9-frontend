@@ -155,6 +155,8 @@ function patchPlacementFromCanvas(): void {
 type CanvasBridgeFields = {
   nodes: ReturnType<typeof useCanvasStore.getState>['nodes']
   edges: ReturnType<typeof useCanvasStore.getState>['edges']
+  jobBindings: ReturnType<typeof useCanvasStore.getState>['jobBindings']
+  snapshotTemplateId: ReturnType<typeof useCanvasStore.getState>['snapshotTemplateId']
   mode: CanvasMode
   selectedId: string | null
   selectedIds: string[]
@@ -169,6 +171,8 @@ function bridgeFieldsFrom(
   return {
     nodes: c.nodes,
     edges: c.edges,
+    jobBindings: c.jobBindings,
+    snapshotTemplateId: c.snapshotTemplateId,
     mode: c.mode,
     selectedId: c.selectedId,
     selectedIds: c.selectedIds,
@@ -275,6 +279,8 @@ export function installCanvasSvgBridge(): void {
     const topologyChanged =
       next.nodes !== prev.nodes ||
       next.edges !== prev.edges ||
+      next.jobBindings !== prev.jobBindings ||
+      next.snapshotTemplateId !== prev.snapshotTemplateId ||
       next.mode !== prev.mode
     const selectionChanged =
       next.selectedId !== prev.selectedId ||

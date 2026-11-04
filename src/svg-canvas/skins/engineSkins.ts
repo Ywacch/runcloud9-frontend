@@ -81,6 +81,13 @@ export const ENGINE_SKINS: EngineSkin[] = [
     logoId: 'memcached',
   },
   {
+    engine: 'redis',
+    archetype: 'message-queue',
+    label: 'Redis',
+    brandTint: { top: '#d82f27', left: '#ad261f', right: '#821c17' },
+    logoId: 'redis',
+  },
+  {
     engine: 'kafka',
     archetype: 'message-queue',
     label: 'Kafka',
