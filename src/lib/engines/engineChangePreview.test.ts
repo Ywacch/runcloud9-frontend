@@ -157,6 +157,130 @@ describe('previewJobEngineChange', () => {
     expect(preview.createNode).toBeNull()
   })
 
+  it('separate from a shared redis connects the app and worker to the new queue', () => {
+    const source = snap()
+    source.nodes = [
+      ...source.nodes,
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App server',
+        position: [0, 1, 0],
+        config: {},
+        status: 'idle',
+      },
+      {
+        id: 'worker-1',
+        type: 'worker',
+        label: 'Fan-out Worker',
+        position: [1, 1, 0],
+        config: {},
+        status: 'idle',
+      },
+    ]
+    source.edges = [
+      {
+        id: 'e-app-cache',
+        sourceId: 'app-1',
+        targetId: 'cache-1',
+        protocol: 'tcp',
+        animated: false,
+      },
+      {
+        id: 'e-worker-cache',
+        sourceId: 'worker-1',
+        targetId: 'cache-1',
+        protocol: 'tcp',
+        animated: false,
+      },
+      {
+        id: 'e-worker-db',
+        sourceId: 'worker-1',
+        targetId: 'db-1',
+        protocol: 'tcp',
+        animated: false,
+      },
+    ]
+    source.jobBindings = { work_queue: 'cache-1', timeline: 'cache-1' }
+    const preview = previewWorkQueueRedis(source, 'separate')
+    const ops = memoryOps(source)
+    applyEngineChangePreview(preview, 'work_queue', ops, {
+      nodeId: 'cache-q',
+      edgeId: (index) => `e-new-${index}`,
+    })
+    expect(ops.jobBindings.work_queue).toBe('cache-q')
+    expect(ops.nodes['cache-1']).toBeDefined()
+    const targetsFrom = (sourceId: string) =>
+      Object.values(ops.edges)
+        .filter((edge) => edge.sourceId === sourceId)
+        .map((edge) => edge.targetId)
+    expect(targetsFrom('worker-1')).toEqual(
+      expect.arrayContaining(['cache-1', 'cache-q', 'db-1']),
+    )
+    expect(targetsFrom('app-1')).toEqual(
+      expect.arrayContaining(['cache-1', 'cache-q']),
+    )
+  })
+
+  it('separate from a shared ecommerce hot cache connects the app and worker', () => {
+    const source = snap()
+    source.templateId = 'ecommerce'
+    source.nodes = [
+      ...source.nodes,
+      {
+        id: 'app-1',
+        type: 'compute',
+        label: 'App server',
+        position: [0, 1, 0],
+        config: {},
+        status: 'idle',
+      },
+      {
+        id: 'worker-1',
+        type: 'worker',
+        label: 'Order worker',
+        position: [1, 1, 0],
+        config: {},
+        status: 'idle',
+      },
+    ]
+    source.edges = [
+      {
+        id: 'e-app-cache',
+        sourceId: 'app-1',
+        targetId: 'cache-1',
+        protocol: 'tcp',
+        animated: false,
+      },
+      {
+        id: 'e-worker-cache',
+        sourceId: 'worker-1',
+        targetId: 'cache-1',
+        protocol: 'tcp',
+        animated: false,
+      },
+    ]
+    source.jobBindings = { work_queue: 'cache-1', hot_cache: 'cache-1' }
+    const preview = previewWorkQueueRedis(source, 'separate')
+    const ops = memoryOps(source)
+    applyEngineChangePreview(preview, 'work_queue', ops, {
+      nodeId: 'cache-q',
+      edgeId: (index) => `e-new-${index}`,
+    })
+    expect(ops.jobBindings.work_queue).toBe('cache-q')
+    expect(ops.jobBindings.hot_cache).toBe('cache-1')
+    const targetsFrom = (sourceId: string) =>
+      Object.values(ops.edges)
+        .filter((edge) => edge.sourceId === sourceId)
+        .map((edge) => edge.targetId)
+    expect(targetsFrom('worker-1')).toEqual(
+      expect.arrayContaining(['cache-1', 'cache-q']),
+    )
+    expect(targetsFrom('app-1')).toEqual(
+      expect.arrayContaining(['cache-1', 'cache-q']),
+    )
+  })
+
   it('separate work_queue redis adds a second cache and removes mq', () => {
     const preview = previewWorkQueueRedis(snapWithMq(), 'separate')
     expect(preview.bindToNodeId).toBeNull()
