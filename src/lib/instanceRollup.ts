@@ -8,8 +8,8 @@ import { FMT_EMPTY, fmtMs, utilizationPercent } from './format'
 export type InstanceSample = {
   id: string
   role?: string
-  cpuPct: number
-  memPct: number
+  cpuPct: number | null
+  memPct: number | null
   rps?: number
   /** Seconds; omit when unknown. */
   p99?: number
@@ -17,23 +17,28 @@ export type InstanceSample = {
 }
 
 export type Rollup = {
-  cpuPct: number
-  memPct: number
+  cpuPct: number | null
+  memPct: number | null
   rps: number
   p99: number | null
   lagSeconds: number | null
   idle: boolean
 }
 
-function meanFinite(values: number[]): number {
-  const finite = values.filter((v) => Number.isFinite(v))
-  if (finite.length === 0) return 0
+function meanFinite(values: (number | null)[]): number | null {
+  const finite = values.filter((v): v is number => v != null && Number.isFinite(v))
+  if (finite.length === 0) return null
   return finite.reduce((sum, v) => sum + v, 0) / finite.length
 }
 
+function roundPct(v: number | null): number | null {
+  if (v == null || !Number.isFinite(v)) return null
+  return Math.round(v)
+}
+
 export function rollup(samples: InstanceSample[], opts?: { idleFloor?: number }): Rollup {
-  const cpuPct = Math.round(meanFinite(samples.map((s) => s.cpuPct)))
-  const memPct = Math.round(meanFinite(samples.map((s) => s.memPct)))
+  const cpuPct = roundPct(meanFinite(samples.map((s) => s.cpuPct)))
+  const memPct = roundPct(meanFinite(samples.map((s) => s.memPct)))
   const rps = samples.reduce((sum, s) => sum + (s.rps ?? 0), 0)
 
   const p99Values = samples
@@ -78,18 +83,16 @@ export function samplesFromCompute(m: MetricsBucket): InstanceSample[] {
   const replicas = m.podReplicas.length
   const cpuLimitPerPod = perReplicaLimit(m.cpuLimit, replicas)
   const memLimitPerPod = perReplicaLimit(m.memoryLimit, replicas)
-  const memFallbackBytes = 512 * 1024 * 1024
 
   return m.podReplicas.map((pod) => {
     const cpuPct =
       cpuLimitPerPod > 0
         ? utilizationPercent(pod.cpuUsage, cpuLimitPerPod)
-        : utilizationPercent(pod.cpuUsage, 0, 1)
-    const memPct = utilizationPercent(
-      pod.memoryBytes,
-      memLimitPerPod,
-      memFallbackBytes,
-    )
+        : null
+    const memPct =
+      memLimitPerPod > 0
+        ? utilizationPercent(pod.memoryBytes, memLimitPerPod)
+        : null
     return {
       id: pod.name,
       rps: pod.requestRate,

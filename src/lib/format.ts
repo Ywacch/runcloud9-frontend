@@ -48,20 +48,16 @@ export function clampPercent(v: number | undefined | null): number {
 }
 
 /** Usage vs limit (cores or bytes). Keeps sub-1% when usage is positive. */
-export function utilizationPercent(
-  usage: number,
-  limit: number,
-  fallbackDivisor?: number,
-): number {
+export function utilizationPercent(usage: number, limit: number): number {
   if (!Number.isFinite(usage) || usage <= 0) return 0
   if (limit > 0 && Number.isFinite(limit)) {
     return clampPercent((usage / limit) * 100)
   }
-  if (fallbackDivisor != null && fallbackDivisor > 0 && Number.isFinite(fallbackDivisor)) {
-    return clampPercent((usage / fallbackDivisor) * 100)
-  }
   return 0
 }
+
+/** Inspector utilization label when limit is unknown. */
+export const FMT_UTIL_UNKNOWN = '—'
 
 /** Percentage — clamped 0–100; whole numbers without “.0” */
 export function fmtPct(v: number | undefined | null): string {

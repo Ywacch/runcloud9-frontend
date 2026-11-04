@@ -454,4 +454,20 @@ describe('metricsUiContract', () => {
     expect(cpuPercent).toBe(0.8)
     expect(memPercent).toBeGreaterThan(0)
   })
+
+  it('returns null percents when limits are missing', () => {
+    const { cpuPercent, memPercent } = layerResourcePercents({
+      id: 'postgres',
+      role: 'primary',
+      engine: 'postgresql',
+      cpuUsage: 0.09,
+      cpuLimit: 0,
+      memoryBytes: 16 * 1024 * 1024,
+      memoryLimit: 0,
+      cpuIsEstimated: false,
+      memIsEstimated: false,
+    })
+    expect(cpuPercent).toBeNull()
+    expect(memPercent).toBeNull()
+  })
 })

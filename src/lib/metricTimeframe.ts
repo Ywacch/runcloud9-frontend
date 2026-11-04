@@ -274,7 +274,7 @@ export function podCpuPercent(cpuUsage: number, cpuLimitCores: number): number |
   if (cpuLimitCores > 0) {
     return Math.min(100, (cpuUsage / cpuLimitCores) * 100)
   }
-  return Math.min(100, cpuUsage * 100)
+  return undefined
 }
 
 export function podMemPercent(

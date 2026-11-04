@@ -57,6 +57,30 @@ describe('componentToBucket resource sources', () => {
     expect(bucket.memPercent).toBeGreaterThan(0)
   })
 
+  it('does not invent cpu percent from usage when limit is missing', () => {
+    const bucket = componentToBucket({
+      cpuUsage: 0.09,
+      cpuLimit: 0,
+      memoryBytes: 16 * 1024 * 1024,
+      memoryLimit: 0,
+    })
+    expect(bucket.cpuPercent).toBe(0)
+    expect(bucket.memPercent).toBe(0)
+  })
+
+  it('computes percent from limit when limit is set', () => {
+    const bucket = componentToBucket({
+      cpuUsage: 0.09,
+      cpuLimit: 0.125,
+      memoryBytes: 16 * 1024 * 1024,
+      memoryLimit: 256 * 1024 * 1024,
+    })
+    expect(bucket.cpuPercent).toBeGreaterThanOrEqual(70)
+    expect(bucket.cpuPercent).toBeLessThanOrEqual(75)
+    expect(bucket.memPercent).toBeGreaterThan(0)
+    expect(bucket.memPercent).toBeLessThan(10)
+  })
+
   it('maps cache layers from WS component payload', () => {
     const bucket = componentToBucket({
       cacheMetricMode: 'layered',

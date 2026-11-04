@@ -164,7 +164,9 @@ export function brokerPodStatusLine(m: MetricsBucket) {
 
 export function utilHelpCpu(m: MetricsBucket): string {
   const limit = m.cpuLimit > 0 ? `${m.cpuLimit.toFixed(1)} vCPU` : 'limit n/a'
-  return `limit ${limit} · peak ${Math.round(m.cpuPercent)}%`
+  const peak =
+    m.cpuLimit > 0 ? `peak ${Math.round(m.cpuPercent)}%` : 'peak —'
+  return `limit ${limit} · ${peak}`
 }
 
 export function utilHelpMem(m: MetricsBucket): string {

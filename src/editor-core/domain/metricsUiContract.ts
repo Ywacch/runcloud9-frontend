@@ -376,18 +376,17 @@ const LAYER_ROLE_ORDER: Record<string, number> = {
 }
 
 export function layerResourcePercents(layer: ComponentLayerMetrics): {
-  cpuPercent: number
-  memPercent: number
+  cpuPercent: number | null
+  memPercent: number | null
 } {
   const cpuPercent =
     layer.cpuLimit > 0
       ? utilizationPercent(layer.cpuUsage, layer.cpuLimit)
-      : utilizationPercent(layer.cpuUsage, 0, 1)
-  const memPercent = utilizationPercent(
-    layer.memoryBytes,
-    layer.memoryLimit,
-    512 * 1024 * 1024,
-  )
+      : null
+  const memPercent =
+    layer.memoryLimit > 0
+      ? utilizationPercent(layer.memoryBytes, layer.memoryLimit)
+      : null
   return { cpuPercent, memPercent }
 }
 

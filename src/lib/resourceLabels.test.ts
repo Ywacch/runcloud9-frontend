@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import { FMT_UTIL_UNKNOWN } from './format'
 import {
   formatResourceLabels,
   memoryUsageHelp,
@@ -106,6 +107,15 @@ describe('formatResourceLabels', () => {
     expect(labels.cpu).toBe('42%')
     expect(labels.mem).toContain('77%')
     expect(labels.mem).not.toContain('~15–60s')
+  })
+
+  it('shows em dash for cpu when limit is unknown', () => {
+    const labels = formatResourceLabels(
+      bucket({ cpuLimit: 0, cpuIsEstimated: false }),
+      0,
+      0,
+    )
+    expect(labels.cpu).toBe(FMT_UTIL_UNKNOWN)
   })
 })
 

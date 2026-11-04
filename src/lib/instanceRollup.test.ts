@@ -73,8 +73,29 @@ describe('samplesFromCompute', () => {
     } as MetricsBucket
 
     const samples = samplesFromCompute(m)
-    expect(samples.every((s) => s.memPct > 0)).toBe(true)
+    expect(samples.every((s) => s.memPct != null && s.memPct > 0)).toBe(true)
     expect(rollup(samples).memPct).toBeGreaterThan(0)
+  })
+
+  it('returns null cpuPct when pod cpu limit is missing', () => {
+    const m = {
+      cpuLimit: 0,
+      memoryLimit: 0,
+      podReplicas: [
+        {
+          name: 'a',
+          ready: true,
+          requestRate: 0,
+          p99LatencyMs: 0,
+          cpuUsage: 0.09,
+          memoryBytes: 0,
+        },
+      ],
+    } as MetricsBucket
+
+    const samples = samplesFromCompute(m)
+    expect(samples[0]?.cpuPct).toBeNull()
+    expect(samples[0]?.memPct).toBeNull()
   })
 })
 
