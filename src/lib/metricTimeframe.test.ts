@@ -282,6 +282,10 @@ describe('podCpuPercent', () => {
   it('computes percent from cores used and limit', () => {
     expect(podCpuPercent(0.1, 0.125)).toBe(80)
   })
+
+  it('returns undefined when limit is missing', () => {
+    expect(podCpuPercent(0.09, 0)).toBeUndefined()
+  })
 })
 
 describe('podMemPercent', () => {

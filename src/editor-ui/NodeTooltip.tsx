@@ -36,8 +36,8 @@ const DB_IDLE_RPS_FLOOR = 8
 
 type SingleRollupDisplay = {
   kind: 'single'
-  cpuPct: number
-  memPct: number
+  cpuPct: number | null
+  memPct: number | null
   rps: number
   p99Ms: number | null
   idle: boolean
@@ -167,19 +167,23 @@ export function NodeTooltip({
       : metrics
 
   const cpuPct = cacheFocus
-    ? cacheFocus.cpuPct
+    ? cacheFocus.cpuPct ?? 0
     : grouped?.kind === 'single'
-      ? grouped.cpuPct
+      ? grouped.cpuPct ?? 0
       : tooltipMetrics?.cpuIsEstimated
         ? 0
-        : clampPercent(tooltipMetrics?.cpuPercent)
+        : tooltipMetrics && tooltipMetrics.cpuLimit > 0
+          ? clampPercent(tooltipMetrics.cpuPercent)
+          : 0
   const memPct = cacheFocus
-    ? cacheFocus.memPct
+    ? cacheFocus.memPct ?? 0
     : grouped?.kind === 'single'
-      ? grouped.memPct
+      ? grouped.memPct ?? 0
       : tooltipMetrics?.memIsEstimated
         ? 0
-        : clampPercent(tooltipMetrics?.memPercent)
+        : tooltipMetrics && tooltipMetrics.memoryLimit > 0
+          ? clampPercent(tooltipMetrics.memPercent)
+          : 0
   const labels = tooltipMetrics
     ? node.type === 'database'
       ? formatDbClusterResourceLabels(tooltipMetrics, cpuPct, memPct, dbWarmingUp)

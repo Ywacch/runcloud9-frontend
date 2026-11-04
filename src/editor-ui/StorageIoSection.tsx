@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { FMT_EMPTY, fmtBytes, fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
+import { FMT_EMPTY, FMT_UTIL_UNKNOWN, fmtBytes, fmtInt, fmtMs, fmtPct, fmtRate } from '../lib/format'
 import {
   fanoutScanModelEstimate,
   formatDbQueriesPerSec,
@@ -16,6 +16,8 @@ import {
   dbLayerHistorySeries,
   dbLayerXactHeadline,
   podHistorySeries,
+  podCpuPercent,
+  podMemPercent,
   storageIoThroughputFields,
 } from '../lib/metricTimeframe'
 import {
@@ -579,13 +581,25 @@ export function DbInstanceLayerSection({
         left={
           <StatBlock
             label="CPU utilization"
-            value={layer.cpuIsEstimated ? FMT_EMPTY : fmtPct(cpuPercent)}
+            value={
+              layer.cpuIsEstimated
+                ? FMT_EMPTY
+                : cpuPercent != null
+                  ? fmtPct(cpuPercent)
+                  : FMT_UTIL_UNKNOWN
+            }
           />
         }
         right={
           <StatBlock
             label="Memory usage"
-            value={layer.memIsEstimated ? FMT_EMPTY : fmtPct(memPercent)}
+            value={
+              layer.memIsEstimated
+                ? FMT_EMPTY
+                : memPercent != null
+                  ? fmtPct(memPercent)
+                  : FMT_UTIL_UNKNOWN
+            }
           />
         }
       />
@@ -641,17 +655,8 @@ export function ComputeInstanceSection({
   const replicas = m.podReplicas.length > 0 ? m.podReplicas.length : 1
   const cpuLimitPerPod = m.cpuLimit > 0 ? m.cpuLimit / replicas : 0
   const memLimitPerPod = m.memoryLimit > 0 ? m.memoryLimit / replicas : 0
-  const memFallbackBytes = 512 * 1024 * 1024
-  const cpuPct =
-    cpuLimitPerPod > 0
-      ? Math.min(100, (pod.cpuUsage / cpuLimitPerPod) * 100)
-      : Math.min(100, pod.cpuUsage * 100)
-  const memPct =
-    pod.memoryBytes > 0 && memLimitPerPod > 0
-      ? Math.min(100, (pod.memoryBytes / memLimitPerPod) * 100)
-      : pod.memoryBytes > 0
-        ? Math.min(100, (pod.memoryBytes / memFallbackBytes) * 100)
-        : 0
+  const cpuPct = podCpuPercent(pod.cpuUsage, cpuLimitPerPod)
+  const memPct = podMemPercent(pod.memoryBytes, memLimitPerPod)
   const throughputLabel = tf === 'session' ? sessionThroughputLabel : liveThroughputLabel
   const throughputValue =
     tf === 'session' ? fmtInt(pod.totalRequests ?? 0) : `${fmtRate(pod.requestRate)}/s`
@@ -748,12 +753,19 @@ export function ComputeInstanceSection({
           />
         }
         right={
-          <StatBlock label="CPU utilization" value={fmtPct(cpuPct)} />
+          <StatBlock
+            label="CPU utilization"
+            value={
+              cpuPct != null ? fmtPct(cpuPct) : FMT_UTIL_UNKNOWN
+            }
+          />
         }
       />
       <StatBlock
         label="Memory usage"
-        value={memPct > 0 ? fmtPct(memPct) : FMT_EMPTY}
+        value={
+          memPct != null ? fmtPct(memPct) : FMT_UTIL_UNKNOWN
+        }
       />
     </PedagogicalSection>
   )
@@ -1360,8 +1372,8 @@ function syntheticBucketFromLayer(
     cpuSource: layer.cpuSource,
     memSource: layer.memSource,
     freshness: layer.freshness,
-    cpuPercent,
-    memPercent,
+    cpuPercent: cpuPercent ?? 0,
+    memPercent: memPercent ?? 0,
     storageEngine: layer.engine || component.storageEngine,
     storageIo: includeStorageIo ? component.storageIo : null,
     redisOpsPerSec: layer.redisOpsPerSec ?? 0,
@@ -1414,7 +1426,9 @@ export function CacheLayerResourceBlock({
             <StatBlock
               label="Memory utilization"
               value={`${fmtBytes(layer.memoryBytes)}${
-                layer.memoryLimit > 0 ? ` · ${memPercent.toFixed(1)}%` : ''
+                layer.memoryLimit > 0 && memPercent != null
+                  ? ` · ${memPercent.toFixed(1)}%`
+                  : ''
               }`}
               help={memHelp}
             />

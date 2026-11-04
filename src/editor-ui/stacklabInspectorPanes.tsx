@@ -13,7 +13,17 @@ import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { formatCacheLatencyMs } from '../lib/cacheLatencyLabel'
 import { cacheMemoryAmount } from '../lib/cacheMemoryLabel'
-import { FMT_EMPTY, fmtBytes, fmtCpuMilliCores, fmtErrorRate, fmtInt, fmtMemMB, fmtPct, fmtRate } from '../lib/format'
+import {
+  FMT_EMPTY,
+  fmtBytes,
+  fmtCpuMilliCores,
+  fmtErrorRate,
+  fmtInt,
+  fmtMemMB,
+  fmtPct,
+  fmtRate,
+  FMT_UTIL_UNKNOWN,
+} from '../lib/format'
 import { bucketSessionQuantileAvailable } from '../lib/latencyQuantile'
 import type { InspectorMetricGroupId } from '../lib/inspectorMetricGroups'
 import type { PanelViewState } from './inspectorPanelUi'
@@ -124,6 +134,14 @@ import {
   SlScale,
 } from './stacklabPanePrimitives'
 import { StacklabNote as Note, StacklabSparkline } from './stacklabMetricsUi'
+
+function utilTopDisplay(limit: number, pct: number): string | number {
+  return limit > 0 ? Math.round(pct) : FMT_UTIL_UNKNOWN
+}
+
+function utilTopUnit(limit: number): string | undefined {
+  return limit > 0 ? '%' : undefined
+}
 
 function HpaRolloutStatusLine({ m }: { m: MetricsBucket }) {
   const label = scaleReplicaLabel(m.scale ?? null)
@@ -259,8 +277,8 @@ function ComputePane({
         <SlUtil hot={cpuHot}>
           <SlUtilTop
             label="CPU utilization"
-            value={Math.round(bucket.cpuPercent)}
-            unit="%"
+            value={utilTopDisplay(bucket.cpuLimit, bucket.cpuPercent)}
+            unit={utilTopUnit(bucket.cpuLimit)}
             tone={cpuHot ? 'amber' : undefined}
           />
           <SlScale
@@ -277,8 +295,8 @@ function ComputePane({
         <SlUtil hot={memHot}>
           <SlUtilTop
             label="Memory utilization"
-            value={Math.round(bucket.memPercent)}
-            unit="%"
+            value={utilTopDisplay(bucket.memoryLimit, bucket.memPercent)}
+            unit={utilTopUnit(bucket.memoryLimit)}
             tone={memHot ? 'amber' : undefined}
           />
           <SlScale
@@ -1141,7 +1159,7 @@ function MqPane({
   const memHot = isMemUtilWarn(memPct)
   const bandSeries = conSeries.map((v) => clampBand(v / Math.max(con, 1)))
   const podStatus = brokerPodStatusLine(m)
-  const showCpuUtil = m.cpuLimit > 0 || m.cpuPercent > 0
+  const showCpuUtil = m.cpuLimit > 0
   const showMemUtil = hasMqMem || m.memoryLimit > 0
   const backlogSubtitle = podStatus
     ? 'Queue depth, drain estimate, and broker pod health.'
@@ -1290,8 +1308,8 @@ function MqPane({
           <SlUtil hot={cpuHot}>
             <SlUtilTop
               label="CPU utilization"
-              value={Math.round(m.cpuPercent)}
-              unit="%"
+              value={utilTopDisplay(m.cpuLimit, m.cpuPercent)}
+              unit={utilTopUnit(m.cpuLimit)}
               tone={cpuHot ? 'amber' : undefined}
             />
             <SlScale
@@ -1413,8 +1431,8 @@ function WorkerPane({
         <SlUtil hot={cpuHot}>
           <SlUtilTop
             label="CPU utilization"
-            value={Math.round(bucket.cpuPercent)}
-            unit="%"
+            value={utilTopDisplay(bucket.cpuLimit, bucket.cpuPercent)}
+            unit={utilTopUnit(bucket.cpuLimit)}
             tone={cpuHot ? 'amber' : undefined}
           />
           <SlScale
@@ -1433,8 +1451,8 @@ function WorkerPane({
         </SlUtil>
         <SlGauge
           label="Memory · pod limit"
-          value={Math.round(bucket.memPercent)}
-          unit="%"
+          value={utilTopDisplay(bucket.memoryLimit, bucket.memPercent)}
+          unit={utilTopUnit(bucket.memoryLimit)}
           pct={bucket.memPercent}
           hot={memHot}
           footLeft={utilHelpMem(m)}
@@ -1455,7 +1473,7 @@ function WorkerPane({
           onToggle={() => setSlowOpen((v) => !v)}
           body={
             <p>
-              Workers are heavily saturating CPU (<em>{Math.round(bucket.cpuPercent)}%</em>), capping
+              Workers are heavily saturating CPU (<em>{utilTopDisplay(bucket.cpuLimit, bucket.cpuPercent)}{bucket.cpuLimit > 0 ? '%' : ''}</em>), capping
               the process rate at <em>{fmtRate(processRate)}/s</em>. Scale up worker replicas to
               process the message queue backlog in parallel.
             </p>
@@ -1651,8 +1669,8 @@ function LoadBalancerPane({
         <SlUtil hot={isCpuUtilWarn(m.cpuPercent)}>
           <SlUtilTop
             label="CPU utilization"
-            value={Math.round(m.cpuPercent)}
-            unit="%"
+            value={utilTopDisplay(m.cpuLimit, m.cpuPercent)}
+            unit={utilTopUnit(m.cpuLimit)}
             tone={isCpuUtilWarn(m.cpuPercent) ? 'amber' : undefined}
           />
           <SlScale
@@ -1669,8 +1687,8 @@ function LoadBalancerPane({
         <SlUtil hot={isMemUtilWarn(m.memPercent)}>
           <SlUtilTop
             label="Memory utilization"
-            value={Math.round(m.memPercent)}
-            unit="%"
+            value={utilTopDisplay(m.memoryLimit, m.memPercent)}
+            unit={utilTopUnit(m.memoryLimit)}
             tone={isMemUtilWarn(m.memPercent) ? 'amber' : undefined}
           />
           <SlScale

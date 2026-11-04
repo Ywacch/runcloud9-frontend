@@ -4,6 +4,7 @@ import {
   fmtCpuMilliCores,
   fmtMemMB,
   fmtPct,
+  FMT_UTIL_UNKNOWN,
 } from '../lib/format'
 import { compactPodName } from '../lib/replicaMetricsDisplay'
 import {
@@ -627,7 +628,10 @@ export function resourceUsageHelp(m: MetricsBucket): string | undefined {
 }
 
 /** Hover help for memory tiles — utilization % only (bytes stay in the value). */
-export function memoryUsageHelp(m: MetricsBucket, memPercent: number): string | undefined {
+export function memoryUsageHelp(
+  m: MetricsBucket,
+  memPercent: number | null,
+): string | undefined {
   const tier = m.freshness?.containerMem?.tier
   if (tier === 'estimated' || (!m.freshness && m.memIsEstimated)) {
     return ALLOCATED_NOT_MEASURED_HELP
@@ -636,7 +640,7 @@ export function memoryUsageHelp(m: MetricsBucket, memPercent: number): string | 
     return containerFreshnessHint(m.freshness?.containerMem)
   }
   if (m.memIsEstimated) return ALLOCATED_NOT_MEASURED_HELP
-  if (m.memoryLimit > 0) return fmtPct(memPercent)
+  if (m.memoryLimit > 0 && memPercent != null) return fmtPct(memPercent)
   return undefined
 }
 
@@ -709,20 +713,22 @@ export function tooltipResourceBucket(
 
 export function formatResourceLabels(
   m: MetricsBucket,
-  cpuPercent: number,
-  memPercent: number,
+  cpuPercent: number | null,
+  memPercent: number | null,
 ): { cpu: string; mem: string } {
   const cpu = m.cpuIsEstimated
     ? m.cpuLimit > 0
       ? `Limit ${fmtCpuMilliCores(m.cpuLimit)}`
       : `Limit ${fmtCpuMilliCores(m.cpuUsage)}`
-    : `${fmtPct(cpuPercent)}${resourceFreshnessSuffix(m.cpuSource)}`
+    : m.cpuLimit > 0
+      ? `${fmtPct(cpuPercent)}${resourceFreshnessSuffix(m.cpuSource)}`
+      : FMT_UTIL_UNKNOWN
   const mem = m.memIsEstimated
     ? m.memoryLimit > 0
       ? `Limit ${fmtMemMB(m.memoryLimit)}`
       : `Limit ${fmtMemMB(m.memoryBytes)}`
     : `${fmtBytes(m.memoryBytes)}${
-        m.memoryLimit > 0 ? ` · ${fmtPct(memPercent)}` : ''
+        m.memoryLimit > 0 && memPercent != null ? ` · ${fmtPct(memPercent)}` : ''
       }${resourceFreshnessSuffix(m.memSource)}`
   return { cpu, mem }
 }
@@ -734,5 +740,6 @@ export function tooltipMemoryDisplay(
   memLabel: string,
 ): string {
   if (m.memIsEstimated) return memLabel
+  if (!(m.memoryLimit > 0)) return FMT_UTIL_UNKNOWN
   return fmtPct(memPercent)
 }

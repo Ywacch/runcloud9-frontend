@@ -23,7 +23,7 @@ export interface ReplicaInspectorRow extends ReplicaMetrics {
   podName: string
   ready: boolean
   memoryBytes: number
-  memPercent: number
+  memPercent: number | null
 }
 
 /** Map live WS per-pod rows to inspector replica tabs (simulation shape). */
@@ -34,28 +34,25 @@ export function replicaBreakdownFromPods(
 ): ReplicaInspectorRow[] {
   const cpuLimitPerPod = perReplicaLimit(cpuLimitCores, pods.length)
   const memLimitPerPod = perReplicaLimit(memoryLimitBytes, pods.length)
-  const memFallbackBytes = 512 * 1024 * 1024
 
   return pods.map((p, i) => {
-    const cpuPercent =
+    const cpuPercent: number | null =
       cpuLimitPerPod > 0
         ? Math.min(100, (p.cpuUsage / cpuLimitPerPod) * 100)
-        : Math.min(100, p.cpuUsage * 100)
+        : null
     const memoryGb =
       p.memoryBytes > 0 ? p.memoryBytes / (1024 * 1024 * 1024) : 0
-    const memPercent =
+    const memPercent: number | null =
       p.memoryBytes > 0 && memLimitPerPod > 0
         ? Math.min(100, (p.memoryBytes / memLimitPerPod) * 100)
-        : p.memoryBytes > 0
-          ? Math.min(100, (p.memoryBytes / memFallbackBytes) * 100)
-          : 0
-    const util = cpuPercent / 100
+        : null
+    const util = (cpuPercent ?? 0) / 100
     return {
       podName: p.name,
       ready: p.ready,
       label: shortPodLabel(p.name, i),
       qps: p.requestRate,
-      cpuPercent,
+      cpuPercent: cpuPercent ?? 0,
       memoryGb,
       memoryBytes: p.memoryBytes,
       latencyMs: p.p99LatencyMs,

@@ -123,13 +123,9 @@ export function componentToBucket(cm: WsComponentMetrics): MetricsBucket {
     (cm.avgLatency ?? 0) > 0 ? (cm.avgLatency as number) : avgFromDbMs
 
   const cpuPercent =
-    cpuLimit > 0
-      ? pctFromLimit(cpu, cpuLimit)
-      : utilizationPercent(cpu, 0, 1)
+    cpuLimit > 0 ? pctFromLimit(cpu, cpuLimit) : 0
   const memPercent =
-    memLimit > 0
-      ? pctFromLimit(mem, memLimit)
-      : utilizationPercent(mem, 0, 512 * 1024 * 1024)
+    memLimit > 0 ? pctFromLimit(mem, memLimit) : 0
 
   return {
     cpuUsage: cpu,

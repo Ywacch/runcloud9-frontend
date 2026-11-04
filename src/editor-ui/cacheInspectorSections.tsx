@@ -204,7 +204,7 @@ const REDIS_MEMORY_HELP =
   'Memory shows Redis used memory compared with maxmemory, not the raw size of stored values.'
 
 /** Redis-backed cards: explain what the memory number actually measures. */
-function cacheMemoryHelp(m: MetricsBucket, memPercent: number): string | undefined {
+function cacheMemoryHelp(m: MetricsBucket, memPercent: number | null): string | undefined {
   if (m.memIsEstimated) return memoryUsageHelp(m, memPercent)
   return REDIS_MEMORY_HELP
 }
@@ -371,7 +371,9 @@ function layerProcessCard(
   }
   const cpuLabel = formatResourceLabels(layerBucket, cpuPercent, memPercent).cpu
   const memLabel = `${fmtBytes(layer.memoryBytes)}${
-    layer.memoryLimit > 0 ? ` · ${memPercent.toFixed(1)}%` : ''
+    layer.memoryLimit > 0 && memPercent != null
+      ? ` · ${memPercent.toFixed(1)}%`
+      : ''
   }`
   const pods = podsForLayer(layer, m.runtimeHealth)
   const restartCount = layer.restartCount ?? 0

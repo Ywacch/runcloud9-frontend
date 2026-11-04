@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
-import { clampPercent } from './format'
+import { clampPercent, FMT_UTIL_UNKNOWN } from './format'
 import {
   formatDbClusterResourceLabels,
   formatResourceLabels,
@@ -101,11 +101,11 @@ describe('tooltip resource labels', () => {
     expect(labels.mem).toContain('MB')
   })
 
-  it('shows percent-only memory when limit is unknown', () => {
+  it('shows em dash for memory percent in canvas tooltip when limit is unknown', () => {
     const b = bucket({ memoryLimit: 0 })
     const memPct = clampPercent(b.memPercent)
     const labels = formatResourceLabels(b, 8, memPct)
-    expect(tooltipMemoryDisplay(b, memPct, labels.mem)).toBe('47%')
+    expect(tooltipMemoryDisplay(b, memPct, labels.mem)).toBe(FMT_UTIL_UNKNOWN)
   })
 
   it('keeps full memory label in tooltip when estimated', () => {
