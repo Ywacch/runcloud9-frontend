@@ -183,10 +183,13 @@ export function previewWorkQueueRedis(
         summary: 'Share requires a Redis timeline or hot-cache node',
       }
     }
+    const extraCacheIds = nodes
+      .filter((n) => n.type === 'cache' && n.id !== dataCacheId)
+      .map((n) => n.id)
     return {
       jobId,
       engine: eng,
-      removeNodeIds: removeMqIfIdle(dataCacheId),
+      removeNodeIds: [...removeMqIfIdle(dataCacheId), ...extraCacheIds],
       bindToNodeId: dataCacheId,
       patchNodeId: null,
       createNode: null,
@@ -490,6 +493,29 @@ export function applyEngineChangePreview(
       renameStockLabel(ops, host, preview.engine)
     }
     ops.setJobBinding(jobId, preview.patchNodeId)
+  }
+  const keepId = preview.bindToNodeId
+  if (keepId) {
+    for (const id of preview.removeNodeIds) {
+      if (!ops.nodes[id] || id === keepId) continue
+      const incident = Object.values(ops.edges).filter(
+        (edge) => edge.sourceId === id || edge.targetId === id,
+      )
+      for (const edge of incident) {
+        const sourceId = edge.sourceId === id ? keepId : edge.sourceId
+        const targetId = edge.targetId === id ? keepId : edge.targetId
+        const duplicate = Object.values(ops.edges).some(
+          (other) =>
+            other.id !== edge.id &&
+            other.sourceId === sourceId &&
+            other.targetId === targetId,
+        )
+        ops.removeEdge(edge.id)
+        if (!duplicate && sourceId !== targetId) {
+          ops.addEdge({ ...edge, sourceId, targetId })
+        }
+      }
+    }
   }
   for (const id of preview.removeNodeIds) {
     if (ops.nodes[id]) ops.removeNode(id)

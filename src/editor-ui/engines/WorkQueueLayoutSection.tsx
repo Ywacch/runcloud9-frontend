@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { buildJobsPanelModel } from '../../lib/engines/jobsPanelModel'
 import {
@@ -37,6 +37,25 @@ export function WorkQueueLayoutSection() {
 
   if (!layout) return null
 
+  return <WorkQueueLayoutButtons current={layout.current} />
+}
+
+function WorkQueueLayoutButtons({
+  current,
+}: {
+  current: WorkQueueRedisMode | null
+}) {
+  const nodes = useCanvasStore((s) => s.nodes)
+  const exportJSON = useCanvasStore((s) => s.exportJSON)
+  const cacheCount = Object.values(nodes).filter((node) => node.type === 'cache').length
+
+  useEffect(() => {
+    if (current !== 'share' || cacheCount < 2) return
+    const preview = previewWorkQueueRedis(exportJSON(), 'share')
+    if (!preview.removeNodeIds.some((id) => nodes[id]?.type === 'cache')) return
+    applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
+  }, [current, cacheCount, nodes, exportJSON])
+
   const apply = (next: WorkQueueRedisMode) => {
     const preview = previewWorkQueueRedis(exportJSON(), next)
     applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
@@ -48,25 +67,25 @@ export function WorkQueueLayoutSection() {
       <div className="btn-stack flex flex-col gap-1.5">
         <button
           type="button"
-          className={`sl-btn w-full${layout.current === 'share' ? ' is-on' : ''}`}
-          aria-pressed={layout.current === 'share'}
+          className={`sl-btn w-full${current === 'share' ? ' is-on' : ''}`}
+          aria-pressed={current === 'share'}
           onClick={() => apply('share')}
         >
           One Redis
         </button>
         <button
           type="button"
-          className={`sl-btn w-full${layout.current === 'separate' ? ' is-on' : ''}`}
-          aria-pressed={layout.current === 'separate'}
+          className={`sl-btn w-full${current === 'separate' ? ' is-on' : ''}`}
+          aria-pressed={current === 'separate'}
           onClick={() => apply('separate')}
         >
           Two Redis nodes
         </button>
       </div>
       <p className="mt-1.5 text-[11px] leading-snug text-[var(--c9-muted)]">
-        {layout.current === 'separate'
+        {current === 'separate'
           ? 'The queue has its own Redis.'
-          : layout.current === 'share'
+          : current === 'share'
             ? 'The queue shares the timeline Redis.'
             : 'Choose one Redis or a second Redis for the queue.'}
       </p>

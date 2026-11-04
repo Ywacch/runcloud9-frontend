@@ -93,7 +93,7 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from '../editor-core/stores/canvasStore'
-import { buildJobsPanelModel } from '../lib/engines/jobsPanelModel'
+import { buildJobsPanelModel, isDedicatedWorkQueueCache } from '../lib/engines/jobsPanelModel'
 import {
   cacheBrowsePatterns,
   workQueueOnRedis,
@@ -273,12 +273,37 @@ export function InspectorPanel() {
       getTopologyFlags(nodes),
       storytelling,
     )
+    if (
+      isDedicatedWorkQueueCache(
+        node.id,
+        snapshotTemplateId,
+        Object.values(nodes),
+        jobBindings,
+      )
+    ) {
+      return 'Work queue'
+    }
     if (node.type !== 'cache') return text
     return withCacheEngineName(
       text,
       String(node.config.cacheEngine ?? node.config.engine ?? 'redis'),
     )
-  }, [node, snapshotTemplateId, nodes, storytelling])
+  }, [node, snapshotTemplateId, nodes, storytelling, jobBindings])
+  const queueOnlyRedis =
+    node != null &&
+    isDedicatedWorkQueueCache(
+      node.id,
+      snapshotTemplateId,
+      Object.values(nodes),
+      jobBindings,
+    )
+  const workQueueOnThisNode = useMemo(() => {
+    if (!node) return false
+    return (
+      buildJobsPanelModel(exportJSON(), null).find((row) => row.jobId === 'work_queue')
+        ?.nodeId === node.id
+    )
+  }, [node, nodes, jobBindings, snapshotTemplateId, exportJSON])
   const open = node !== null
   const liveMode = mode === 'live'
   const simulationMode = mode === 'simulate'
@@ -712,7 +737,17 @@ export function InspectorPanel() {
                     />
                   </section>
                 ) : null}
-                {!clientInert && liveTab === 'data' && inspectorDeployment && node.type === 'cache' ? (
+                {!clientInert && liveTab === 'data' && inspectorDeployment && node.type === 'cache' && queueOnlyRedis ? (
+                  <section className="sec">
+                    <CacheBrowser
+                      deploymentId={inspectorDeployment}
+                      component="cache"
+                      keyPatterns={cacheBrowse.streamKeys}
+                      streamKeys={cacheBrowse.streamKeys}
+                    />
+                  </section>
+                ) : null}
+                {!clientInert && liveTab === 'data' && inspectorDeployment && node.type === 'cache' && !queueOnlyRedis ? (
                   <section className="sec">
                     {String(node.config.cacheEngine ?? node.config.engine ?? 'redis') ===
                     'memcached' ? (
@@ -725,8 +760,14 @@ export function InspectorPanel() {
                       <CacheBrowser
                         deploymentId={inspectorDeployment}
                         component={canvasToBackend[node.type]}
-                        keyPatterns={cacheBrowse.patterns}
-                        streamKeys={cacheBrowse.streamKeys}
+                        keyPatterns={
+                          workQueueOnThisNode
+                            ? cacheBrowse.patterns
+                            : cacheBrowse.patterns.filter(
+                                (pattern) => !cacheBrowse.streamKeys.includes(pattern),
+                              )
+                        }
+                        streamKeys={workQueueOnThisNode ? cacheBrowse.streamKeys : []}
                       />
                     )}
                   </section>
@@ -1324,6 +1365,13 @@ function TypeFields({
     currentUser?.isInternal === true ||
     resolveEffectiveTier(userRecord) === 'internal'
   const c = node.config
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
+  const queueOnlyRedis = isDedicatedWorkQueueCache(
+    node.id,
+    templateId,
+    Object.values(nodes),
+    jobBindings,
+  )
 
   switch (node.type) {
     case 'load_balancer': {
@@ -1927,6 +1975,26 @@ function TypeFields({
     }
 
     case 'cache':
+      if (queueOnlyRedis) {
+        return (
+          <>
+            <p className="note">
+              <b>i</b>
+              Work queue. This Redis holds the stream. It does not store the timeline.
+              Eviction stays off so the stream is not deleted.
+            </p>
+            <ResourceProfileFields
+              idPrefix="work-queue"
+              nodeType="cache"
+              config={c}
+              showDefaultOption
+              updateConfig={updateConfig}
+              readOnly={readOnly}
+              maxInstanceSize={maxInstanceSize}
+            />
+          </>
+        )
+      }
       return (
         <CacheNodeInspectorFields
           node={node}
