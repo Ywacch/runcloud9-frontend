@@ -7,6 +7,8 @@ import {
   WARNING_MEM,
 } from '../editor-core/domain/healthThresholds'
 import type { CanvasEdge, CanvasNode } from '../editor-core/stores/canvasStore'
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { isDedicatedWorkQueueCache } from '../lib/engines/jobsPanelModel'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { formatCacheLatencyMs } from '../lib/cacheLatencyLabel'
@@ -157,7 +159,16 @@ export interface StacklabInspectorPaneProps {
 
 export function StacklabInspectorPane(props: StacklabInspectorPaneProps) {
   const { node } = props
-  switch (node.type) {
+  const templateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
+  const nodes = useCanvasStore((s) => s.nodes)
+  const queueOnlyRedis = isDedicatedWorkQueueCache(
+    node.id,
+    templateId,
+    Object.values(nodes ?? {}),
+    jobBindings,
+  )
+  switch (queueOnlyRedis ? 'message_queue' : node.type) {
     case 'compute':
       return <ComputePane {...props} />
     case 'database':

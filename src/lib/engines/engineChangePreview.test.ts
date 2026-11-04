@@ -114,6 +114,42 @@ describe('previewJobEngineChange', () => {
     expect(canShareWorkQueueRedis(source)).toBe(true)
   })
 
+  it('share removes a leftover second redis and keeps the timeline node', () => {
+    const source = snapWithMq()
+    source.nodes = [
+      ...source.nodes,
+      {
+        id: 'cache-q',
+        type: 'cache',
+        label: 'Redis',
+        position: [3, 0, 0],
+        config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+        status: 'idle',
+      },
+    ]
+    source.edges = [
+      {
+        id: 'e-app-q',
+        sourceId: 'db-1',
+        targetId: 'cache-q',
+        protocol: 'tcp',
+        animated: false,
+      },
+    ]
+    source.jobBindings = { work_queue: 'cache-1', timeline: 'cache-1' }
+    const preview = previewWorkQueueRedis(source, 'share')
+    expect(preview.bindToNodeId).toBe('cache-1')
+    expect(preview.removeNodeIds).toContain('cache-q')
+    const ops = memoryOps(source)
+    applyEngineChangePreview(preview, 'work_queue', ops)
+    expect(ops.nodes['cache-q']).toBeUndefined()
+    expect(ops.nodes['cache-1']).toBeDefined()
+    expect(ops.jobBindings.work_queue).toBe('cache-1')
+    expect(Object.values(ops.edges).some((edge) => edge.targetId === 'cache-1')).toBe(
+      true,
+    )
+  })
+
   it('shares work_queue redis with timeline cache and removes mq when unused', () => {
     const preview = previewWorkQueueRedis(snapWithMq(), 'share')
     expect(preview.bindToNodeId).toBe('cache-1')

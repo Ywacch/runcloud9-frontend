@@ -142,3 +142,21 @@ export function jobBadgeLabelsForNode(
   }
   return out
 }
+
+/** True when this cache is the Redis work queue and not the timeline or hot cache. */
+export function isDedicatedWorkQueueCache(
+  nodeId: string,
+  templateId: string | null | undefined,
+  nodes: CanvasNode[],
+  jobBindings?: Record<string, string> | null,
+): boolean {
+  const resolved = resolvedJobNodeIds(templateId, nodes, jobBindings)
+  if (resolved.work_queue !== nodeId) return false
+  if (resolved.timeline === nodeId || resolved.hot_cache === nodeId) return false
+  const node = nodes.find((n) => n.id === nodeId)
+  if (!node || node.type !== 'cache') return false
+  const eng = String(node.config.cacheEngine ?? node.config.engine ?? '')
+    .trim()
+    .toLowerCase()
+  return eng === '' || eng === 'redis'
+}

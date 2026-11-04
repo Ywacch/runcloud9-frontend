@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasSnapshot } from '../../editor-core/stores/canvasStore'
 import type { MetaJobsResponse } from '../api'
-import { buildJobsPanelModel } from './jobsPanelModel'
+import { buildJobsPanelModel, isDedicatedWorkQueueCache } from './jobsPanelModel'
 
 const catalog: MetaJobsResponse = {
   catalogVersion: '2',
@@ -136,5 +136,44 @@ describe('buildJobsPanelModel', () => {
     expect(queue?.candidateNodeIds).toEqual(['cache-1', 'mq-1'])
     expect(queue?.allowedEngines).toEqual(['rabbitmq', 'redis'])
     expect(queue?.nodeId).toBe('mq-1')
+  })
+
+  it('marks only the queue redis as the work queue', () => {
+    const nodes = [
+      {
+        id: 'cache-1',
+        type: 'cache' as const,
+        label: 'Redis',
+        position: [0, 0, 0] as [number, number, number],
+        config: { strategy: 'timeline-store' },
+        status: 'idle' as const,
+      },
+      {
+        id: 'cache-q',
+        type: 'cache' as const,
+        label: 'Redis',
+        position: [1, 0, 0] as [number, number, number],
+        config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+        status: 'idle' as const,
+      },
+    ]
+    expect(
+      isDedicatedWorkQueueCache('cache-q', 'social-feed', nodes, {
+        work_queue: 'cache-q',
+        timeline: 'cache-1',
+      }),
+    ).toBe(true)
+    expect(
+      isDedicatedWorkQueueCache('cache-1', 'social-feed', nodes, {
+        work_queue: 'cache-q',
+        timeline: 'cache-1',
+      }),
+    ).toBe(false)
+    expect(
+      isDedicatedWorkQueueCache('cache-1', 'social-feed', nodes, {
+        work_queue: 'cache-1',
+        timeline: 'cache-1',
+      }),
+    ).toBe(false)
   })
 })

@@ -1,5 +1,7 @@
+import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
+import { isDedicatedWorkQueueCache } from './engines/jobsPanelModel'
 import { isLayeredCache } from './cacheLayerDisplay'
 import { clampReadReplicas } from './replicaConfig'
 
@@ -64,6 +66,7 @@ export function metricGroupsForNode(
       return DB_GROUPS
     }
     case 'cache':
+      if (isDedicatedWorkQueueNode(node)) return MQ_GROUPS
       return cacheGroupsForNode(node, m)
     case 'message_queue':
       return MQ_GROUPS
@@ -86,6 +89,16 @@ function cacheGroupsForNode(
     strategy === 'read-through'
   if (!layered) return CACHE_GROUPS_BASE
   return [...CACHE_GROUPS_BASE, CACHE_PROXY_GROUP]
+}
+
+function isDedicatedWorkQueueNode(node: CanvasNode): boolean {
+  const state = useCanvasStore.getState()
+  return isDedicatedWorkQueueCache(
+    node.id,
+    state.snapshotTemplateId,
+    Object.values(state.nodes ?? {}),
+    state.jobBindings,
+  )
 }
 
 function filterReplicaGroup(
