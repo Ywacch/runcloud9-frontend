@@ -96,7 +96,7 @@ function isDedicatedWorkQueueNode(node: CanvasNode): boolean {
   return isDedicatedWorkQueueCache(
     node.id,
     state.snapshotTemplateId,
-    Object.values(state.nodes),
+    Object.values(state.nodes ?? {}),
     state.jobBindings,
   )
 }

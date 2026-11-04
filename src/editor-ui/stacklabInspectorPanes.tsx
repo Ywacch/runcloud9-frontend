@@ -165,7 +165,7 @@ export function StacklabInspectorPane(props: StacklabInspectorPaneProps) {
   const queueOnlyRedis = isDedicatedWorkQueueCache(
     node.id,
     templateId,
-    Object.values(nodes),
+    Object.values(nodes ?? {}),
     jobBindings,
   )
   switch (queueOnlyRedis ? 'message_queue' : node.type) {
