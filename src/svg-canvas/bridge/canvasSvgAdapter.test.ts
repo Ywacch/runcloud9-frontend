@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CanvasNode } from '../../editor-core/stores/canvasStore'
+import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { resolveSkin } from '../skins/engineSkins'
 import { isoToNode } from '../../canvas/utils/positionAdapter'
 import type { MetricsBucket } from '../../editor-core/stores/metricsStore'
 import {
@@ -155,6 +157,40 @@ describe('canvasSvgAdapter config projection', () => {
     expect(svg.engine).toBe('redis')
     expect(svg.topology.replicas).toBe(2)
     expect(svg.x).toBe(canvasPositionToSvgWorld(isoToNode(1, 0)).x)
+  })
+
+  it('uses the message-queue glyph for a redis that only hosts the work queue', () => {
+    const prev = useCanvasStore.getState()
+    const timeline = node({
+      id: 'cache-1',
+      type: 'cache',
+      config: { strategy: 'timeline-store' },
+    })
+    const queue = node({
+      id: 'cache-q',
+      type: 'cache',
+      config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+    })
+    useCanvasStore.setState({
+      snapshotTemplateId: 'social-feed',
+      jobBindings: { work_queue: 'cache-q', timeline: 'cache-1' },
+      nodes: { 'cache-1': timeline, 'cache-q': queue },
+    })
+    try {
+      const svg = canvasNodeToSvgNode(queue)
+      const skin = resolveSkin(svg.archetype, svg.engine)
+      expect(svg.archetype).toBe('message-queue')
+      expect(svg.engine).toBe('redis')
+      expect(skin.logoId).toBe('redis')
+      expect(skin.brandBody).toBeUndefined()
+      expect(canvasNodeToSvgNode(timeline).archetype).toBe('cache')
+    } finally {
+      useCanvasStore.setState({
+        snapshotTemplateId: prev.snapshotTemplateId,
+        jobBindings: prev.jobBindings,
+        nodes: prev.nodes,
+      })
+    }
   })
 
   it('counts live db units from primary and replica layers', () => {

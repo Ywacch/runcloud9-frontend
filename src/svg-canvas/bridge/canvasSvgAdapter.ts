@@ -5,6 +5,8 @@
  */
 import type { ComponentLayerMetrics } from '../../editor-core/domain/metricsUiContract'
 import type { CanvasNode } from '../../editor-core/stores/canvasStore'
+import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { isDedicatedWorkQueueCache } from '../../lib/engines/jobsPanelModel'
 import type { MetricsBucket } from '../../editor-core/stores/metricsStore'
 import { isoToNode, nodeToIso } from '../../canvas/utils/positionAdapter'
 import {
@@ -203,7 +205,16 @@ export function configPatchForShards(shards: number): Record<string, unknown> {
 }
 
 export function canvasNodeToSvgNode(node: CanvasNode): SvgNode {
-  const archetype = canvasTypeToArchetype(node.type)
+  const canvas = useCanvasStore.getState()
+  const queueOnly = isDedicatedWorkQueueCache(
+    node.id,
+    canvas.snapshotTemplateId,
+    Object.values(canvas.nodes ?? {}),
+    canvas.jobBindings,
+  )
+  const archetype = queueOnly
+    ? 'message-queue'
+    : canvasTypeToArchetype(node.type)
   const engine = engineFromCanvasNode(node)
   const replicas = replicasFromCanvasNode(node)
   const shards = shardsFromCanvasNode(node)
