@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { buildJobsPanelModel } from '../../lib/engines/jobsPanelModel'
 import {
@@ -45,23 +45,7 @@ function WorkQueueLayoutButtons({
 }: {
   current: WorkQueueRedisMode | null
 }) {
-  const nodes = useCanvasStore((s) => s.nodes)
   const exportJSON = useCanvasStore((s) => s.exportJSON)
-  const cacheCount = Object.values(nodes).filter((node) => node.type === 'cache').length
-
-  useEffect(() => {
-    if (current !== 'share' || cacheCount < 2) return
-    const preview = previewWorkQueueRedis(exportJSON(), 'share')
-    if (!preview.removeNodeIds.some((id) => nodes[id]?.type === 'cache')) return
-    applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
-  }, [current, cacheCount, nodes, exportJSON])
-
-  useEffect(() => {
-    if (current !== 'separate') return
-    const preview = previewWorkQueueRedis(exportJSON(), 'separate')
-    applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())
-  }, [current, exportJSON])
-
   const apply = (next: WorkQueueRedisMode) => {
     const preview = previewWorkQueueRedis(exportJSON(), next)
     applyEngineChangePreview(preview, 'work_queue', useCanvasStore.getState())

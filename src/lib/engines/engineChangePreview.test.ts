@@ -114,6 +114,62 @@ describe('previewJobEngineChange', () => {
     expect(canShareWorkQueueRedis(source)).toBe(true)
   })
 
+  it('share never removes a node that hosts another job', () => {
+    const ecommerceMemcached: CanvasSnapshot = {
+      version: '1.0',
+      templateId: 'ecommerce',
+      exportedAt: new Date(0).toISOString(),
+      jobBindings: { hot_cache: 'cache-mc', work_queue: 'cache-q' },
+      nodes: [
+        {
+          id: 'db-1',
+          type: 'database',
+          label: 'PostgreSQL',
+          position: [0, 0, 0],
+          config: { engine: 'postgresql' },
+          status: 'idle',
+        },
+        {
+          id: 'cache-mc',
+          type: 'cache',
+          label: 'Memcached',
+          position: [1, 0, 0],
+          config: { cacheEngine: 'memcached', strategy: 'cache-aside' },
+          status: 'idle',
+        },
+        {
+          id: 'cache-q',
+          type: 'cache',
+          label: 'Redis',
+          position: [2, 0, 0],
+          config: { cacheEngine: 'redis', evictionPolicy: 'noeviction' },
+          status: 'idle',
+        },
+      ],
+      edges: [],
+    }
+    expect(canShareWorkQueueRedis(ecommerceMemcached)).toBe(false)
+    const mcShare = previewWorkQueueRedis(ecommerceMemcached, 'share')
+    expect(mcShare.removeNodeIds).not.toContain('cache-mc')
+
+    const socialPostgres: CanvasSnapshot = {
+      ...snapWithMq(),
+      nodes: snapWithMq().nodes.map((node) =>
+        node.id === 'cache-1'
+          ? {
+              ...node,
+              type: 'database' as const,
+              config: { engine: 'postgresql' },
+            }
+          : node,
+      ),
+      jobBindings: { timeline: 'db-1', work_queue: 'mq-1' },
+    }
+    expect(canShareWorkQueueRedis(socialPostgres)).toBe(false)
+    const pgShare = previewWorkQueueRedis(socialPostgres, 'share')
+    expect(pgShare.removeNodeIds).not.toContain('db-1')
+  })
+
   it('share removes a leftover second redis and keeps the timeline node', () => {
     const source = snapWithMq()
     source.nodes = [
