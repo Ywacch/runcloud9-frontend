@@ -403,6 +403,15 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
         lastDeployStatusRef.current = dep.status
         setDeployStatus(dep.status)
 
+        if (dep.status === 'terminating') {
+          setIsTerminating(true)
+          const liveEnding = useCanvasStore.getState()
+          if (liveEnding.mode === 'live') {
+            liveEnding.setLiveSessionEnding(true)
+          }
+          return
+        }
+
         const polled = parseProvisionMetrics(dep.metricsSummary)
         const fields = readDeployQueueFields(dep)
         if (shouldKeepDeployQueueFields(dep.status, polled?.provisionPhase)) {
