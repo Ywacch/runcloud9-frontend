@@ -193,18 +193,24 @@ export function fetchIndexes(
   )
 }
 
-export function fetchKeys(
+/** Empty Redis scans arrive as keys: null. Callers filter that list. */
+export function normalizeKeyScan(res: KeyScanResult): KeyScanResult {
+  return { ...res, keys: Array.isArray(res.keys) ? res.keys : [] }
+}
+
+export async function fetchKeys(
   deploymentId: string,
   component: string,
   pattern?: string,
   cursor?: number,
   count?: number,
 ) {
-  return introspectGet<KeyScanResult>(
+  const res = await introspectGet<KeyScanResult>(
     deploymentId,
     component,
     keysListPath(pattern, cursor, count),
   )
+  return normalizeKeyScan(res)
 }
 
 export function fetchCacheStats(
