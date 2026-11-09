@@ -1,9 +1,19 @@
 import { describe, expect, it, vi } from 'vitest'
-import { withIntrospectTarget } from './introspectApi'
+import { normalizeKeyScan, withIntrospectTarget } from './introspectApi'
 
 vi.mock('./auth', () => ({
   getAccessToken: vi.fn(),
 }))
+
+describe('normalizeKeyScan', () => {
+  it('turns a null key list into an empty list', () => {
+    const res = normalizeKeyScan({
+      keys: null as unknown as [],
+      cursor: 0,
+    })
+    expect(res.keys).toEqual([])
+  })
+})
 
 describe('withIntrospectTarget', () => {
   it('leaves path unchanged for primary or omitted target', () => {

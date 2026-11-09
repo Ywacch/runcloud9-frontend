@@ -107,7 +107,8 @@ export function CacheBrowser({
       else setLoading(true)
       try {
         const res = await fetchKeys(deploymentId, component, pat, 0, SCAN_PAGE_SIZE)
-        setKeys(res.keys)
+        const found = res.keys ?? []
+        setKeys(found)
         setNextCursor(res.cursor)
         setKeyCount(Number.isFinite(res.keyCount) ? Number(res.keyCount) : null)
         if (!opts?.soft) {
@@ -118,11 +119,11 @@ export function CacheBrowser({
             operationCategory: 'scan_keys',
           })
         }
-        if (selection && !res.keys.some((k) => k.key === selection)) {
+        if (selection && !found.some((k) => k.key === selection)) {
           setSelectedKey(null)
         }
-        void loadValues(res.keys)
-        if (selection && res.keys.some((k) => k.key === selection)) {
+        void loadValues(found)
+        if (selection && found.some((k) => k.key === selection)) {
           void reloadSelectedKey(selection)
         }
       } catch (e) {
@@ -154,12 +155,13 @@ export function CacheBrowser({
     setLoading(true)
     try {
       const res = await fetchKeys(deploymentId, component, pattern, nextCursor, SCAN_PAGE_SIZE)
-      setKeys((k) => [...k, ...res.keys])
+      const found = res.keys ?? []
+      setKeys((k) => [...(k ?? []), ...found])
       setNextCursor(res.cursor)
       if (Number.isFinite(res.keyCount)) {
         setKeyCount(Number(res.keyCount))
       }
-      void loadValues(res.keys)
+      void loadValues(found)
     } catch (e) {
       setError(resolveInspectorError(e) || 'Failed to load more keys')
     } finally {
@@ -169,15 +171,16 @@ export function CacheBrowser({
 
   const refresh = () => void scanFromStart(pattern, { soft: true })
 
-  const stringKeys = keys.filter((k) => {
+  const list = keys ?? []
+  const stringKeys = list.filter((k) => {
     const t = k.type.toLowerCase()
     return t === 'string' || t === 'none'
   })
-  const complexKeys = keys.filter((k) => {
+  const complexKeys = list.filter((k) => {
     const t = k.type.toLowerCase()
     return t !== 'string' && t !== 'none'
   })
-  const noExpiryKeys = keys.filter((k) => k.ttl === -1)
+  const noExpiryKeys = list.filter((k) => k.ttl === -1)
 
   const renderKeyCard = (k: KeyInfo) => (
     <SlKeyCard
@@ -230,13 +233,13 @@ export function CacheBrowser({
         />
       ) : null}
 
-      {loading && keys.length === 0 ? (
+      {loading && list.length === 0 ? (
         <p className="note">
           <b>i</b>Scanning keys…
         </p>
       ) : null}
 
-      {!loading && keys.length === 0 ? (
+      {!loading && list.length === 0 ? (
         <p className="note">
           <b>i</b>
           {viewingStream
@@ -254,7 +257,7 @@ export function CacheBrowser({
       {nextCursor > 0 ? (
         <div className="pager">
           <span className="pager-lab">
-            {keys.length.toLocaleString()}
+            {list.length.toLocaleString()}
             {keyCount != null ? ` of ${keyCount.toLocaleString()}` : ''} shown
           </span>
           <button type="button" className="btn ghost" disabled={loading} onClick={() => void loadMore()}>
