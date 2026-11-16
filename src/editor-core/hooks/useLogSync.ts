@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { connectLogsWS } from '../../lib/api'
+import { connectLogsSSE, connectLogsWS } from '../../lib/api'
+import { nextStreamTransport, sseStreamsEnabled } from '../../lib/streamTransport'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useLogStore, type RawLogLine } from '../stores/logStore'
 import { shouldVerifyDeploymentAfterWsRetries } from './wsMaxRetryPolicy'
@@ -9,6 +10,13 @@ import {
   isWsConnectionStale,
   wsReconnectDelayMs,
 } from './wsStaleWatchdog'
+
+const LOGS_FALLBACK_WARNING = 'Live logs connection dropped. Reconnecting...'
+
+const EVENTSOURCE_CONNECTING = 0
+const EVENTSOURCE_CLOSED = 2
+
+type LogStream = WebSocket | EventSource
 
 function isLogLine(x: unknown): x is RawLogLine {
   if (typeof x !== 'object' || x === null) return false
@@ -40,7 +48,8 @@ function ingestPayload(raw: unknown): void {
 
 export function useLogSync(deploymentId: string | null): void {
   const retryRef = useRef(0)
-  const wsRef = useRef<WebSocket | null>(null)
+  const failedOpensRef = useRef(0)
+  const streamRef = useRef<LogStream | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFrameAtRef = useRef(0)
   const connectedAtRef = useRef(0)
@@ -49,6 +58,7 @@ export function useLogSync(deploymentId: string | null): void {
 
   useEffect(() => {
     retryRef.current = 0
+    failedOpensRef.current = 0
     lastFrameAtRef.current = 0
     connectedAtRef.current = 0
     staleCloseRef.current = false
@@ -72,57 +82,140 @@ export function useLogSync(deploymentId: string | null): void {
       lastFrameAtRef.current = 0
       connectedAtRef.current = Date.now()
       staleCheckRef.current = setInterval(() => {
-        const ws = wsRef.current
-        if (!ws) return
+        const stream = streamRef.current
+        if (!stream) return
         if (
-          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, Date.now(), {
-            connectedAt: connectedAtRef.current,
-          })
+          isWsConnectionStale(
+            stream.readyState,
+            lastFrameAtRef.current,
+            Date.now(),
+            {
+              connectedAt: connectedAtRef.current,
+            },
+          )
         ) {
           staleCloseRef.current = true
           retryRef.current = 0
-          ws.close()
+          if (stream instanceof WebSocket) {
+            stream.close()
+          } else {
+            stream.close()
+          }
         }
       }, WS_STALE_CHECK_INTERVAL_MS)
     }
 
-    const closeWs = () => {
-      if (wsRef.current) {
-        wsRef.current.onopen = null
-        wsRef.current.onclose = null
-        wsRef.current.onerror = null
-        wsRef.current.onmessage = null
-        wsRef.current.close()
-        wsRef.current = null
+    const closeStream = () => {
+      const stream = streamRef.current
+      if (!stream) return
+      if (stream instanceof WebSocket) {
+        stream.onopen = null
+        stream.onclose = null
+        stream.onerror = null
+        stream.onmessage = null
+        stream.close()
+      } else {
+        stream.onopen = null
+        stream.onmessage = null
+        stream.onerror = null
+        stream.close()
       }
+      streamRef.current = null
     }
 
     if (!deploymentId) {
       clearTimer()
       clearStaleCheck()
-      closeWs()
+      closeStream()
       return
+    }
+
+    const handleLogMessage = (raw: string) => {
+      retryRef.current = 0
+      failedOpensRef.current = 0
+      lastFrameAtRef.current = Date.now()
+      try {
+        const data = JSON.parse(raw) as unknown
+        ingestPayload(data)
+      } catch {
+        /* ignore bad frame */
+      }
+    }
+
+    const scheduleReconnectAfterClose = () => {
+      streamRef.current = null
+      clearStaleCheck()
+      const wasStaleClose = staleCloseRef.current
+      staleCloseRef.current = false
+      if (useCanvasStore.getState().deploymentId !== deploymentId) return
+      if (wasStaleClose) {
+        const delay = wsReconnectDelayMs(retryRef.current)
+        retryRef.current += 1
+        timerRef.current = setTimeout(connect, delay)
+        return
+      }
+      if (shouldVerifyDeploymentAfterWsRetries(retryRef.current)) {
+        scheduleWsReconnectAfterMaxRetries({
+          deploymentId,
+          warningMessage: LOGS_FALLBACK_WARNING,
+          retryRef,
+          timerRef,
+          connect,
+        })
+        return
+      }
+      const delay = wsReconnectDelayMs(retryRef.current, false)
+      retryRef.current += 1
+      timerRef.current = setTimeout(connect, delay)
     }
 
     const connect = () => {
       clearTimer()
       clearStaleCheck()
       staleCloseRef.current = false
-      closeWs()
+      closeStream()
+
+      const flagOn = sseStreamsEnabled()
+      const transport = nextStreamTransport(flagOn, failedOpensRef.current)
+
+      if (transport === 'sse') {
+        const es = connectLogsSSE(deploymentId)
+        streamRef.current = es
+        startStaleCheck()
+
+        es.onopen = () => {
+          retryRef.current = 0
+          failedOpensRef.current = 0
+        }
+
+        es.onmessage = (ev) => {
+          handleLogMessage(ev.data)
+        }
+
+        es.onerror = () => {
+          if (es.readyState === EVENTSOURCE_CONNECTING) {
+            failedOpensRef.current += 1
+            es.close()
+            streamRef.current = null
+            clearStaleCheck()
+            const delay = wsReconnectDelayMs(retryRef.current)
+            retryRef.current += 1
+            timerRef.current = setTimeout(connect, delay)
+            return
+          }
+          if (es.readyState === EVENTSOURCE_CLOSED) {
+            scheduleReconnectAfterClose()
+          }
+        }
+        return
+      }
 
       const ws = connectLogsWS(deploymentId)
-      wsRef.current = ws
+      streamRef.current = ws
       startStaleCheck()
 
       ws.onmessage = (ev) => {
-        retryRef.current = 0
-        lastFrameAtRef.current = Date.now()
-        try {
-          const data = JSON.parse(ev.data as string) as unknown
-          ingestPayload(data)
-        } catch {
-          /* ignore bad frame */
-        }
+        handleLogMessage(ev.data as string)
       }
 
       ws.onerror = () => {
@@ -130,30 +223,7 @@ export function useLogSync(deploymentId: string | null): void {
       }
 
       ws.onclose = () => {
-        wsRef.current = null
-        clearStaleCheck()
-        const wasStaleClose = staleCloseRef.current
-        staleCloseRef.current = false
-        if (useCanvasStore.getState().deploymentId !== deploymentId) return
-        if (wasStaleClose) {
-          const delay = wsReconnectDelayMs(retryRef.current)
-          retryRef.current += 1
-          timerRef.current = setTimeout(connect, delay)
-          return
-        }
-        if (shouldVerifyDeploymentAfterWsRetries(retryRef.current)) {
-          scheduleWsReconnectAfterMaxRetries({
-            deploymentId,
-            warningMessage: 'Live logs connection dropped. Reconnecting...',
-            retryRef,
-            timerRef,
-            connect,
-          })
-          return
-        }
-        const delay = wsReconnectDelayMs(retryRef.current, false)
-        retryRef.current += 1
-        timerRef.current = setTimeout(connect, delay)
+        scheduleReconnectAfterClose()
       }
     }
 
@@ -162,7 +232,7 @@ export function useLogSync(deploymentId: string | null): void {
     return () => {
       clearTimer()
       clearStaleCheck()
-      closeWs()
+      closeStream()
     }
   }, [deploymentId])
 }

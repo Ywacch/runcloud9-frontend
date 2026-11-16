@@ -58,6 +58,20 @@ export function buildWsBaseForApi(apiBase: string, current: Location): string {
   return `${proto}://${current.host}${apiBase}`
 }
 
+export function buildHttpBaseForApi(apiBase: string, current: Location): string {
+  if (/^https?:\/\//i.test(apiBase)) {
+    const parsed = new URL(apiBase)
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname}`
+  }
+  return `${current.protocol}//${current.host}${apiBase}`
+}
+
+function deploymentStreamUrl(id: string, suffix: 'metrics' | 'logs'): string {
+  const base = `${buildHttpBaseForApi(API_BASE, location)}/${encodeURIComponent(id)}/${suffix}`
+  const token = getAccessToken()
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base
+}
+
 export interface TopologyWarning {
   code: string
   message: string
@@ -856,6 +870,14 @@ export function connectLogsWS(id: string): WebSocket {
   const token = getAccessToken()
   const url = token ? `${base}?token=${encodeURIComponent(token)}` : base
   return new WebSocket(url)
+}
+
+export function connectMetricsSSE(id: string): EventSource {
+  return new EventSource(deploymentStreamUrl(id, 'metrics'))
+}
+
+export function connectLogsSSE(id: string): EventSource {
+  return new EventSource(deploymentStreamUrl(id, 'logs'))
 }
 
 export function connectChatWS(id: string): WebSocket {
