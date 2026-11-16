@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { connectMetricsWS, getDeployment } from '../../lib/api'
+import { connectMetricsSSE, connectMetricsWS, getDeployment } from '../../lib/api'
 import {
   exitLiveSessionDueToRemoteEnd,
   isTerminalDeploymentStatus,
 } from '../../lib/sessionCapture'
 import { saveWsEventsJson } from '../../lib/wsEventsPersist'
+import { nextStreamTransport, sseStreamsEnabled } from '../../lib/streamTransport'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useMetricsStore } from '../stores/metricsStore'
 import {
@@ -28,10 +29,20 @@ import {
   applyWsFrameToStore,
   parseServerTimestamp,
 } from '../playback/wsMetricsFrame'
+import { parseMetricsStreamPayload } from '../playback/ssePayload'
 import type { WsDeploymentMetrics } from '../playback/wsMetricsTypes'
 
 const TRANSPORT_RECONNECT_WARNING =
   'Live metrics connection dropped. Reconnecting...'
+
+const EVENTSOURCE_CONNECTING = 0
+const EVENTSOURCE_CLOSED = 2
+
+type MetricsStream = WebSocket | EventSource
+
+function streamReadyState(stream: MetricsStream): number {
+  return stream.readyState
+}
 
 function ingestWsFrame(payload: WsDeploymentMetrics): void {
   const playback = isMetricsPlaybackEnabled()
@@ -58,7 +69,8 @@ function ingestWsFrame(payload: WsDeploymentMetrics): void {
 
 export function useMetricsSync(deploymentId: string | null): void {
   const retryRef = useRef(0)
-  const wsRef = useRef<WebSocket | null>(null)
+  const failedOpensRef = useRef(0)
+  const streamRef = useRef<MetricsStream | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFrameAtRef = useRef(0)
@@ -69,6 +81,7 @@ export function useMetricsSync(deploymentId: string | null): void {
 
   useEffect(() => {
     retryRef.current = 0
+    failedOpensRef.current = 0
     lastFrameAtRef.current = 0
     connectedAtRef.current = 0
     staleCloseRef.current = false
@@ -100,20 +113,29 @@ export function useMetricsSync(deploymentId: string | null): void {
       lastFrameAtRef.current = 0
       connectedAtRef.current = Date.now()
       staleCheckRef.current = setInterval(() => {
-        const ws = wsRef.current
-        if (!ws) return
+        const stream = streamRef.current
+        if (!stream) return
         const store = useMetricsStore.getState()
         const now = Date.now()
         if (
-          isWsConnectionStale(ws.readyState, lastFrameAtRef.current, now, {
-            connectedAt: connectedAtRef.current,
-            staleThresholdMs: WS_TRANSPORT_DEAD_MS,
-          })
+          isWsConnectionStale(
+            streamReadyState(stream),
+            lastFrameAtRef.current,
+            now,
+            {
+              connectedAt: connectedAtRef.current,
+              staleThresholdMs: WS_TRANSPORT_DEAD_MS,
+            },
+          )
         ) {
           store.setStreamWarning(TRANSPORT_RECONNECT_WARNING)
           staleCloseRef.current = true
           retryRef.current = 0
-          ws.close()
+          if (stream instanceof WebSocket) {
+            stream.close()
+          } else {
+            stream.close()
+          }
           return
         }
         const { snapshotAgeMs, collectPending } = lastPayloadRef.current
@@ -132,22 +154,29 @@ export function useMetricsSync(deploymentId: string | null): void {
       }, WS_STALE_CHECK_INTERVAL_MS)
     }
 
-    const closeWs = () => {
-      if (wsRef.current) {
-        wsRef.current.onopen = null
-        wsRef.current.onclose = null
-        wsRef.current.onerror = null
-        wsRef.current.onmessage = null
-        wsRef.current.close()
-        wsRef.current = null
+    const closeStream = () => {
+      const stream = streamRef.current
+      if (!stream) return
+      if (stream instanceof WebSocket) {
+        stream.onopen = null
+        stream.onclose = null
+        stream.onerror = null
+        stream.onmessage = null
+        stream.close()
+      } else {
+        stream.onopen = null
+        stream.onmessage = null
+        stream.onerror = null
+        stream.close()
       }
+      streamRef.current = null
     }
 
     if (!deploymentId) {
       clearTimer()
       clearStaleCheck()
       clearPersistTimer()
-      closeWs()
+      closeStream()
       stopPlaybackLoop()
       useMetricsStore.getState().setStreamWarning(null)
       return
@@ -166,44 +195,129 @@ export function useMetricsSync(deploymentId: string | null): void {
       }, 350)
     }
 
+    const handleMetricsMessage = (raw: string) => {
+      retryRef.current = 0
+      failedOpensRef.current = 0
+      lastFrameAtRef.current = Date.now()
+      try {
+        const data = parseMetricsStreamPayload(raw)
+        lastPayloadRef.current = {
+          snapshotAgeMs: Number(data.snapshotAgeMs ?? 0),
+          collectPending: Boolean(data.collectPending),
+        }
+        ingestWsFrame(data)
+        schedulePersistWsEvents()
+      } catch {
+        /* ignore bad frame; transport liveness still updated above */
+      }
+    }
+
+    const onStreamOpen = () => {
+      retryRef.current = 0
+      failedOpensRef.current = 0
+      const m = useMetricsStore.getState()
+      if (m.events.length === 0) {
+        m.restorePersistedWsEvents(deploymentId)
+      }
+      if (isMetricsPlaybackEnabled()) {
+        markEventsFired(useMetricsStore.getState().events)
+      }
+    }
+
+    const scheduleReconnectAfterClose = () => {
+      streamRef.current = null
+      clearStaleCheck()
+      const wasStaleClose = staleCloseRef.current
+      staleCloseRef.current = false
+      const st = useCanvasStore.getState()
+      if (st.deploymentId !== deploymentId) return
+      if (wasStaleClose) {
+        const delay = wsReconnectDelayMs(retryRef.current)
+        retryRef.current += 1
+        timerRef.current = setTimeout(connect, delay)
+        return
+      }
+      const maxRetries = 5
+      if (retryRef.current >= maxRetries) {
+        useMetricsStore
+          .getState()
+          .setStreamWarning(TRANSPORT_RECONNECT_WARNING)
+        void getDeployment(deploymentId)
+          .then((dep) => {
+            if (isTerminalDeploymentStatus(dep.status)) {
+              exitLiveSessionDueToRemoteEnd()
+              return
+            }
+            retryRef.current = 0
+            timerRef.current = setTimeout(connect, 2000)
+          })
+          .catch(() => {
+            retryRef.current = 0
+            timerRef.current = setTimeout(connect, 2000)
+          })
+        return
+      }
+      const delay = wsReconnectDelayMs(retryRef.current, false)
+      retryRef.current += 1
+      timerRef.current = setTimeout(connect, delay)
+    }
+
     const connect = () => {
       clearTimer()
       clearStaleCheck()
       staleCloseRef.current = false
-      closeWs()
+      closeStream()
       if (isMetricsPlaybackEnabled()) {
         reconnectPlaybackBuffer()
       }
 
+      const flagOn = sseStreamsEnabled()
+      const transport = nextStreamTransport(flagOn, failedOpensRef.current)
+      if (flagOn && failedOpensRef.current >= 2) {
+        useMetricsStore.getState().setStreamWarning(TRANSPORT_RECONNECT_WARNING)
+      }
+
+      if (transport === 'sse') {
+        const es = connectMetricsSSE(deploymentId)
+        streamRef.current = es
+        startStaleCheck()
+
+        es.onopen = () => {
+          onStreamOpen()
+        }
+
+        es.onmessage = (ev) => {
+          handleMetricsMessage(ev.data)
+        }
+
+        es.onerror = () => {
+          if (es.readyState === EVENTSOURCE_CONNECTING) {
+            failedOpensRef.current += 1
+            es.close()
+            streamRef.current = null
+            clearStaleCheck()
+            const delay = wsReconnectDelayMs(retryRef.current)
+            retryRef.current += 1
+            timerRef.current = setTimeout(connect, delay)
+            return
+          }
+          if (es.readyState === EVENTSOURCE_CLOSED) {
+            scheduleReconnectAfterClose()
+          }
+        }
+        return
+      }
+
       const ws = connectMetricsWS(deploymentId)
-      wsRef.current = ws
+      streamRef.current = ws
       startStaleCheck()
 
       ws.onopen = () => {
-        retryRef.current = 0
-        const m = useMetricsStore.getState()
-        if (m.events.length === 0) {
-          m.restorePersistedWsEvents(deploymentId)
-        }
-        if (isMetricsPlaybackEnabled()) {
-          markEventsFired(useMetricsStore.getState().events)
-        }
+        onStreamOpen()
       }
 
       ws.onmessage = (ev) => {
-        retryRef.current = 0
-        lastFrameAtRef.current = Date.now()
-        try {
-          const data = JSON.parse(ev.data as string) as WsDeploymentMetrics
-          lastPayloadRef.current = {
-            snapshotAgeMs: Number(data.snapshotAgeMs ?? 0),
-            collectPending: Boolean(data.collectPending),
-          }
-          ingestWsFrame(data)
-          schedulePersistWsEvents()
-        } catch {
-          /* ignore bad frame; transport liveness still updated above */
-        }
+        handleMetricsMessage(ev.data as string)
       }
 
       ws.onerror = () => {
@@ -211,41 +325,7 @@ export function useMetricsSync(deploymentId: string | null): void {
       }
 
       ws.onclose = () => {
-        wsRef.current = null
-        clearStaleCheck()
-        const wasStaleClose = staleCloseRef.current
-        staleCloseRef.current = false
-        const st = useCanvasStore.getState()
-        if (st.deploymentId !== deploymentId) return
-        if (wasStaleClose) {
-          const delay = wsReconnectDelayMs(retryRef.current)
-          retryRef.current += 1
-          timerRef.current = setTimeout(connect, delay)
-          return
-        }
-        const maxRetries = 5
-        if (retryRef.current >= maxRetries) {
-          useMetricsStore
-            .getState()
-            .setStreamWarning(TRANSPORT_RECONNECT_WARNING)
-          void getDeployment(deploymentId)
-            .then((dep) => {
-              if (isTerminalDeploymentStatus(dep.status)) {
-                exitLiveSessionDueToRemoteEnd()
-                return
-              }
-              retryRef.current = 0
-              timerRef.current = setTimeout(connect, 2000)
-            })
-            .catch(() => {
-              retryRef.current = 0
-              timerRef.current = setTimeout(connect, 2000)
-            })
-          return
-        }
-        const delay = wsReconnectDelayMs(retryRef.current, false)
-        retryRef.current += 1
-        timerRef.current = setTimeout(connect, delay)
+        scheduleReconnectAfterClose()
       }
     }
 
@@ -255,7 +335,7 @@ export function useMetricsSync(deploymentId: string | null): void {
       clearTimer()
       clearStaleCheck()
       clearPersistTimer()
-      closeWs()
+      closeStream()
       stopPlaybackLoop()
     }
   }, [deploymentId])
