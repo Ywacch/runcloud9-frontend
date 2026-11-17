@@ -31,6 +31,8 @@ import {
   type EdgeStylePresetId,
 } from '../fx/edgePresets'
 import { walkthroughCssColor } from '../fx/walkthroughChrome'
+import { presentWorld } from '../math/projection'
+import { useProjectionT } from '../store/projectionStore'
 import { faceCenter } from '../routing/attach'
 import { useSvgCanvasStore } from '../store/svgCanvasStore'
 import type { FloorThemeId } from '../theme/floorTheme'
@@ -115,11 +117,27 @@ export function EdgeLayer({
   const archetypeById = modelProp?.archetypeById ?? fallbackArchetype ?? new Map()
   const nodeById = modelProp?.nodeById ?? fallbackNodeById ?? new Map()
   const walkthrough = modelProp?.walkthrough ?? walkthroughFallback
+  const projectionT = useProjectionT()
 
   return (
     <g data-edge-layer>
       {edges.map((edge) => {
-        const pts = edge.waypoints
+        const pts = edge.waypoints.map((p) => presentWorld(p, projectionT))
+        if (pts.length >= 2 && projectionT > 0) {
+          const pull = (nodeId: string, index: number) => {
+            const node = nodeById.get(nodeId)
+            if (!node) return
+            const at = presentWorld(node, projectionT)
+            const face = faceCenter({ ...node, x: at.x, y: at.y }, node.archetype)
+            const p = pts[index]
+            pts[index] = {
+              x: p.x + (face.x - p.x) * projectionT,
+              y: p.y + (face.y - p.y) * projectionT,
+            }
+          }
+          pull(edge.sourceNodeId, 0)
+          pull(edge.targetNodeId, pts.length - 1)
+        }
         if (pts.length < 2) return null
         const isSel = selected.has(edge.id)
         const isHovered = hoveredEdgeId === edge.id
@@ -185,7 +203,13 @@ export function EdgeLayer({
               CONNECTOR_CHEVRON_SHAFT_INSET,
               targetNode
                 ? {
-                    face: faceCenter(targetNode, targetNode.archetype),
+                    face: faceCenter(
+                      {
+                        ...targetNode,
+                        ...presentWorld(targetNode, projectionT),
+                      },
+                      targetNode.archetype,
+                    ),
                     rimExtents: glyphRimExtents(targetNode.archetype),
                   }
                 : undefined,

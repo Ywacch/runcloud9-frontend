@@ -11,6 +11,8 @@ import { getExpandEpoch, subscribeExpand, getExpanded } from '../store/expandSto
 import { getDragLive } from '../store/dragLiveStore'
 import { useDragLiveEpoch } from '../hooks/useEdgeRenderModel'
 import { isoFootprintDiamond } from '../math/iso'
+import { presentWorld } from '../math/projection'
+import { useProjectionT } from '../store/projectionStore'
 import type { SvgNode } from '../store/svgTypes'
 import { liveZonesForNodes } from './liveZonesForNodes'
 
@@ -71,18 +73,21 @@ export function InstanceScopeClusterPickLayer({
     })
   }, [canvasMode, canvasNodes, nodes, selectedIds, metricsPickKey, expandEpoch])
 
+  const projectionT = useProjectionT()
   if (clusterPickZones.length === 0) return null
 
   return (
     <g data-cluster-pick-layer="">
       {clusterPickZones.map((zone) => {
-        const pts = isoFootprintDiamond(
-          zone.originI,
-          zone.originJ,
-          zone.cols,
-          zone.rows,
+        const top = presentWorld(
+          isoFootprintDiamond(
+            zone.originI,
+            zone.originJ,
+            zone.cols,
+            zone.rows,
+          )[0],
+          projectionT,
         )
-        const top = pts[0]
         const opacity = ownerOpacityById?.get(zone.ownerNodeId) ?? 1
         return (
           <g key={zone.id} opacity={opacity}>

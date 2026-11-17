@@ -47,6 +47,23 @@ export function GridPatterns({ theme }: Props) {
           fill="none"
         />
       </pattern>
+      <pattern
+        id="svgGridPatternSquareMinor"
+        width={128}
+        height={128}
+        patternUnits="userSpaceOnUse"
+      >
+        <path d="M64 0 L64 128" stroke={theme.gridMinor} strokeWidth={1} fill="none" />
+        <path d="M0 64 L128 64" stroke={theme.gridMinor} strokeWidth={1} fill="none" />
+      </pattern>
+      <pattern
+        id="svgGridPatternSquareMajor"
+        width={128}
+        height={128}
+        patternUnits="userSpaceOnUse"
+      >
+        <path d="M0 0 L128 0 L128 128 L0 128 Z" stroke={theme.gridMajor} strokeWidth={1.25} fill="none" />
+      </pattern>
     </defs>
   )
 }
