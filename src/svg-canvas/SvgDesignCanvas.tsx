@@ -92,6 +92,9 @@ import { useEdgeRenderModel } from './hooks/useEdgeRenderModel'
 import { useNodeOpacityById } from './hooks/useNodeOpacityById'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
 import { screenToIso, snapWorld, type WorldPoint } from './math/iso'
+import { modelWorld, presentWorld } from './math/projection'
+import { getProjectionT, useProjectionT } from './store/projectionStore'
+import { ProjectionToggle } from './components/ProjectionToggle'
 import { attachPoint } from './routing/attach'
 import { defaultExpanded, resolveDisplayUnits } from './compose/resolveDisplayUnits'
 import { getExpanded, getExpandEpoch, subscribeExpand } from './store/expandStore'
@@ -243,6 +246,14 @@ function clientToWorld(
   return { x: local.x, y: local.y }
 }
 
+function clientToModel(
+  svg: SVGSVGElement,
+  clientX: number,
+  clientY: number,
+): WorldPoint {
+  return modelWorld(clientToWorld(svg, clientX, clientY), getProjectionT())
+}
+
 function anchorsInMarquee(
   nodes: { id: string; x: number; y: number }[],
   m: Marquee,
@@ -262,6 +273,8 @@ export default function SvgDesignCanvas({
   const hostRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
+  const projectionT = useProjectionT()
+  const prevProjectionT = useRef(0)
   const [mode, setMode] = useState<GridMode>(() => readStoredGridMode())
   const setGridMode = useCallback((next: GridMode) => {
     setMode(next)
@@ -374,7 +387,14 @@ export default function SvgDesignCanvas({
       if (!el) return
       const { width, height } = el.getBoundingClientRect()
       if (width < 1 || height < 1) return
-      setView(fitViewToNodes(useSvgCanvasStore.getState().nodes, width, height))
+      const t = getProjectionT()
+      setView(
+        fitViewToNodes(
+          useSvgCanvasStore.getState().nodes.map((n) => presentWorld(n, t)),
+          width,
+          height,
+        ),
+      )
     }
     apply()
     requestAnimationFrame(() => {
@@ -402,6 +422,19 @@ export default function SvgDesignCanvas({
   }, [exporting, floorTheme.hostBg, mode])
 
   useEffect(() => {
+    const prev = prevProjectionT.current
+    if (prev === projectionT) return
+    prevProjectionT.current = projectionT
+    setView((v) => {
+      const cx = v.x + v.w / 2
+      const cy = v.y + v.h / 2
+      const model = modelWorld({ x: cx, y: cy }, prev)
+      const next = presentWorld(model, projectionT)
+      return { ...v, x: next.x - v.w / 2, y: next.y - v.h / 2 }
+    })
+  }, [projectionT])
+
+  useEffect(() => {
     registerCanvasFitScheduler(fitDefault)
     return () => unregisterCanvasFitScheduler()
   }, [fitDefault])
@@ -419,7 +452,7 @@ export default function SvgDesignCanvas({
       if (!detail || !isPaletteNodeType(detail.nodeType)) return
       const svg = svgRef.current
       if (!svg) return
-      const world = clientToWorld(svg, detail.clientX, detail.clientY)
+      const world = clientToModel(svg, detail.clientX, detail.clientY)
       placePickerAtWorld(world.x, world.y, detail.nodeType)
     }
     window.addEventListener(SPAWN_AT_SCREEN, onSpawn)
@@ -506,9 +539,12 @@ export default function SvgDesignCanvas({
     e.preventDefault()
     const svg = svgRef.current
     if (!svg) return
-    const world = clientToWorld(svg, e.clientX, e.clientY)
-    const svgNodes = applySessionLayoutToNodes(useSvgCanvasStore.getState().nodes)
-    const hitId = findSvgNodeIdAtWorldPoint(svgNodes, world.x, world.y)
+    const presented = clientToWorld(svg, e.clientX, e.clientY)
+    const t = getProjectionT()
+    const svgNodes = applySessionLayoutToNodes(useSvgCanvasStore.getState().nodes).map(
+      (n) => ({ ...n, ...presentWorld(n, t) }),
+    )
+    const hitId = findSvgNodeIdAtWorldPoint(svgNodes, presented.x, presented.y)
     const menuStore = useCanvasContextMenuStore.getState()
     if (hitId) {
       menuStore.openNode({
@@ -526,7 +562,10 @@ export default function SvgDesignCanvas({
     menuStore.openCreate({
       clientX: e.clientX,
       clientY: e.clientY,
-      position: svgWorldToCanvasPosition(world.x, world.y),
+      position: svgWorldToCanvasPosition(
+        modelWorld(presented, t).x,
+        modelWorld(presented, t).y,
+      ),
     })
   }, [])
 
@@ -581,7 +620,7 @@ export default function SvgDesignCanvas({
         return
       }
 
-      const world = clientToWorld(svg, e.clientX, e.clientY)
+      const world = clientToModel(svg, e.clientX, e.clientY)
       const origins: Record<string, WorldPoint> = {}
       for (const id of ids) {
         const n = state.nodes.find((x) => x.id === id)
@@ -830,17 +869,17 @@ export default function SvgDesignCanvas({
       const svg = svgRef.current
       if (!svg) return
 
-      const world = clientToWorld(svg, e.clientX, e.clientY)
+      const presented = clientToWorld(svg, e.clientX, e.clientY)
       if (useSvgCanvasStore.getState().connectSourceId && rubberLineRef.current) {
-        rubberLineRef.current.setAttribute('x2', String(world.x))
-        rubberLineRef.current.setAttribute('y2', String(world.y))
+        rubberLineRef.current.setAttribute('x2', String(presented.x))
+        rubberLineRef.current.setAttribute('y2', String(presented.y))
       }
 
       if (marqueeActive.current && marqueeRef.current) {
         const m = {
           ...marqueeRef.current,
-          x1: world.x,
-          y1: world.y,
+          x1: presented.x,
+          y1: presented.y,
         }
         marqueeRef.current = m
         setMarquee(m)
@@ -869,10 +908,11 @@ export default function SvgDesignCanvas({
 
       const session = dragRef.current
       if (!session) return
+      const model = modelWorld(presented, getProjectionT())
       const updated: DragSession = {
         ...session,
-        dx: world.x - session.grabWorld.x,
-        dy: world.y - session.grabWorld.y,
+        dx: model.x - session.grabWorld.x,
+        dy: model.y - session.grabWorld.y,
       }
       dragRef.current = updated
       setDragLive({
@@ -931,8 +971,12 @@ export default function SvgDesignCanvas({
           /* ignore */
         }
         if (m) {
+          const t = getProjectionT()
           const ids = anchorsInMarquee(
-            applySessionLayoutToNodes(useSvgCanvasStore.getState().nodes),
+            applySessionLayoutToNodes(useSvgCanvasStore.getState().nodes).map((n) => ({
+              id: n.id,
+              ...presentWorld(n, t),
+            })),
             m,
           )
           setSelectedIds(ids)
@@ -952,7 +996,7 @@ export default function SvgDesignCanvas({
         }
 
         if (wasClick && svg) {
-          const world = clientToWorld(svg, e.clientX, e.clientY)
+          const world = clientToModel(svg, e.clientX, e.clientY)
           const st = useSvgCanvasStore.getState()
           if (st.connectMode) {
             setConnectSourceId(null)
@@ -1085,10 +1129,10 @@ export default function SvgDesignCanvas({
       rubberFromRef.current = null
       return null
     }
-    const from = attachPoint(n, null)
+    const from = presentWorld(attachPoint(n, null), projectionT)
     rubberFromRef.current = from
     return from
-  }, [connectSourceId, nodes])
+  }, [connectSourceId, nodes, projectionT])
 
   const viewBoxStr = `${view.x} ${view.y} ${view.w} ${view.h}`
   const cursor = marquee
@@ -1156,6 +1200,7 @@ export default function SvgDesignCanvas({
             >
               +
             </button>
+            <ProjectionToggle />
             <button
               type="button"
               className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100"
@@ -1176,6 +1221,11 @@ export default function SvgDesignCanvas({
         </div>
       ) : (
         <>
+          {devToolsVisible ? null : (
+            <div className="absolute bottom-16 left-3 z-20">
+              <ProjectionToggle />
+            </div>
+          )}
           {import.meta.env.DEV && chromeMode !== 'clean' ? (
             <div className="pointer-events-none absolute bottom-20 left-3 z-20">
               <DevTemplateLayoutPreview compact />
@@ -1184,6 +1234,7 @@ export default function SvgDesignCanvas({
           {devToolsVisible ? (
             <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-1.5">
               {debugExtrasVisible ? <FxDemoControls compact /> : null}
+              <ProjectionToggle />
               <GridModeToggle mode={mode} onChange={setGridMode} compact />
               <FloorThemeToggle
                 theme={floorThemeId}
@@ -1267,7 +1318,7 @@ export default function SvgDesignCanvas({
           onPointerCancel={endPointer}
           onContextMenu={onContextMenu}
           role="img"
-          aria-label="Isometric SVG design canvas"
+          aria-label={projectionT < 0.5 ? 'Isometric canvas' : 'Flat canvas'}
         >
           <GridPatterns theme={floorTheme} />
           <HealthRimFilters />
@@ -1286,6 +1337,7 @@ export default function SvgDesignCanvas({
             viewY={view.y}
             viewW={view.w}
             viewH={view.h}
+            t={projectionT}
           />
           <LiveZoneLayer
             zones={zones}

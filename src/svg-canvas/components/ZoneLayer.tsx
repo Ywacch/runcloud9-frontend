@@ -2,6 +2,8 @@ import {
   isoFootprintDiamond,
   pointsAttr,
 } from '../math/iso'
+import { presentWorld } from '../math/projection'
+import { useProjectionT } from '../store/projectionStore'
 import type { SvgZone } from '../store/svgTypes'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
@@ -24,6 +26,7 @@ export function ZoneLayer({
   onZonePointerLeave,
 }: ZoneLayerProps) {
   const selected = new Set(selectedOwnerIds)
+  const projectionT = useProjectionT()
 
   return (
     <g data-zone-layer>
@@ -33,7 +36,7 @@ export function ZoneLayer({
           zone.originJ,
           zone.cols,
           zone.rows,
-        )
+        ).map((p) => presentWorld(p, projectionT))
         const isSel = selected.has(zone.ownerNodeId)
         const top = pts[0]
         const opacity = ownerOpacityById?.get(zone.ownerNodeId) ?? 1

@@ -4,6 +4,8 @@ import { isExpandToggleEligible } from '../compose/expandEligibility'
 import { useDragLiveEpoch, useSessionLayoutEpoch } from '../hooks/useEdgeRenderModel'
 import { getDragLive } from '../store/dragLiveStore'
 import { displayWorldPosition } from '../../lib/sessionLayoutStore'
+import { presentWorld } from '../math/projection'
+import { useProjectionT } from '../store/projectionStore'
 import { useExpanded } from '../store/expandStore'
 import type { SvgNode } from '../store/svgTypes'
 import {
@@ -41,9 +43,10 @@ function NodeChromeRow({
   jobLabels,
 }: NodeChromeRowProps) {
   const drag = getDragLive()
+  const projectionT = useProjectionT()
   const expanded = useExpanded(node)
   const expandEligible = isExpandToggleEligible(node)
-  const placedPos = displayWorldPosition(node, drag)
+  const placedPos = presentWorld(displayWorldPosition(node, drag), projectionT)
   const placed = { ...node, x: placedPos.x, y: placedPos.y }
   const anchors = nodeChromeAnchors(placed)
   const badge = replicaBadgeText(node)

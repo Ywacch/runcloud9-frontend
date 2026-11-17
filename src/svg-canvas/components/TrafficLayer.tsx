@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { presentWorld } from '../math/projection'
+import { useProjectionT } from '../store/projectionStore'
 import type { SvgEdge } from '../store/svgTypes'
 import {
   particleFade,
@@ -72,12 +74,15 @@ export function TrafficLayer({ edges }: TrafficLayerProps) {
     return () => cancelAnimationFrame(frame)
   }, [enabled])
 
+  const projectionT = useProjectionT()
   if (enabled.length === 0) return null
 
   return (
     <g data-traffic-layer style={{ pointerEvents: 'none' }} data-tick={tick}>
       {enabled.map((edge) => {
-        const route = routeFromWaypoints(edge.waypoints)
+        const route = routeFromWaypoints(
+          edge.waypoints.map((p) => presentWorld(p, projectionT)),
+        )
         const particles = particlesRef.current.get(edge.id) ?? []
         return (
           <g key={edge.id} data-traffic-edge={edge.id}>

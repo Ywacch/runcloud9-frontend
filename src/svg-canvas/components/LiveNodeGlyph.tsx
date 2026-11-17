@@ -17,6 +17,8 @@ import {
   subscribeSessionLayout,
 } from '../../lib/sessionLayoutStore'
 import type { SvgNode } from '../store/svgTypes'
+import { presentWorld } from '../math/projection'
+import { useProjectionT } from '../store/projectionStore'
 import { NodeGlyph } from '../glyphs/NodeGlyph'
 
 type LiveNodeGlyphProps = {
@@ -61,7 +63,8 @@ function LiveNodeGlyphInner({
     () => liveKey(node.id),
     () => '',
   )
-  const placed = displayWorldPosition(node, getDragLive())
+  const projectionT = useProjectionT()
+  const placed = presentWorld(displayWorldPosition(node, getDragLive()), projectionT)
   const x = placed.x
   const y = placed.y
 
@@ -106,6 +109,7 @@ function LiveNodeGlyphInner({
         onUnitPointerDown={onUnitPointerDown}
         onUnitPointerEnter={onUnitPointerEnter}
         onUnitPointerLeave={onUnitPointerLeave}
+        projectionT={projectionT}
       />
     </g>
   )

@@ -43,6 +43,7 @@ type NodeGlyphProps = {
   onUnitPointerDown?: (unitIndex: number, e: ReactPointerEvent<SVGGElement>) => void
   onUnitPointerEnter?: (unitIndex: number) => void
   onUnitPointerLeave?: (unitIndex: number) => void
+  projectionT?: number
 }
 
 function motionUnitsFromKey(key: string, fallback: MotionUnit[]): MotionUnit[] {
@@ -68,6 +69,7 @@ function NodeGlyphInner({
   onUnitPointerDown,
   onUnitPointerEnter,
   onUnitPointerLeave,
+  projectionT = 0,
 }: NodeGlyphProps) {
   const canvasMode = useCanvasStore((s) => s.mode)
   const canvasNode = useCanvasStore((s) => s.nodes[node.id])
@@ -193,6 +195,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            projectionT={projectionT}
             {...chaosProps}
           />
         )
@@ -206,6 +209,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            projectionT={projectionT}
             {...chaosProps}
           />
         )
@@ -219,6 +223,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            projectionT={projectionT}
             {...chaosProps}
           />
         )
@@ -232,6 +237,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            projectionT={projectionT}
             {...chaosProps}
           />
         )
@@ -245,6 +251,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            projectionT={projectionT}
             {...chaosProps}
           />
         )
@@ -259,6 +266,7 @@ function NodeGlyphInner({
             logoId={skin.logoId}
             tint={skin.brandTint}
             stableHealthRim={stableHealthRim}
+            projectionT={projectionT}
             {...chaosProps}
           />
         )
@@ -297,7 +305,8 @@ function nodeGlyphPropsEqual(a: NodeGlyphProps, b: NodeGlyphProps): boolean {
     a.onPointerLeave === b.onPointerLeave &&
     a.onUnitPointerDown === b.onUnitPointerDown &&
     a.onUnitPointerEnter === b.onUnitPointerEnter &&
-    a.onUnitPointerLeave === b.onUnitPointerLeave
+    a.onUnitPointerLeave === b.onUnitPointerLeave &&
+    a.projectionT === b.projectionT
   )
 }
 
