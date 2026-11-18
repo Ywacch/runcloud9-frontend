@@ -1,56 +1,35 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
+  type PointerEvent,
 } from 'react'
-import { getTemplates } from '../lib/api'
 import {
   TEMPLATE_COMING_SOON_HINT,
-  TEMPLATE_LIVE_NOT_OFFERED_HINT,
   templateCanLoadInPicker,
-  templateOfferBadge,
 } from '../lib/templateAvailability'
-import {
-  buildTemplateLabFamilies,
-  type TemplateLabFamily,
-  type TemplateLabVariationRow,
-} from '../lib/templateLabRows'
-import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
-import { useTemplateFloorPreviewStore } from '../editor-core/stores/templateFloorPreviewStore'
-import type { TemplateSelectAction } from './TemplateModal'
+import type { TemplateLabFamily, TemplateLabVariationRow } from '../lib/templateLabRows'
+import { familyMetaForKey } from '../lib/templateFamilyMeta'
 import type { TemplateFamilyId } from '../lib/templateFamilyCatalog'
-
-function OfferBadge({ row }: { row: TemplateLabVariationRow }) {
-  const badge = templateOfferBadge(row)
-  if (badge === 'ready') {
-    return (
-      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-        Ready
-      </span>
-    )
-  }
-  if (badge === 'simulation-only') {
-    return (
-      <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-medium text-sky-300">
-        Simulation only
-      </span>
-    )
-  }
-  return (
-    <span className="rounded-full bg-gray-500/25 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-      Coming soon
-    </span>
-  )
-}
+import type { TemplateSelectAction } from './TemplateModal'
+import { useTemplateLabFamilies } from './useTemplateLabFamilies'
+import {
+  useTemplateLabPreviewActions,
+  variationRowKey,
+} from './templateLabPreview'
 
 type Props = {
   disabled?: boolean
   loadedVariationId: string | null
   snapshotTemplateId: string | null
   onPlace: (action: TemplateSelectAction) => boolean | void
+  nodeCount: number
+}
+
+function isFinePointer(e: PointerEvent): boolean {
+  return e.pointerType === 'mouse' || e.pointerType === 'pen'
 }
 
 export function TemplateLabSection({
@@ -58,49 +37,75 @@ export function TemplateLabSection({
   loadedVariationId,
   snapshotTemplateId,
   onPlace,
+  nodeCount,
 }: Props) {
-  const [families, setFamilies] = useState<TemplateLabFamily[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [openFamilyId, setOpenFamilyId] = useState<TemplateFamilyId | null>(
-    'url-shortener',
+  const { families, loading, error } = useTemplateLabFamilies()
+  const [openFamilyId, setOpenFamilyId] = useState<TemplateFamilyId | null>(null)
+  const [rovingId, setRovingId] = useState<string | null>(null)
+  const treeRef = useRef<HTMLUListElement>(null)
+  const ghostTimerRef = useRef<number>(0)
+  const hideTimerRef = useRef<number>(0)
+
+  const { showPreview, clearPreview, isGhostRow } = useTemplateLabPreviewActions(
+    Boolean(disabled),
+    loadedVariationId,
+    snapshotTemplateId,
   )
-  const [focusIndex, setFocusIndex] = useState(0)
-  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    getTemplates()
-      .then((list) => {
-        if (cancelled) return
-        useTemplateRegistryStore.getState().mergeTemplates(list)
-        setFamilies(buildTemplateLabFamilies(list))
-        setError(null)
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load templates')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => clearPreview()
+  }, [clearPreview])
 
-  const openFamily = useMemo(
-    () => families.find((f) => f.family.id === openFamilyId) ?? null,
-    [families, openFamilyId],
+  const selectedKey =
+    snapshotTemplateId && loadedVariationId
+      ? `${snapshotTemplateId}:${loadedVariationId}`
+      : null
+
+  const placed = nodeCount > 0 && Boolean(snapshotTemplateId)
+
+  const wantGhost = useCallback(
+    (row: TemplateLabVariationRow | null) => {
+      window.clearTimeout(hideTimerRef.current)
+      window.clearTimeout(ghostTimerRef.current)
+      ghostTimerRef.current = window.setTimeout(() => {
+        showPreview(row)
+      }, 60)
+    },
+    [showPreview],
   )
 
-  const rows = openFamily?.allVariations ?? []
+  const wantHide = useCallback(() => {
+    window.clearTimeout(ghostTimerRef.current)
+    window.clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = window.setTimeout(() => {
+      clearPreview()
+    }, 90)
+  }, [clearPreview])
+
+  const visibleTreeIds = useCallback((): string[] => {
+    const ids: string[] = []
+    for (const item of families) {
+      ids.push(`lab:${item.family.id}`)
+      if (openFamilyId === item.family.id) {
+        for (const row of item.allVariations) {
+          ids.push(`var:${variationRowKey(row)}`)
+        }
+      }
+    }
+    return ids
+  }, [families, openFamilyId])
+
+  const focusTreeId = (id: string | null) => {
+    if (!id || !treeRef.current) return
+    const el = treeRef.current.querySelector<HTMLElement>(`[data-tree-id="${id}"]`)
+    el?.focus()
+    setRovingId(id)
+  }
 
   const placeRow = useCallback(
     (row: TemplateLabVariationRow) => {
       if (!templateCanLoadInPicker(row)) return false
+      clearPreview()
       return onPlace({
         kind: 'preset',
         id: row.templateId,
@@ -108,149 +113,231 @@ export function TemplateLabSection({
         preset: () => row.snapshot,
       })
     },
-    [onPlace],
+    [clearPreview, onPlace],
   )
 
-  const previewRow = useCallback(
-    (row: TemplateLabVariationRow | null) => {
-      const clear = useTemplateFloorPreviewStore.getState().clearPreview
-      if (!row || disabled) {
-        clear()
-        return
-      }
-      const isPlaced =
-        loadedVariationId === row.variationId &&
-        snapshotTemplateId === row.templateId
-      if (isPlaced) {
-        clear()
-        return
-      }
-      useTemplateFloorPreviewStore
-        .getState()
-        .setPreview(`${row.templateId}:${row.variationId}`, row.snapshot)
-    },
-    [disabled, loadedVariationId, snapshotTemplateId],
-  )
+  const toggleLab = (familyId: TemplateFamilyId) => {
+    setOpenFamilyId((cur) => (cur === familyId ? null : familyId))
+    setRovingId(`lab:${familyId}`)
+  }
 
-  useEffect(() => {
-    return () => useTemplateFloorPreviewStore.getState().clearPreview()
-  }, [])
+  const onTreeKeyDown = (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement
+  const treeItem = target.closest<HTMLElement>('[data-tree-id]')
+    if (!treeItem || !treeRef.current?.contains(treeItem)) return
+    const id = treeItem.getAttribute('data-tree-id')
+    if (!id) return
+    const list = visibleTreeIds()
+    const index = list.indexOf(id)
+    if (index < 0) return
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (!openFamily || rows.length === 0) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setFocusIndex((i) => Math.min(rows.length - 1, i + 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setFocusIndex((i) => Math.max(0, i - 1))
-    } else if (e.key === 'Enter') {
-      const row = rows[focusIndex]
-      if (row && templateCanLoadInPicker(row)) {
+    const isLab = id.startsWith('lab:')
+    const familyId = isLab ? id.slice(4) : null
+
+    let next: string | null = null
+    switch (e.key) {
+      case 'ArrowDown':
+        next = list[index + 1] ?? null
+        break
+      case 'ArrowUp':
+        next = list[index - 1] ?? null
+        break
+      case 'Home':
+        next = list[0] ?? null
+        break
+      case 'End':
+        next = list[list.length - 1] ?? null
+        break
+      case 'ArrowRight':
+        if (isLab && familyId) {
+          if (openFamilyId !== familyId) {
+            setOpenFamilyId(familyId as TemplateFamilyId)
+            e.preventDefault()
+            return
+          }
+          const firstVar = list.find((x) => x.startsWith('var:'))
+          next = firstVar ?? null
+        }
+        break
+      case 'ArrowLeft':
+        if (isLab && familyId && openFamilyId === familyId) {
+          setOpenFamilyId(null)
+          e.preventDefault()
+          return
+        }
+        if (!isLab) {
+          const row = families
+            .flatMap((f) => f.allVariations)
+            .find((r) => `var:${variationRowKey(r)}` === id)
+          if (row) {
+            const fam = families.find((f) =>
+              f.allVariations.some((v) => variationRowKey(v) === variationRowKey(row)),
+            )
+            if (fam) next = `lab:${fam.family.id}`
+          }
+        }
+        break
+      case 'Enter':
+      case ' ': {
         e.preventDefault()
-        placeRow(row)
+        if (isLab && familyId) {
+          toggleLab(familyId as TemplateFamilyId)
+          return
+        }
+        const row = families
+          .flatMap((f) => f.allVariations)
+          .find((r) => `var:${variationRowKey(r)}` === id)
+        if (row) placeRow(row)
+        return
       }
+      default:
+        return
+    }
+    e.preventDefault()
+    if (next) focusTreeId(next)
+  }
+
+  const previewFromTreeId = (treeId: string) => {
+    if (treeId.startsWith('var:')) {
+      const key = treeId.slice(4)
+      const row = families
+        .flatMap((f) => f.allVariations)
+        .find((r) => variationRowKey(r) === key)
+      wantGhost(row ?? null)
+      return
+    }
+    if (treeId.startsWith('lab:')) {
+      const familyId = treeId.slice(4) as TemplateFamilyId
+      const item = families.find((f) => f.family.id === familyId)
+      const first = item?.variations[0] ?? item?.allVariations[0]
+      wantGhost(first ?? null)
     }
   }
 
-  const selectedKey =
-    snapshotTemplateId && loadedVariationId
-      ? `${snapshotTemplateId}:${loadedVariationId}`
-      : null
+  const handlePointerOver = (e: PointerEvent, treeId: string) => {
+    if (!isFinePointer(e)) return
+    previewFromTreeId(treeId)
+  }
+
+  if (loading) {
+    return <p className="sl-cv-hint">Loading labs…</p>
+  }
+  if (error) {
+    return <p className="sl-cv-hint text-[var(--sl-red)]">{error}</p>
+  }
 
   return (
-    <div
-      ref={listRef}
-      className="space-y-2"
-      onKeyDown={onKeyDown}
-      role="region"
-      aria-label="Template labs"
-    >
-      {loading ? (
-        <p className="text-xs text-[var(--c9-muted)]">Loading labs…</p>
-      ) : error ? (
-        <p className="text-xs text-red-400">{error}</p>
-      ) : (
-        families.map((item) => {
+    <section aria-labelledby="sl-layout-heading">
+      <p className="sr-only" id="sl-layout-hint">
+        Arrow keys move through labs and variations. Focus or hover previews a
+        layout on the floor. Enter places it.
+      </p>
+      {!placed ? (
+        <p className="sl-cv-why" id="sl-layout-why">
+          Place a lab first
+        </p>
+      ) : null}
+      <ul
+        ref={treeRef}
+        className="sl-cv-tree"
+        role="tree"
+        aria-labelledby="sl-layout-heading"
+        aria-describedby="sl-layout-hint"
+        onKeyDown={onTreeKeyDown}
+        onPointerLeave={(e) => {
+          if (isFinePointer(e)) wantHide()
+        }}
+      >
+        {families.map((item) => {
+          const meta = familyMetaForKey(item.family.metaKey)
           const isOpen = openFamilyId === item.family.id
+          const labTreeId = `lab:${item.family.id}`
           return (
-            <div
+            <li
               key={item.family.id}
-              className="rounded-lg border border-[var(--c9-border)] bg-[var(--c9-badge-bg)]/40"
+              role="treeitem"
+              aria-expanded={isOpen}
+              aria-label={`${item.family.title}: ${item.family.summary}`}
             >
               <button
                 type="button"
+                className="sl-cv-lab-row"
+                data-tree-id={labTreeId}
+                tabIndex={rovingId === labTreeId || (!rovingId && families[0] === item) ? 0 : -1}
                 disabled={disabled}
-                className="flex w-full flex-col gap-1 px-3 py-2 text-left disabled:opacity-40"
-                aria-expanded={isOpen}
-                onClick={() => {
-                  setOpenFamilyId((cur) =>
-                    cur === item.family.id ? null : item.family.id,
-                  )
-                  setFocusIndex(0)
-                  previewRow(null)
+                onClick={() => toggleLab(item.family.id)}
+                onFocus={() => {
+                  setRovingId(labTreeId)
+                  previewFromTreeId(labTreeId)
                 }}
+                onBlur={(e) => {
+                  if (!e.relatedTarget || !treeRef.current?.contains(e.relatedTarget)) {
+                    wantHide()
+                  }
+                }}
+                onPointerOver={(e) => handlePointerOver(e, labTreeId)}
               >
-                <span className="text-sm font-semibold text-[var(--c9-text)]">
-                  {item.family.title}
+                <span className="sl-cv-lab-icon" style={{ color: meta.accent }}>
+                  {meta.icon}
                 </span>
-                <span className="text-[11px] leading-snug text-[var(--c9-muted)]">
-                  {item.family.summary}
+                <span className="sl-cv-lab-t">
+                  <b>{item.family.title}</b>
+                  <span>{item.family.summary}</span>
                 </span>
+                <i className="sl-cv-chev" aria-hidden />
               </button>
               {isOpen ? (
-                <ul className="border-t border-[var(--c9-border)] px-1 pb-2 pt-1">
-                  {item.allVariations.map((row, idx) => {
+                <ul role="group">
+                  {item.allVariations.map((row) => {
+                    const rowKey = variationRowKey(row)
+                    const varTreeId = `var:${rowKey}`
                     const loadable = templateCanLoadInPicker(row)
-                    const rowKey = `${row.templateId}:${row.variationId}`
                     const selected = selectedKey === rowKey
+                    const ghost = isGhostRow(row)
                     return (
-                      <li key={rowKey}>
-                        <button
-                          type="button"
-                          disabled={disabled || !loadable}
-                          className={`mt-1 w-full rounded-md px-2 py-2 text-left transition ${
-                            selected
-                              ? 'border border-blue-500/60 bg-blue-500/10'
-                              : 'border border-transparent hover:bg-[var(--c9-surface)]/60'
-                          } ${focusIndex === idx && isOpen ? 'ring-1 ring-blue-400/50' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
-                          onFocus={() => setFocusIndex(idx)}
-                          onMouseEnter={() => previewRow(row)}
-                          onMouseLeave={() => previewRow(null)}
-                          onFocusCapture={() => previewRow(row)}
-                          onBlur={() => previewRow(null)}
-                          onClick={() => placeRow(row)}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="min-w-0">
-                              <span className="block text-xs font-medium text-[var(--c9-text)]">
-                                {row.variationLabel}
-                              </span>
-                              <span className="mt-0.5 block text-[10px] leading-snug text-[var(--c9-muted)]">
-                                {row.variationDescription}
-                              </span>
-                            </span>
-                            <OfferBadge row={row} />
-                          </div>
-                          {!loadable ? (
-                            <span className="mt-1 block text-[10px] text-gray-500">
-                              {TEMPLATE_COMING_SOON_HINT}
-                            </span>
-                          ) : !row.available ? (
-                            <span className="mt-1 block text-[10px] text-gray-500">
-                              {TEMPLATE_LIVE_NOT_OFFERED_HINT}
-                            </span>
-                          ) : null}
-                        </button>
+                      <li
+                        key={rowKey}
+                        role="treeitem"
+                        className={`sl-cv-var${ghost ? ' is-ghost' : ''}`}
+                        data-tree-id={varTreeId}
+                        tabIndex={rovingId === varTreeId ? 0 : -1}
+                        aria-selected={selected}
+                        aria-disabled={!loadable || disabled}
+                        title={
+                          !loadable
+                            ? TEMPLATE_COMING_SOON_HINT
+                            : row.variationDescription
+                        }
+                        onClick={() => {
+                          if (!loadable || disabled) return
+                          placeRow(row)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            if (!loadable || disabled) return
+                            placeRow(row)
+                          }
+                        }}
+                        onFocus={() => {
+                          setRovingId(varTreeId)
+                          previewFromTreeId(varTreeId)
+                        }}
+                        onPointerOver={(e) => handlePointerOver(e, varTreeId)}
+                      >
+                        <b>{row.variationLabel}</b>
+                        <span>{row.variationDescription}</span>
                       </li>
                     )
                   })}
                 </ul>
               ) : null}
-            </div>
+            </li>
           )
-        })
-      )}
-    </div>
+        })}
+      </ul>
+    </section>
   )
 }
+
+export type { TemplateLabFamily, TemplateLabVariationRow }

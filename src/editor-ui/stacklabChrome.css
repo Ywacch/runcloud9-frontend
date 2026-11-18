@@ -874,3 +874,209 @@
   font-size: 11px;
   padding: 4px 8px;
 }
+
+/* ---------- layout lab tree (canvas playground sidebar) ---------- */
+.sl-chrome .sl-cv-tree {
+  list-style: none;
+  margin: 2px -8px 0;
+  padding: 0;
+}
+
+.sl-chrome .sl-cv-tree ul {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+}
+
+.sl-chrome .sl-cv-tree li[aria-expanded='false'] > ul {
+  display: none;
+}
+
+.sl-chrome .sl-cv-lab-row,
+.sl-chrome .sl-cv-var {
+  display: flex;
+  cursor: pointer;
+  border-radius: 2px;
+  outline: none;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.sl-chrome .sl-cv-lab-row {
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 8px;
+}
+
+.sl-chrome .sl-cv-lab-row .sl-cv-lab-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--sl-ink-2);
+}
+
+.sl-chrome .sl-cv-lab-t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.sl-chrome .sl-cv-lab-t b {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sl-ink);
+}
+
+.sl-chrome .sl-cv-lab-t span {
+  font-size: 10px;
+  color: var(--sl-ink-3);
+}
+
+.sl-chrome .sl-cv-chev {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 6px 2px 0 0;
+  border: solid var(--sl-ink-3);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.sl-chrome li[aria-expanded='true'] > .sl-cv-lab-row .sl-cv-chev {
+  transform: rotate(45deg);
+}
+
+.sl-chrome .sl-cv-var {
+  position: relative;
+  flex-direction: column;
+  padding: 4px 8px 4px 33px;
+  line-height: 1.3;
+}
+
+.sl-chrome .sl-cv-var b {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--sl-ink-2);
+}
+
+.sl-chrome .sl-cv-var span {
+  font-size: 9.5px;
+  opacity: 0.85;
+  color: var(--sl-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-chrome .sl-cv-var[aria-selected='true'] b {
+  color: var(--sl-ink);
+}
+
+.sl-chrome .sl-cv-var[aria-selected='true']::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sl-green);
+}
+
+.sl-chrome .sl-cv-var[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sl-chrome .sl-cv-lab-row:hover .sl-cv-lab-t b,
+.sl-chrome .sl-cv-var:hover b,
+.sl-chrome .sl-cv-var.is-ghost b {
+  color: var(--sl-ink);
+}
+
+.sl-chrome .sl-cv-var:hover span,
+.sl-chrome .sl-cv-var.is-ghost span {
+  color: var(--sl-ink-2);
+}
+
+.sl-chrome .sl-cv-lab-row:hover,
+.sl-chrome .sl-cv-var:hover,
+.sl-chrome .sl-cv-var.is-ghost {
+  background: rgba(232, 233, 229, 0.04);
+}
+
+.sl-chrome .sl-cv-tree [role='treeitem']:focus-visible > .sl-cv-lab-row,
+.sl-chrome .sl-cv-var:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(65, 177, 131, 0.55);
+}
+
+.sl-chrome .sl-cv-hint {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  color: var(--sl-ink-3);
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.sl-chrome .sl-cv-why {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  color: var(--sl-ink-3);
+  margin: 6px 0 0;
+}
+
+/* collapsed sidebar: one icon per lab */
+.sl-chrome .sl-cv-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  flex: 1;
+}
+
+.sl-chrome .sl-cv-mini button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.8;
+  color: var(--sl-ink-2);
+}
+
+.sl-chrome .sl-cv-mini button:hover,
+.sl-chrome .sl-cv-mini button:focus-visible {
+  opacity: 1;
+}
+
+.sl-chrome .sl-cv-mini button:focus-visible {
+  outline: 2px solid rgba(65, 177, 131, 0.55);
+  outline-offset: 1px;
+}
+
+.sl-chrome .sl-cv-mini button[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.sl-chrome .sl-cv-mini button[aria-pressed='true']::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 13px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sl-green);
+}
