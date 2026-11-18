@@ -1,5 +1,8 @@
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
+import { useAuthStore } from '../product/stores/authStore'
+import { buildCacheStrategyPatch } from './cacheStrategyDesignPatch'
+import { maxAppServerReplicasForUser } from './userTier'
 import {
   autoscaleFromConfig,
   clampAutoscaleCpuTarget,
@@ -175,6 +178,32 @@ export function enrichCanvasDesignPatch(
     }
   }
 
+  if (node.type === 'cache') {
+    if ('cacheStrategy' in patch || 'strategy' in patch) {
+      const next = String(
+        patch.cacheStrategy ?? patch.strategy ?? merged.cacheStrategy ?? merged.strategy,
+      )
+      const st = useCanvasStore.getState()
+      const templateId = st.snapshotTemplateId
+      return {
+        ...patch,
+        ...buildCacheStrategyPatch(merged, next, templateId),
+      }
+    }
+  }
+
+  if (node.type === 'worker') {
+    if ('workerPrefetch' in patch && (patch.workerPrefetch == null || patch.workerPrefetch === 0)) {
+      out.workerPrefetch = undefined
+    }
+    if (
+      'workerConcurrency' in patch &&
+      (patch.workerConcurrency == null || patch.workerConcurrency === 0)
+    ) {
+      out.workerConcurrency = undefined
+    }
+  }
+
   if ('instanceSize' in patch || 'resourceProfile' in patch) {
     const size = normalizeInstanceSize(
       patch.instanceSize ?? patch.resourceProfile ?? merged.instanceSize,
@@ -187,6 +216,23 @@ export function enrichCanvasDesignPatch(
   }
 
   return out
+}
+
+export function resolveCanvasDesignLimits(): CanvasDesignLimits {
+  const currentUser = useAuthStore.getState().currentUser
+  const userRecord = useAuthStore.getState().userRecord
+  return {
+    maxAppReplicas:
+      currentUser?.limits.maxAppServerReplicas ??
+      maxAppServerReplicasForUser(userRecord),
+  }
+}
+
+export function commitCanvasNodeConfig(
+  nodeId: string,
+  patch: Partial<CanvasNode['config']>,
+): void {
+  commitCanvasDesignConfig(nodeId, patch, resolveCanvasDesignLimits())
 }
 
 function shouldSyncAutoLoadBalancer(

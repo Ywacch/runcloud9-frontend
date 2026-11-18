@@ -25,6 +25,42 @@ import {
   filterStrategiesForVariation,
   variationCacheStrategyMode,
 } from '../lib/variationTopologyLock'
+import { buildCacheStrategyPatch } from '../lib/cacheStrategyDesignPatch'
+import { isDedicatedWorkQueueCache } from '../lib/engines/jobsPanelModel'
+import { getResourceProfilesCached } from '../lib/resourceProfileStore'
+import {
+  formatProvisionedShort,
+  resolveProvisionedLimits,
+} from '../lib/resolveProvisionedLimits'
+import {
+  purchaseModeFromConfig,
+  normalizePurchaseMode,
+  templateSupportsPurchaseMode,
+  seedEventCapacityFromConfig,
+  seedEventNameFromConfig,
+  SEED_EVENT_CAPACITY_MAX,
+  SEED_EVENT_CAPACITY_MIN,
+} from '../lib/purchaseMode'
+import {
+  READ_CONSISTENCY_HELP,
+  READ_CONSISTENCY_LABEL,
+  READ_CONSISTENCY_POLICIES,
+  readConsistencyFromConfig,
+  readConsistencyOptionDisabled,
+} from '../lib/readConsistency'
+import {
+  REPLICATION_MODES,
+  replicationModeFromConfig,
+  requiresSynchronousReplication,
+  syncCommitLevelFromConfig,
+  SYNC_COMMIT_LEVELS,
+} from '../lib/replicaConfig'
+import {
+  normalizeWriteBehindIntervalSeconds,
+  showsWriteBehindIntervalControl,
+  WRITE_BEHIND_INTERVAL_MAX,
+  WRITE_BEHIND_INTERVAL_MIN,
+} from '../lib/writeBehindInterval'
 
 type Patch = Partial<CanvasNode['config']>
 
@@ -32,6 +68,7 @@ export type CanvasDesignFieldLimits = {
   maxAppReplicas: number
   maxInstanceSize: InstanceSize
   allowAutoscale: boolean
+  allowProxyCache: boolean
 }
 
 type Opt = { value: string; label: string; why?: string }
@@ -111,6 +148,53 @@ function sizeLine(size: string, each: boolean): string {
   const base = SIZE_LINE[size] ?? SIZE_LINE.small
   return each ? `${base} each` : base
 }
+
+function provisionedSizeWhy(
+  nodeType: CanvasNode['type'],
+  size: string,
+  each: boolean,
+): string {
+  try {
+    const catalog = getResourceProfilesCached()
+    const meta = formatProvisionedShort(
+      resolveProvisionedLimits(
+        nodeType,
+        { instanceSize: normalizeInstanceSize(size) },
+        catalog,
+      ),
+    )
+    if (meta) return each ? `${meta} each` : meta
+  } catch {
+    /* catalog may be cold in dev */
+  }
+  return sizeLine(size, each)
+}
+
+const PURCHASE_MODES: Opt[] = [
+  { value: 'unsafe', label: 'unsafe' },
+  { value: 'safe', label: 'row-lock' },
+  { value: 'optimistic', label: 'optimistic' },
+]
+
+const READ_CONSISTENCY_OPTS: Opt[] = READ_CONSISTENCY_POLICIES.map((p) => ({
+  value: p,
+  label: READ_CONSISTENCY_LABEL[p],
+}))
+
+const REPLICATION_OPTS: Opt[] = REPLICATION_MODES.map((m) => ({
+  value: m,
+  label: m === 'async' ? 'Async' : m === 'semi-sync' ? 'Semi-sync' : 'Sync',
+}))
+
+const SYNC_COMMIT_OPTS: Opt[] = SYNC_COMMIT_LEVELS.map((level) => ({
+  value: level,
+  label:
+    level === 'remote_write'
+      ? 'Remote write'
+      : level === 'remote_apply'
+        ? 'Remote apply'
+        : 'On',
+}))
 
 const EVICTION: Opt[] = [
   { value: 'allkeys-lru', label: 'allkeys-lru', why: 'Drops least recently used keys' },
@@ -399,6 +483,8 @@ export function CanvasDesignFields({
   edges,
   loadedVariationId,
   limits,
+  templateId,
+  jobBindings,
   updateConfig,
 }: {
   node: CanvasNode
@@ -406,6 +492,8 @@ export function CanvasDesignFields({
   edges: Record<string, CanvasEdge>
   loadedVariationId: string | null
   limits: CanvasDesignFieldLimits
+  templateId: string | null
+  jobBindings: Record<string, string>
   updateConfig: (patch: Patch) => void
 }) {
   const c = node.config
@@ -429,7 +517,7 @@ export function CanvasDesignFields({
   }
 
   const sizeRow = (each: boolean) => (
-    <Row label="Size" why={sizeLine(size, each)}>
+    <Row label="Size" why={provisionedSizeWhy(node.type, size, each)}>
       <Seg
         label="Size"
         value={size}
@@ -563,6 +651,41 @@ export function CanvasDesignFields({
                 onChangeCopy={patchCopySize}
               />
             ) : null}
+            {templateSupportsPurchaseMode(templateId) ? (
+              <>
+                <Row label="Purchase mode" why="Inventory check: app, row lock, or conditional SQL">
+                  <Seg
+                    label="Purchase mode"
+                    value={purchaseModeFromConfig(c)}
+                    options={PURCHASE_MODES}
+                    onChange={(v) =>
+                      updateConfig({ purchaseMode: normalizePurchaseMode(v) })
+                    }
+                  />
+                </Row>
+                <Row label="Event name" why="Seed inventory name for ticket drop">
+                  <span className="cv-num">
+                    <input
+                      type="text"
+                      aria-label="Event name"
+                      value={seedEventNameFromConfig(c)}
+                      onChange={(e) =>
+                        updateConfig({ seedEventName: e.target.value })
+                      }
+                    />
+                  </span>
+                </Row>
+                <Row label="Ticket capacity" why="Tickets available in seed inventory">
+                  <Num
+                    label="Ticket capacity"
+                    value={seedEventCapacityFromConfig(c)}
+                    min={SEED_EVENT_CAPACITY_MIN}
+                    max={SEED_EVENT_CAPACITY_MAX}
+                    onChange={(n) => updateConfig({ seedEventCapacity: n })}
+                  />
+                </Row>
+              </>
+            ) : null}
           </div>
         </details>
       </>
@@ -574,8 +697,14 @@ export function CanvasDesignFields({
     const replicas = clampWorkerReplicas(c.replicas ?? 1, limits.maxAppReplicas)
     const copyCount = scale ? scale.max : replicas
     const copySizes = normalizeInstanceSizes(c, copyCount)
-    const concurrency = Math.max(1, Number(c.workerConcurrency ?? 1) || 1)
-    const prefetch = Math.max(1, Number(c.workerPrefetch ?? 10) || 10)
+    const concurrencyRaw = Number(c.workerConcurrency)
+    const concurrency =
+      Number.isFinite(concurrencyRaw) && concurrencyRaw >= 1
+        ? Math.floor(concurrencyRaw)
+        : 0
+    const prefetchRaw = Number(c.workerPrefetch)
+    const prefetch =
+      Number.isFinite(prefetchRaw) && prefetchRaw >= 1 ? Math.floor(prefetchRaw) : 0
     const writeScale = (next: AutoscaleConfig | null) =>
       updateConfig({ autoscale: next ?? undefined })
     return (
@@ -603,29 +732,43 @@ export function CanvasDesignFields({
         <Row
           label="Concurrency"
           why={
-            concurrency === 1
-              ? 'One job at a time, in order'
-              : `${concurrency} jobs at once per replica`
+            concurrency <= 0
+              ? 'Image default concurrency'
+              : concurrency === 1
+                ? 'One job at a time, in order'
+                : `${concurrency} jobs at once per replica`
           }
         >
-          <Step
+          <Num
             label="Concurrency"
             value={concurrency}
-            min={1}
+            min={0}
             max={16}
-            onChange={(n) => updateConfig({ workerConcurrency: n })}
+            onChange={(n) =>
+              updateConfig({ workerConcurrency: n <= 0 ? undefined : n })
+            }
           />
         </Row>
         <details className="cv-more">
           <summary>More</summary>
           <div className="cv-more-b">
-            <Row label="Prefetch" why={`Holds ${prefetch} unacked messages each`}>
-              <Step
+            <Row
+              label="Prefetch"
+              why={
+                prefetch <= 0
+                  ? 'Image default prefetch'
+                  : `Holds ${prefetch} unacked messages each`
+              }
+            >
+              <Num
                 label="Prefetch"
                 value={prefetch}
-                min={1}
+                min={0}
                 max={100}
-                onChange={(n) => updateConfig({ workerPrefetch: n })}
+                unit="msgs"
+                onChange={(n) =>
+                  updateConfig({ workerPrefetch: n <= 0 ? undefined : n })
+                }
               />
             </Row>
             <Row
@@ -755,6 +898,57 @@ export function CanvasDesignFields({
                 onChangeCopy={patchCopySize}
               />
             ) : null}
+            {reads >= 1 ? (
+              <>
+                <Row
+                  label="Read consistency"
+                  why={READ_CONSISTENCY_HELP[readConsistencyFromConfig(c.readConsistency)]}
+                >
+                  <Select
+                    label="Read consistency"
+                    value={readConsistencyFromConfig(c.readConsistency)}
+                    options={READ_CONSISTENCY_OPTS.filter(
+                      (o) =>
+                        !readConsistencyOptionDisabled(
+                          o.value as (typeof READ_CONSISTENCY_POLICIES)[number],
+                          reads,
+                        ),
+                    )}
+                    onChange={(v) => updateConfig({ readConsistency: v })}
+                  />
+                </Row>
+                <Row label="Replication mode" why="How writes replicate to standbys">
+                  <Select
+                    label="Replication mode"
+                    value={replicationModeFromConfig(c.replicationMode)}
+                    options={REPLICATION_OPTS}
+                    onChange={(v) => {
+                      const mode = replicationModeFromConfig(v)
+                      updateConfig({
+                        replicationMode: mode,
+                        ...(requiresSynchronousReplication(mode)
+                          ? {}
+                          : { syncCommitLevel: undefined }),
+                      })
+                    }}
+                  />
+                </Row>
+                {requiresSynchronousReplication(
+                  replicationModeFromConfig(c.replicationMode),
+                ) ? (
+                  <Row label="Sync commit" why="Postgres synchronous_commit level">
+                    <Select
+                      label="Sync commit"
+                      value={syncCommitLevelFromConfig(c.syncCommitLevel)}
+                      options={SYNC_COMMIT_OPTS}
+                      onChange={(v) =>
+                        updateConfig({ syncCommitLevel: syncCommitLevelFromConfig(v) })
+                      }
+                    />
+                  </Row>
+                ) : null}
+              </>
+            ) : null}
             <Row label="Max connections" why={`Beyond ${conn}, new connections wait`}>
               <Select
                 label="Max connections"
@@ -859,10 +1053,28 @@ export function CanvasDesignFields({
   }
 
   if (node.type === 'cache') {
+    if (
+      isDedicatedWorkQueueCache(
+        node.id,
+        templateId,
+        Object.values(nodes),
+        jobBindings,
+      )
+    ) {
+      return (
+        <>
+          <p className="cv-c">
+            Work queue Redis. Holds the stream only — not the timeline cache. Eviction
+            stays off so the stream is not deleted.
+          </p>
+          {sizeRow(false)}
+        </>
+      )
+    }
     const mode = variationCacheStrategyMode(loadedVariationId)
     const available = filterStrategiesForVariation(
       getAvailableCacheStrategies(node.id, nodes, edges, {
-        allowProxyStrategies: mode !== 'frozen',
+        allowProxyStrategies: limits.allowProxyCache && mode !== 'frozen',
       }),
       loadedVariationId,
     )
@@ -887,12 +1099,21 @@ export function CanvasDesignFields({
     const proxy = sizeKey({
       instanceSize: c.proxyInstanceSize ?? c.proxyResourceProfile ?? 'small',
     } as CanvasNode['config'])
+    const ambiguousTopology = available.length === 0
+    const showWriteBehind = showsWriteBehindIntervalControl(templateId, strategy)
+    const flushInterval = normalizeWriteBehindIntervalSeconds(c.writeBehindIntervalSeconds)
 
     return (
       <>
         {sizeRow(false)}
+        {!frozen && ambiguousTopology ? (
+          <p className="cv-c is-warn">
+            Invalid wiring: remove either app→database or cache→database, then pick a
+            strategy.
+          </p>
+        ) : null}
         <Row label="Strategy" why={frozen ? fixedWhy : meta.why}>
-          {frozen ? (
+          {frozen || ambiguousTopology ? (
             <span className="cv-ro">{meta.label}</span>
           ) : (
             <Select
@@ -902,10 +1123,24 @@ export function CanvasDesignFields({
                 value: id,
                 label: STRATEGY[id]?.label ?? id,
               }))}
-              onChange={(v) => updateConfig({ cacheStrategy: v, strategy: v })}
+              onChange={(v) =>
+                updateConfig(buildCacheStrategyPatch(c, v, templateId))
+              }
             />
           )}
         </Row>
+        {showWriteBehind ? (
+          <Row label="Flush interval" why="How often the proxy flushes writes to Postgres">
+            <Num
+              label="Flush interval"
+              value={flushInterval}
+              min={WRITE_BEHIND_INTERVAL_MIN}
+              max={WRITE_BEHIND_INTERVAL_MAX}
+              unit="s"
+              onChange={(n) => updateConfig({ writeBehindIntervalSeconds: n })}
+            />
+          </Row>
+        ) : null}
         <Row label="TTL" why={ttlWhy(Number(ttlValue))}>
           <Select
             label="TTL"

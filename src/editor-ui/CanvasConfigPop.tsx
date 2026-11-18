@@ -21,11 +21,13 @@ import {
   subscribeSvgViewportScreenRefresh,
   svgWorldToHost,
 } from '../svg-canvas/utils/svgViewportBridge'
-import { commitCanvasDesignConfig } from '../lib/canvasDesignConfigCommit'
+import { commitCanvasNodeConfig } from '../lib/canvasDesignConfigCommit'
+import { useCanvasDesignConfigSeeds } from '../lib/useCanvasDesignConfigSeeds'
 import {
   maxAppServerReplicasForUser,
   maxInstanceSizeForUser,
   resolveEffectiveTier,
+  topologyLimitsForTier,
 } from '../lib/userTier'
 import { CanvasDesignFields } from './CanvasDesignFields'
 
@@ -107,6 +109,8 @@ export function CanvasConfigPop({ hostRef }: { hostRef: React.RefObject<HTMLElem
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
+  const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const jobBindings = useCanvasStore((s) => s.jobBindings)
   const selectNode = useCanvasStore((s) => s.selectNode)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -133,21 +137,24 @@ export function CanvasConfigPop({ hostRef }: { hostRef: React.RefObject<HTMLElem
       currentUser?.limits.allowAutoscale === true ||
       currentUser?.isInternal === true ||
       resolveEffectiveTier(userRecord) === 'internal'
-    return { maxAppReplicas, maxInstanceSize, allowAutoscale }
+    const allowProxyCache =
+      currentUser?.limits.allowProxyCache ??
+      topologyLimitsForTier(resolveEffectiveTier(userRecord)).allowProxyCache
+    return { maxAppReplicas, maxInstanceSize, allowAutoscale, allowProxyCache }
   }, [currentUser, userRecord])
 
   const commitConfig = useCallback(
-    (patch: Parameters<typeof commitCanvasDesignConfig>[1]) => {
+    (patch: Parameters<typeof commitCanvasNodeConfig>[1]) => {
       if (!nodeId) return
-      commitCanvasDesignConfig(nodeId, patch, {
-        maxAppReplicas: designLimits.maxAppReplicas,
-      })
+      commitCanvasNodeConfig(nodeId, patch)
     },
-    [designLimits.maxAppReplicas, nodeId],
+    [nodeId],
   )
 
   const active =
     mode === 'design' && !deploymentId && node != null && Object.keys(nodes).length > 0
+
+  useCanvasDesignConfigSeeds(node, snapshotTemplateId, loadedVariationId, active)
 
   const relayout = useCallback(() => {
     if (!active || !node || !hostRef.current || !popRef.current) {
@@ -237,6 +244,8 @@ export function CanvasConfigPop({ hostRef }: { hostRef: React.RefObject<HTMLElem
           nodes={nodes}
           loadedVariationId={loadedVariationId}
           limits={designLimits}
+          templateId={snapshotTemplateId}
+          jobBindings={jobBindings}
           updateConfig={commitConfig}
         />
       </div>

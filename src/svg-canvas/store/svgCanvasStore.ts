@@ -35,7 +35,7 @@ import {
   setSessionLayoutOffsets,
 } from '../../lib/sessionLayoutStore'
 import { isVariationTopologyLocked } from '../../lib/variationTopologyLock'
-import { APP_SERVER_REPLICA_MAX } from '../../lib/replicaConfig'
+import { commitCanvasNodeConfig } from '../../lib/canvasDesignConfigCommit'
 import {
   archetypeToCanvasType,
   canvasTypeToArchetype,
@@ -440,10 +440,9 @@ export const useSvgCanvasStore = create<SvgCanvasState>((set, get) => ({
     const node = canvas.nodes[id]
     if (!node || !canMutateCanvasTopology(canvas)) return
     if (!backendSupportsReplicas(node.type)) return
-    const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
-    const patch = configPatchForReplicas(node.type, next, node.config)
+    const patch = configPatchForReplicas(node.type, replicas, node.config)
     if (Object.keys(patch).length === 0) return
-    canvas.updateNodeConfig(id, patch)
+    commitCanvasNodeConfig(id, patch as Partial<CanvasNode['config']>)
   },
 
   setNodeEngine: (id, engine) => {
