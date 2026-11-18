@@ -22,6 +22,7 @@ import {
   svgWorldToHost,
 } from '../svg-canvas/utils/svgViewportBridge'
 import { commitCanvasNodeConfig } from '../lib/canvasDesignConfigCommit'
+import { isDevAccountPreviewEnabled } from '../lib/devAccountPreview'
 import { useCanvasDesignConfigSeeds } from '../lib/useCanvasDesignConfigSeeds'
 import {
   maxAppServerReplicasForUser,
@@ -136,7 +137,8 @@ export function CanvasConfigPop({ hostRef }: { hostRef: React.RefObject<HTMLElem
     const allowAutoscale =
       currentUser?.limits.allowAutoscale === true ||
       currentUser?.isInternal === true ||
-      resolveEffectiveTier(userRecord) === 'internal'
+      resolveEffectiveTier(userRecord) === 'internal' ||
+      isDevAccountPreviewEnabled()
     const allowProxyCache =
       currentUser?.limits.allowProxyCache ??
       topologyLimitsForTier(resolveEffectiveTier(userRecord)).allowProxyCache

@@ -122,20 +122,6 @@ const ONOFF: Opt[] = [
   { value: 'on', label: 'On' },
 ]
 
-const MAXCONN: Opt[] = [
-  { value: '50', label: '50' },
-  { value: '100', label: '100' },
-  { value: '200', label: '200' },
-  { value: '500', label: '500' },
-]
-
-const MAXLEN: Opt[] = [
-  { value: '0', label: 'Unlimited' },
-  { value: '1000', label: '1,000' },
-  { value: '10000', label: '10,000' },
-  { value: '100000', label: '100,000' },
-]
-
 const ALGO: Opt[] = [
   { value: 'round-robin', label: 'round-robin', why: 'Servers take turns' },
   { value: 'least_conn', label: 'least_conn', why: 'Fewest open connections wins' },
@@ -244,6 +230,115 @@ function CopySizeRows({
       />
     </Row>
   ))
+}
+
+function writeAutoscale(
+  updateConfig: (patch: Patch) => void,
+  next: AutoscaleConfig | null,
+) {
+  if (next == null) {
+    updateConfig({ autoscale: null } as Patch)
+    return
+  }
+  updateConfig({ autoscale: next })
+}
+
+function AutoscaleRows({
+  scale,
+  limits,
+  lockedWhy,
+  activeWhy,
+  idleWhy,
+  writeScale,
+}: {
+  scale: AutoscaleConfig | null
+  limits: CanvasDesignFieldLimits
+  lockedWhy: string
+  activeWhy: string
+  idleWhy: string
+  writeScale: (next: AutoscaleConfig | null) => void
+}) {
+  return (
+    <>
+      <Row
+        label="Autoscale"
+        why={
+          !limits.allowAutoscale
+            ? lockedWhy
+            : scale
+              ? activeWhy
+              : idleWhy
+        }
+      >
+        <Seg
+          label="Autoscale"
+          value={scale ? 'on' : 'off'}
+          options={ONOFF}
+          onChange={(v) => {
+            if (v === 'on') {
+              if (!limits.allowAutoscale) return
+              writeScale(scale ?? defaultAutoscale(limits.maxAppReplicas))
+              return
+            }
+            writeScale(null)
+          }}
+        />
+      </Row>
+      {scale ? (
+        <>
+          <Row label="Min">
+            <Step
+              label="Min"
+              value={scale.min}
+              min={1}
+              max={scale.max}
+              disabled={!limits.allowAutoscale}
+              onChange={(n) =>
+                writeScale({
+                  ...scale,
+                  min: clampAutoscaleMin(n, scale.max),
+                  max: clampAutoscaleMax(scale.max, n, limits.maxAppReplicas),
+                })
+              }
+            />
+          </Row>
+          <Row label="Max">
+            <Step
+              label="Max"
+              value={scale.max}
+              min={scale.min}
+              max={limits.maxAppReplicas}
+              disabled={!limits.allowAutoscale}
+              onChange={(n) =>
+                writeScale({
+                  ...scale,
+                  max: clampAutoscaleMax(n, scale.min, limits.maxAppReplicas),
+                  min: clampAutoscaleMin(scale.min, n),
+                })
+              }
+            />
+          </Row>
+          <Row label="Target CPU">
+            <Step
+              label="Target CPU"
+              value={scale.targetCPUPercent}
+              min={30}
+              max={90}
+              step={10}
+              unit="%"
+              disabled={!limits.allowAutoscale}
+              onChange={(n) =>
+                writeScale({
+                  ...scale,
+                  targetCPUPercent: clampAutoscaleCpuTarget(n),
+                })
+              }
+            />
+          </Row>
+        </>
+      ) : null}
+    </>
+  )
 }
 
 function Row({
@@ -532,13 +627,12 @@ export function CanvasDesignFields({
   }
 
   if (node.type === 'compute') {
-    const scale = autoscaleFromConfig(c.autoscale)
+    const scale = autoscaleFromConfig(c.autoscale, limits.maxAppReplicas)
     const replicas = clampAppServerReplicas(c.replicas ?? 1, limits.maxAppReplicas)
     const replicasLocked = limits.maxAppReplicas <= 1
     const copyCount = scale ? scale.max : replicas
     const copySizes = normalizeInstanceSizes(c, copyCount)
-    const writeScale = (next: AutoscaleConfig | null) =>
-      updateConfig({ autoscale: next ?? undefined })
+    const writeScale = (next: AutoscaleConfig | null) => writeAutoscale(updateConfig, next)
     return (
       <>
         {sizeRow(replicas > 1 || scale != null)}
@@ -563,86 +657,17 @@ export function CanvasDesignFields({
             onChange={(n) => updateConfig({ replicas: n })}
           />
         </Row>
+        <AutoscaleRows
+          scale={scale}
+          limits={limits}
+          lockedWhy="CPU autoscale is limited to internal accounts"
+          activeWhy="Replicas follow CPU; budget counts max"
+          idleWhy="Fixed replica count"
+          writeScale={writeScale}
+        />
         <details className="cv-more">
           <summary>More</summary>
           <div className="cv-more-b">
-            <Row
-              label="Autoscale"
-              why={
-                !limits.allowAutoscale
-                  ? 'CPU autoscale is limited to internal accounts'
-                  : scale
-                    ? 'Replicas follow CPU; budget counts max'
-                    : 'Fixed replica count'
-              }
-            >
-              <Seg
-                label="Autoscale"
-                value={scale ? 'on' : 'off'}
-                options={ONOFF}
-                onChange={(v) => {
-                  if (v === 'on' && !limits.allowAutoscale) return
-                  writeScale(
-                    v === 'on'
-                      ? (scale ?? defaultAutoscale(limits.maxAppReplicas))
-                      : null,
-                  )
-                }}
-              />
-            </Row>
-            {scale ? (
-              <>
-                <Row label="Min">
-                  <Step
-                    label="Min"
-                    value={scale.min}
-                    min={1}
-                    max={scale.max}
-                    disabled={!limits.allowAutoscale}
-                    onChange={(n) =>
-                      writeScale({
-                        ...scale,
-                        min: clampAutoscaleMin(n, scale.max),
-                        max: clampAutoscaleMax(scale.max, n, limits.maxAppReplicas),
-                      })
-                    }
-                  />
-                </Row>
-                <Row label="Max">
-                  <Step
-                    label="Max"
-                    value={scale.max}
-                    min={scale.min}
-                    max={limits.maxAppReplicas}
-                    disabled={!limits.allowAutoscale}
-                    onChange={(n) =>
-                      writeScale({
-                        ...scale,
-                        max: clampAutoscaleMax(n, scale.min, limits.maxAppReplicas),
-                        min: clampAutoscaleMin(scale.min, n),
-                      })
-                    }
-                  />
-                </Row>
-                <Row label="Target CPU">
-                  <Step
-                    label="Target CPU"
-                    value={scale.targetCPUPercent}
-                    min={30}
-                    max={90}
-                    step={10}
-                    unit="%"
-                    disabled={!limits.allowAutoscale}
-                    onChange={(n) =>
-                      writeScale({
-                        ...scale,
-                        targetCPUPercent: clampAutoscaleCpuTarget(n),
-                      })
-                    }
-                  />
-                </Row>
-              </>
-            ) : null}
             {copyCount > 1 ? (
               <CopySizeRows
                 sizes={copySizes}
@@ -693,7 +718,7 @@ export function CanvasDesignFields({
   }
 
   if (node.type === 'worker') {
-    const scale = autoscaleFromConfig(c.autoscale)
+    const scale = autoscaleFromConfig(c.autoscale, limits.maxAppReplicas)
     const replicas = clampWorkerReplicas(c.replicas ?? 1, limits.maxAppReplicas)
     const copyCount = scale ? scale.max : replicas
     const copySizes = normalizeInstanceSizes(c, copyCount)
@@ -705,8 +730,7 @@ export function CanvasDesignFields({
     const prefetchRaw = Number(c.workerPrefetch)
     const prefetch =
       Number.isFinite(prefetchRaw) && prefetchRaw >= 1 ? Math.floor(prefetchRaw) : 0
-    const writeScale = (next: AutoscaleConfig | null) =>
-      updateConfig({ autoscale: next ?? undefined })
+    const writeScale = (next: AutoscaleConfig | null) => writeAutoscale(updateConfig, next)
     return (
       <>
         {sizeRow(replicas > 1 || scale != null)}
@@ -749,6 +773,14 @@ export function CanvasDesignFields({
             }
           />
         </Row>
+        <AutoscaleRows
+          scale={scale}
+          limits={limits}
+          lockedWhy="CPU autoscale is limited to internal accounts"
+          activeWhy="Replicas follow CPU; budget counts max"
+          idleWhy="Fixed replica count"
+          writeScale={writeScale}
+        />
         <details className="cv-more">
           <summary>More</summary>
           <div className="cv-more-b">
@@ -771,83 +803,6 @@ export function CanvasDesignFields({
                 }
               />
             </Row>
-            <Row
-              label="Autoscale"
-              why={
-                !limits.allowAutoscale
-                  ? 'CPU autoscale is limited to internal accounts'
-                  : scale
-                    ? 'Replicas follow CPU; budget counts max'
-                    : 'Fixed replica count'
-              }
-            >
-              <Seg
-                label="Autoscale"
-                value={scale ? 'on' : 'off'}
-                options={ONOFF}
-                onChange={(v) => {
-                  if (v === 'on' && !limits.allowAutoscale) return
-                  writeScale(
-                    v === 'on'
-                      ? (scale ?? defaultAutoscale(limits.maxAppReplicas))
-                      : null,
-                  )
-                }}
-              />
-            </Row>
-            {scale ? (
-              <>
-                <Row label="Min">
-                  <Step
-                    label="Min"
-                    value={scale.min}
-                    min={1}
-                    max={scale.max}
-                    disabled={!limits.allowAutoscale}
-                    onChange={(n) =>
-                      writeScale({
-                        ...scale,
-                        min: clampAutoscaleMin(n, scale.max),
-                        max: clampAutoscaleMax(scale.max, n, limits.maxAppReplicas),
-                      })
-                    }
-                  />
-                </Row>
-                <Row label="Max">
-                  <Step
-                    label="Max"
-                    value={scale.max}
-                    min={scale.min}
-                    max={limits.maxAppReplicas}
-                    disabled={!limits.allowAutoscale}
-                    onChange={(n) =>
-                      writeScale({
-                        ...scale,
-                        max: clampAutoscaleMax(n, scale.min, limits.maxAppReplicas),
-                        min: clampAutoscaleMin(scale.min, n),
-                      })
-                    }
-                  />
-                </Row>
-                <Row label="Target CPU">
-                  <Step
-                    label="Target CPU"
-                    value={scale.targetCPUPercent}
-                    min={30}
-                    max={90}
-                    step={10}
-                    unit="%"
-                    disabled={!limits.allowAutoscale}
-                    onChange={(n) =>
-                      writeScale({
-                        ...scale,
-                        targetCPUPercent: clampAutoscaleCpuTarget(n),
-                      })
-                    }
-                  />
-                </Row>
-              </>
-            ) : null}
             {copyCount > 1 ? (
               <CopySizeRows
                 sizes={copySizes}
@@ -866,8 +821,6 @@ export function CanvasDesignFields({
     const reads = clampReadReplicas(c.readReplicas ?? 0)
     const dbCopyCount = 1 + reads
     const dbCopySizes = normalizeInstanceSizes(c, dbCopyCount)
-    const maxConn = String(c.maxConnections ?? 100)
-    const conn = MAXCONN.some((o) => o.value === maxConn) ? maxConn : '100'
     return (
       <>
         {sizeRow(reads > 0)}
@@ -887,20 +840,17 @@ export function CanvasDesignFields({
             onChange={(n) => updateConfig({ readReplicas: n })}
           />
         </Row>
-        <details className="cv-more">
-          <summary>More</summary>
-          <div className="cv-more-b">
-            {reads >= 1 ? (
+        {reads >= 1 ? (
+          <details className="cv-more">
+            <summary>More</summary>
+            <div className="cv-more-b">
               <CopySizeRows
                 sizes={dbCopySizes}
                 maxInstanceSize={limits.maxInstanceSize}
                 labelForIndex={(i) => (i === 0 ? 'Primary size' : `Replica ${i} size`)}
                 onChangeCopy={patchCopySize}
               />
-            ) : null}
-            {reads >= 1 ? (
-              <>
-                <Row
+              <Row
                   label="Read consistency"
                   why={READ_CONSISTENCY_HELP[readConsistencyFromConfig(c.readConsistency)]}
                 >
@@ -947,51 +897,15 @@ export function CanvasDesignFields({
                     />
                   </Row>
                 ) : null}
-              </>
-            ) : null}
-            <Row label="Max connections" why={`Beyond ${conn}, new connections wait`}>
-              <Select
-                label="Max connections"
-                value={conn}
-                options={MAXCONN}
-                onChange={(v) => updateConfig({ maxConnections: Number(v) })}
-              />
-            </Row>
-          </div>
-        </details>
+            </div>
+          </details>
+        ) : null}
       </>
     )
   }
 
   if (node.type === 'message_queue') {
-    const maxLen = String(c.maxLength ?? 0)
-    const len = MAXLEN.some((o) => o.value === maxLen) ? maxLen : '0'
-    const n = Number(len)
-    return (
-      <>
-        {sizeRow(false)}
-        <details className="cv-more">
-          <summary>More</summary>
-          <div className="cv-more-b">
-            <Row
-              label="Max length"
-              why={
-                n
-                  ? `Rejects publishes past ${n.toLocaleString('en')}`
-                  : 'Grows until memory runs out'
-              }
-            >
-              <Select
-                label="Max length"
-                value={len}
-                options={MAXLEN}
-                onChange={(v) => updateConfig({ maxLength: Number(v) })}
-              />
-            </Row>
-          </div>
-        </details>
-      </>
-    )
+    return <>{sizeRow(false)}</>
   }
 
   if (node.type === 'load_balancer') {
@@ -1090,11 +1004,14 @@ export function CanvasDesignFields({
           : options.length <= 1
             ? 'Fixed for this variation'
             : meta.why
+    const cacheEngine = String(c.cacheEngine ?? c.engine ?? 'redis').toLowerCase()
+    const memcachedEngine = cacheEngine === 'memcached'
     const ttl = Number(c.cacheTtlSeconds ?? 300)
     const ttlValue = TTL.some((o) => o.value === String(ttl)) ? String(ttl) : '300'
     const eviction = normalizeRedisEvictionPolicy(c.evictionPolicy)
     const ev = EVICTION.find((o) => o.value === eviction) ?? EVICTION[0]
-    const volatileNoTtl = eviction.startsWith('volatile') && ttl === 0
+    const volatileNoTtl =
+      !memcachedEngine && eviction.startsWith('volatile') && ttl === 0
     const showProxy = isProxyCacheStrategy(strategy)
     const proxy = sizeKey({
       instanceSize: c.proxyInstanceSize ?? c.proxyResourceProfile ?? 'small',
@@ -1152,22 +1069,31 @@ export function CanvasDesignFields({
         <details className="cv-more">
           <summary>More</summary>
           <div className="cv-more-b">
-            <Row
-              label="Eviction"
-              why={
-                volatileNoTtl
-                  ? 'No TTL set, so this acts like noeviction'
-                  : ev.why
-              }
-              warn={volatileNoTtl}
-            >
-              <Select
+            {memcachedEngine ? (
+              <Row
                 label="Eviction"
-                value={eviction}
-                options={EVICTION}
-                onChange={(v) => updateConfig({ evictionPolicy: v })}
-              />
-            </Row>
+                why="Memcached evicts least recently used items when memory is full. Deploy does not set a policy."
+              >
+                <span className="cv-ro">Least recently used</span>
+              </Row>
+            ) : (
+              <Row
+                label="Eviction"
+                why={
+                  volatileNoTtl
+                    ? 'No TTL set, so this acts like noeviction'
+                    : ev.why
+                }
+                warn={volatileNoTtl}
+              >
+                <Select
+                  label="Eviction"
+                  value={eviction}
+                  options={EVICTION}
+                  onChange={(v) => updateConfig({ evictionPolicy: v })}
+                />
+              </Row>
+            )}
             {showProxy ? (
               <Row label="Proxy size" why={sizeLine(proxy, false)}>
                 <Seg

@@ -243,6 +243,12 @@ function shouldSyncAutoLoadBalancer(
   return 'replicas' in patch || 'autoscale' in patch
 }
 
+function shouldRemoveAutoscale(
+  patch: Partial<CanvasNode['config']>,
+): boolean {
+  return 'autoscale' in patch && patch.autoscale == null
+}
+
 export function commitCanvasDesignConfig(
   nodeId: string,
   patch: Partial<CanvasNode['config']>,
@@ -252,8 +258,25 @@ export function commitCanvasDesignConfig(
   const node = st.nodes[nodeId]
   if (!node) return
   const enriched = enrichCanvasDesignPatch(node, patch, limits)
-  if (Object.keys(enriched).length === 0) return
-  st.updateNodeConfig(nodeId, enriched)
+  if (Object.keys(enriched).length === 0 && !shouldRemoveAutoscale(patch)) return
+
+  if (shouldRemoveAutoscale(patch)) {
+    const nextConfig = { ...node.config, ...enriched }
+    delete nextConfig.autoscale
+    useCanvasStore.setState((s) => {
+      const n = s.nodes[nodeId]
+      if (!n) return s
+      return {
+        nodes: {
+          ...s.nodes,
+          [nodeId]: { ...n, config: nextConfig },
+        },
+      }
+    })
+  } else {
+    st.updateNodeConfig(nodeId, enriched)
+  }
+
   if (shouldSyncAutoLoadBalancer(node, patch)) {
     syncAutoLoadBalancerForReplicas()
   }

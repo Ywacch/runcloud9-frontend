@@ -21,16 +21,23 @@ function intField(raw: unknown): number | null {
 }
 
 /** Parse node.config.autoscale; absent or invalid shape returns null. */
-export function autoscaleFromConfig(raw: unknown): AutoscaleConfig | null {
+export function autoscaleFromConfig(
+  raw: unknown,
+  planMax: number = APP_SERVER_REPLICA_MAX,
+): AutoscaleConfig | null {
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null
   const o = raw as Record<string, unknown>
   const min = intField(o.min)
   const max = intField(o.max)
   const targetCPUPercent = intField(o.targetCPUPercent)
   if (min == null || max == null || targetCPUPercent == null) return null
+  const replicaCeiling = Math.min(
+    APP_SERVER_REPLICA_MAX,
+    Math.max(APP_SERVER_REPLICA_MIN, Math.floor(planMax)),
+  )
   if (
     min < APP_SERVER_REPLICA_MIN ||
-    max > APP_SERVER_REPLICA_MAX ||
+    max > replicaCeiling ||
     max < min ||
     targetCPUPercent < AUTOSCALE_CPU_TARGET_MIN ||
     targetCPUPercent > AUTOSCALE_CPU_TARGET_MAX
