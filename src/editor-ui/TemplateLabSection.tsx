@@ -25,7 +25,6 @@ type Props = {
   loadedVariationId: string | null
   snapshotTemplateId: string | null
   onPlace: (action: TemplateSelectAction) => boolean | void
-  nodeCount: number
 }
 
 function isFinePointer(e: PointerEvent): boolean {
@@ -37,7 +36,6 @@ export function TemplateLabSection({
   loadedVariationId,
   snapshotTemplateId,
   onPlace,
-  nodeCount,
 }: Props) {
   const { families, loading, error } = useTemplateLabFamilies()
   const [openFamilyId, setOpenFamilyId] = useState<TemplateFamilyId | null>(null)
@@ -60,8 +58,6 @@ export function TemplateLabSection({
     snapshotTemplateId && loadedVariationId
       ? `${snapshotTemplateId}:${loadedVariationId}`
       : null
-
-  const placed = nodeCount > 0 && Boolean(snapshotTemplateId)
 
   const wantGhost = useCallback(
     (row: TemplateLabVariationRow | null) => {
@@ -220,29 +216,25 @@ export function TemplateLabSection({
   }
 
   if (loading) {
-    return <p className="sl-cv-hint">Loading labs…</p>
+    return <p className="cv-note">Loading labs…</p>
   }
   if (error) {
-    return <p className="sl-cv-hint text-[var(--sl-red)]">{error}</p>
+    return <p className="cv-note">{error}</p>
   }
 
   return (
-    <section aria-labelledby="sl-layout-heading">
-      <p className="sr-only" id="sl-layout-hint">
+    <>
+      <p className="sr-only" id="labs-hint">
         Arrow keys move through labs and variations. Focus or hover previews a
         layout on the floor. Enter places it.
       </p>
-      {!placed ? (
-        <p className="sl-cv-why" id="sl-layout-why">
-          Place a lab first
-        </p>
-      ) : null}
       <ul
         ref={treeRef}
-        className="sl-cv-tree"
+        id="labs"
+        className="cv-tree"
         role="tree"
-        aria-labelledby="sl-layout-heading"
-        aria-describedby="sl-layout-hint"
+        aria-labelledby="h-layout"
+        aria-describedby="labs-hint"
         onKeyDown={onTreeKeyDown}
         onPointerLeave={(e) => {
           if (isFinePointer(e)) wantHide()
@@ -261,7 +253,7 @@ export function TemplateLabSection({
             >
               <button
                 type="button"
-                className="sl-cv-lab-row"
+                className="cv-lab-row"
                 data-tree-id={labTreeId}
                 tabIndex={rovingId === labTreeId || (!rovingId && families[0] === item) ? 0 : -1}
                 disabled={disabled}
@@ -277,14 +269,14 @@ export function TemplateLabSection({
                 }}
                 onPointerOver={(e) => handlePointerOver(e, labTreeId)}
               >
-                <span className="sl-cv-lab-icon" style={{ color: meta.accent }}>
+                <span className="cv-lab-icon" style={{ color: meta.accent }}>
                   {meta.icon}
                 </span>
-                <span className="sl-cv-lab-t">
+                <span className="cv-lab-t">
                   <b>{item.family.title}</b>
                   <span>{item.family.summary}</span>
                 </span>
-                <i className="sl-cv-chev" aria-hidden />
+                <i className="cv-chev" aria-hidden />
               </button>
               {isOpen ? (
                 <ul role="group">
@@ -298,7 +290,7 @@ export function TemplateLabSection({
                       <li
                         key={rowKey}
                         role="treeitem"
-                        className={`sl-cv-var${ghost ? ' is-ghost' : ''}`}
+                        className={`cv-var${ghost ? ' is-ghost' : ''}`}
                         data-tree-id={varTreeId}
                         tabIndex={rovingId === varTreeId ? 0 : -1}
                         aria-selected={selected}
@@ -336,7 +328,7 @@ export function TemplateLabSection({
           )
         })}
       </ul>
-    </section>
+    </>
   )
 }
 

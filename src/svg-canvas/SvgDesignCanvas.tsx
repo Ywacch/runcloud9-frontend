@@ -1312,7 +1312,13 @@ export default function SvgDesignCanvas({
         </>
       )}
 
-      <div ref={hostRef} className="relative min-h-0 flex-1">
+      <div
+        ref={hostRef}
+        className={`cv-canvas-host relative min-h-0 flex-1${
+          templatePreviewActive ? ' ghosting' : ''
+        }`}
+        data-state={nodes.length > 0 ? 'placed' : 'empty'}
+      >
         <svg
           ref={svgRef}
           className={`absolute inset-0 h-full w-full touch-none ${cursor}`}
@@ -1465,10 +1471,7 @@ export default function SvgDesignCanvas({
         {canvasMode === 'design' &&
         nodes.length === 0 &&
         !templatePreviewActive ? (
-          <p
-            className="pointer-events-none absolute left-0 right-0 top-[38%] px-6 text-center font-mono text-[11px] text-[var(--c9-muted)]"
-            data-canvas-floor-hint
-          >
+          <p className="cv-floor-hint" id="floor-hint">
             Hover a lab in the sidebar to preview it
           </p>
         ) : null}
