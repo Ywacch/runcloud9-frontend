@@ -869,6 +869,21 @@
   cursor: pointer;
 }
 
+.cv-chrome .cv-seg-lock {
+  display: inline-flex;
+  cursor: help;
+}
+
+.cv-chrome .cv-seg button.is-locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.cv-chrome .cv-seg button.is-locked:hover,
+.cv-chrome .cv-seg button.is-locked:focus-visible {
+  color: var(--dt-color-text-muted);
+}
+
 .cv-chrome .cv-seg button[aria-pressed='true'] {
   color: var(--dt-color-text-strong);
 }

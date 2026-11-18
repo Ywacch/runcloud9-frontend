@@ -28,7 +28,7 @@ function enrichAutoscale(
 ): CanvasNode['config']['autoscale'] | undefined {
   if (raw === undefined) return undefined
   if (raw == null) return undefined
-  const ac = autoscaleFromConfig(raw) ?? defaultAutoscale(maxAppReplicas)
+  const ac = autoscaleFromConfig(raw, maxAppReplicas) ?? defaultAutoscale(maxAppReplicas)
   const max = clampAutoscaleMax(ac.max, ac.min, maxAppReplicas)
   const min = clampAutoscaleMin(ac.min, max)
   return {

@@ -305,6 +305,57 @@ describe('sumDesignBudget', () => {
     ).toBe(false)
   })
 
+  it('charges app autoscale at max replicas', () => {
+    const fixed = sumDesignBudget(
+      {
+        version: '1.0',
+        template: 'url-shortener',
+        archetype: 'url-shortener',
+        nodes: [
+          {
+            id: 'app-1',
+            type: 'app-server',
+            name: 'App Server',
+            config: { replicas: 1, instanceSize: 'small' },
+          },
+        ],
+        connections: [],
+      },
+      'internal',
+      catalog,
+    )
+    const scaled = sumDesignBudget(
+      {
+        version: '1.0',
+        template: 'url-shortener',
+        archetype: 'url-shortener',
+        nodes: [
+          {
+            id: 'app-1',
+            type: 'app-server',
+            name: 'App Server',
+            config: {
+              replicas: 1,
+              instanceSize: 'small',
+              autoscale: { min: 1, max: 5, targetCPUPercent: 70 },
+            },
+          },
+        ],
+        connections: [],
+      },
+      'internal',
+      catalog,
+    )
+    const fixedApp = fixed.breakdown.find((row) => row.label.startsWith('App Server'))
+    expect(scaled.breakdown.some((row) => row.label === 'App Server small×5')).toBe(
+      true,
+    )
+    expect(fixedApp).toBeDefined()
+    expect(parseCpuMilli(scaled.requested.cpu) - parseCpuMilli(fixed.requested.cpu)).toBe(
+      parseCpuMilli(fixedApp!.cpu) * 4,
+    )
+  })
+
   it('sums per-copy app sizes instead of replicas times one profile', () => {
     const mixed: DeploymentDesign = {
       version: '1.0',

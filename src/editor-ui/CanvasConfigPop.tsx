@@ -48,6 +48,8 @@ const FLOOR_TOOL_CLEARANCE = 60
 
 function useDesignBudgetFooter() {
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
   const exportJSON = useCanvasStore((s) => s.exportJSON)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -77,7 +79,7 @@ function useDesignBudgetFooter() {
     } catch {
       return null
     }
-  }, [exportJSON, quotaTier, snapshotTemplateId])
+  }, [edges, exportJSON, nodes, quotaTier, snapshotTemplateId])
 }
 
 function popPosition(

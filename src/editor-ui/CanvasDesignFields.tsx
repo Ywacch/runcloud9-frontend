@@ -243,6 +243,8 @@ function writeAutoscale(
   updateConfig({ autoscale: next })
 }
 
+const AUTOSCALE_LOCK_TIP = 'CPU autoscale is limited to internal accounts.'
+
 function AutoscaleRows({
   scale,
   limits,
@@ -258,31 +260,56 @@ function AutoscaleRows({
   idleWhy: string
   writeScale: (next: AutoscaleConfig | null) => void
 }) {
+  const locked = !limits.allowAutoscale
+  const [lockHintUntil, setLockHintUntil] = useState(0)
+  const lockHint = lockHintUntil > Date.now()
+
+  useEffect(() => {
+    if (lockHintUntil <= Date.now()) return
+    const timer = window.setTimeout(
+      () => setLockHintUntil(0),
+      lockHintUntil - Date.now(),
+    )
+    return () => window.clearTimeout(timer)
+  }, [lockHintUntil])
+
   return (
     <>
       <Row
         label="Autoscale"
         why={
-          !limits.allowAutoscale
+          lockHint
             ? lockedWhy
-            : scale
-              ? activeWhy
-              : idleWhy
+            : locked
+              ? lockedWhy
+              : scale
+                ? activeWhy
+                : idleWhy
         }
+        warn={lockHint}
       >
-        <Seg
-          label="Autoscale"
-          value={scale ? 'on' : 'off'}
-          options={ONOFF}
-          onChange={(v) => {
-            if (v === 'on') {
-              if (!limits.allowAutoscale) return
-              writeScale(scale ?? defaultAutoscale(limits.maxAppReplicas))
-              return
-            }
-            writeScale(null)
-          }}
-        />
+        <span
+          className={locked ? 'cv-seg-lock' : undefined}
+          title={locked ? AUTOSCALE_LOCK_TIP : undefined}
+        >
+          <Seg
+            label="Autoscale"
+            value={scale ? 'on' : 'off'}
+            options={ONOFF}
+            disableValues={locked ? ['on'] : undefined}
+            onChange={(v) => {
+              if (v === 'on') {
+                if (locked) {
+                  setLockHintUntil(Date.now() + 4000)
+                  return
+                }
+                writeScale(scale ?? defaultAutoscale(limits.maxAppReplicas))
+                return
+              }
+              writeScale(null)
+            }}
+          />
+        </span>
       </Row>
       {scale ? (
         <>
@@ -365,13 +392,17 @@ function Seg({
   label,
   value,
   options,
+  disableValues,
   onChange,
 }: {
   label: string
   value: string
   options: Opt[]
+  /** Option values that cannot be selected (e.g. locked plan gates). */
+  disableValues?: string[]
   onChange: (value: string) => void
 }) {
+  const blocked = new Set(disableValues ?? [])
   return (
     <div className="cv-seg" role="radiogroup" aria-label={label}>
       {options.map((o) => (
@@ -381,6 +412,8 @@ function Seg({
           role="radio"
           aria-checked={o.value === value}
           aria-pressed={o.value === value}
+          aria-disabled={blocked.has(o.value) || undefined}
+          className={blocked.has(o.value) ? 'is-locked' : undefined}
           onClick={() => onChange(o.value)}
         >
           {o.label}
@@ -660,7 +693,7 @@ export function CanvasDesignFields({
         <AutoscaleRows
           scale={scale}
           limits={limits}
-          lockedWhy="CPU autoscale is limited to internal accounts"
+          lockedWhy={AUTOSCALE_LOCK_TIP}
           activeWhy="Replicas follow CPU; budget counts max"
           idleWhy="Fixed replica count"
           writeScale={writeScale}
@@ -776,7 +809,7 @@ export function CanvasDesignFields({
         <AutoscaleRows
           scale={scale}
           limits={limits}
-          lockedWhy="CPU autoscale is limited to internal accounts"
+          lockedWhy={AUTOSCALE_LOCK_TIP}
           activeWhy="Replicas follow CPU; budget counts max"
           idleWhy="Fixed replica count"
           writeScale={writeScale}

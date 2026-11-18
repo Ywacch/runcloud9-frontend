@@ -23,6 +23,23 @@ describe('enrichCanvasDesignPatch', () => {
     expect(patch.instanceSizes).toEqual(['small', 'small', 'small'])
   })
 
+  it('stores a parseable autoscale range', () => {
+    const node = computeNode(1)
+    const patch = enrichCanvasDesignPatch(
+      node,
+      { autoscale: { min: 1, max: 5, targetCPUPercent: 70 } },
+      limits,
+    )
+    expect(patch.autoscale).toEqual({ min: 1, max: 5, targetCPUPercent: 70 })
+    expect(patch.instanceSizes).toEqual([
+      'small',
+      'small',
+      'small',
+      'small',
+      'small',
+    ])
+  })
+
   it('syncs uniform size across copies', () => {
     const node = computeNode(2)
     node.config.replicas = 2
