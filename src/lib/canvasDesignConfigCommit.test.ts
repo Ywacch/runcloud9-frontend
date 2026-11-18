@@ -9,10 +9,8 @@ function computeNode(replicas = 1): CanvasNode {
     id: 'app',
     type: 'compute',
     label: 'App Server',
-    x: 0,
-    y: 0,
-    z: 0,
     position: [0, 0, 0],
+    status: 'idle',
     config: { replicas, instanceSize: 'small', instanceSizes: ['small'] },
   }
 }

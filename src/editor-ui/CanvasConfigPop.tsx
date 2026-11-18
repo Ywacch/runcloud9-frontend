@@ -15,6 +15,7 @@ import {
 } from '../lib/sumDesignBudget'
 import { quotaTierFromAuth } from '../lib/userTier'
 import { useAuthStore } from '../product/stores/authStore'
+import { canvasPositionToSvgWorld } from '../svg-canvas/bridge/canvasSvgAdapter'
 import { useSvgCanvasStore } from '../svg-canvas/store/svgCanvasStore'
 import {
   subscribeSvgViewportScreenRefresh,
@@ -153,9 +154,10 @@ export function CanvasConfigPop({ hostRef }: { hostRef: React.RefObject<HTMLElem
       setPos(null)
       return
     }
-    const wx = svgNode?.x ?? node.x
-    const wy = svgNode?.y ?? node.y
-    const anchor = svgWorldToHost(wx, wy)
+    const world = svgNode
+      ? { x: svgNode.x, y: svgNode.y }
+      : canvasPositionToSvgWorld(node.position)
+    const anchor = svgWorldToHost(world.x, world.y)
     if (!anchor) {
       setPos(null)
       return
@@ -167,7 +169,7 @@ export function CanvasConfigPop({ hostRef }: { hostRef: React.RefObject<HTMLElem
 
   useLayoutEffect(() => {
     relayout()
-  }, [relayout, node?.id, node?.x, node?.y])
+  }, [relayout, node?.id, node?.position])
 
   useEffect(() => {
     if (!active) return

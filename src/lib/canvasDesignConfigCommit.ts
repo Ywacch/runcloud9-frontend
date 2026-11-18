@@ -79,9 +79,6 @@ export function enrichCanvasDesignPatch(
 
     if (touched) {
       if (node.type === 'compute') {
-        const ac = autoscaleFromConfig(
-          'autoscale' in out ? out.autoscale : merged.autoscale,
-        )
         out.replicas = clampAppServerReplicas(
           merged.replicas ?? 1,
           limits.maxAppReplicas,

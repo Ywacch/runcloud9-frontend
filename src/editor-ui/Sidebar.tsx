@@ -73,7 +73,6 @@ import {
 } from '../lib/spawnClientNode'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
-import { useWalkthroughStore } from '../editor-core/stores/walkthroughStore'
 import { useAuthStore } from '../product/stores/authStore'
 import { useLogStore } from '../editor-core/stores/logStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
@@ -137,8 +136,6 @@ export function Sidebar() {
   const mode = useCanvasStore((s) => s.mode)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
-  const selectedId = useCanvasStore((s) => s.selectedId)
-  const selectedIds = useCanvasStore((s) => s.selectedIds)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
@@ -146,7 +143,6 @@ export function Sidebar() {
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const topologyBanner = useCanvasStore((s) => s.topologyBanner)
   const setTopologyBanner = useCanvasStore((s) => s.setTopologyBanner)
-  const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
