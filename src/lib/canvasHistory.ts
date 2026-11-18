@@ -5,6 +5,15 @@ const MAX_HISTORY = 50
 export interface CanvasTopologySnapshot {
   nodes: Record<string, CanvasNode>
   edges: Record<string, CanvasEdge>
+  snapshotTemplateId?: string | null
+  loadedVariationId?: string | null
+  jobBindings?: Record<string, string>
+}
+
+export type CanvasHistoryMeta = {
+  snapshotTemplateId: string | null
+  loadedVariationId: string | null
+  jobBindings: Record<string, string>
 }
 
 let past: CanvasTopologySnapshot[] = []
@@ -26,9 +35,16 @@ function shouldRecord(): boolean {
 export function recordCanvasHistory(
   nodes: Record<string, CanvasNode>,
   edges: Record<string, CanvasEdge>,
+  meta?: CanvasHistoryMeta,
 ): void {
   if (!shouldRecord()) return
-  past.push(cloneTopology(nodes, edges))
+  const snap = cloneTopology(nodes, edges)
+  if (meta) {
+    snap.snapshotTemplateId = meta.snapshotTemplateId
+    snap.loadedVariationId = meta.loadedVariationId
+    snap.jobBindings = structuredClone(meta.jobBindings)
+  }
+  past.push(snap)
   if (past.length > MAX_HISTORY) past.shift()
   future = []
 }

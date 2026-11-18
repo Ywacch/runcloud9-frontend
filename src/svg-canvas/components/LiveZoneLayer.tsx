@@ -12,6 +12,7 @@ import {
 } from '../store/unitMotionStore'
 import type { SvgNode, SvgZone } from '../store/svgTypes'
 import { liveZonesForNodes } from './liveZonesForNodes'
+import { useProjectionT } from '../store/projectionStore'
 import { ZoneLayer } from './ZoneLayer'
 
 type LiveZoneLayerProps = {
@@ -41,10 +42,11 @@ export function LiveZoneLayer({
   useSyncExternalStore(subscribeUnitMotion, () => getUnitMotionEpoch(), () => 0)
   useSyncExternalStore(subscribeExpand, () => getExpandEpoch(), () => 0)
   const drag = getDragLive()
+  const projectionT = useProjectionT()
 
   const liveZones = useMemo(
-    () => liveZonesForNodes(zones, nodes, drag),
-    [zones, nodes, drag, getUnitMotionEpoch(), getExpandEpoch()],
+    () => liveZonesForNodes(zones, nodes, drag, projectionT),
+    [zones, nodes, drag, projectionT, getUnitMotionEpoch(), getExpandEpoch()],
   )
 
   return (

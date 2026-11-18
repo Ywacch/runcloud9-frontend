@@ -1,6 +1,7 @@
 ﻿import { composeGlyph } from './composeGlyph'
 import { composeExpandedFanUnits } from './expandedSlots'
 import type { UnitOffset } from './composeAppServer'
+import { clampProjection } from '../math/projection'
 import type { ReplicaPacking, SvgNode } from '../store/svgTypes'
 
 export type ResolvedGlyph = {
@@ -17,14 +18,16 @@ export function defaultExpanded(node: SvgNode): boolean {
 export function resolveDisplayUnits(
   node: SvgNode,
   expanded: boolean,
+  projectionT = 0,
 ): ResolvedGlyph {
   const composed = composeGlyph(node)
   const packing = composed.packing
+  const flatCollapsed = clampProjection(projectionT) >= 1
 
   if (packing === 'stack') {
     if (!expanded) {
       return {
-        units: composed.units,
+        units: flatCollapsed ? [{ dx: 0, dy: 0 }] : composed.units,
         packing: composed.packing,
         brandBody: composed.brandBody,
         tubeCount: composed.tubeCount,
@@ -32,7 +35,7 @@ export function resolveDisplayUnits(
     }
     const n = composed.units.length
     return {
-      units: composeExpandedFanUnits(n),
+      units: composeExpandedFanUnits(n, projectionT),
       packing: composed.packing,
       brandBody: composed.brandBody,
       tubeCount: composed.tubeCount,

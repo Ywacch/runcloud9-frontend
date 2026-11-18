@@ -16,7 +16,9 @@ import {
   healthRimFilterId,
   healthRimLayerOpacity,
 } from '../fx/healthRimFilter'
+import { HALF_W } from '../math/iso'
 import { RedisFaceMarks } from './RedisFaceMarks'
+import { FLAT_FACE_CX, FlatGlyphFace } from './flatGlyphFace'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type RedisBrandGlyphProps = {
@@ -26,6 +28,7 @@ type RedisBrandGlyphProps = {
   selected?: boolean
   healthVisual?: HealthVisualState
   interactive?: boolean
+  projectionT?: number
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
@@ -116,6 +119,7 @@ export function RedisBrandGlyph({
   onUnitPointerDown,
   onUnitPointerEnter,
   onUnitPointerLeave,
+  projectionT = 0,
 }: RedisBrandGlyphProps) {
   // Multi-replica nest uses ZoneLayer for cluster selection; per-mark hits when wired.
   const multi = units.length > 1
@@ -127,6 +131,9 @@ export function RedisBrandGlyph({
   const rimAlpha = usePulsingAlpha(rimStyle)
   const rimFilter = healthRimFilterId(healthVisual)
   const rimOpacity = rimFilter ? healthRimLayerOpacity(rimAlpha) : 0
+  const isoOpacity = 1 - projectionT
+  const flatCx = FLAT_FACE_CX
+  const flatCy = -CC_HALF_H
   // Shelf: top last. Diamond nest: back first so front marks occlude correctly.
   const ordered = [...units].sort(compareUnitPaintOrder)
 
@@ -166,11 +173,23 @@ export function RedisBrandGlyph({
                 onPointerLeave={() => onUnitPointerLeave?.(pickIndex(u.id))}
               />
             ) : null}
-            <RedisMark
-              stroke={stroke}
-              strokeWidth={strokeWidth}
-              rimFilter={rimFilter}
-              rimOpacity={rimOpacity}
+            <g opacity={isoOpacity}>
+              <RedisMark
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                rimFilter={rimFilter}
+                rimOpacity={rimOpacity}
+              />
+            </g>
+            <FlatGlyphFace
+              cx={flatCx}
+              cy={flatCy}
+              size={HALF_W * 1.35}
+              shape="rect"
+              fill="#d82f27"
+              logoId="redis"
+              selected={selected && !multi}
+              t={projectionT}
             />
           </g>
         ))}

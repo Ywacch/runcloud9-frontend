@@ -97,6 +97,11 @@ import { getProjectionT, useProjectionT } from './store/projectionStore'
 import { ProjectionToggle } from './components/ProjectionToggle'
 import { attachPoint } from './routing/attach'
 import { defaultExpanded, resolveDisplayUnits } from './compose/resolveDisplayUnits'
+import {
+  TemplateFloorPreviewLayer,
+  templatePreviewDimOpacity,
+} from './components/TemplateFloorPreviewLayer'
+import { useTemplateFloorPreviewStore } from '../editor-core/stores/templateFloorPreviewStore'
 import { getExpanded, getExpandEpoch, subscribeExpand } from './store/expandStore'
 import { setDragLive } from './store/dragLiveStore'
 import {
@@ -274,6 +279,7 @@ export default function SvgDesignCanvas({
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
   const projectionT = useProjectionT()
+  const templatePreviewActive = useTemplateFloorPreviewStore((s) => s.snapshot != null)
   const prevProjectionT = useRef(0)
   const [mode, setMode] = useState<GridMode>(() => readStoredGridMode())
   const setGridMode = useCallback((next: GridMode) => {
@@ -1339,6 +1345,12 @@ export default function SvgDesignCanvas({
             viewH={view.h}
             t={projectionT}
           />
+          <g
+            opacity={templatePreviewDimOpacity(
+              templatePreviewActive,
+              window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+            )}
+          >
           <LiveZoneLayer
             zones={zones}
             nodes={nodes}
@@ -1432,6 +1444,8 @@ export default function SvgDesignCanvas({
             nodes={sortedNodes}
             opacityById={nodeOpacityById ?? undefined}
           />
+          </g>
+          <TemplateFloorPreviewLayer />
           <WalkthroughNodeOverlay nodes={sortedNodes} />
           {marqueeRect && marqueeRect.w + marqueeRect.h > 0 ? (
             <rect

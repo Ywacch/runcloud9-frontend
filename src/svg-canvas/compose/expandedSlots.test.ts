@@ -25,9 +25,18 @@ describe('expandedSlots', () => {
   })
 
   it('uses half-cell spacing scaled by spread factor', () => {
-    const o1 = expandedSlotOffset(1)
+    const o1 = expandedSlotOffset(1, 0)
     expect(o1.x).toBe(-1.3 * HALF_W)
     expect(o1.y).toBe(-1.3 * HALF_H)
+  })
+
+  it('flat mode offsets vertically only', () => {
+    const o1 = expandedSlotOffset(1, 1)
+    const o2 = expandedSlotOffset(2, 1)
+    expect(o1.x).toBe(0)
+    expect(o2.x).toBe(0)
+    expect(o1.y).toBeLessThan(0)
+    expect(o2.y).toBeGreaterThan(0)
   })
 
   it('composeExpandedFanUnits matches per-index offsets', () => {

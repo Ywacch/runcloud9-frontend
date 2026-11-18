@@ -93,10 +93,11 @@ function NodeGlyphInner({
     chaosUnitIds,
   }
   const resolved = useMemo(
-    () => resolveDisplayUnits(node, expanded),
+    () => resolveDisplayUnits(node, expanded, projectionT),
     [
       node,
       expanded,
+      projectionT,
       node.topology.replicas,
       node.topology.shards,
       node.topology.packing,
@@ -180,11 +181,11 @@ function NodeGlyphInner({
 
   let glyph: ReactElement
   if (composed.brandBody === 'redis') {
-    glyph = <RedisBrandGlyph {...common} units={units} />
+    glyph = <RedisBrandGlyph {...common} units={units} projectionT={projectionT} />
   } else {
     switch (node.archetype) {
       case 'client':
-        glyph = <ClientLoadgenGlyph {...common} />
+        glyph = <ClientLoadgenGlyph {...common} projectionT={projectionT} />
         break
       case 'database':
         glyph = (
