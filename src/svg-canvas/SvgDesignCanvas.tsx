@@ -1462,6 +1462,16 @@ export default function SvgDesignCanvas({
           ) : null}
         </svg>
         <SvgNodeTooltipOverlay />
+        {canvasMode === 'design' &&
+        nodes.length === 0 &&
+        !templatePreviewActive ? (
+          <p
+            className="pointer-events-none absolute left-0 right-0 top-[38%] px-6 text-center font-mono text-[11px] text-[var(--c9-muted)]"
+            data-canvas-floor-hint
+          >
+            Hover a lab in the sidebar to preview it
+          </p>
+        ) : null}
         {graphHonestyIssue ? (
           <GraphHonestyStrip
             message={graphHonestyIssue}

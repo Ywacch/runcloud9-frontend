@@ -100,6 +100,7 @@ import {
   type TemplateSelectAction,
 } from './TemplateModal'
 import { TemplateLabSection } from './TemplateLabSection'
+import { TemplateLabMiniRail } from './TemplateLabMiniRail'
 import { recordCanvasHistory } from '../lib/canvasHistory'
 import {
   trackEvent,
@@ -943,17 +944,28 @@ export function Sidebar() {
           {rail ? '▶' : '◀'}
         </button>
       </div>
+      {rail ? (
+        <TemplateLabMiniRail
+          disabled={live || simulate}
+          loadedVariationId={loadedVariationId}
+          snapshotTemplateId={snapshotTemplateId}
+          onPlace={handleTemplateAction}
+        />
+      ) : null}
       <div
         className={`flex-1 space-y-3 overflow-y-auto p-4 ${
           rail ? 'hidden' : ''
         }`}
       >
-        <h2 className="sl-lab mb-2">Templates</h2>
+        <h2 className="sl-lab mb-2" id="sl-layout-heading">
+          Layout
+        </h2>
         <TemplateLabSection
           disabled={live || simulate}
           loadedVariationId={loadedVariationId}
           snapshotTemplateId={snapshotTemplateId}
           onPlace={handleTemplateAction}
+          nodeCount={nodeCount}
         />
         <button
           type="button"
