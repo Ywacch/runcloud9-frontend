@@ -99,6 +99,8 @@ import {
   templateTitleForId,
   type TemplateSelectAction,
 } from './TemplateModal'
+import { TemplateLabSection } from './TemplateLabSection'
+import { recordCanvasHistory } from '../lib/canvasHistory'
 import {
   trackEvent,
   deploymentAnalyticsProperties,
@@ -136,6 +138,7 @@ export function Sidebar() {
   const selectedId = useCanvasStore((s) => s.selectedId)
   const selectedIds = useCanvasStore((s) => s.selectedIds)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const movementLocked = useCanvasStore((s) => s.movementLocked)
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
@@ -408,12 +411,20 @@ export function Sidebar() {
 
   const handleTemplateAction = (action: TemplateSelectAction): boolean | void => {
     const st = useCanvasStore.getState()
-    if (Object.keys(st.nodes).length > 0) {
+    const hadDesign = Object.keys(st.nodes).length > 0
+    if (hadDesign) {
       if (!window.confirm('Replace current design?')) return false
+      recordCanvasHistory(st.nodes, st.edges, {
+        snapshotTemplateId: st.snapshotTemplateId,
+        loadedVariationId: st.loadedVariationId,
+        jobBindings: { ...st.jobBindings },
+      })
     }
     useSimulationStore.getState().stop()
     if (action.kind === 'preset') {
-      st.loadTemplateSnapshot(action.preset(), 'design')
+      st.loadTemplateSnapshot(action.preset(), 'design', {
+        preserveUndoHistory: hadDesign,
+      })
       st.setLoadedVariationId(action.variationId)
       st.setTemplatePresetMode(null)
       setBanner(`Loaded ${templateTitleForId(action.id) ?? action.id} template`)
@@ -938,28 +949,37 @@ export function Sidebar() {
         }`}
       >
         <h2 className="sl-lab mb-2">Templates</h2>
-        <button
-          type="button"
+        <TemplateLabSection
           disabled={live || simulate}
-          onClick={() => {
-            pickerSelectedRef.current = false
-            setTemplateModalOpen(true)
-            trackEvent('template_picker_opened', {
-              template: snapshotTemplateId ?? 'none',
-            })
-          }}
-          className="sl-tpl disabled:opacity-40"
-        >
-          <span className="sl-tpl-lab">Template</span>
-          <span className="sl-tpl-name">
-            {templateTitleForId(snapshotTemplateId) ?? 'Choose a template…'}
-          </span>
-        </button>
+          loadedVariationId={loadedVariationId}
+          snapshotTemplateId={snapshotTemplateId}
+          onPlace={handleTemplateAction}
+        />
         <button
           type="button"
           disabled={live || simulate || !snapshotTemplateId}
           onClick={() => {
-            useCanvasStore.getState().setSnapshotTemplateId(null)
+            const st = useCanvasStore.getState()
+            if (Object.keys(st.nodes).length > 0) {
+              recordCanvasHistory(st.nodes, st.edges, {
+                snapshotTemplateId: st.snapshotTemplateId,
+                loadedVariationId: st.loadedVariationId,
+                jobBindings: { ...st.jobBindings },
+              })
+              st.loadTemplateSnapshot(
+                {
+                  version: '1.0',
+                  nodes: [],
+                  edges: [],
+                  exportedAt: new Date().toISOString(),
+                },
+                'design',
+                { preserveUndoHistory: true },
+              )
+            } else {
+              st.setSnapshotTemplateId(null)
+            }
+            st.setLoadedVariationId(null)
             resetDesignOptionSession()
             setBanner('Template cleared.')
           }}

@@ -22,18 +22,32 @@ function node(
 }
 
 describe('resolveDisplayUnits', () => {
-  it('stack collapsed uses shelf', () => {
+  it('stack collapsed uses shelf in iso', () => {
     const n = node('app-server', 3, 1, 'stack')
-    const r = resolveDisplayUnits(n, false)
+    const r = resolveDisplayUnits(n, false, 0)
     expect(r.units.length).toBe(3)
     expect(r.units[1].dy).toBeLessThan(0)
   })
 
-  it('stack expanded fans in plane', () => {
+  it('stack collapsed is one face in flat', () => {
     const n = node('app-server', 3, 1, 'stack')
-    const r = resolveDisplayUnits(n, true)
+    const r = resolveDisplayUnits(n, false, 1)
+    expect(r.units).toEqual([{ dx: 0, dy: 0 }])
+  })
+
+  it('stack expanded fans diagonally in iso', () => {
+    const n = node('app-server', 3, 1, 'stack')
+    const r = resolveDisplayUnits(n, true, 0)
     expect(r.units.length).toBe(3)
     expect(r.units[1].dx).not.toBe(0)
+  })
+
+  it('stack expanded fans vertically in flat', () => {
+    const n = node('app-server', 3, 1, 'stack')
+    const r = resolveDisplayUnits(n, true, 1)
+    expect(r.units.length).toBe(3)
+    expect(r.units[1].dx).toBe(0)
+    expect(r.units[1].dy).not.toBe(0)
   })
 
   it('fan collapsed is single unit', () => {

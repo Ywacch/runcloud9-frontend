@@ -5,6 +5,7 @@ import { socialFeedCacheRemovalBanner } from '../../lib/socialFeedCacheRemoval'
 import { useAuthStore } from '../../product/stores/authStore'
 import {
   clearCanvasHistory,
+  type CanvasTopologySnapshot,
   popRedoSnapshot,
   popUndoSnapshot,
   recordCanvasHistory,
@@ -243,6 +244,7 @@ interface CanvasState {
   loadTemplateSnapshot: (
     snapshot: CanvasSnapshot,
     targetMode: 'design' | 'simulate',
+    options?: { preserveUndoHistory?: boolean },
   ) => void
   /** Start from a chosen template id with an empty canvas in design mode. */
   startFromTemplate: (templateId: string) => void
@@ -258,14 +260,20 @@ function positionsEqual(
   return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
 }
 
-function restoreTopology(
-  set: (partial: Partial<CanvasState>) => void,
-  snapshot: { nodes: Record<string, CanvasNode>; edges: Record<string, CanvasEdge> },
-): void {
+function restoreTopology(set: (partial: Partial<CanvasState>) => void, snapshot: CanvasTopologySnapshot): void {
   withoutCanvasHistoryRecording(() => {
     set({
       nodes: snapshot.nodes,
       edges: snapshot.edges,
+      ...(snapshot.snapshotTemplateId !== undefined
+        ? { snapshotTemplateId: snapshot.snapshotTemplateId }
+        : null),
+      ...(snapshot.loadedVariationId !== undefined
+        ? { loadedVariationId: snapshot.loadedVariationId }
+        : null),
+      ...(snapshot.jobBindings !== undefined
+        ? { jobBindings: snapshot.jobBindings }
+        : null),
       selectedId: null,
       selectedIds: [],
       selectedInstanceId: null,
@@ -726,8 +734,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     resetDesignStorytellingUi({ syncPredictions: Boolean(snapshot.templateId) })
   },
 
-  loadTemplateSnapshot: (snapshot, targetMode) => {
-    clearCanvasHistory()
+  loadTemplateSnapshot: (snapshot, targetMode, options) => {
+    if (!options?.preserveUndoHistory) {
+      clearCanvasHistory()
+    }
     resetDesignStorytellingUi()
     clearSessionLayout()
     set({

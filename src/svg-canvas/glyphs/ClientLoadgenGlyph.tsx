@@ -8,6 +8,7 @@ import {
   healthRimLayerOpacity,
 } from '../fx/healthRimFilter'
 import { CELL_W } from '../math/iso'
+import { FlatGlyphFace, FLAT_FACE_CX } from './flatGlyphFace'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 /** Match Pixi `TILE_H` for the procedural client slab (not SVG floor CELL_H). */
@@ -34,6 +35,7 @@ type ClientLoadgenGlyphProps = {
   onPointerDown?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerEnter?: (e: ReactPointerEvent<SVGGElement>) => void
   onPointerLeave?: (e: ReactPointerEvent<SVGGElement>) => void
+  projectionT?: number
 }
 
 /**
@@ -95,6 +97,7 @@ export function ClientLoadgenGlyph({
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
+  projectionT = 0,
 }: ClientLoadgenGlyphProps) {
   const stroke = selected ? '#3b82f6' : EDGE
   const strokeWidth = selected ? 2 : 0.75
@@ -102,6 +105,7 @@ export function ClientLoadgenGlyph({
   const rimAlpha = usePulsingAlpha(rimStyle)
   const rimFilter = healthRimFilterId(healthVisual)
   const rimOpacity = rimFilter ? healthRimLayerOpacity(rimAlpha) : 0
+  const isoOpacity = 1 - projectionT
 
   return (
     <g
@@ -129,18 +133,35 @@ export function ClientLoadgenGlyph({
           fill="transparent"
           style={{ pointerEvents: interactive ? 'fill' : 'none' }}
         />
-        {rimFilter ? (
-          <g
-            filter={`url(#${rimFilter})`}
-            opacity={rimOpacity}
-            data-health-rim
-            style={{ pointerEvents: 'none' }}
-          >
-            <ClientSlab stroke="none" strokeWidth={0} />
+        <g opacity={isoOpacity}>
+          {rimFilter ? (
+            <g
+              filter={`url(#${rimFilter})`}
+              opacity={rimOpacity}
+              data-health-rim
+              style={{ pointerEvents: 'none' }}
+            >
+              <ClientSlab stroke="none" strokeWidth={0} />
+            </g>
+          ) : null}
+          <ClientSlab stroke={stroke} strokeWidth={strokeWidth} />
+          <ClientFaceMark />
+        </g>
+        <FlatGlyphFace
+          cx={FLAT_FACE_CX}
+          cy={0}
+          size={CELL_W * 0.85}
+          shape="ellipse"
+          fill="#78b0f0"
+          logoId={null}
+          selected={selected}
+          t={projectionT}
+        />
+        {projectionT > 0 ? (
+          <g opacity={projectionT} style={{ pointerEvents: 'none' }}>
+            <ClientFaceMark />
           </g>
         ) : null}
-        <ClientSlab stroke={stroke} strokeWidth={strokeWidth} />
-        <ClientFaceMark />
       </g>
     </g>
   )

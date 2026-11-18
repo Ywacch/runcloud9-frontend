@@ -33,11 +33,12 @@ function placedNode(
 function liveZoneForNode(
   node: SvgNode,
   drag: DragLiveSnapshot | null,
+  projectionT = 0,
 ): SvgZone | null {
   const displayExpanded = getExpanded(node.id) ?? defaultExpanded(node)
   if (!displayExpanded) return null
 
-  const resolved = resolveDisplayUnits(node, displayExpanded)
+  const resolved = resolveDisplayUnits(node, displayExpanded, projectionT)
   if (resolved.units.length <= 1) return null
 
   const placed = placedNode(node, drag)
@@ -56,12 +57,13 @@ export function liveZonesForNodes(
   zones: SvgZone[],
   nodes: SvgNode[],
   drag: DragLiveSnapshot | null,
+  projectionT = 0,
 ): SvgZone[] {
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
   const outByOwner = new Map<string, SvgZone>()
 
   for (const node of nodes) {
-    const live = liveZoneForNode(node, drag)
+    const live = liveZoneForNode(node, drag, projectionT)
     if (live) {
       outByOwner.set(node.id, live)
     }
@@ -76,7 +78,7 @@ export function liveZonesForNodes(
     }
     const motionKey = motionKeyForNode(node.id)
     const displayExpanded = getExpanded(node.id) ?? defaultExpanded(node)
-    const resolved = resolveDisplayUnits(node, displayExpanded)
+    const resolved = resolveDisplayUnits(node, displayExpanded, projectionT)
     const needsLiveZone =
       motionKey !== '' || displayExpanded !== defaultExpanded(node)
     if (!needsLiveZone && !drag?.idSet.has(zone.ownerNodeId)) {
