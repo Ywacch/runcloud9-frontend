@@ -125,19 +125,20 @@ export default function SvgCanvasPage() {
   )
 
   return (
-    <div className="sl-chrome flex h-screen w-screen overflow-hidden bg-[var(--sl-bg,#0a0b0d)] text-[var(--sl-ink,#e8e9e5)]">
+    <div className="sl-chrome cv-chrome cv-dock flex h-screen w-screen overflow-hidden bg-[#1f1f32] text-[#ececf6]">
       <SessionSummary />
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <LiveSessionStrip />
         <div className="flex min-h-0 min-w-0 flex-1">
         <div
-          className={`relative min-h-0 min-w-0 flex-1 ${
+          className={`cv-canvas relative min-h-0 min-w-0 flex-1 ${
             placingNodeType ||
             (isCanvasEditMode(mode) && designTool === 'connect')
               ? 'cursor-crosshair'
               : ''
           }`}
+          data-tool={designTool}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault()

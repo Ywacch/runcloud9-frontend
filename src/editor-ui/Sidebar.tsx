@@ -223,6 +223,13 @@ export function Sidebar() {
   }, [collapsed])
 
   useEffect(() => {
+    const dock = document.querySelector('.cv-dock')
+    if (dock) {
+      dock.setAttribute('data-collapsed', rail ? 'true' : 'false')
+    }
+  }, [rail])
+
+  useEffect(() => {
     let cancelled = false
     void ensureResourceProfilesLoaded()
     void ensureTopologyRulesLoaded()
@@ -895,6 +902,33 @@ export function Sidebar() {
   }
 
   const deployBlockedReason = resolveDeployBlockedReason()
+  const labPlaced = nodeCount > 0 && Boolean(snapshotTemplateId)
+
+  const clearLab = () => {
+    const st = useCanvasStore.getState()
+    if (Object.keys(st.nodes).length > 0) {
+      recordCanvasHistory(st.nodes, st.edges, {
+        snapshotTemplateId: st.snapshotTemplateId,
+        loadedVariationId: st.loadedVariationId,
+        jobBindings: { ...st.jobBindings },
+      })
+      st.loadTemplateSnapshot(
+        {
+          version: '1.0',
+          nodes: [],
+          edges: [],
+          exportedAt: new Date().toISOString(),
+        },
+        'design',
+        { preserveUndoHistory: true },
+      )
+    } else {
+      st.setSnapshotTemplateId(null)
+    }
+    st.setLoadedVariationId(null)
+    resetDesignOptionSession()
+    setBanner('Template cleared.')
+  }
 
   const statusLine = tearing
     ? 'Tearing down…'
@@ -908,29 +942,22 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sl-sidebar relative flex h-full shrink-0 flex-col transition-[width] duration-200 ease-out ${
-        rail ? 'w-12' : 'w-64'
-      }`}
+      className="cv-rail"
+      data-collapsed={rail ? 'true' : 'false'}
+      aria-label="Canvas sidebar"
     >
-      <div className="sl-sb-head flex items-center justify-between gap-1">
-        {!rail ? (
-          <div className="min-w-0">
-            <span className="sl-kind">SESSION</span>
-            <Link
-              to="/"
-              className="sl-sb-title block transition-colors duration-200 hover:opacity-90"
-              aria-label="Go to homepage"
-            >
-              RunCloud9
-            </Link>
-            <p className="sl-sb-sub">canvas · playground</p>
-          </div>
-        ) : (
-          <span className="sr-only">RunCloud9</span>
-        )}
+      <header className="cv-rail-hd">
+        <div className="cv-rail-ttl">
+          <Link to="/" className="hover:opacity-90" aria-label="RunCloud9 home">
+            <b>Canvas</b>
+          </Link>
+          <span className="cv-sub">playground</span>
+        </div>
         <button
           type="button"
+          className="cv-collapse"
           aria-expanded={!rail}
+          aria-controls="side-body"
           aria-label={rail ? 'Expand sidebar' : 'Collapse sidebar'}
           disabled={inspectorOpen && !collapsed}
           title={
@@ -939,126 +966,83 @@ export function Sidebar() {
               : undefined
           }
           onClick={() => setCollapsed((c) => !c)}
-          className="shrink-0 rounded-none border border-transparent p-1.5 font-mono text-[10px] text-[var(--c9-muted)] transition-colors duration-200 hover:border-[var(--c9-border)] hover:bg-[var(--c9-badge-bg)] hover:text-[var(--c9-text)] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {rail ? '▶' : '◀'}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="m9 6 6 6-6 6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
+      </header>
+      <TemplateLabMiniRail
+        disabled={live || simulate}
+        loadedVariationId={loadedVariationId}
+        snapshotTemplateId={snapshotTemplateId}
+        onPlace={handleTemplateAction}
+      />
+      <div className="cv-rail-body" id="side-body">
+        <section className="cv-sec" aria-labelledby="h-layout">
+          <h2 className="cv-h" id="h-layout">
+            Layout
+          </h2>
+          <TemplateLabSection
+            disabled={live || simulate}
+            loadedVariationId={loadedVariationId}
+            snapshotTemplateId={snapshotTemplateId}
+            onPlace={handleTemplateAction}
+          />
+          <p className="cv-undo" id="undo" role="status" aria-live="polite" />
+        </section>
+        <section className="cv-sec" aria-labelledby="h-canvas">
+          <h2 className="cv-h" id="h-canvas">
+            Canvas
+          </h2>
+          <div className="cv-col">
+            <button
+              type="button"
+              className="cv-ghost-btn"
+              aria-pressed={movementLocked}
+              disabled={live || simulate || !labPlaced}
+              onClick={() => setMovementLocked(!movementLocked)}
+            >
+              {movementLocked ? 'Unlock movement' : 'Lock movement'}
+            </button>
+            <button
+              type="button"
+              className="cv-ghost-btn"
+              disabled={live || simulate || !labPlaced || nodeCount === 0}
+              onClick={handleAutoArrange}
+            >
+              Auto arrange
+            </button>
+            <button
+              type="button"
+              className="cv-ghost-btn"
+              disabled={live || simulate || !labPlaced}
+              onClick={clearLab}
+            >
+              Clear
+            </button>
+          </div>
+          <p className="cv-why" id="canvas-why" hidden={labPlaced}>
+            Place a lab first
+          </p>
+          <p className="cv-note" id="canvas-note" role="status">
+            {banner ?? topologyBanner ?? graphHonestyIssue ?? ''}
+          </p>
+        </section>
+        <section className="cv-sec">
+          <WorkQueueLayoutSection />
+        </section>
       </div>
-      {rail ? (
-        <TemplateLabMiniRail
-          disabled={live || simulate}
-          loadedVariationId={loadedVariationId}
-          snapshotTemplateId={snapshotTemplateId}
-          onPlace={handleTemplateAction}
-        />
-      ) : null}
-      <div
-        className={`flex-1 space-y-3 overflow-y-auto p-4 ${
-          rail ? 'hidden' : ''
-        }`}
-      >
-        <h2 className="sl-lab mb-2" id="sl-layout-heading">
-          Layout
-        </h2>
-        <TemplateLabSection
-          disabled={live || simulate}
-          loadedVariationId={loadedVariationId}
-          snapshotTemplateId={snapshotTemplateId}
-          onPlace={handleTemplateAction}
-          nodeCount={nodeCount}
-        />
-        <button
-          type="button"
-          disabled={live || simulate || !snapshotTemplateId}
-          onClick={() => {
-            const st = useCanvasStore.getState()
-            if (Object.keys(st.nodes).length > 0) {
-              recordCanvasHistory(st.nodes, st.edges, {
-                snapshotTemplateId: st.snapshotTemplateId,
-                loadedVariationId: st.loadedVariationId,
-                jobBindings: { ...st.jobBindings },
-              })
-              st.loadTemplateSnapshot(
-                {
-                  version: '1.0',
-                  nodes: [],
-                  edges: [],
-                  exportedAt: new Date().toISOString(),
-                },
-                'design',
-                { preserveUndoHistory: true },
-              )
-            } else {
-              st.setSnapshotTemplateId(null)
-            }
-            st.setLoadedVariationId(null)
-            resetDesignOptionSession()
-            setBanner('Template cleared.')
-          }}
-          className="sl-btn mt-2 w-full disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Clear template
-        </button>
-        <TemplateModal
-          open={templateModalOpen}
-          onClose={() => {
-            setTemplateModalOpen(false)
-            trackEvent('template_picker_dismissed', {
-              template:
-                useCanvasStore.getState().snapshotTemplateId ?? 'none',
-              hadSelection: pickerSelectedRef.current,
-            })
-          }}
-          onSelect={(action) => {
-            const result = handleTemplateAction(action)
-            if (result !== false) pickerSelectedRef.current = true
-            return result
-          }}
-        />
-
-        <h2 className="sl-lab mb-2 pt-2">Canvas</h2>
-        <div className="btn-stack flex flex-col gap-1.5">
-          <button
-            type="button"
-            onClick={() => setMovementLocked(!movementLocked)}
-            className="sl-btn w-full"
-          >
-            {movementLocked ? 'Unlock movement' : 'Lock movement'}
-          </button>
-          <button
-            type="button"
-            disabled={nodeCount === 0}
-            onClick={handleAutoArrange}
-            className="sl-btn w-full disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Auto arrange
-          </button>
-        </div>
-        <WorkQueueLayoutSection />
-        {banner ? (
-          <p className="rounded-none border border-[var(--c9-border)] bg-[var(--c9-surface)] px-2 py-1.5 text-xs text-[var(--c9-text)]">
-            {banner}
-          </p>
-        ) : null}
-        {topologyBanner ? (
-          <p className="rounded-none border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100/90">
-            {topologyBanner}
-          </p>
-        ) : null}
-        {graphHonestyIssue ? (
-          <p
-            className="rounded-none border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-100/95"
-            data-graph-honesty-sidebar
-            role="status"
-          >
-            {graphHonestyIssue}
-          </p>
-        ) : null}
-      </div>
-      <div
-        className={`space-y-2 border-t border-[var(--c9-border)] bg-[var(--c9-surface)]/80 p-4 ${
-          rail ? 'hidden' : ''
-        }`}
+      <form
+        className="cv-rail-ft"
+        aria-label="Deploy"
+        onSubmit={(e) => e.preventDefault()}
       >
         {statusLine ? (
           <p className="text-center text-xs text-[var(--c9-muted)]">{statusLine}</p>
@@ -1068,7 +1052,7 @@ export function Sidebar() {
             type="button"
             disabled={tearing}
             onClick={handleTeardown}
-              className="sl-btn danger w-full disabled:opacity-50"
+              className="cv-deploy-btn danger w-full disabled:opacity-50"
           >
             Teardown
           </button>
@@ -1103,70 +1087,62 @@ export function Sidebar() {
         ) : (
           <>
             {sessionLengthConfigurable ? (
-              <div className="space-y-1">
-                <label
-                  className="block text-[11px] font-medium text-[var(--c9-muted)]"
-                  htmlFor="session-length-mins"
-                >
-                  Session length (minutes)
-                </label>
-                <input
-                  id="session-length-mins"
-                  type="number"
-                  min={sessionDefaultMins}
-                  max={sessionCapMins}
-                  step={1}
-                  value={sessionMinutesChoice}
-                  disabled={deploying}
-                  onChange={(e) => {
-                    const next = clampSessionMinutes(
-                      Number(e.target.value),
-                      sessionLimits,
-                    )
-                    setSessionMinutesChoice(next)
-                    writeSessionMinutesPref(next)
-                  }}
-                  className="w-full rounded-none border border-[var(--c9-border)] bg-[var(--c9-bg)] px-2 py-1.5 text-sm text-[var(--c9-text)]"
-                />
-                <p className="text-[11px] leading-snug text-[var(--c9-muted)]">
-                  Live session runs this many minutes after the environment is ready.
+              <>
+                <div className="cv-len">
+                  <label htmlFor="sess-len">Session length</label>
+                  <span>
+                    <input
+                      id="sess-len"
+                      type="number"
+                      min={sessionDefaultMins}
+                      max={sessionCapMins}
+                      step={1}
+                      value={sessionMinutesChoice}
+                      disabled={deploying || !labPlaced}
+                      onChange={(e) => {
+                        const next = clampSessionMinutes(
+                          Number(e.target.value),
+                          sessionLimits,
+                        )
+                        setSessionMinutesChoice(next)
+                        writeSessionMinutesPref(next)
+                      }}
+                    />
+                    min
+                  </span>
+                </div>
+                <p className="cv-hint">
+                  Runs this long once the environment is ready.
                 </p>
-              </div>
+              </>
             ) : session ? (
-              <p className="text-[11px] leading-snug text-[var(--c9-muted)]">
-                Session length: {sessionDefaultMins} min
-              </p>
+              <p className="cv-hint">Session length: {sessionDefaultMins} min</p>
             ) : null}
             <button
               type="button"
-              disabled={deploying || !!deployBlockedReason}
+              className="cv-deploy-btn"
+              disabled={deploying || !!deployBlockedReason || !labPlaced}
               title={deployDisabledReason}
               onClick={handleDeploy}
-              className="w-full rounded-none border border-[var(--c9-accent)] bg-[var(--c9-accent)] px-4 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-[var(--c9-accent-hover)] disabled:opacity-50"
             >
               {session ? 'Deploy' : 'Sign in to deploy'}
             </button>
-            {topologyViolations.length > 0 ? (
-              <p className="text-[11px] leading-snug text-amber-300/90">
-                {topologyViolations[0].message}
-              </p>
-            ) : null}
-            {quotaDisplay ? (
-              <p className="text-[11px] leading-snug text-amber-300/90">
-                This design is {quotaDisplay.requested.cpu} / {quotaDisplay.requested.memory},{' '}
-                but {displayQuotaTierLabel(quotaTier)} allows {quotaDisplay.cap.cpu} /{' '}
-                {quotaDisplay.cap.memory} on the canvas. Downsize nodes or replicas to deploy.
-              </p>
-            ) : null}
-            {selectedTemplate && !templateOffersLiveDeploy(selectedTemplate) ? (
-              <p className="text-[11px] leading-snug text-amber-300/90">
-                {selectedTemplate.available
-                  ? SHOW_SIMULATION_UI
-                    ? `The "${selectedTemplate.name}" template is simulation-only right now.`
-                    : `The "${selectedTemplate.name}" template is not available to deploy yet.`
-                  : TEMPLATE_LIVE_NOT_OFFERED_HINT}
-              </p>
-            ) : null}
+            <p className="cv-why" id="deploy-why" hidden={labPlaced}>
+              Place a lab first
+            </p>
+            <p className="cv-note" id="deploy-note" role="status">
+              {[
+                topologyViolations[0]?.message,
+                quotaDisplay
+                  ? `This design needs ${quotaDisplay.requested.cpu} CPU / ${quotaDisplay.requested.memory} RAM (cap ${quotaDisplay.cap.cpu} / ${quotaDisplay.cap.memory}).`
+                  : null,
+                selectedTemplate && !templateOffersLiveDeploy(selectedTemplate)
+                  ? TEMPLATE_LIVE_NOT_OFFERED_HINT
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            </p>
             {SHOW_SIMULATION_UI && nodeCount > 0 && snapshotTemplateId ? (
               <button
                 type="button"
@@ -1187,7 +1163,23 @@ export function Sidebar() {
             ) : null}
           </>
         )}
-      </div>
+      </form>
+
+      <TemplateModal
+        open={templateModalOpen}
+        onClose={() => {
+          setTemplateModalOpen(false)
+          trackEvent('template_picker_dismissed', {
+            template: useCanvasStore.getState().snapshotTemplateId ?? 'none',
+            hadSelection: pickerSelectedRef.current,
+          })
+        }}
+        onSelect={(action) => {
+          const result = handleTemplateAction(action)
+          if (result !== false) pickerSelectedRef.current = true
+          return result
+        }}
+      />
 
       <DeployModal
         open={deployModalOpen}

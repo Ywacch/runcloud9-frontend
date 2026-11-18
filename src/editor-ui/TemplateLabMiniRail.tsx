@@ -113,7 +113,7 @@ export function TemplateLabMiniRail({
   if (loading || families.length === 0) return null
 
   return (
-    <div className="sl-cv-mini" role="group" aria-label="Labs">
+    <div className="cv-mini" role="group" aria-label="Labs">
       {families.map((item) => {
         const meta = familyMetaForId(item.family.id)
         const row = rowForFamily(item.family.id)
@@ -132,6 +132,7 @@ export function TemplateLabMiniRail({
                 ? `Placed: ${tip}`
                 : `Place ${tip}`
             }
+            data-tip={tip}
             title={tip}
             onClick={() => placeRow(row, item.family.id)}
             onPointerOver={(e) => {
