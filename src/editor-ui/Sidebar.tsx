@@ -24,6 +24,7 @@ import {
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
   templateOffersLiveDeploy,
 } from '../lib/templateAvailability'
+import { FALLBACK_TEMPLATE_CATALOG } from '../lib/templateCatalogFallback'
 import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
@@ -206,13 +207,8 @@ export function Sidebar() {
     Record<string, TemplateInfo>
   >({})
 
-  /** Prefer user collapse preference; force icon rail while inspector dock is open. */
-  const inspectorOpen = useMemo(() => {
-    if (walkthroughActive) return false
-    const id = selectedIds.length === 1 ? selectedIds[0] : selectedId
-    return Boolean(id && nodes[id])
-  }, [walkthroughActive, selectedIds, selectedId, nodes])
-  const rail = collapsed || inspectorOpen
+  /** runcloud9-ui: sidebar collapse is user-driven only (not tied to inspector dock). */
+  const rail = collapsed
 
   useEffect(() => {
     try {
@@ -233,6 +229,12 @@ export function Sidebar() {
     let cancelled = false
     void ensureResourceProfilesLoaded()
     void ensureTopologyRulesLoaded()
+    if (import.meta.env.DEV) {
+      const byId: Record<string, TemplateInfo> = {}
+      for (const t of FALLBACK_TEMPLATE_CATALOG) byId[t.id] = t
+      setTemplateInfoById((prev) => ({ ...byId, ...prev }))
+      useTemplateRegistryStore.getState().mergeTemplates(FALLBACK_TEMPLATE_CATALOG)
+    }
     getTemplates()
       .then((rows) => {
         if (cancelled) return
@@ -959,12 +961,7 @@ export function Sidebar() {
           aria-expanded={!rail}
           aria-controls="side-body"
           aria-label={rail ? 'Expand sidebar' : 'Collapse sidebar'}
-          disabled={inspectorOpen && !collapsed}
-          title={
-            inspectorOpen && !collapsed
-              ? 'Sidebar stays collapsed while the inspector is open'
-              : undefined
-          }
+          disabled={false}
           onClick={() => setCollapsed((c) => !c)}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -1035,9 +1032,11 @@ export function Sidebar() {
             {banner ?? topologyBanner ?? graphHonestyIssue ?? ''}
           </p>
         </section>
-        <section className="cv-sec">
-          <WorkQueueLayoutSection />
-        </section>
+        {labPlaced ? (
+          <section className="cv-sec">
+            <WorkQueueLayoutSection />
+          </section>
+        ) : null}
       </div>
       <form
         className="cv-rail-ft"
@@ -1122,10 +1121,18 @@ export function Sidebar() {
               type="button"
               className="cv-deploy-btn"
               disabled={deploying || !!deployBlockedReason || !labPlaced}
-              title={deployDisabledReason}
+              title={deployDisabledReason ?? (labPlaced ? 'Deploy this design' : 'Place a lab first')}
               onClick={handleDeploy}
             >
-              {session ? 'Deploy' : 'Sign in to deploy'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden className="cv-deploy-ic">
+                <path
+                  d="m22 2-7 20-4-9-9-4 20-7Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {session ? (deploying ? 'Deploying…' : 'Deploy') : 'Sign in to deploy'}
             </button>
             <p className="cv-why" id="deploy-why" hidden={labPlaced}>
               Place a lab first

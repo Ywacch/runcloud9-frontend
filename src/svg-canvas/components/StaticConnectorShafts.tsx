@@ -3,15 +3,21 @@ import type { SvgEdge } from '../store/svgTypes'
 
 type Props = {
   edges: SvgEdge[]
+  /** Match runcloud9-ui dt-topology ghost link styling. */
+  ghost?: boolean
 }
 
 /** Read-only connector shafts for miniviews (no hit targets, arrows, or semantic paint). */
-export function StaticConnectorShafts({ edges }: Props) {
+export function StaticConnectorShafts({ edges, ghost = false }: Props) {
   const floorTheme = 'dark' as const
   const preset = 'flow' as const
 
   return (
-    <g data-connector-shafts aria-hidden>
+    <g
+      data-connector-shafts
+      aria-hidden
+      opacity={ghost ? 0.35 : 1}
+    >
       {edges.map((edge) => {
         const pts = edge.waypoints
         if (pts.length < 2) return null
@@ -32,7 +38,7 @@ export function StaticConnectorShafts({ edges }: Props) {
               y2={b.y}
               stroke={stroke.color}
               strokeWidth={stroke.width}
-              strokeDasharray={stroke.dash}
+              strokeDasharray={ghost ? '2.5 2.5' : stroke.dash}
               strokeLinecap="round"
             />
           )

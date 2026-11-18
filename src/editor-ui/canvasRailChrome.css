@@ -2,7 +2,17 @@
  * runcloud9-ui canvas.html sidebar + floor chrome (Observe / dt tokens).
  * Scoped to `.cv-chrome` on the SVG canvas playground page.
  */
+@font-face {
+  font-family: 'Nunito Observe';
+  src: url('/fonts/nunito.woff') format('woff');
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
 .cv-chrome {
+  --dt-font-family: 'Nunito Observe', 'Nunito', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
   --dt-font-size-2xs: 11px;
   --dt-font-size-xs: 12px;
   --dt-font-size-sm: 13px;
@@ -20,7 +30,13 @@
   --dt-color-primary: #3b7cf5;
   --dt-shadow-card-raised: 0 8px 24px rgba(0, 0, 0, 0.35);
   --cv-rail: 232px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--dt-font-family);
+}
+
+.cv-chrome.cv-dock {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
 }
 
 .cv-chrome.cv-dock[data-collapsed='true'] {
@@ -237,6 +253,42 @@
   font-variant-numeric: tabular-nums;
 }
 
+.cv-chrome .cv-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cv-chrome .cv-num input {
+  width: 44px;
+  height: 24px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--dt-color-text-muted);
+  border-radius: 0;
+  background: transparent;
+  color: var(--dt-color-text-strong);
+  font: inherit;
+  font-size: var(--dt-font-size-sm);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.cv-chrome .cv-num input::-webkit-outer-spin-button,
+.cv-chrome .cv-num input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.cv-chrome .cv-num-u {
+  font-size: var(--dt-font-size-2xs);
+  color: var(--dt-color-text-muted);
+  white-space: nowrap;
+}
+
 .cv-chrome .cv-hint {
   margin: 6px 0 10px;
   font-size: var(--dt-font-size-xs);
@@ -245,6 +297,10 @@
 }
 
 .cv-chrome .cv-deploy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -528,6 +584,8 @@
   opacity: 0.85;
 }
 
+.cv-chrome .cv-canvas.ghosting .cv-floor-hint,
+.cv-chrome .cv-canvas[data-state='placed'] .cv-floor-hint,
 .cv-chrome .cv-canvas-host.ghosting .cv-floor-hint,
 .cv-chrome .cv-canvas-host[data-state='placed'] .cv-floor-hint {
   opacity: 0;
@@ -599,4 +657,481 @@
   font-size: var(--dt-font-size-2xs);
   color: var(--dt-color-text-muted);
   opacity: 0.8;
+}
+
+.cv-chrome .cv-tools-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 5px 4px;
+  background: var(--dt-color-divider-inset);
+}
+
+/* ---- cv-pop: floating node config (runcloud9-ui canvas.html #pop) ---- */
+.cv-chrome .cv-pop {
+  position: absolute;
+  z-index: 5;
+  width: 240px;
+  max-width: 240px;
+  max-height: calc(100% - 76px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--dt-color-surface);
+  border: 1px solid var(--dt-color-divider-inset);
+  border-radius: var(--dt-radius-md);
+  box-shadow: var(--dt-shadow-card-raised);
+  font-size: var(--dt-font-size-xs);
+  color: var(--dt-color-text);
+  color-scheme: dark;
+  outline: none;
+}
+
+.cv-chrome .cv-pop-b,
+.cv-chrome .cv-pop-ft,
+.cv-chrome .cv-f,
+.cv-chrome .cv-bud {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cv-chrome .cv-pop-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 12px 8px 0 14px;
+}
+
+.cv-chrome .cv-pop-hd h2 {
+  margin: 0;
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--dt-font-size-sm);
+  font-weight: var(--dt-font-weight-medium);
+  color: var(--dt-color-text-strong);
+}
+
+.cv-chrome .cv-tag {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--dt-font-size-2xs);
+  color: var(--dt-color-text-muted);
+}
+
+.cv-chrome .cv-x {
+  flex: none;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dt-radius-sm);
+  background: none;
+  color: var(--dt-color-text-muted);
+  cursor: pointer;
+}
+
+.cv-chrome .cv-x:hover {
+  color: var(--dt-color-text-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cv-chrome .cv-pop-b {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 14px 14px;
+}
+
+.cv-chrome .cv-pop-ft {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--dt-color-divider-inset);
+}
+
+.cv-chrome .cv-bud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--dt-font-size-2xs);
+  color: var(--dt-color-text-muted);
+  white-space: nowrap;
+}
+
+.cv-chrome .cv-bud-v {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dt-color-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cv-chrome .cv-bud-bar {
+  display: block;
+  height: 2px;
+  margin-top: 6px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  border: 0;
+}
+
+.cv-chrome .cv-bud-bar b {
+  display: block;
+  height: 100%;
+  background: var(--dt-color-text-muted);
+}
+
+.cv-chrome .cv-pop-ft.is-over .cv-bud span:first-child,
+.cv-chrome .cv-pop-ft.is-over .cv-bud-v {
+  color: #f0a52a;
+}
+
+.cv-chrome .cv-pop-ft.is-over .cv-bud-bar b {
+  background: #e0405c;
+}
+
+.cv-chrome .cv-pop-b {
+  gap: 14px;
+}
+
+.cv-chrome .cv-f {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  min-height: 24px;
+}
+
+.cv-chrome .cv-fl {
+  color: var(--dt-color-text-muted);
+  white-space: nowrap;
+}
+
+.cv-chrome .cv-f > .cv-seg,
+.cv-chrome .cv-f > .cv-step,
+.cv-chrome .cv-f > .cv-select,
+.cv-chrome .cv-f > .cv-ro {
+  justify-self: end;
+}
+
+.cv-chrome .cv-c {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  margin: 3px 0 0;
+  font-size: var(--dt-font-size-2xs);
+  line-height: 1.35;
+  color: var(--dt-color-text-muted);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-chrome .cv-c.is-warn {
+  color: #f0a52a;
+  opacity: 1;
+}
+
+.cv-chrome .cv-ro {
+  color: var(--dt-color-text);
+}
+
+.cv-chrome .cv-seg {
+  display: inline-flex;
+  gap: 0;
+}
+
+.cv-chrome .cv-seg button {
+  position: relative;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--dt-color-text-muted);
+  font: inherit;
+  font-size: var(--dt-font-size-xs);
+  font-weight: var(--dt-font-weight-medium);
+  cursor: pointer;
+}
+
+.cv-chrome .cv-seg button[aria-pressed='true'] {
+  color: var(--dt-color-text-strong);
+}
+
+.cv-chrome .cv-seg button[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dt-color-primary);
+}
+
+.cv-chrome .cv-select {
+  position: relative;
+  max-width: min(148px, 100%);
+  min-width: 0;
+}
+
+.cv-chrome .cv-select-trig {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  height: 24px;
+  padding: 0 2px 0 0;
+  border: 0;
+  border-bottom: 1px solid var(--dt-color-divider-inset);
+  border-radius: 0;
+  background: transparent;
+  color: var(--dt-color-text-strong);
+  font: inherit;
+  font-size: var(--dt-font-size-xs);
+  font-weight: var(--dt-font-weight-medium);
+  cursor: pointer;
+}
+
+.cv-chrome .cv-select-trig span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-chrome .cv-select-chev {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-top: -2px;
+  border: solid var(--dt-color-text-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.cv-chrome .cv-select-menu {
+  position: fixed;
+  z-index: 80;
+  max-height: 180px;
+  margin: 0;
+  padding: 4px;
+  overflow: auto;
+  list-style: none;
+  background: #2f2f4a;
+  color: #ececf6;
+  border: 1px solid #383951;
+  border-radius: 7px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+.cv-chrome .cv-select-menu button {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #ececf6;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cv-chrome .cv-select-menu button[aria-selected='true'],
+.cv-chrome .cv-select-menu button:hover {
+  background: #3a3b56;
+  color: #fff;
+}
+
+.cv-chrome .cv-more summary {
+  background: transparent;
+  user-select: none;
+}
+
+.cv-chrome .cv-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cv-chrome .cv-step button {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dt-color-text-muted);
+  cursor: pointer;
+}
+
+.cv-chrome .cv-step b {
+  min-width: 1ch;
+  font-weight: var(--dt-font-weight-medium);
+  color: var(--dt-color-text-strong);
+}
+
+.cv-chrome .cv-more summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--dt-color-text-muted);
+  font-size: var(--dt-font-size-2xs);
+}
+
+.cv-chrome .cv-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.cv-chrome .cv-more summary::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg);
+}
+
+.cv-chrome .cv-more[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.cv-chrome .cv-more-b {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+/* Map stacklab pcfg rows → cv-f grid inside cv-pop */
+.cv-chrome .cv-pop-pcfg .pcfg-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 0;
+  min-height: 24px;
+}
+
+.cv-chrome .cv-pop-pcfg .pcfg-lab {
+  font-size: var(--dt-font-size-xs);
+  color: var(--dt-color-text-muted);
+  white-space: nowrap;
+  font-weight: var(--dt-font-weight-medium);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cv-chrome .cv-pop-pcfg .pcfg-ctl {
+  justify-self: end;
+  max-width: 100%;
+}
+
+.cv-chrome .cv-pop-pcfg .pcfg-sub {
+  grid-column: 1 / -1;
+  margin: 3px 0 0;
+  font-size: var(--dt-font-size-2xs);
+  line-height: 1.35;
+  color: var(--dt-color-text-muted);
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv-chrome .cv-pop-pcfg .note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: var(--dt-font-size-2xs);
+  line-height: 1.35;
+  color: var(--dt-color-text-muted);
+}
+
+.cv-chrome .cv-pop-pcfg .seg {
+  display: inline-flex;
+  gap: 0;
+  border: 0;
+  background: transparent;
+}
+
+.cv-chrome .cv-pop-pcfg .seg button {
+  position: relative;
+  font-family: inherit;
+  font-size: var(--dt-font-size-xs);
+  font-weight: var(--dt-font-weight-medium);
+  padding: 0 10px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--dt-radius-sm);
+  background: transparent;
+  color: var(--dt-color-text-muted);
+  cursor: pointer;
+  letter-spacing: normal;
+}
+
+.cv-chrome .cv-pop-pcfg .seg button:hover:not(:disabled) {
+  color: var(--dt-color-text-strong);
+}
+
+.cv-chrome .cv-pop-pcfg .seg button.is-on {
+  color: var(--dt-color-text-strong);
+  background: transparent;
+}
+
+.cv-chrome .cv-pop-pcfg .seg button.is-on::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dt-color-primary);
+}
+
+.cv-chrome .cv-pop-pcfg .dd-trig,
+.cv-chrome .cv-pop-pcfg .dd-prof .dd-trig {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--dt-color-border, #4a4b66);
+  border-radius: var(--dt-radius-xs, 4px);
+  background: var(--dt-color-surface-raised);
+  color: var(--dt-color-text-strong);
+  font-size: var(--dt-font-size-xs);
+}
+
+.cv-chrome .cv-pop-pcfg .stepper {
+  border: 0;
+  gap: 4px;
+}
+
+.cv-chrome .cv-pop-pcfg .stepper button {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--dt-radius-sm);
+  border: 1px solid var(--dt-color-divider-inset);
+  background: var(--dt-color-surface-raised);
+  color: var(--dt-color-text);
 }

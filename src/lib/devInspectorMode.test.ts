@@ -27,7 +27,7 @@ describe('devInspectorMode', () => {
   it('parses stored values', () => {
     expect(parseDevInspectorMode('config')).toBe('config')
     expect(parseDevInspectorMode('live')).toBe('live')
-    expect(parseDevInspectorMode(null)).toBe('live')
+    expect(parseDevInspectorMode(null)).toBe('config')
   })
 
   it('persists mode in storage', () => {

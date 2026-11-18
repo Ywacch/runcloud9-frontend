@@ -70,6 +70,8 @@ import { EdgeStylePresetToggle } from './components/EdgeStylePresetToggle'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FloorThemeToggle } from './components/FloorThemeToggle'
+import { CanvasConfigPop } from '../editor-ui/CanvasConfigPop'
+import { runcloud9PlacedDesignPhase } from '../lib/runcloud9DesignChrome'
 import { DevTemplateLayoutPreview } from './components/DevTemplateLayoutPreview'
 import { FxDemoControls } from './components/FxDemoControls'
 import { GridModeToggle } from './components/GridModeToggle'
@@ -339,7 +341,14 @@ export default function SvgDesignCanvas({
   const canvasMode = useCanvasStore((s) => s.mode)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
+  const deploymentId = useCanvasStore((s) => s.deploymentId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const showRuncloud9ConfigPop = runcloud9PlacedDesignPhase(
+    canvasMode,
+    deploymentId,
+    Object.keys(canvasNodes).length,
+    snapshotTemplateId,
+  )
   const jobBindings = useCanvasStore((s) => s.jobBindings)
   const expandEpoch = useSyncExternalStore(subscribeExpand, getExpandEpoch, () => 0)
   const metricsPickKey = useMetricsStore((s) =>
@@ -1232,7 +1241,7 @@ export default function SvgDesignCanvas({
               <ProjectionToggle />
             </div>
           )}
-          {import.meta.env.DEV && chromeMode !== 'clean' ? (
+          {import.meta.env.DEV && chromeMode === 'debug' ? (
             <div className="pointer-events-none absolute bottom-20 left-3 z-20">
               <DevTemplateLayoutPreview compact />
             </div>
@@ -1487,6 +1496,7 @@ export default function SvgDesignCanvas({
           />
         ) : null}
         {edgeMeaning ? <EdgeMeaningStrip result={edgeMeaning} /> : null}
+        {showRuncloud9ConfigPop ? <CanvasConfigPop hostRef={hostRef} /> : null}
       </div>
     </div>
   )

@@ -23,10 +23,11 @@ export function TemplateFloorPreviewLayer() {
   return (
     <g
       data-template-floor-preview
-      opacity={reducedMotion ? 1 : 0.92}
+      opacity={reducedMotion ? 1 : 1}
       style={{ pointerEvents: 'none' }}
     >
       <StaticConnectorShafts
+        ghost
         edges={scene.edges.map((e) => ({
           ...e,
           waypoints: e.waypoints.map((p) => presentWorld(p, projectionT)),
@@ -35,14 +36,19 @@ export function TemplateFloorPreviewLayer() {
       {scene.nodes.map((node) => {
         const at = presentWorld({ x: node.x, y: node.y }, projectionT)
         return (
-          <NodeGlyph
+          <g
             key={`preview:${node.id}`}
-            node={node}
-            x={at.x}
-            y={at.y}
-            interactive={false}
-            projectionT={projectionT}
-          />
+            opacity={0.3}
+            style={{ filter: 'grayscale(0.9)' }}
+          >
+            <NodeGlyph
+              node={node}
+              x={at.x}
+              y={at.y}
+              interactive={false}
+              projectionT={projectionT}
+            />
+          </g>
         )
       })}
     </g>

@@ -506,12 +506,14 @@ export function syncDevInstanceScopeMetrics(
 export function useDevInstanceScopePreview(
   mode: CanvasMode,
   nodes: Record<string, CanvasNode>,
+  enabled = true,
 ): void {
   const devInspectorMode = useDevInspectorMode()
   const svgNodes = useSvgCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
 
   useEffect(() => {
+    if (!enabled) return
     syncDevInstanceScopeMetrics(mode, nodes, svgNodes, edges)
-  }, [mode, nodes, svgNodes, edges, devInspectorMode])
+  }, [enabled, mode, nodes, svgNodes, edges, devInspectorMode])
 }

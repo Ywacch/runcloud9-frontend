@@ -1,3 +1,4 @@
+export { CanvasConfigPop } from './CanvasConfigPop'
 export { CanvasContextMenu } from './CanvasContextMenu'
 export { CascadeToast } from './CascadeToast'
 export { InvariantToast } from './InvariantToast'

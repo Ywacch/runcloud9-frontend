@@ -16,9 +16,11 @@ export function DesignToolStrip() {
   const designTool = useCanvasStore((s) => s.designTool)
   const setDesignTool = useCanvasStore((s) => s.setDesignTool)
   const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
+  const nodeCount = useCanvasStore((s) => Object.keys(s.nodes).length)
   const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
 
   const topologyLocked = Boolean(loadedVariationId)
+  const labPlaced = nodeCount > 0 && Boolean(loadedVariationId)
 
   if (!isCanvasEditMode(mode) || walkthroughActive) return null
 
@@ -44,6 +46,10 @@ export function DesignToolStrip() {
           </button>
         )
       })}
+      <span className="cv-tools-sep" aria-hidden />
+      <button type="button" disabled={!labPlaced} title={!labPlaced ? 'Place a lab first' : 'Walk a request (W)'}>
+        Walk a request <kbd>W</kbd>
+      </button>
     </div>
   )
 }
