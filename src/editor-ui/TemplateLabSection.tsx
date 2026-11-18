@@ -249,7 +249,7 @@ export function TemplateLabSection({
               key={item.family.id}
               role="treeitem"
               aria-expanded={isOpen}
-              aria-label={`${item.family.title}: ${item.family.summary}`}
+              aria-label={item.family.title}
             >
               <button
                 type="button"
@@ -274,7 +274,6 @@ export function TemplateLabSection({
                 </span>
                 <span className="cv-lab-t">
                   <b>{item.family.title}</b>
-                  <span>{item.family.summary}</span>
                 </span>
                 <i className="cv-chev" aria-hidden />
               </button>
@@ -318,7 +317,6 @@ export function TemplateLabSection({
                         onPointerOver={(e) => handlePointerOver(e, varTreeId)}
                       >
                         <b>{row.variationLabel}</b>
-                        <span>{row.variationDescription}</span>
                       </li>
                     )
                   })}

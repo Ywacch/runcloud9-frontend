@@ -143,7 +143,7 @@ export function TemplateLabMiniRail({
             }}
             onFocus={() => showPreview(row)}
             onBlur={(e) => {
-              if (!e.relatedTarget?.closest('.sl-cv-mini')) clearPreview()
+              if (!e.relatedTarget?.closest('.cv-mini')) clearPreview()
             }}
           >
             <span style={{ color: meta.accent }}>{meta.icon}</span>

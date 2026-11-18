@@ -1002,6 +1002,34 @@ export function Sidebar() {
               disabled={live || simulate || !labPlaced}
               onClick={() => setMovementLocked(!movementLocked)}
             >
+              <svg
+                className="cv-ghost-ic"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d={
+                    movementLocked
+                      ? 'M7 11V8a5 5 0 0 1 9.9-1'
+                      : 'M7 11V8a5 5 0 0 1 10 0v3'
+                  }
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <rect
+                  x="5"
+                  y="11"
+                  width="14"
+                  height="10"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </svg>
               {movementLocked ? 'Unlock movement' : 'Lock movement'}
             </button>
             <button

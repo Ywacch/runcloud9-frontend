@@ -163,6 +163,7 @@
 .cv-chrome .cv-ghost-btn {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 28px;
   font: inherit;
   font-size: var(--dt-font-size-xs);
@@ -192,6 +193,11 @@
 .cv-chrome .cv-ghost-btn:focus-visible {
   outline: 2px solid var(--dt-color-focus);
   outline-offset: 1px;
+}
+
+.cv-chrome .cv-ghost-ic {
+  flex: none;
+  opacity: 0.85;
 }
 
 .cv-chrome .cv-rail-ft {
@@ -358,14 +364,13 @@
 }
 
 .cv-chrome .cv-lab-row {
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
   padding: 7px 8px;
 }
 
 .cv-chrome .cv-lab-icon {
   flex: none;
-  margin-top: 1px;
   color: var(--dt-color-text-muted);
 }
 
@@ -384,15 +389,14 @@
 }
 
 .cv-chrome .cv-lab-t span {
-  font-size: var(--dt-font-size-xs);
-  color: var(--dt-color-text-muted);
+  display: none;
 }
 
 .cv-chrome .cv-chev {
   flex: none;
   width: 6px;
   height: 6px;
-  margin: 6px 2px 0 0;
+  margin: 0 2px 0 0;
   border: solid var(--dt-color-text-muted);
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(-45deg);
@@ -405,7 +409,8 @@
 
 .cv-chrome .cv-var {
   position: relative;
-  flex-direction: column;
+  align-items: center;
+  min-height: 28px;
   padding: 4px 8px 4px 33px;
   line-height: 1.3;
 }
