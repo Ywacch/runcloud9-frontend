@@ -325,7 +325,6 @@ export default function SvgDesignCanvas({
   const previewViewRef = useRef<ViewBox | null>(null)
 
   useEffect(() => {
-    const host = hostRef.current
     if (!previewSnapshot) {
       if (previewViewRef.current) {
         skipAspectSyncRef.current = 2
@@ -334,16 +333,29 @@ export default function SvgDesignCanvas({
       }
       return
     }
-    if (!host) return
-    const { width, height } = host.getBoundingClientRect()
-    if (width < 1 || height < 1) return
-    const scene = projectedSceneFromSnapshot(previewSnapshot)
-    if (scene.nodes.length === 0) return
-    if (!previewViewRef.current) previewViewRef.current = viewRef.current
-    const t = getProjectionT()
-    const points = scene.nodes.map((n) => presentWorld({ x: n.x, y: n.y }, t))
-    skipAspectSyncRef.current = 2
-    setView(fitViewToNodes(points, width, height))
+    let cancelled = false
+    let attempts = 0
+    const fitPreview = () => {
+      if (cancelled) return
+      const host = hostRef.current
+      if (!host) return
+      const { width, height } = host.getBoundingClientRect()
+      if (width < 1 || height < 1) {
+        if (++attempts < 8) requestAnimationFrame(fitPreview)
+        return
+      }
+      const scene = projectedSceneFromSnapshot(previewSnapshot)
+      if (scene.nodes.length === 0) return
+      if (!previewViewRef.current) previewViewRef.current = viewRef.current
+      const t = getProjectionT()
+      const points = scene.nodes.map((n) => presentWorld({ x: n.x, y: n.y }, t))
+      skipAspectSyncRef.current = 2
+      setView(fitViewToNodes(points, width, height))
+    }
+    fitPreview()
+    return () => {
+      cancelled = true
+    }
   }, [previewSnapshot])
   const devToolsVisible = useDevCanvasToolsVisible()
   const debugExtrasVisible = useDevDebugExtrasVisible()

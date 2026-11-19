@@ -973,6 +973,7 @@ export function Sidebar() {
       </header>
       <TemplateLabMiniRail
         disabled={live || simulate}
+        previewDisabled={live}
         loadedVariationId={loadedVariationId}
         snapshotTemplateId={snapshotTemplateId}
         onPlace={handleTemplateAction}
@@ -984,6 +985,7 @@ export function Sidebar() {
           </h2>
           <TemplateLabSection
             disabled={live || simulate}
+            previewDisabled={live}
             loadedVariationId={loadedVariationId}
             snapshotTemplateId={snapshotTemplateId}
             onPlace={handleTemplateAction}

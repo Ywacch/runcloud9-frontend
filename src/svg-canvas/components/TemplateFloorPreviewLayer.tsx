@@ -19,8 +19,9 @@ export function TemplateFloorPreviewLayer() {
   if (!scene || scene.nodes.length === 0) return null
 
   return (
-    <g data-template-floor-preview style={{ pointerEvents: 'none' }}>
+    <g data-template-floor-preview style={{ pointerEvents: 'none' }} opacity={0.92}>
       <StaticConnectorShafts
+        ghost
         edges={scene.edges.map((e) => ({
           ...e,
           waypoints: e.waypoints.map((p) => presentWorld(p, projectionT)),

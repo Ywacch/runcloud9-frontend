@@ -12,7 +12,8 @@ export function variationRowKey(row: {
 }
 
 export function useTemplateLabPreviewActions(
-  disabled: boolean,
+  /** Blocks floor preview (e.g. active live session). Placement can stay disabled separately. */
+  previewDisabled: boolean,
   loadedVariationId: string | null,
   snapshotTemplateId: string | null,
 ) {
@@ -21,7 +22,11 @@ export function useTemplateLabPreviewActions(
   const clearPreview = () => useTemplateFloorPreviewStore.getState().clearPreview()
 
   const showPreview = (row: TemplateLabVariationRow | null) => {
-    if (!row || disabled) {
+    if (previewDisabled) {
+      clearPreview()
+      return
+    }
+    if (!row) {
       clearPreview()
       return
     }

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type PointerEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react'
 import { templateCanLoadInPicker } from '../lib/templateAvailability'
 import type { TemplateLabVariationRow } from '../lib/templateLabRows'
 import { familyMetaForId } from '../lib/templateFamilyMeta'
@@ -12,6 +19,7 @@ import {
 
 type Props = {
   disabled?: boolean
+  previewDisabled?: boolean
   loadedVariationId: string | null
   snapshotTemplateId: string | null
   onPlace: (action: TemplateSelectAction) => boolean | void
@@ -30,17 +38,22 @@ function defaultVariationForFamily(
 
 export function TemplateLabMiniRail({
   disabled,
+  previewDisabled: previewDisabledProp,
   loadedVariationId,
   snapshotTemplateId,
   onPlace,
 }: Props) {
+  const previewDisabled = previewDisabledProp ?? Boolean(disabled)
   const { families, loading } = useTemplateLabFamilies()
   const [variationSel, setVariationSel] = useState<
     Partial<Record<TemplateFamilyId, string>>
   >({})
 
+  const hideTimerRef = useRef(0)
+  const ghostTimerRef = useRef(0)
+
   const { showPreview, clearPreview } = useTemplateLabPreviewActions(
-    Boolean(disabled),
+    previewDisabled,
     loadedVariationId,
     snapshotTemplateId,
   )
@@ -110,10 +123,45 @@ export function TemplateLabMiniRail({
     }
   }
 
+  const wantGhost = useCallback(
+    (row: TemplateLabVariationRow | null) => {
+      window.clearTimeout(hideTimerRef.current)
+      window.clearTimeout(ghostTimerRef.current)
+      ghostTimerRef.current = window.setTimeout(() => {
+        showPreview(row)
+      }, 60)
+    },
+    [showPreview],
+  )
+
+  const wantHide = useCallback(() => {
+    window.clearTimeout(ghostTimerRef.current)
+    window.clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = window.setTimeout(() => {
+      clearPreview()
+    }, 90)
+  }, [clearPreview])
+
   if (loading || families.length === 0) return null
 
   return (
-    <div className="cv-mini" role="group" aria-label="Labs">
+    <div
+      className="cv-mini"
+      role="group"
+      aria-label="Labs"
+      onPointerOver={(e) => {
+        if (!isFinePointer(e)) return
+        window.clearTimeout(hideTimerRef.current)
+        const btn = (e.target as HTMLElement).closest('button')
+        if (!btn) return
+        const familyId = btn.getAttribute('data-family-id') as TemplateFamilyId | null
+        if (!familyId) return
+        wantGhost(rowForFamily(familyId))
+      }}
+      onPointerLeave={(e) => {
+        if (isFinePointer(e)) wantHide()
+      }}
+    >
       {families.map((item) => {
         const meta = familyMetaForId(item.family.id)
         const row = rowForFamily(item.family.id)
@@ -125,6 +173,7 @@ export function TemplateLabMiniRail({
           <button
             key={item.family.id}
             type="button"
+            data-family-id={item.family.id}
             disabled={disabled || !row || !templateCanLoadInPicker(row)}
             aria-pressed={pressed}
             aria-label={
@@ -135,16 +184,7 @@ export function TemplateLabMiniRail({
             data-tip={tip}
             title={tip}
             onClick={() => placeRow(row, item.family.id)}
-            onPointerOver={(e) => {
-              if (isFinePointer(e)) showPreview(row)
-            }}
-            onPointerLeave={(e) => {
-              if (isFinePointer(e)) clearPreview()
-            }}
-            onFocus={() => showPreview(row)}
-            onBlur={(e) => {
-              if (!e.relatedTarget?.closest('.cv-mini')) clearPreview()
-            }}
+            onFocus={() => wantGhost(row)}
           >
             <span style={{ color: meta.accent }}>{meta.icon}</span>
           </button>
