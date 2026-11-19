@@ -90,6 +90,7 @@ import { NodeLabelChrome } from './components/NodeLabelChrome'
 import {
   svgWorldToCanvasPosition,
 } from './bridge/canvasSvgAdapter'
+import { projectedSceneFromSnapshot } from './bridge/isoPreviewScene'
 import { useEdgeRenderModel } from './hooks/useEdgeRenderModel'
 import { useNodeOpacityById } from './hooks/useNodeOpacityById'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
@@ -281,7 +282,8 @@ export default function SvgDesignCanvas({
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
   const projectionT = useProjectionT()
-  const templatePreviewActive = useTemplateFloorPreviewStore((s) => s.snapshot != null)
+  const previewSnapshot = useTemplateFloorPreviewStore((s) => s.snapshot)
+  const templatePreviewActive = previewSnapshot != null
   const prevProjectionT = useRef(0)
   const [mode, setMode] = useState<GridMode>(() => readStoredGridMode())
   const setGridMode = useCallback((next: GridMode) => {
@@ -318,6 +320,31 @@ export default function SvgDesignCanvas({
   const rubberLineRef = useRef<SVGLineElement | null>(null)
   const rubberFromRef = useRef<WorldPoint | null>(null)
   const skipAspectSyncRef = useRef(0)
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const previewViewRef = useRef<ViewBox | null>(null)
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!previewSnapshot) {
+      if (previewViewRef.current) {
+        skipAspectSyncRef.current = 2
+        setView(previewViewRef.current)
+        previewViewRef.current = null
+      }
+      return
+    }
+    if (!host) return
+    const { width, height } = host.getBoundingClientRect()
+    if (width < 1 || height < 1) return
+    const scene = projectedSceneFromSnapshot(previewSnapshot)
+    if (scene.nodes.length === 0) return
+    if (!previewViewRef.current) previewViewRef.current = viewRef.current
+    const t = getProjectionT()
+    const points = scene.nodes.map((n) => presentWorld({ x: n.x, y: n.y }, t))
+    skipAspectSyncRef.current = 2
+    setView(fitViewToNodes(points, width, height))
+  }, [previewSnapshot])
   const devToolsVisible = useDevCanvasToolsVisible()
   const debugExtrasVisible = useDevDebugExtrasVisible()
   const chromeMode = useDevCanvasChromeMode()

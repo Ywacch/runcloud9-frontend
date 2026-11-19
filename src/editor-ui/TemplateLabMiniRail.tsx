@@ -18,7 +18,7 @@ type Props = {
 }
 
 function isFinePointer(e: PointerEvent): boolean {
-  return e.pointerType === 'mouse' || e.pointerType === 'pen'
+  return e.pointerType !== 'touch'
 }
 
 function defaultVariationForFamily(

@@ -44,6 +44,8 @@ type NodeGlyphProps = {
   onUnitPointerEnter?: (unitIndex: number) => void
   onUnitPointerLeave?: (unitIndex: number) => void
   projectionT?: number
+  /** Draw the pose immediately. Do not write the shared unit-motion store. */
+  frozen?: boolean
 }
 
 function motionUnitsFromKey(key: string, fallback: MotionUnit[]): MotionUnit[] {
@@ -70,6 +72,7 @@ function NodeGlyphInner({
   onUnitPointerEnter,
   onUnitPointerLeave,
   projectionT = 0,
+  frozen = false,
 }: NodeGlyphProps) {
   const canvasMode = useCanvasStore((s) => s.mode)
   const canvasNode = useCanvasStore((s) => s.nodes[node.id])
@@ -129,20 +132,21 @@ function NodeGlyphInner({
   )
 
   useEffect(() => {
+    if (frozen) return
     const topologyChanged = prevTopologyKeyRef.current !== topologyKey
     prevTopologyKeyRef.current = topologyKey
     const animateSpawn = canvasMode !== 'live' || topologyChanged
     const targetIds =
       layerUnitIds.length === resolved.units.length ? layerUnitIds : undefined
     retarget(node.id, resolved.units, { dx: 0, dy: 0 }, { animateSpawn, targetIds })
-  }, [node.id, unitsKey, topologyKey, layerIdsKey, resolved.units, canvasMode, layerUnitIds])
+  }, [frozen, node.id, unitsKey, topologyKey, layerIdsKey, resolved.units, canvasMode, layerUnitIds])
 
   const motionKey = useSyncExternalStore(
     subscribeUnitMotion,
     () => motionKeyForNode(node.id),
     () => '',
   )
-  const units = motionUnitsFromKey(motionKey, staticUnits)
+  const units = frozen ? staticUnits : motionUnitsFromKey(motionKey, staticUnits)
 
   const reducedMotion = useReducedMotion()
   const isDragging = useSyncExternalStore(
@@ -307,7 +311,8 @@ function nodeGlyphPropsEqual(a: NodeGlyphProps, b: NodeGlyphProps): boolean {
     a.onUnitPointerDown === b.onUnitPointerDown &&
     a.onUnitPointerEnter === b.onUnitPointerEnter &&
     a.onUnitPointerLeave === b.onUnitPointerLeave &&
-    a.projectionT === b.projectionT
+    a.projectionT === b.projectionT &&
+    a.frozen === b.frozen
   )
 }
 
