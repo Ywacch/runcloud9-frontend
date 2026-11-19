@@ -15,7 +15,7 @@ export function parseDevCanvasChromeMode(
   raw: string | null | undefined,
 ): DevCanvasChromeMode {
   if (raw === 'debug' || raw === 'clean' || raw === 'hud') return raw
-  return isDev() ? 'clean' : 'hud'
+  return 'hud'
 }
 
 export function nextDevCanvasChromeMode(
