@@ -17,6 +17,7 @@ import type { TemplateFamilyId } from '../lib/templateFamilyCatalog'
 import type { TemplateSelectAction } from './TemplateModal'
 import { useTemplateLabFamilies } from './useTemplateLabFamilies'
 import {
+  clearTemplateFloorPreview,
   useTemplateLabPreviewActions,
   variationRowKey,
 } from './templateLabPreview'
@@ -56,8 +57,8 @@ export function TemplateLabSection({
   )
 
   useEffect(() => {
-    return () => clearPreview()
-  }, [clearPreview])
+    return () => clearTemplateFloorPreview()
+  }, [])
 
   const selectedKey =
     snapshotTemplateId && loadedVariationId
@@ -276,6 +277,7 @@ export function TemplateLabSection({
               role="treeitem"
               aria-expanded={isOpen}
               aria-label={item.family.title}
+              data-tree-id={labTreeId}
             >
               <button
                 type="button"

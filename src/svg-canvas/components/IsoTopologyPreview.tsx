@@ -45,12 +45,13 @@ export function IsoTopologyPreview({ snapshot, className = 'h-full w-full' }: Pr
       <StaticConnectorShafts edges={scene.edges} />
       <g data-node-glyphs>
         {scene.nodes.map((node) => (
-          <NodeGlyph
+            <NodeGlyph
             key={node.id}
             node={node}
             x={node.x}
             y={node.y}
             interactive={false}
+            frozen
           />
         ))}
       </g>

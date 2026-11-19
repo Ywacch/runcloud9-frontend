@@ -575,6 +575,10 @@
   opacity: 1;
 }
 
+.cv-chrome .cv-lab-row:disabled {
+  pointer-events: none;
+}
+
 /* floor */
 .cv-chrome .cv-floor-hint {
   position: absolute;

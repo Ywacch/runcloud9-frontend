@@ -13,7 +13,8 @@ import type { TemplateFamilyId } from '../lib/templateFamilyCatalog'
 import type { TemplateSelectAction } from './TemplateModal'
 import { useTemplateLabFamilies } from './useTemplateLabFamilies'
 import {
-  useTemplateLabPreviewActions,
+  clearTemplateFloorPreview,
+  showTemplateFloorPreview,
   variationRowKey,
 } from './templateLabPreview'
 
@@ -52,15 +53,24 @@ export function TemplateLabMiniRail({
   const hideTimerRef = useRef(0)
   const ghostTimerRef = useRef(0)
 
-  const { showPreview, clearPreview } = useTemplateLabPreviewActions(
-    previewDisabled,
-    loadedVariationId,
-    snapshotTemplateId,
+  const showPreview = useCallback(
+    (row: TemplateLabVariationRow | null) => {
+      showTemplateFloorPreview(row, {
+        previewDisabled,
+        loadedVariationId,
+        snapshotTemplateId,
+      })
+    },
+    [previewDisabled, loadedVariationId, snapshotTemplateId],
   )
 
+  const clearPreview = useCallback(() => {
+    clearTemplateFloorPreview()
+  }, [])
+
   useEffect(() => {
-    return () => clearPreview()
-  }, [clearPreview])
+    return () => clearTemplateFloorPreview()
+  }, [])
 
   const rowForFamily = useCallback(
     (familyId: TemplateFamilyId): TemplateLabVariationRow | null => {

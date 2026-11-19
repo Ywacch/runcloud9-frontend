@@ -90,7 +90,6 @@ import { NodeLabelChrome } from './components/NodeLabelChrome'
 import {
   svgWorldToCanvasPosition,
 } from './bridge/canvasSvgAdapter'
-import { projectedSceneFromSnapshot } from './bridge/isoPreviewScene'
 import { useEdgeRenderModel } from './hooks/useEdgeRenderModel'
 import { useNodeOpacityById } from './hooks/useNodeOpacityById'
 import { useSvgCanvasKeyboard } from './hooks/useSvgCanvasKeyboard'
@@ -320,43 +319,6 @@ export default function SvgDesignCanvas({
   const rubberLineRef = useRef<SVGLineElement | null>(null)
   const rubberFromRef = useRef<WorldPoint | null>(null)
   const skipAspectSyncRef = useRef(0)
-  const viewRef = useRef(view)
-  viewRef.current = view
-  const previewViewRef = useRef<ViewBox | null>(null)
-
-  useEffect(() => {
-    if (!previewSnapshot) {
-      if (previewViewRef.current) {
-        skipAspectSyncRef.current = 2
-        setView(previewViewRef.current)
-        previewViewRef.current = null
-      }
-      return
-    }
-    let cancelled = false
-    let attempts = 0
-    const fitPreview = () => {
-      if (cancelled) return
-      const host = hostRef.current
-      if (!host) return
-      const { width, height } = host.getBoundingClientRect()
-      if (width < 1 || height < 1) {
-        if (++attempts < 8) requestAnimationFrame(fitPreview)
-        return
-      }
-      const scene = projectedSceneFromSnapshot(previewSnapshot)
-      if (scene.nodes.length === 0) return
-      if (!previewViewRef.current) previewViewRef.current = viewRef.current
-      const t = getProjectionT()
-      const points = scene.nodes.map((n) => presentWorld({ x: n.x, y: n.y }, t))
-      skipAspectSyncRef.current = 2
-      setView(fitViewToNodes(points, width, height))
-    }
-    fitPreview()
-    return () => {
-      cancelled = true
-    }
-  }, [previewSnapshot])
   const devToolsVisible = useDevCanvasToolsVisible()
   const debugExtrasVisible = useDevDebugExtrasVisible()
   const chromeMode = useDevCanvasChromeMode()
