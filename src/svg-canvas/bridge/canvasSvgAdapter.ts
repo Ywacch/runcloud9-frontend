@@ -183,9 +183,11 @@ export function configPatchForReplicas(
   type: CanvasNodeType,
   replicas: number,
   config: Record<string, unknown> = {},
+  maxReplicas: number = APP_SERVER_REPLICA_MAX,
 ): Record<string, unknown> {
+  const ceiling = Math.max(1, Math.floor(maxReplicas))
   if (type === 'database') {
-    const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
+    const next = Math.max(1, Math.min(ceiling, Math.floor(replicas)))
     const readReplicas = next - 1
     const sizes = normalizeInstanceSizes(config, next)
     return {
@@ -195,7 +197,7 @@ export function configPatchForReplicas(
     }
   }
   if (!backendSupportsReplicas(type)) return {}
-  const next = Math.max(1, Math.min(APP_SERVER_REPLICA_MAX, Math.floor(replicas)))
+  const next = Math.max(1, Math.min(ceiling, Math.floor(replicas)))
   const sizes = normalizeInstanceSizes(config, next)
   return { replicas: next, instanceSizes: sizes, instanceSize: sizes[0] }
 }

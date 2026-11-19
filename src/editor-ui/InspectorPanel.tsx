@@ -2092,6 +2092,9 @@ function TypeFields({
   }
 }
 
+/** Design-time canvas config (runcloud9-ui cv-pop). */
+export { TypeFields as DesignTypeFields }
+
 function replicaApplyDelayMsDisplay(raw: unknown): string {
   if (raw == null || raw === '') return ''
   if (Array.isArray(raw)) {

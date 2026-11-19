@@ -45,6 +45,7 @@ export const DEV_ENGINEER_USER: CurrentUserResponse = {
     allowProxyCache: true,
     maxInstanceSize: 'large',
     maxLoadgenRps: 1000,
+    allowAutoscale: true,
   },
   sessionsUsedThisMonth: 4,
   sessionsRemainingThisMonth: 16,

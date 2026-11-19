@@ -66,10 +66,12 @@ import { ConnectToggle } from './components/ConnectToggle'
 import { EdgeLayer } from './components/EdgeLayer'
 import { EdgeMeaningStrip } from './components/EdgeMeaningStrip'
 import { GraphHonestyStrip } from './components/GraphHonestyStrip'
-import { EdgeStylePresetToggle } from './components/EdgeStylePresetToggle'
 import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FloorThemeToggle } from './components/FloorThemeToggle'
+import { CanvasConfigPop } from '../editor-ui/CanvasConfigPop'
+import { DevProvisionPreviewToggle } from '../editor-ui/DevProvisionPreviewToggle'
+import { runcloud9PlacedDesignPhase } from '../lib/runcloud9DesignChrome'
 import { DevTemplateLayoutPreview } from './components/DevTemplateLayoutPreview'
 import { FxDemoControls } from './components/FxDemoControls'
 import { GridModeToggle } from './components/GridModeToggle'
@@ -122,10 +124,6 @@ import {
   readStoredFloorTheme,
   writeStoredFloorTheme,
 } from './utils/floorThemePreference'
-import {
-  readStoredEdgeStylePreset,
-  writeStoredEdgeStylePreset,
-} from './utils/edgeStylePreference'
 import {
   readStoredGridMode,
   writeStoredGridMode,
@@ -279,7 +277,8 @@ export default function SvgDesignCanvas({
   const svgRef = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<ViewBox>(() => initialViewBox(1200, 800))
   const projectionT = useProjectionT()
-  const templatePreviewActive = useTemplateFloorPreviewStore((s) => s.snapshot != null)
+  const previewSnapshot = useTemplateFloorPreviewStore((s) => s.snapshot)
+  const templatePreviewActive = previewSnapshot != null
   const prevProjectionT = useRef(0)
   const [mode, setMode] = useState<GridMode>(() => readStoredGridMode())
   const setGridMode = useCallback((next: GridMode) => {
@@ -297,12 +296,7 @@ export default function SvgDesignCanvas({
     () => floorThemeTokens(floorThemeId),
     [floorThemeId],
   )
-  const [edgeStylePreset, setEdgeStylePresetState] =
-    useState<EdgeStylePresetId>(() => readStoredEdgeStylePreset())
-  const setEdgeStylePreset = useCallback((next: EdgeStylePresetId) => {
-    setEdgeStylePresetState(next)
-    writeStoredEdgeStylePreset(next)
-  }, [])
+  const edgeStylePreset: EdgeStylePresetId = 'flow'
   const [spaceDown, setSpaceDown] = useState(false)
   const [panning, setPanning] = useState(false)
   const [marquee, setMarquee] = useState<Marquee | null>(null)
@@ -339,7 +333,14 @@ export default function SvgDesignCanvas({
   const canvasMode = useCanvasStore((s) => s.mode)
   const canvasNodes = useCanvasStore((s) => s.nodes)
   const canvasEdges = useCanvasStore((s) => s.edges)
+  const deploymentId = useCanvasStore((s) => s.deploymentId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
+  const showRuncloud9ConfigPop = runcloud9PlacedDesignPhase(
+    canvasMode,
+    deploymentId,
+    Object.keys(canvasNodes).length,
+    snapshotTemplateId,
+  )
   const jobBindings = useCanvasStore((s) => s.jobBindings)
   const expandEpoch = useSyncExternalStore(subscribeExpand, getExpandEpoch, () => 0)
   const metricsPickKey = useMetricsStore((s) =>
@@ -1183,12 +1184,6 @@ export default function SvgDesignCanvas({
           <div className="ml-2">
             <FloorThemeToggle theme={floorThemeId} onChange={setFloorTheme} />
           </div>
-          <div className="ml-2">
-            <EdgeStylePresetToggle
-              preset={edgeStylePreset}
-              onChange={setEdgeStylePreset}
-            />
-          </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -1232,7 +1227,7 @@ export default function SvgDesignCanvas({
               <ProjectionToggle />
             </div>
           )}
-          {import.meta.env.DEV && chromeMode !== 'clean' ? (
+          {import.meta.env.DEV && chromeMode === 'debug' ? (
             <div className="pointer-events-none absolute bottom-20 left-3 z-20">
               <DevTemplateLayoutPreview compact />
             </div>
@@ -1240,16 +1235,16 @@ export default function SvgDesignCanvas({
           {devToolsVisible ? (
             <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col items-end gap-1.5">
               {debugExtrasVisible ? <FxDemoControls compact /> : null}
+              {import.meta.env.DEV ? (
+                <div className="pointer-events-auto">
+                  <DevProvisionPreviewToggle />
+                </div>
+              ) : null}
               <ProjectionToggle />
               <GridModeToggle mode={mode} onChange={setGridMode} compact />
               <FloorThemeToggle
                 theme={floorThemeId}
                 onChange={setFloorTheme}
-                compact
-              />
-              <EdgeStylePresetToggle
-                preset={edgeStylePreset}
-                onChange={setEdgeStylePreset}
                 compact
               />
               <div className="pointer-events-auto flex items-center gap-0.5">
@@ -1487,6 +1482,7 @@ export default function SvgDesignCanvas({
           />
         ) : null}
         {edgeMeaning ? <EdgeMeaningStrip result={edgeMeaning} /> : null}
+        {showRuncloud9ConfigPop ? <CanvasConfigPop hostRef={hostRef} /> : null}
       </div>
     </div>
   )

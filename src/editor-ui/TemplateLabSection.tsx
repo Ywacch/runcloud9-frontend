@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type FocusEvent,
   type KeyboardEvent,
   type PointerEvent,
 } from 'react'
@@ -16,27 +17,32 @@ import type { TemplateFamilyId } from '../lib/templateFamilyCatalog'
 import type { TemplateSelectAction } from './TemplateModal'
 import { useTemplateLabFamilies } from './useTemplateLabFamilies'
 import {
+  clearTemplateFloorPreview,
   useTemplateLabPreviewActions,
   variationRowKey,
 } from './templateLabPreview'
 
 type Props = {
   disabled?: boolean
+  /** When omitted, follows `disabled`. Simulate allows hover preview while placement stays off. */
+  previewDisabled?: boolean
   loadedVariationId: string | null
   snapshotTemplateId: string | null
   onPlace: (action: TemplateSelectAction) => boolean | void
 }
 
 function isFinePointer(e: PointerEvent): boolean {
-  return e.pointerType === 'mouse' || e.pointerType === 'pen'
+  return e.pointerType !== 'touch'
 }
 
 export function TemplateLabSection({
   disabled,
+  previewDisabled: previewDisabledProp,
   loadedVariationId,
   snapshotTemplateId,
   onPlace,
 }: Props) {
+  const previewDisabled = previewDisabledProp ?? Boolean(disabled)
   const { families, loading, error } = useTemplateLabFamilies()
   const [openFamilyId, setOpenFamilyId] = useState<TemplateFamilyId | null>(null)
   const [rovingId, setRovingId] = useState<string | null>(null)
@@ -45,14 +51,14 @@ export function TemplateLabSection({
   const hideTimerRef = useRef<number>(0)
 
   const { showPreview, clearPreview, isGhostRow } = useTemplateLabPreviewActions(
-    Boolean(disabled),
+    previewDisabled,
     loadedVariationId,
     snapshotTemplateId,
   )
 
   useEffect(() => {
-    return () => clearPreview()
-  }, [clearPreview])
+    return () => clearTemplateFloorPreview()
+  }, [])
 
   const selectedKey =
     snapshotTemplateId && loadedVariationId
@@ -210,9 +216,27 @@ export function TemplateLabSection({
     }
   }
 
-  const handlePointerOver = (e: PointerEvent, treeId: string) => {
+  const handleTreePointerOver = (e: PointerEvent) => {
     if (!isFinePointer(e)) return
+    window.clearTimeout(hideTimerRef.current)
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tree-id]')
+    const treeId = el?.getAttribute('data-tree-id')
+    if (!treeId || !treeRef.current?.contains(el)) return
     previewFromTreeId(treeId)
+  }
+
+  const handleTreeFocusIn = (e: FocusEvent) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tree-id]')
+    const treeId = el?.getAttribute('data-tree-id')
+    if (!treeId) return
+    setRovingId(treeId)
+    previewFromTreeId(treeId)
+  }
+
+  const handleTreeFocusOut = (e: FocusEvent) => {
+    const next = e.relatedTarget
+    if (next instanceof Node && treeRef.current?.contains(next)) return
+    wantHide()
   }
 
   if (loading) {
@@ -236,9 +260,12 @@ export function TemplateLabSection({
         aria-labelledby="h-layout"
         aria-describedby="labs-hint"
         onKeyDown={onTreeKeyDown}
+        onPointerOver={handleTreePointerOver}
         onPointerLeave={(e) => {
           if (isFinePointer(e)) wantHide()
         }}
+        onFocus={handleTreeFocusIn}
+        onBlurCapture={handleTreeFocusOut}
       >
         {families.map((item) => {
           const meta = familyMetaForKey(item.family.metaKey)
@@ -249,7 +276,8 @@ export function TemplateLabSection({
               key={item.family.id}
               role="treeitem"
               aria-expanded={isOpen}
-              aria-label={`${item.family.title}: ${item.family.summary}`}
+              aria-label={item.family.title}
+              data-tree-id={labTreeId}
             >
               <button
                 type="button"
@@ -258,23 +286,12 @@ export function TemplateLabSection({
                 tabIndex={rovingId === labTreeId || (!rovingId && families[0] === item) ? 0 : -1}
                 disabled={disabled}
                 onClick={() => toggleLab(item.family.id)}
-                onFocus={() => {
-                  setRovingId(labTreeId)
-                  previewFromTreeId(labTreeId)
-                }}
-                onBlur={(e) => {
-                  if (!e.relatedTarget || !treeRef.current?.contains(e.relatedTarget)) {
-                    wantHide()
-                  }
-                }}
-                onPointerOver={(e) => handlePointerOver(e, labTreeId)}
               >
                 <span className="cv-lab-icon" style={{ color: meta.accent }}>
                   {meta.icon}
                 </span>
                 <span className="cv-lab-t">
                   <b>{item.family.title}</b>
-                  <span>{item.family.summary}</span>
                 </span>
                 <i className="cv-chev" aria-hidden />
               </button>
@@ -311,14 +328,8 @@ export function TemplateLabSection({
                             placeRow(row)
                           }
                         }}
-                        onFocus={() => {
-                          setRovingId(varTreeId)
-                          previewFromTreeId(varTreeId)
-                        }}
-                        onPointerOver={(e) => handlePointerOver(e, varTreeId)}
                       >
                         <b>{row.variationLabel}</b>
-                        <span>{row.variationDescription}</span>
                       </li>
                     )
                   })}

@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useProvisionFloorStore } from '../../editor-core/stores/provisionFloorStore'
+import { provisionFloorLineForNode } from '../../lib/provisionFloorVisual'
 import { isExpandToggleEligible } from '../compose/expandEligibility'
 import { useDragLiveEpoch, useSessionLayoutEpoch } from '../hooks/useEdgeRenderModel'
 import { getDragLive } from '../store/dragLiveStore'
@@ -50,8 +52,16 @@ function NodeChromeRow({
   const placed = { ...node, x: placedPos.x, y: placedPos.y }
   const anchors = nodeChromeAnchors(placed)
   const badge = replicaBadgeText(node)
-  const sublabel =
-    showSublabel && canvasNode ? provisionedSublabelForNode(canvasNode) : null
+  const provisionActive = useProvisionFloorStore((s) => s.active)
+  const provisionParsed = useProvisionFloorStore((s) => s.parsed)
+  const provisionLine = provisionActive
+    ? provisionFloorLineForNode(canvasNode, provisionParsed)
+    : null
+  const sublabel = provisionLine
+    ? provisionLine
+    : showSublabel && canvasNode
+      ? provisionedSublabelForNode(canvasNode)
+      : null
   const status = canvasNode?.status
   const badgeEndX =
     anchors.labelX + (badge ? Math.min(48, node.label.length * 3.5) + 8 : 0)

@@ -24,6 +24,7 @@ import {
   TEMPLATE_LIVE_NOT_OFFERED_HINT,
   templateOffersLiveDeploy,
 } from '../lib/templateAvailability'
+import { FALLBACK_TEMPLATE_CATALOG } from '../lib/templateCatalogFallback'
 import {
   startEngineerCheckout,
   UPGRADE_TO_ENGINEER_LABEL,
@@ -72,9 +73,9 @@ import {
 } from '../lib/spawnClientNode'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
-import { useWalkthroughStore } from '../editor-core/stores/walkthroughStore'
 import { useAuthStore } from '../product/stores/authStore'
 import { useLogStore } from '../editor-core/stores/logStore'
+import { useProvisionFloorStore } from '../editor-core/stores/provisionFloorStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import { findTopologyViolations } from '../lib/topologyGuard'
@@ -136,8 +137,6 @@ export function Sidebar() {
   const mode = useCanvasStore((s) => s.mode)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
-  const selectedId = useCanvasStore((s) => s.selectedId)
-  const selectedIds = useCanvasStore((s) => s.selectedIds)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
   const loadedVariationId = useCanvasStore((s) => s.loadedVariationId)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
@@ -145,7 +144,6 @@ export function Sidebar() {
   const setMovementLocked = useCanvasStore((s) => s.setMovementLocked)
   const topologyBanner = useCanvasStore((s) => s.topologyBanner)
   const setTopologyBanner = useCanvasStore((s) => s.setTopologyBanner)
-  const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
   const session = useAuthStore((s) => s.session)
   const currentUser = useAuthStore((s) => s.currentUser)
   const userRecord = useAuthStore((s) => s.userRecord)
@@ -206,13 +204,8 @@ export function Sidebar() {
     Record<string, TemplateInfo>
   >({})
 
-  /** Prefer user collapse preference; force icon rail while inspector dock is open. */
-  const inspectorOpen = useMemo(() => {
-    if (walkthroughActive) return false
-    const id = selectedIds.length === 1 ? selectedIds[0] : selectedId
-    return Boolean(id && nodes[id])
-  }, [walkthroughActive, selectedIds, selectedId, nodes])
-  const rail = collapsed || inspectorOpen
+  /** runcloud9-ui: sidebar collapse is user-driven only (not tied to inspector dock). */
+  const rail = collapsed
 
   useEffect(() => {
     try {
@@ -233,6 +226,12 @@ export function Sidebar() {
     let cancelled = false
     void ensureResourceProfilesLoaded()
     void ensureTopologyRulesLoaded()
+    if (import.meta.env.DEV) {
+      const byId: Record<string, TemplateInfo> = {}
+      for (const t of FALLBACK_TEMPLATE_CATALOG) byId[t.id] = t
+      setTemplateInfoById((prev) => ({ ...byId, ...prev }))
+      useTemplateRegistryStore.getState().mergeTemplates(FALLBACK_TEMPLATE_CATALOG)
+    }
     getTemplates()
       .then((rows) => {
         if (cancelled) return
@@ -551,8 +550,6 @@ export function Sidebar() {
       return
     }
     setBanner(null)
-    setDeployModalOpen(true)
-    setDeployModalMode('progress')
     setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
     setDeployResourceBudget(null)
@@ -588,6 +585,20 @@ export function Sidebar() {
       ),
     )
 
+    useLogStore.getState().clearLogs()
+    useProvisionFloorStore.getState().patch({
+      active: true,
+      preview: false,
+      submitting: true,
+      parsed: null,
+      elapsedSeconds: 0,
+      isQueued: false,
+      isTerminating: false,
+      queuePosition: null,
+      estimatedWaitSeconds: null,
+      error: null,
+    })
+
     try {
       const me = useAuthStore.getState().currentUser
       const st = useCanvasStore.getState()
@@ -620,6 +631,8 @@ export function Sidebar() {
           template: design.template,
           assessmentVerdict: 'simulation_recommended',
         })
+        useProvisionFloorStore.getState().clear()
+        setDeployModalOpen(true)
         setDeployModalMode('simulation_recommended')
         setDeploySimulationMessage(
           result.assessment?.explanation ??
@@ -677,6 +690,8 @@ export function Sidebar() {
         errorCategory: categorizeSafeError(e),
         ...(rejectReason ? { rejectReason } : {}),
       })
+      useProvisionFloorStore.getState().clear()
+      setDeployModalOpen(true)
       if (friendly.actionLabel === 'Sign in') {
         setPendingDeployAfterAuth(true)
         setDeployModalMode('auth_required')
@@ -959,12 +974,7 @@ export function Sidebar() {
           aria-expanded={!rail}
           aria-controls="side-body"
           aria-label={rail ? 'Expand sidebar' : 'Collapse sidebar'}
-          disabled={inspectorOpen && !collapsed}
-          title={
-            inspectorOpen && !collapsed
-              ? 'Sidebar stays collapsed while the inspector is open'
-              : undefined
-          }
+          disabled={false}
           onClick={() => setCollapsed((c) => !c)}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -980,6 +990,7 @@ export function Sidebar() {
       </header>
       <TemplateLabMiniRail
         disabled={live || simulate}
+        previewDisabled={live}
         loadedVariationId={loadedVariationId}
         snapshotTemplateId={snapshotTemplateId}
         onPlace={handleTemplateAction}
@@ -991,6 +1002,7 @@ export function Sidebar() {
           </h2>
           <TemplateLabSection
             disabled={live || simulate}
+            previewDisabled={live}
             loadedVariationId={loadedVariationId}
             snapshotTemplateId={snapshotTemplateId}
             onPlace={handleTemplateAction}
@@ -1009,6 +1021,34 @@ export function Sidebar() {
               disabled={live || simulate || !labPlaced}
               onClick={() => setMovementLocked(!movementLocked)}
             >
+              <svg
+                className="cv-ghost-ic"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d={
+                    movementLocked
+                      ? 'M7 11V8a5 5 0 0 1 9.9-1'
+                      : 'M7 11V8a5 5 0 0 1 10 0v3'
+                  }
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <rect
+                  x="5"
+                  y="11"
+                  width="14"
+                  height="10"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </svg>
               {movementLocked ? 'Unlock movement' : 'Lock movement'}
             </button>
             <button
@@ -1035,9 +1075,11 @@ export function Sidebar() {
             {banner ?? topologyBanner ?? graphHonestyIssue ?? ''}
           </p>
         </section>
-        <section className="cv-sec">
-          <WorkQueueLayoutSection />
-        </section>
+        {labPlaced ? (
+          <section className="cv-sec">
+            <WorkQueueLayoutSection />
+          </section>
+        ) : null}
       </div>
       <form
         className="cv-rail-ft"
@@ -1122,10 +1164,18 @@ export function Sidebar() {
               type="button"
               className="cv-deploy-btn"
               disabled={deploying || !!deployBlockedReason || !labPlaced}
-              title={deployDisabledReason}
+              title={deployDisabledReason ?? (labPlaced ? 'Deploy this design' : 'Place a lab first')}
               onClick={handleDeploy}
             >
-              {session ? 'Deploy' : 'Sign in to deploy'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden className="cv-deploy-ic">
+                <path
+                  d="m22 2-7 20-4-9-9-4 20-7Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {session ? (deploying ? 'Deploying…' : 'Deploy') : 'Sign in to deploy'}
             </button>
             <p className="cv-why" id="deploy-why" hidden={labPlaced}>
               Place a lab first
@@ -1260,6 +1310,9 @@ export function Sidebar() {
           setDeployDecorativeMessage(null)
           setDeployWarnings([])
           pendingDeployResultRef.current = null
+          if (!useCanvasStore.getState().deploymentId) {
+            useProvisionFloorStore.getState().clear()
+          }
           releaseDeployLock()
         }}
         onSimulateDesign={() => {

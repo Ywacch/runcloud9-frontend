@@ -9,7 +9,7 @@ const MODES: readonly DevInspectorMode[] = ['config', 'live']
 export function parseDevInspectorMode(
   raw: string | null | undefined,
 ): DevInspectorMode {
-  return raw === 'config' ? 'config' : 'live'
+  return raw === 'live' ? 'live' : 'config'
 }
 
 export function readDevInspectorMode(

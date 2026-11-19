@@ -11,6 +11,7 @@ export type TemplateFamilySlot = {
 export type TemplateFamilyConfig = {
   id: TemplateFamilyId
   title: string
+  /** Template modal only. One factual sentence. */
   summary: string
   /** Key into TemplateModal local meta (icon/accent). */
   metaKey: string
@@ -21,8 +22,7 @@ export const TEMPLATE_FAMILIES: TemplateFamilyConfig[] = [
   {
     id: 'url-shortener',
     title: 'URL Shortener',
-    summary:
-      'Read-heavy short links with optional Redis cache or a caching proxy in front of Postgres.',
+    summary: 'Redirects hit Postgres. Later variations add Redis or a caching proxy.',
     metaKey: 'url-shortener',
     slots: [
       { templateId: 'url-shortener', variationId: 'app-db' },
@@ -34,7 +34,7 @@ export const TEMPLATE_FAMILIES: TemplateFamilyConfig[] = [
     id: 'ecommerce',
     title: 'E-Commerce',
     summary:
-      'Product catalog and checkout. Add cache-aside reads or async order processing with MQ and worker.',
+      'Catalog and checkout use Postgres. Later variations add cache or a checkout queue.',
     metaKey: 'ecommerce',
     slots: [
       { templateId: 'ecommerce', variationId: 'app-db' },
@@ -46,7 +46,7 @@ export const TEMPLATE_FAMILIES: TemplateFamilyConfig[] = [
     id: 'social-feed',
     title: 'Social Feed',
     summary:
-      'Pull feeds with database JOINs, or push timelines into Redis with sync or async fan-out.',
+      'Reads can JOIN in Postgres or read Redis timelines. Fan-out can run on the app or on workers.',
     metaKey: 'social-feed',
     slots: [
       { templateId: 'social-feed-pull', variationId: 'app-db' },

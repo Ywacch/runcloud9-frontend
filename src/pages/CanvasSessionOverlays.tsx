@@ -7,12 +7,12 @@ import {
   DeploymentPlayground,
   EventTimeline,
   InspectorAlertWatcher,
-  ProvisioningOverlay,
+  DevProvisionPreviewController,
+  ProvisionStrip,
   RejoinBanner,
   SessionEndingOverlay,
   SimulationOverlay,
 } from '../editor-ui'
-import { PROVISION_FAILED_HEADLINE } from '../lib/provisionCopy'
 import type { CanvasSessionLifecycle } from './useCanvasSessionLifecycle'
 import { SHOW_SIMULATION_UI } from '../lib/featureFlags'
 
@@ -35,22 +35,11 @@ export function CanvasSessionOverlays({
     rejoin,
     dismiss,
     mode,
-    nodes,
-    provisioningElapsed,
-    provisionMetricsSummary,
-    isTerminating,
-    isQueued,
-    queuePosition,
-    estimatedWaitSeconds,
-    overlayMinimized,
     showProvisioningOverlay,
     showProvisioningError,
-    provisioningError,
     terminationMessage,
     cancelProvisioning,
     dismissProvisioningError,
-    minimizeOverlay,
-    expandOverlay,
   } = session
 
   return (
@@ -79,36 +68,13 @@ export function CanvasSessionOverlays({
           ) : null}
         </div>
       ) : null}
-      {showProvisioningOverlay ? (
-        <ProvisioningOverlay
-          elapsedSeconds={provisioningElapsed}
-          metricsSummary={provisionMetricsSummary}
-          nodes={nodes}
-          isTerminating={isTerminating}
-          isQueued={isQueued}
-          queuePosition={queuePosition}
-          estimatedWaitSeconds={estimatedWaitSeconds}
-          minimized={overlayMinimized}
-          onMinimize={minimizeOverlay}
-          onExpand={expandOverlay}
-          onCancel={cancelProvisioning}
-        />
-      ) : null}
-      {showProvisioningError ? (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--c9-bg)]/70 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-red-800 bg-[var(--c9-surface)]/95 p-5 text-[var(--c9-text)] shadow-xl">
-            <h3 className="text-lg font-semibold text-red-300">{PROVISION_FAILED_HEADLINE}</h3>
-            <p className="mt-2 text-sm text-[var(--c9-muted)]">{provisioningError}</p>
-            <button
-              type="button"
-              className="mt-4 w-full rounded border border-[var(--c9-border)] bg-[var(--c9-bg)] px-4 py-2 text-sm transition-colors duration-200 hover:border-[var(--c9-accent)]"
-              onClick={dismissProvisioningError}
-            >
-              Back to canvas
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <DevProvisionPreviewController
+        blocked={showProvisioningOverlay || showProvisioningError}
+      />
+      <ProvisionStrip
+        onCancel={cancelProvisioning}
+        onDismissError={dismissProvisioningError}
+      />
       <SessionEndingOverlay />
       {mode === 'live' ? (
         <>

@@ -18,6 +18,7 @@ import {
   normalizeResourceTier,
   tierResourceCaps,
 } from './resourceTierCaps'
+import { autoscaleFromConfig } from './autoscaleConfig'
 import { clampAppServerReplicas, clampReadReplicas } from './replicaConfig'
 import { normalizeInstanceSizes } from './instanceSizes'
 
@@ -55,6 +56,8 @@ const DEPLOYABLE_NODE_TYPES = new Set([
 
 function replicasForBudget(node: DeploymentNode): number {
   if (node.type === 'app-server' || node.type === 'worker') {
+    const ac = autoscaleFromConfig(node.config.autoscale)
+    if (ac) return ac.max
     return clampAppServerReplicas(node.config.replicas ?? 1)
   }
   if (node.type === 'db') {

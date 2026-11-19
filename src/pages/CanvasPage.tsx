@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  isCanvasEditMode,
   useCanvasKeyboard,
   useCanvasStore,
   useMetricsStore,
@@ -15,7 +14,6 @@ import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 const EMPTY_METRICS: Record<string, MetricsBucket> = {}
 import {
   CanvasErrorBoundary,
-  DesignToolStrip,
   InspectorPanel,
   InspectorChatDrawer,
   LiveMetricsDrawer,
@@ -52,7 +50,6 @@ export default function CanvasPage() {
   const session = useCanvasSessionLifecycle()
   useCanvasKeyboard()
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
-  const designTool = useCanvasStore((s) => s.designTool)
   const mode = session.mode
   const nodes = session.nodes
   const snapshotTemplateId = session.snapshotTemplateId
@@ -117,11 +114,8 @@ export default function CanvasPage() {
         <LiveSessionStrip />
         <div className="flex min-h-0 min-w-0 flex-1">
         <div
-          className={`relative min-h-0 min-w-0 flex-1 ${
-            placingNodeType ||
-            (isCanvasEditMode(mode) && designTool === 'connect')
-              ? 'cursor-crosshair'
-              : ''
+          className={`relative min-h-0 min-w-0 flex-1${
+            placingNodeType ? ' cursor-crosshair' : ''
           }`}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -173,7 +167,6 @@ export default function CanvasPage() {
           ) : null}
         </CanvasSessionOverlays>
         <LogPanel />
-        <DesignToolStrip />
         <WalkthroughOverlay />
         {mode === 'design' ? (
           <RequestJourneyPanel

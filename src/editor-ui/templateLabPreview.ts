@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import {
   useTemplateFloorPreviewStore,
   type TemplatePreviewKey,
@@ -11,30 +12,61 @@ export function variationRowKey(row: {
   return `${row.templateId}:${row.variationId}` as TemplatePreviewKey
 }
 
+export function clearTemplateFloorPreview(): void {
+  useTemplateFloorPreviewStore.getState().clearPreview()
+}
+
+export function showTemplateFloorPreview(
+  row: TemplateLabVariationRow | null,
+  opts: {
+    previewDisabled: boolean
+    loadedVariationId: string | null
+    snapshotTemplateId: string | null
+  },
+): void {
+  if (opts.previewDisabled) {
+    clearTemplateFloorPreview()
+    return
+  }
+  if (!row) {
+    clearTemplateFloorPreview()
+    return
+  }
+  if (row.snapshot.nodes.length === 0) return
+  const placed =
+    opts.loadedVariationId === row.variationId &&
+    opts.snapshotTemplateId === row.templateId
+  if (placed) {
+    clearTemplateFloorPreview()
+    return
+  }
+  useTemplateFloorPreviewStore
+    .getState()
+    .setPreview(variationRowKey(row), row.snapshot)
+}
+
 export function useTemplateLabPreviewActions(
-  disabled: boolean,
+  /** Blocks floor preview (e.g. active live session). Placement can stay disabled separately. */
+  previewDisabled: boolean,
   loadedVariationId: string | null,
   snapshotTemplateId: string | null,
 ) {
   const previewKey = useTemplateFloorPreviewStore((s) => s.previewKey)
 
-  const clearPreview = () => useTemplateFloorPreviewStore.getState().clearPreview()
+  const clearPreview = useCallback(() => {
+    clearTemplateFloorPreview()
+  }, [])
 
-  const showPreview = (row: TemplateLabVariationRow | null) => {
-    if (!row || disabled) {
-      clearPreview()
-      return
-    }
-    const key = variationRowKey(row)
-    const placed =
-      loadedVariationId === row.variationId &&
-      snapshotTemplateId === row.templateId
-    if (placed) {
-      clearPreview()
-      return
-    }
-    useTemplateFloorPreviewStore.getState().setPreview(key, row.snapshot)
-  }
+  const showPreview = useCallback(
+    (row: TemplateLabVariationRow | null) => {
+      showTemplateFloorPreview(row, {
+        previewDisabled,
+        loadedVariationId,
+        snapshotTemplateId,
+      })
+    },
+    [previewDisabled, loadedVariationId, snapshotTemplateId],
+  )
 
   const isGhostRow = (row: TemplateLabVariationRow) =>
     previewKey === variationRowKey(row)
