@@ -49,27 +49,6 @@ export function useCanvasKeyboard(): void {
         return
       }
 
-      // Tool letters only when no modifiers — Ctrl+C is copy, not Connect.
-      const bareKey =
-        !e.ctrlKey && !e.metaKey && !e.altKey ? e.key.toLowerCase() : null
-      if (bareKey === 's') {
-        e.preventDefault()
-        setDesignTool('select')
-        return
-      }
-      if (bareKey === 'c') {
-        if (!canEditTopology) return
-        e.preventDefault()
-        setDesignTool('connect')
-        return
-      }
-      if (bareKey === 'e') {
-        if (!canEditTopology) return
-        e.preventDefault()
-        setDesignTool('erase')
-        return
-      }
-
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         requestCanvasFit()

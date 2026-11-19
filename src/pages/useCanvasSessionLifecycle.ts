@@ -25,6 +25,8 @@ import {
   PROVISION_OVERLAY_LINGER_MS,
   shouldLingerProvisionOverlay,
 } from '../lib/provisionMetrics'
+import { useProvisionFloorStore } from '../editor-core/stores/provisionFloorStore'
+import { getDevProvisionPreviewEnabled } from '../lib/devProvisionPreview'
 import {
   deriveDeployWaitKind,
   readDeployQueueFields,
@@ -169,7 +171,6 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
 
   const realtimeDeploymentId = mode === 'live' ? deploymentId : null
   useMetricsSync(realtimeDeploymentId)
-  useLogSync(realtimeDeploymentId)
 
   useEffect(() => {
     if (mode !== 'live' || !deploymentId) {
@@ -685,6 +686,45 @@ export function useCanvasSessionLifecycle(): CanvasSessionLifecycle {
     isQueued,
     isDoorwayWait,
   })
+
+  useLogSync(
+    showProvisioningOverlay || showProvisioningError || mode === 'live'
+      ? deploymentId
+      : null,
+  )
+
+  useEffect(() => {
+    const real = showProvisioningOverlay || showProvisioningError
+    if (!real) {
+      const floor = useProvisionFloorStore.getState()
+      if (!floor.preview && !floor.submitting && !getDevProvisionPreviewEnabled()) {
+        floor.clear()
+      }
+      return
+    }
+    useProvisionFloorStore.getState().patch({
+      active: true,
+      preview: false,
+      submitting: false,
+      parsed: parseProvisionMetrics(provisionMetricsSummary),
+      elapsedSeconds: provisioningElapsed,
+      isQueued,
+      isTerminating,
+      queuePosition,
+      estimatedWaitSeconds,
+      error: provisioningError,
+    })
+  }, [
+    showProvisioningOverlay,
+    showProvisioningError,
+    provisionMetricsSummary,
+    provisioningElapsed,
+    isQueued,
+    isTerminating,
+    queuePosition,
+    estimatedWaitSeconds,
+    provisioningError,
+  ])
 
   useEffect(() => {
     if (provisioningError) setOverlayMinimized(false)

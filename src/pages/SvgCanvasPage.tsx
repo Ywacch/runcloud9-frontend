@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  isCanvasEditMode,
   useCanvasKeyboard,
   useCanvasStore,
   useMetricsStore,
@@ -10,11 +9,11 @@ import {
 } from '../editor-core'
 import {
   CanvasContextMenu,
-  DesignToolStrip,
   InspectorPanel,
   InspectorChatDrawer,
   LiveMetricsDrawer,
   LiveSessionStrip,
+  DevProvisionPreviewToggle,
   LogPanel,
   RequestJourneyPanel,
   SessionSummary,
@@ -69,7 +68,6 @@ export default function SvgCanvasPage() {
   useCanvasKeyboard()
 
   const placingNodeType = useCanvasStore((s) => s.placingNodeType)
-  const designTool = useCanvasStore((s) => s.designTool)
   const mode = session.mode
   const nodes = session.nodes
   const snapshotTemplateId = session.snapshotTemplateId
@@ -174,14 +172,8 @@ export default function SvgCanvasPage() {
         <div
           className={`canvas cv-canvas relative min-h-0 min-w-0 flex-1 overflow-hidden${
             templatePreviewActive ? ' ghosting' : ''
-          } ${
-            placingNodeType ||
-            (isCanvasEditMode(mode) && designTool === 'connect')
-              ? 'cursor-crosshair'
-              : ''
-          }`}
+          }${placingNodeType ? ' cursor-crosshair' : ''}`}
           data-state={labPlaced ? 'placed' : 'empty'}
-          data-tool={designTool}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault()
@@ -196,13 +188,14 @@ export default function SvgCanvasPage() {
           }}
         >
         {debugExtrasVisible ? (
-          <div className="pointer-events-none absolute left-3 top-3 z-40">
+          <div className="pointer-events-none absolute left-3 top-3 z-40 flex items-center gap-1.5">
             <Link
               to="/canvas-pixi"
               className="pointer-events-auto rounded-md border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 px-2 py-1 text-[10px] font-medium text-[var(--c9-muted)] shadow backdrop-blur-sm hover:text-[var(--c9-text)]"
             >
               Pixi fallback
             </Link>
+            {import.meta.env.DEV ? <DevProvisionPreviewToggle /> : null}
           </div>
         ) : null}
 
@@ -254,7 +247,6 @@ export default function SvgCanvasPage() {
         </CanvasSessionOverlays>
 
         <LogPanel />
-        <DesignToolStrip />
         <WalkthroughOverlay />
         {mode === 'design' ? (
           <RequestJourneyPanel

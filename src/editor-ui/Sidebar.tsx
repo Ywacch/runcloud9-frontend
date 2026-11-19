@@ -75,6 +75,7 @@ import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useTemplateRegistryStore } from '../editor-core/stores/templateRegistryStore'
 import { useAuthStore } from '../product/stores/authStore'
 import { useLogStore } from '../editor-core/stores/logStore'
+import { useProvisionFloorStore } from '../editor-core/stores/provisionFloorStore'
 import { useMetricsStore } from '../editor-core/stores/metricsStore'
 import { useSimulationStore } from '../editor-core/stores/simulationStore'
 import { findTopologyViolations } from '../lib/topologyGuard'
@@ -549,8 +550,6 @@ export function Sidebar() {
       return
     }
     setBanner(null)
-    setDeployModalOpen(true)
-    setDeployModalMode('progress')
     setDeployRequestMessage(null)
     setDeploySimulationMessage(null)
     setDeployResourceBudget(null)
@@ -586,6 +585,20 @@ export function Sidebar() {
       ),
     )
 
+    useLogStore.getState().clearLogs()
+    useProvisionFloorStore.getState().patch({
+      active: true,
+      preview: false,
+      submitting: true,
+      parsed: null,
+      elapsedSeconds: 0,
+      isQueued: false,
+      isTerminating: false,
+      queuePosition: null,
+      estimatedWaitSeconds: null,
+      error: null,
+    })
+
     try {
       const me = useAuthStore.getState().currentUser
       const st = useCanvasStore.getState()
@@ -618,6 +631,8 @@ export function Sidebar() {
           template: design.template,
           assessmentVerdict: 'simulation_recommended',
         })
+        useProvisionFloorStore.getState().clear()
+        setDeployModalOpen(true)
         setDeployModalMode('simulation_recommended')
         setDeploySimulationMessage(
           result.assessment?.explanation ??
@@ -675,6 +690,8 @@ export function Sidebar() {
         errorCategory: categorizeSafeError(e),
         ...(rejectReason ? { rejectReason } : {}),
       })
+      useProvisionFloorStore.getState().clear()
+      setDeployModalOpen(true)
       if (friendly.actionLabel === 'Sign in') {
         setPendingDeployAfterAuth(true)
         setDeployModalMode('auth_required')
@@ -1293,6 +1310,9 @@ export function Sidebar() {
           setDeployDecorativeMessage(null)
           setDeployWarnings([])
           pendingDeployResultRef.current = null
+          if (!useCanvasStore.getState().deploymentId) {
+            useProvisionFloorStore.getState().clear()
+          }
           releaseDeployLock()
         }}
         onSimulateDesign={() => {

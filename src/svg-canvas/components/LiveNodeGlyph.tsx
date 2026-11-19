@@ -20,6 +20,9 @@ import type { SvgNode } from '../store/svgTypes'
 import { presentWorld } from '../math/projection'
 import { useProjectionT } from '../store/projectionStore'
 import { NodeGlyph } from '../glyphs/NodeGlyph'
+import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useProvisionFloorStore } from '../../editor-core/stores/provisionFloorStore'
+import { provisionGlyphPhaseForNode } from '../../lib/provisionFloorVisual'
 
 type LiveNodeGlyphProps = {
   node: SvgNode
@@ -86,9 +89,23 @@ function LiveNodeGlyphInner({
     ? undefined
     : 'opacity 300ms ease-out, transform 300ms ease-out'
 
+  const provisionActive = useProvisionFloorStore((s) => s.active)
+  const provisionParsed = useProvisionFloorStore((s) => s.parsed)
+  const canvasNode = useCanvasStore((s) => s.nodes[node.id])
+  const glyphPhase = provisionGlyphPhaseForNode(
+    canvasNode,
+    provisionParsed,
+    provisionActive,
+  )
+  const phaseMul =
+    glyphPhase === 'pending' ? 0.32 : glyphPhase === 'building' ? 0.82 : 1
+  const phaseClass =
+    glyphPhase === 'off' ? undefined : `cv-glyph-ph cv-glyph-ph-${glyphPhase}`
+
   return (
     <g
-      opacity={opacity * appearOpacity}
+      className={phaseClass}
+      opacity={opacity * appearOpacity * phaseMul}
       transform={`scale(${appearScale})`}
       style={{ transition }}
       data-export-node=""

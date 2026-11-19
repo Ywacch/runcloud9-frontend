@@ -600,81 +600,6 @@
   opacity: 0;
 }
 
-.cv-chrome .cv-tools {
-  position: absolute;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  z-index: 4;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: var(--dt-radius-md);
-  background: var(--dt-color-surface);
-  border: 1px solid var(--dt-color-divider-inset);
-  box-shadow: var(--dt-shadow-card-raised);
-}
-
-.cv-chrome .cv-tools button {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 28px;
-  font: inherit;
-  font-size: var(--dt-font-size-xs);
-  font-weight: var(--dt-font-weight-medium);
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--dt-radius-sm);
-  background: transparent;
-  color: var(--dt-color-text-muted);
-  cursor: pointer;
-}
-
-.cv-chrome .cv-tools button:hover:not(:disabled) {
-  color: var(--dt-color-text-strong);
-}
-
-.cv-chrome .cv-tools button[aria-pressed='true'] {
-  color: var(--dt-color-text-strong);
-}
-
-.cv-chrome .cv-tools button[aria-pressed='true']::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 2px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--dt-color-primary);
-}
-
-.cv-chrome .cv-tools button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.cv-chrome .cv-tools button:focus-visible {
-  outline: 2px solid var(--dt-color-focus);
-  outline-offset: 1px;
-}
-
-.cv-chrome .cv-tools kbd {
-  font: inherit;
-  font-size: var(--dt-font-size-2xs);
-  color: var(--dt-color-text-muted);
-  opacity: 0.8;
-}
-
-.cv-chrome .cv-tools-sep {
-  width: 1px;
-  align-self: stretch;
-  margin: 5px 4px;
-  background: var(--dt-color-divider-inset);
-}
-
 /* ---- cv-pop: floating node config (runcloud9-ui canvas.html #pop) ---- */
 .cv-chrome .cv-pop {
   position: absolute;
@@ -1158,4 +1083,89 @@
   border: 1px solid var(--dt-color-divider-inset);
   background: var(--dt-color-surface-raised);
   color: var(--dt-color-text);
+}
+
+/* In-canvas provision: slim strip + ghost glyphs (not a modal). */
+.cv-chrome .cv-provision-strip {
+  background: linear-gradient(
+    to bottom,
+    rgba(31, 31, 50, 0.92),
+    rgba(31, 31, 50, 0.55),
+    transparent
+  );
+  color: var(--dt-color-text);
+  font-family: var(--dt-font-family);
+}
+
+.cv-chrome .cv-provision-strip-step {
+  margin: 0;
+  font-size: var(--dt-font-size-sm);
+  font-weight: var(--dt-font-weight-medium);
+  color: var(--dt-color-text-strong);
+}
+
+.cv-chrome .cv-provision-strip-est {
+  margin: 2px 0 0;
+  font-size: var(--dt-font-size-2xs);
+  color: var(--dt-color-text-muted);
+}
+
+.cv-chrome .cv-provision-strip-clock {
+  font-size: var(--dt-font-size-xs);
+  color: var(--dt-color-text-muted);
+}
+
+.cv-chrome .cv-provision-strip-btn {
+  font-family: inherit;
+  font-size: var(--dt-font-size-2xs);
+  font-weight: var(--dt-font-weight-medium);
+  padding: 4px 10px;
+  border-radius: var(--dt-radius-sm);
+  border: 1px solid var(--dt-color-divider-inset);
+  background: var(--dt-color-surface-raised);
+  color: var(--dt-color-text);
+  cursor: pointer;
+}
+
+.cv-chrome .cv-provision-strip-btn:hover:not(:disabled) {
+  color: var(--dt-color-text-strong);
+}
+
+.cv-chrome .cv-provision-strip-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cv-chrome .cv-provision-strip[data-phase='error'] .cv-provision-strip-step {
+  color: #fca5a5;
+}
+
+.cv-chrome .cv-glyph-ph-pending {
+  filter: grayscale(0.9);
+}
+
+.cv-chrome .cv-glyph-ph-building {
+  filter: grayscale(0.35);
+  animation: cv-glyph-ph-pulse 1.2s ease-in-out infinite;
+}
+
+.cv-chrome .cv-glyph-ph-ready {
+  filter: none;
+}
+
+@keyframes cv-glyph-ph-pulse {
+  0%,
+  100% {
+    filter: grayscale(0.5) brightness(0.88);
+  }
+  50% {
+    filter: grayscale(0) brightness(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-chrome .cv-glyph-ph-building {
+    animation: none;
+    filter: grayscale(0.2);
+  }
 }
