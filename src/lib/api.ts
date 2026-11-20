@@ -548,6 +548,8 @@ export interface DeploymentRecord {
   metricsSummary?: Record<string, unknown>
   /** Stored topology; returned by GET /deployments/{id} for redeploy / rejoin. */
   design?: DeploymentDesign
+  /** Resolved placement when the stored design decodes (E-23a). */
+  placement?: import('./placement/types').PlacementTopology
 }
 
 export async function getDeployment(
