@@ -119,6 +119,7 @@ export interface WsDeploymentMetrics {
     rangeP99Ms?: number
     errorRate?: number
   }
+  placement?: import('../../lib/placement/types').PlacementTopology
   components?: Record<string, WsComponentMetrics>
   templateMetrics?: Record<string, number>
   events?: WsEventPayload[]

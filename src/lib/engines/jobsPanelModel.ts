@@ -1,6 +1,7 @@
 import type { CanvasNode, CanvasSnapshot } from '../../editor-core/stores/canvasStore'
 import type { MetaJobsResponse } from '../api'
 import { backendEngineOrDefault } from '../backendCapabilities'
+import { isQueueOnlyNode } from '../placement/resolvePlacement'
 import {
   templateJobDefs,
   type TemplateJobDef,
@@ -150,13 +151,5 @@ export function isDedicatedWorkQueueCache(
   nodes: CanvasNode[],
   jobBindings?: Record<string, string> | null,
 ): boolean {
-  const resolved = resolvedJobNodeIds(templateId, nodes, jobBindings)
-  if (resolved.work_queue !== nodeId) return false
-  if (resolved.timeline === nodeId || resolved.hot_cache === nodeId) return false
-  const node = nodes.find((n) => n.id === nodeId)
-  if (!node || node.type !== 'cache') return false
-  const eng = String(node.config.cacheEngine ?? node.config.engine ?? '')
-    .trim()
-    .toLowerCase()
-  return eng === '' || eng === 'redis'
+  return isQueueOnlyNode(nodeId, templateId, nodes, jobBindings)
 }
