@@ -77,6 +77,7 @@ import { FxDemoControls } from './components/FxDemoControls'
 import { GridModeToggle } from './components/GridModeToggle'
 import { GridPatterns } from './components/GridPatterns'
 import { HealthRimFilters } from './fx/HealthRimFilters'
+import { ProvisionGhostFilters } from './fx/provisionGhostFilters'
 import { LiveNodeGlyph } from './components/LiveNodeGlyph'
 import { InstanceScopeClusterPickLayer } from './components/InstanceScopeClusterPickLayer'
 import { LiveZoneLayer } from './components/LiveZoneLayer'
@@ -1329,6 +1330,7 @@ export default function SvgDesignCanvas({
         >
           <GridPatterns theme={floorTheme} />
           <HealthRimFilters />
+          <ProvisionGhostFilters />
           <rect
             id="interactionLayer"
             x={view.x}
