@@ -38,6 +38,7 @@ import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { trackEvent } from '../lib/analytics'
 import SvgDesignCanvas from '../svg-canvas/SvgDesignCanvas'
 import { useTemplateFloorPreviewStore } from '../editor-core/stores/templateFloorPreviewStore'
+import { useProvisionFloorStore } from '../editor-core/stores/provisionFloorStore'
 import type { CanvasNode } from '../editor-core/stores/canvasStore'
 import type { MetricsBucket } from '../editor-core/stores/metricsStore'
 
@@ -82,6 +83,7 @@ export default function SvgCanvasPage() {
   const templatePreviewActive = useTemplateFloorPreviewStore(
     (s) => s.snapshot != null,
   )
+  const provisionFloorActive = useProvisionFloorStore((s) => s.active)
 
   const [designJourneyUi, setDesignJourneyUi] = useState<{
     open: boolean
@@ -209,7 +211,11 @@ export default function SvgCanvasPage() {
               trackEvent('canvas_help_opened', {})
             }}
             className={`absolute right-3 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--c9-border)] bg-[var(--c9-surface)]/95 text-sm font-semibold text-[var(--c9-muted)] shadow backdrop-blur-sm transition-colors hover:border-[var(--c9-accent)] hover:text-[var(--c9-text)] ${
-              debugExtrasVisible ? 'top-12' : 'top-3'
+              debugExtrasVisible
+                ? 'top-12'
+                : provisionFloorActive
+                  ? 'top-12'
+                  : 'top-3'
             }`}
           >
             ?
@@ -221,7 +227,7 @@ export default function SvgCanvasPage() {
         <CanvasHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
         <CanvasSessionOverlays session={session}>
-          {mode === 'design' && !runcloud9PickerChrome ? (
+          {mode === 'design' && !runcloud9PickerChrome && !provisionFloorActive ? (
               <div
               className={`pointer-events-none absolute left-3 z-30 flex flex-col gap-2 ${
                 debugExtrasVisible ? 'top-12' : 'top-3'

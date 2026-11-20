@@ -40,7 +40,7 @@ export function ProvisionStrip({
 
   return (
     <div
-      className="cv-provision-strip pointer-events-none absolute left-0 right-0 top-0 z-30 flex items-center gap-3 px-3 py-2"
+      className="cv-provision-strip pointer-events-none absolute left-0 right-0 top-0 z-[35] flex items-center gap-3 py-2 pl-3 pr-14"
       data-phase={copy.phase}
       data-preview={preview ? '1' : undefined}
     >
@@ -66,7 +66,7 @@ export function ProvisionStrip({
       ) : (
         <button
           type="button"
-          className="pointer-events-auto cv-provision-strip-btn shrink-0"
+          className="pointer-events-auto cv-provision-strip-btn shrink-0 min-w-[4.5rem]"
           onClick={onCancel}
           disabled={isTerminating}
         >

@@ -1140,32 +1140,22 @@
   color: #fca5a5;
 }
 
-.cv-chrome .cv-glyph-ph-pending {
-  filter: grayscale(0.9);
-}
-
 .cv-chrome .cv-glyph-ph-building {
-  filter: grayscale(0.35);
   animation: cv-glyph-ph-pulse 1.2s ease-in-out infinite;
-}
-
-.cv-chrome .cv-glyph-ph-ready {
-  filter: none;
 }
 
 @keyframes cv-glyph-ph-pulse {
   0%,
   100% {
-    filter: grayscale(0.5) brightness(0.88);
+    opacity: 0.5;
   }
   50% {
-    filter: grayscale(0) brightness(1.06);
+    opacity: 0.72;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cv-chrome .cv-glyph-ph-building {
     animation: none;
-    filter: grayscale(0.2);
   }
 }

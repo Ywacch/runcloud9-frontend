@@ -31,6 +31,7 @@ import { dispatchSpawnAtScreen } from '../lib/spawnEvents'
 import { trackEvent } from '../lib/analytics'
 import { CanvasSessionOverlays } from './CanvasSessionOverlays'
 import { useCanvasSessionLifecycle } from './useCanvasSessionLifecycle'
+import { useProvisionFloorStore } from '../editor-core/stores/provisionFloorStore'
 
 const VALID_TYPES: CanvasNode['type'][] = [
   'load_balancer',
@@ -61,6 +62,7 @@ export default function CanvasPage() {
   )
   const walkthroughActive = useWalkthroughStore((s) => s.activeJourneyId)
   const startWalkthrough = useWalkthroughStore((s) => s.startWalkthrough)
+  const provisionFloorActive = useProvisionFloorStore((s) => s.active)
   const [designJourneyUi, setDesignJourneyUi] = useState<{
     open: boolean
     overview: boolean
@@ -144,7 +146,10 @@ export default function CanvasPage() {
           <CanvasRoot />
         </CanvasErrorBoundary>
         <CanvasSessionOverlays session={session}>
-          {mode === 'design' && designJourneys.length > 0 && !walkthroughActive ? (
+          {mode === 'design' &&
+          designJourneys.length > 0 &&
+          !walkthroughActive &&
+          !provisionFloorActive ? (
             <div
               className={`pointer-events-none absolute left-3 z-30 ${
                 debugExtrasVisible ? 'top-12' : 'top-3'

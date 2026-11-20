@@ -23,6 +23,7 @@ import { NodeGlyph } from '../glyphs/NodeGlyph'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
 import { useProvisionFloorStore } from '../../editor-core/stores/provisionFloorStore'
 import { provisionGlyphPhaseForNode } from '../../lib/provisionFloorVisual'
+import { provisionGhostFilterUrl } from '../fx/provisionGhostFilters'
 
 type LiveNodeGlyphProps = {
   node: SvgNode
@@ -98,7 +99,7 @@ function LiveNodeGlyphInner({
     provisionActive,
   )
   const phaseMul =
-    glyphPhase === 'pending' ? 0.32 : glyphPhase === 'building' ? 0.82 : 1
+    glyphPhase === 'pending' ? 0.32 : glyphPhase === 'building' ? 0.58 : 1
   const phaseClass =
     glyphPhase === 'off' ? undefined : `cv-glyph-ph cv-glyph-ph-${glyphPhase}`
 
@@ -107,6 +108,7 @@ function LiveNodeGlyphInner({
       className={phaseClass}
       opacity={opacity * appearOpacity * phaseMul}
       transform={`scale(${appearScale})`}
+      filter={provisionGhostFilterUrl(glyphPhase)}
       style={{ transition }}
       data-export-node=""
       data-node-id={node.id}
