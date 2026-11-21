@@ -23,7 +23,10 @@ export function DbInstanceTabBar({
             active={isActive}
             onClick={() => onSelect(id)}
             label={tab.label}
-            className="flex-1 text-center sm:flex-none"
+            title={id && id !== 'cluster' ? String(id) : undefined}
+            className={`h-6 flex-none px-[9px] text-[11px] ${
+              id === 'cluster' ? '' : 'font-[family-name:var(--dt-font-family-mono)]'
+            }`}
           />
         )
       })}

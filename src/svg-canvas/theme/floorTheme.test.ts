@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { FLOOR_THEMES, floorThemeTokens } from './floorTheme'
 
 describe('floorTheme', () => {
-  it('dark host matches Pixi canvas surface', () => {
-    expect(floorThemeTokens('dark').hostBg).toBe('#13111c')
+  it('dark host matches the Observe page background', () => {
+    expect(floorThemeTokens('dark').hostBg).toBe('#15152a')
   })
 
   it('light keeps the prior Cloudcraft-style floor fill', () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../editor-core/stores/canvasStore'
 import { useProvisionFloorStore } from '../editor-core/stores/provisionFloorStore'
+import { devInstanceScopePreviewEnabled } from '../lib/devInstanceScopePreview'
 import {
   buildDevProvisionMetrics,
   isDevProvisionPreviewEnabled,
@@ -18,7 +19,12 @@ export function DevProvisionPreviewController({
   const mode = useCanvasStore((s) => s.mode)
   const startedAt = useRef(Date.now())
 
-  const run = import.meta.env.DEV && enabled && !blocked && mode !== 'live'
+  const run =
+    import.meta.env.DEV &&
+    enabled &&
+    !blocked &&
+    mode !== 'live' &&
+    !devInstanceScopePreviewEnabled(mode)
 
   useEffect(() => {
     if (import.meta.env.DEV && isDevProvisionPreviewEnabled()) {

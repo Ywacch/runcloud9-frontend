@@ -31,13 +31,22 @@ export function SlSecHead({
   tip?: string
 }) {
   return (
-    <div className="sec-head">
-      <span className="sec-idx">{index}</span>
+    <div className="sec-head flex! items-start! gap-2! border-0! bg-transparent! p-0!">
+      <span className="sec-idx border-0! bg-transparent! font-[family-name:var(--dt-font-family-mono)]! text-[11px]! leading-[17px]! tracking-normal! text-[#9d9db4]! normal-case! opacity-80!">
+        {index}
+      </span>
       <div>
-        <h2 className={tip ? 'has-tip' : undefined} data-tip={tip}>
+        <h2
+          className={`text-[14px]! font-semibold! leading-[1.3]! tracking-normal! text-white! normal-case! ${tip ? 'has-tip' : ''}`}
+          data-tip={tip}
+        >
           {title}
         </h2>
-        {subtitle ? <p className="sec-sub">{subtitle}</p> : null}
+        {subtitle ? (
+          <p className="sec-sub mt-0! font-[family-name:var(--dt-font-family)]! text-[11px]! tracking-normal! text-[#9d9db4]! normal-case!">
+            {subtitle}
+          </p>
+        ) : null}
       </div>
     </div>
   )
@@ -58,15 +67,25 @@ export function SlTiles({
   triad?: boolean
   children: ReactNode
 }) {
-  return <div className={triad ? 'tiles triad' : 'tiles'}>{children}</div>
+  return (
+    <div
+      className={`${triad ? 'tiles triad grid-cols-3!' : 'tiles'} mb-4! grid! gap-4! border-0! bg-transparent!`}
+    >
+      {children}
+    </div>
+  )
 }
 
 export function SlTile({ children }: { children: ReactNode }) {
-  return <div className="tile">{children}</div>
+  return <div className="tile border-0! bg-transparent! p-0! before:content-none! after:content-none!">{children}</div>
 }
 
 export function SlTileLab({ children }: { children: ReactNode }) {
-  return <div className="tile-lab">{children}</div>
+  return (
+    <div className="tile-lab flex! items-center! justify-between! font-[family-name:var(--dt-font-family)]! text-[11px]! font-medium! tracking-normal! text-[#9d9db4]! normal-case!">
+      {children}
+    </div>
+  )
 }
 
 export function SlTileVal({
@@ -76,7 +95,17 @@ export function SlTileVal({
   children: ReactNode
   tone?: 'amber' | 'green' | 'red'
 }) {
-  const cls = ['tile-v', 'num', tone ? `is-${tone}` : ''].filter(Boolean).join(' ')
+  const toneClass =
+    tone === 'amber'
+      ? 'text-[var(--dt-color-amber)]!'
+      : tone === 'green'
+        ? 'text-[var(--dt-color-teal)]!'
+        : tone === 'red'
+          ? 'text-[var(--dt-color-red)]!'
+          : 'text-white!'
+  const cls = ['tile-v', 'num', 'mt-1! font-[family-name:var(--dt-font-family)]! text-[22px]! font-semibold! leading-[1.1]! tracking-normal!', toneClass, tone ? `is-${tone}` : '']
+    .filter(Boolean)
+    .join(' ')
   return <div className={cls}>{children}</div>
 }
 
@@ -101,7 +130,7 @@ export function SlTileFoot({
 }
 
 export function SlUnit({ children }: { children: ReactNode }) {
-  return <span className="u">{children}</span>
+  return <span className="u ml-0.5! font-[family-name:var(--dt-font-family)]! text-[11px]! font-normal! tracking-normal! text-[#9d9db4]! normal-case!">{children}</span>
 }
 
 export function SlLatencyTileLab({
@@ -167,12 +196,28 @@ export function SlRow({
   valueTone?: 'amber' | 'green' | 'red'
 }) {
   return (
-    <div className="row">
-      <div className="row-key">
-        <div className="t">{title}</div>
-        {subtitle ? <div className="s">{subtitle}</div> : null}
+    <div className="row flex! items-center! justify-between! gap-2.5! border-0! border-t! border-solid! border-white/[0.07]! bg-transparent! py-3!">
+      <div className="row-key min-w-0!">
+        <div className="t font-[family-name:var(--dt-font-family)]! text-[11px]! font-medium! tracking-normal! text-[#ececf6]! normal-case!">
+          {title}
+        </div>
+        {subtitle ? (
+          <div className="s mt-0.5! font-[family-name:var(--dt-font-family)]! text-[11px]! tracking-normal! text-[#9d9db4]! normal-case! opacity-85!">
+            {subtitle}
+          </div>
+        ) : null}
       </div>
-      <div className={`row-v num${valueTone ? ` is-${valueTone}` : ''}`}>
+      <div
+        className={`row-v num whitespace-nowrap! font-[family-name:var(--dt-font-family)]! text-[20px]! font-semibold! tracking-normal! ${
+          valueTone === 'amber'
+            ? 'is-amber text-[var(--dt-color-amber)]!'
+            : valueTone === 'green'
+              ? 'is-green text-[var(--dt-color-teal)]!'
+              : valueTone === 'red'
+                ? 'is-red text-[var(--dt-color-red)]!'
+                : 'text-white!'
+        }`}
+      >
         {value}
         {unit}
       </div>
@@ -228,17 +273,20 @@ export function SlScale({
   const hot = clamped >= warnAt
   return (
     <>
-      <div className="scale">
-        <div className="scale-track">
-          <div className={`scale-fill${hot ? ' amber' : ''}`} style={{ width: `${clamped}%` }} />
+      <div className="scale relative! h-[5px]!">
+        <div className="scale-track absolute! inset-x-0! top-0! h-[5px]! overflow-hidden! rounded-sm! border-0! bg-white/[0.07]!">
+          <div
+            className={`scale-fill absolute! inset-y-0! left-0! rounded-sm! ${hot ? 'amber bg-[var(--dt-color-amber)]!' : 'bg-[var(--dt-color-teal)]! opacity-85!'}`}
+            style={{ width: `${clamped}%` }}
+          />
         </div>
-        <div className="scale-ticks" />
-        <div className="scale-warn" style={{ left: `${warnAt}%` }}>
-          <span>{warnAt} warn</span>
+        <div className="scale-ticks hidden!" />
+        <div className="scale-warn absolute! top-[-2px]! bottom-[-2px]! w-px! border-0! bg-[var(--dt-color-amber)]! opacity-60!" style={{ left: `${warnAt}%` }}>
+          <span className="font-[family-name:var(--dt-font-family)]! text-[11px]! tracking-normal! text-[var(--dt-color-amber)]! normal-case!">{warnAt}</span>
         </div>
-        <div className="scale-caret" style={{ left: `${clamped}%` }} />
+        <div className="scale-caret hidden!" style={{ left: `${clamped}%` }} />
       </div>
-      <div className="scale-foot">
+      <div className="scale-foot mt-1! flex! justify-between! font-[family-name:var(--dt-font-family)]! text-[11px]! tracking-normal! text-[#9d9db4]! normal-case!">
         <span>{footLeft}</span>
         <span>{footRight}</span>
       </div>
@@ -373,9 +421,15 @@ export function SlGraphWrap({
               y2={height - PB}
             />
           ) : null}
-          <path className={`trace is-primary${dashed ? ' dash' : ''}`} d={primary} />
+          <path
+            className={`trace is-primary fill-none! stroke-[#6d9cf7]! opacity-90! [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1]${dashed ? ' dash [stroke-dasharray:3_3]!' : ''}`}
+            d={primary}
+          />
           {secondaryPath ? (
-            <path className="trace dash is-secondary" d={secondaryPath} />
+            <path
+              className="trace dash is-secondary fill-none! stroke-[#e0405c]! [stroke-dasharray:3_3]! [stroke-width:1]"
+              d={secondaryPath}
+            />
           ) : null}
           {primaryPt ? (
             <circle className="trace-dot is-primary" cx={primaryPt.x} cy={primaryPt.y} r={2.6} />
@@ -657,16 +711,27 @@ export function SlBarInline({
 }) {
   const on = Math.round((Math.min(100, Math.max(0, pct)) / 100) * cells)
   return (
-    <div className={`bar${hot ? ' is-amber' : ''}`} style={{ marginTop: 9 }}>
+    <div className={`bar grid! h-auto! gap-[3px]! border-0! bg-transparent! p-0! [grid-auto-columns:1fr] [grid-auto-flow:column]${hot ? ' is-amber' : ''}`} style={{ marginTop: 8 }}>
       {Array.from({ length: cells }, (_, i) => (
-        <i key={i} className={i < on ? 'f' : ''} />
+        <i
+          key={i}
+          className={`block! h-[13px]! flex-none! ${
+            i < on
+              ? `f ${hot ? 'bg-[var(--dt-color-amber)]!' : 'bg-[var(--dt-color-teal)]!'}`
+              : 'bg-[var(--dt-color-segment-off)]!'
+          }`}
+        />
       ))}
     </div>
   )
 }
 
 export function SlStatStrip({ children }: { children: ReactNode }) {
-  return <div className="stat-strip">{children}</div>
+  return (
+    <div className="stat-strip flex! flex-wrap! gap-x-[22px]! gap-y-3.5! border-0! bg-transparent!">
+      {children}
+    </div>
+  )
 }
 
 export function SlStatCell({
@@ -681,14 +746,18 @@ export function SlStatCell({
   help?: string
 }) {
   return (
-    <div className="stat-cell">
-      <div className="stat-lab">
+    <div className="stat-cell min-w-[120px]! flex-1! border-0! bg-transparent! p-0!">
+      <div className="stat-lab flex! items-center! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case!">
         <span>{label}</span>
         {help ? <MetricHelpIcon title={help} /> : null}
       </div>
-      <div className="stat-v num">
+      <div className="stat-v num mt-1! font-[family-name:var(--dt-font-family)]! text-[18px]! font-medium! leading-[1.1]! tracking-normal! text-[var(--dt-color-text)]!">
         {value}
-        {unit ? <span className="u">{unit}</span> : null}
+        {unit ? (
+          <span className="u ml-0.5! font-[family-name:var(--dt-font-family)]! text-[11px]! font-normal! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case!">
+            {unit}
+          </span>
+        ) : null}
       </div>
     </div>
   )

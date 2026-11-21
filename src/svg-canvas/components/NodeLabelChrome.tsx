@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
+import { computeHealthState } from '../../editor-core/domain/healthThresholds'
 import { useCanvasStore } from '../../editor-core/stores/canvasStore'
+import { useMetricsStore } from '../../editor-core/stores/metricsStore'
 import { useProvisionFloorStore } from '../../editor-core/stores/provisionFloorStore'
 import { provisionFloorLineForNode } from '../../lib/provisionFloorVisual'
 import { isExpandToggleEligible } from '../compose/expandEligibility'
@@ -12,7 +14,9 @@ import { useExpanded } from '../store/expandStore'
 import type { SvgNode } from '../store/svgTypes'
 import {
   nodeChromeAnchors,
+  nodeLabelFill,
   provisionedSublabelForNode,
+  REPLICA_BADGE_FILL,
   replicaBadgeText,
   shouldShowProvisionedSublabel,
   statusDotColor,
@@ -62,7 +66,9 @@ function NodeChromeRow({
     : showSublabel && canvasNode
       ? provisionedSublabelForNode(canvasNode)
       : null
+  const metrics = useMetricsStore((s) => s.metrics[node.id])
   const status = canvasNode?.status
+  const labelFill = nodeLabelFill(computeHealthState(metrics, status ?? 'idle'))
   const badgeEndX =
     anchors.labelX + (badge ? Math.min(48, node.label.length * 3.5) + 8 : 0)
 
@@ -75,8 +81,8 @@ function NodeChromeRow({
         dominantBaseline="auto"
         fontSize={12}
         fontWeight={600}
-        fontFamily="system-ui, sans-serif"
-        fill="#ffffff"
+        fontFamily="Nunito Observe, Nunito, system-ui, sans-serif"
+        fill={labelFill}
         style={{
           paintOrder: 'stroke',
           stroke: 'rgba(0,0,0,0.8)',
@@ -91,10 +97,10 @@ function NodeChromeRow({
           y={anchors.labelY}
           textAnchor="start"
           dominantBaseline="auto"
-          fontSize={10}
+          fontSize={11}
           fontWeight={700}
-          fontFamily="system-ui, sans-serif"
-          fill="#fbbf24"
+          fontFamily="Nunito Observe, Nunito, system-ui, sans-serif"
+          fill={REPLICA_BADGE_FILL}
         >
           {badge}
         </text>
@@ -105,10 +111,10 @@ function NodeChromeRow({
           y={anchors.labelY}
           textAnchor="start"
           dominantBaseline="auto"
-          fontSize={9}
+          fontSize={11}
           fontWeight={600}
-          fontFamily="system-ui, sans-serif"
-          fill="#94a3b8"
+          fontFamily="Nunito Observe, Nunito, system-ui, sans-serif"
+          fill="#b9b9cc"
           aria-hidden
         >
           {expanded ? '▾' : '▸'}
@@ -120,9 +126,9 @@ function NodeChromeRow({
           y={anchors.sublabelY}
           textAnchor="middle"
           dominantBaseline="hanging"
-          fontSize={9}
-          fontFamily="system-ui, sans-serif"
-          fill="#9ca3af"
+          fontSize={11}
+          fontFamily="Nunito Observe, Nunito, system-ui, sans-serif"
+          fill="#b9b9cc"
           style={{
             paintOrder: 'stroke',
             stroke: 'rgba(0,0,0,0.7)',
@@ -138,9 +144,9 @@ function NodeChromeRow({
           y={anchors.sublabelY + (sublabel ? 12 : 0)}
           textAnchor="middle"
           dominantBaseline="hanging"
-          fontSize={8}
+          fontSize={11}
           fontWeight={600}
-          fontFamily="system-ui, sans-serif"
+          fontFamily="Nunito Observe, Nunito, system-ui, sans-serif"
           fill="#c4b5fd"
           style={{
             paintOrder: 'stroke',

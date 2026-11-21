@@ -70,6 +70,7 @@ import { EngineSelect } from './components/EngineSelect'
 import { Floor, type GridMode } from './components/Floor'
 import { FloorThemeToggle } from './components/FloorThemeToggle'
 import { CanvasConfigPop } from '../editor-ui/CanvasConfigPop'
+import { devInspectorLivePreviewEnabled } from '../lib/devInspectorMode'
 import { DevProvisionPreviewToggle } from '../editor-ui/DevProvisionPreviewToggle'
 import { runcloud9PlacedDesignPhase } from '../lib/runcloud9DesignChrome'
 import { DevTemplateLayoutPreview } from './components/DevTemplateLayoutPreview'
@@ -336,12 +337,13 @@ export default function SvgDesignCanvas({
   const canvasEdges = useCanvasStore((s) => s.edges)
   const deploymentId = useCanvasStore((s) => s.deploymentId)
   const snapshotTemplateId = useCanvasStore((s) => s.snapshotTemplateId)
-  const showRuncloud9ConfigPop = runcloud9PlacedDesignPhase(
-    canvasMode,
-    deploymentId,
-    Object.keys(canvasNodes).length,
-    snapshotTemplateId,
-  )
+  const showRuncloud9ConfigPop =
+    runcloud9PlacedDesignPhase(
+      canvasMode,
+      deploymentId,
+      Object.keys(canvasNodes).length,
+      snapshotTemplateId,
+    ) && !devInspectorLivePreviewEnabled()
   const jobBindings = useCanvasStore((s) => s.jobBindings)
   const expandEpoch = useSyncExternalStore(subscribeExpand, getExpandEpoch, () => 0)
   const metricsPickKey = useMetricsStore((s) =>

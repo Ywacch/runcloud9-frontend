@@ -1,16 +1,16 @@
 /* Verbatim inspector CSS from UI pages/components.html, scoped under .sl-inspector */
 /* RunCloud9: surfaces use a slight indigo tint vs StackLab mock */
 .sl-inspector{
-    --bg:#0A0B12; --panel:#0F1018; --panel-hi:#13141C;
-    --ink:#E8E9E5; --ink-2:#A3A8A5; --ink-3:#6E7472; --ink-4:#4A504E;
-    --rule:rgba(232,233,229,.10); --rule-2:rgba(232,233,229,.20); --rule-3:rgba(232,233,229,.36);
-    --green:#41B183; --amber:#D9A22B; --red:#D8524A;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    --disp:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;
-    --pad:14px;
+    --bg:#15152a; --panel:#1b1b33; --panel-hi:#222240;
+    --ink:#e6e6ef; --ink-2:#e6e6ef; --ink-3:#8b8ba7; --ink-4:#9d9db4;
+    --rule:rgba(255,255,255,.07); --rule-2:#2a2a45; --rule-3:rgba(255,255,255,.14);
+    --green:#7fcdb9; --amber:#f0a52a; --red:#e0405c;
+    --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --ui:"Nunito Observe","Nunito",system-ui,sans-serif;
+    --disp:"Nunito Observe","Nunito",system-ui,sans-serif;
+    --pad:16px;
   }
-.sl-inspector *{box-sizing:border-box;margin:0;padding:0;border-radius:0}
+.sl-inspector *{box-sizing:border-box}
 .sl-inspector html,.sl-inspector body{height:100%}
 .sl-inspector body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:13px;line-height:1.45;
     -webkit-font-smoothing:antialiased;overflow:hidden}
@@ -710,3 +710,80 @@
 .sl-inspector .log-kv:last-child{border-bottom:none}
 .sl-inspector .log-kv .k{color:var(--ink-4);letter-spacing:.03em}
 .sl-inspector .log-kv .v{color:var(--ink-2);word-break:break-all;text-align:left}
+
+/* Sidebar direction shell. These rules follow the StackLab block so they win. */
+.sl-inspector{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  position:relative;
+  background:#1b1b33;
+  color:#e6e6ef;
+  border-left:1px solid #2a2a45;
+  box-shadow:none;
+  font-family:var(--dt-font-family);
+  font-size:12px;
+  letter-spacing:.15px;
+}
+.sl-inspector.sb-anim{transition:width .28s cubic-bezier(.2,.8,.2,1)}
+.sl-inspector[data-resizing="true"]{transition:none}
+@media (prefers-reduced-motion:reduce){
+  .sl-inspector.sb-anim{transition:none}
+}
+.sl-inspector::before{content:none}
+.sl-inspector .lab{
+  font-family:var(--dt-font-family);
+  font-size:11px;
+  letter-spacing:0;
+  text-transform:none;
+  color:#9d9db4;
+}
+.sl-inspector .sb-handle{position:absolute;z-index:3;left:-6px;top:0;bottom:0;width:12px;cursor:col-resize;touch-action:none}
+.sl-inspector .sb-handle::after{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:transparent;transition:background .12s,width .12s}
+.sl-inspector .sb-handle:hover::after,.sl-inspector[data-resizing="true"] .sb-handle::after,.sl-inspector .sb-handle:focus-visible::after{width:2px;background:#7fcdb9}
+.sl-inspector .sb-handle:focus-visible{outline:none}
+.sl-inspector .sb-grip{position:absolute;left:1px;top:50%;width:10px;height:44px;margin-top:-22px;border-radius:5px;background:#24243f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.sl-inspector .sb-grip i{display:block;width:2px;height:2px;border-radius:50%;background:#8b8ba7}
+.sl-inspector .sb-handle:hover .sb-grip,.sl-inspector[data-resizing="true"] .sb-grip,.sl-inspector .sb-handle:focus-visible .sb-grip{background:#2b3f47;box-shadow:inset 0 0 0 1px #7fcdb9}
+.sl-inspector .sb-handle:hover .sb-grip i,.sl-inspector[data-resizing="true"] .sb-grip i,.sl-inspector .sb-handle:focus-visible .sb-grip i{background:#7fcdb9}
+.sl-inspector .sb-btns{display:flex;align-items:center;gap:4px;flex:none}
+.sl-inspector .ins-title{display:flex;align-items:center;gap:8px;min-width:0}
+.sl-inspector .ins-title h1,.sl-inspector .ins-title input{flex:0 1 auto;min-width:0;margin:0;width:auto;background:transparent;border:0;color:#fff}
+.sl-inspector .sb-exp{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:6px;color:#c9c8d8;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.sl-inspector .sb-exp:hover,.sl-inspector .sb-exp:focus-visible{color:#fff;background:rgba(127,205,185,.12);box-shadow:inset 0 0 0 1px rgba(127,205,185,.6);outline:none}
+.sl-inspector .sb-exp[aria-pressed="true"]{color:#7fcdb9}
+.sl-inspector .ins-head{padding:6px 8px 0 16px;border-bottom:0}
+.sl-inspector[data-sbw="wide"] .ins-head{padding:16px 10px 0 24px}
+.sl-inspector h1,.sl-inspector .ins-head input{font-family:var(--dt-font-family)!important;font-size:17px!important;font-weight:700!important;line-height:1.25!important;letter-spacing:0!important;color:#fff}
+.sl-inspector .kind{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9d9db4;border:1px solid rgba(255,255,255,.14);border-radius:4px;padding:0 6px}
+.sl-inspector .close{width:22px;height:28px;border:0;border-radius:7px;color:#b9b9cc}
+.sl-inspector .close:hover{background:rgba(255,255,255,.05);color:#e6e6ef}
+.sl-inspector .tabs{gap:16px;border-bottom:1px solid rgba(255,255,255,.07);padding:0 16px}
+.sl-inspector[data-sbw="wide"] .tabs{padding:0 18px}
+.sl-inspector .tab{height:28px;margin:0;padding:0;border:0;background:transparent;font-family:var(--dt-font-family);font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:#9d9db4}
+.sl-inspector .tab:hover,.sl-inspector .tab.is-on{background:transparent;border-color:transparent;color:#fff;font-weight:500}
+.sl-inspector .tab.is-on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1.5px;background:#3b7cf5}
+.sl-inspector .tab.is-on .tab-count{color:inherit;opacity:.7}
+.sl-inspector .body{padding:0 16px 24px}
+.sl-inspector[data-sbw="wide"] .body{padding:4px 24px 28px}
+.sl-inspector[data-sbw="wide"] .dx-cols{columns:2;column-gap:28px}
+.sl-inspector[data-sbw="wide"] .dx-cols > *{break-inside:avoid}
+.sl-inspector[data-sbw="wide"] .dx-cols:has(table){columns:1}
+.sl-inspector[data-sbw="wide"] .dx-cols:has(table) table{max-width:760px}
+.sl-inspector .panel-foot{min-height:36px;padding:4px 10px 4px 16px;border-top:1px solid rgba(255,255,255,.07);background:transparent;font-size:11px;color:#9d9db4}
+.sl-inspector[data-sbw="wide"] .panel-foot{padding-left:24px;padding-right:24px}
+/* Type floor inside the inspector. Metric values (.tile-v, .stat-v, .num) stay larger. */
+.sl-inspector :is(
+  .lab,.role,.head-meta,.tab-count,.controls .lab,.seg button,.pctl-opt,.flip-lab,
+  .chaos-lab,.chaos-trig,.chaos-opt,.chaos-opt-t,.chaos-tgt,.btn,.btn.tiny,.chaos-hint,
+  .chaos-count,.banner,.banner .tag,.crumb-lead,.crumb-tail,.sec-idx,.sec-sub,.tile-lab,
+  .tile-v .u,.tile-foot,.pair .u,.stat-lab,.stat-v .u,.graph-leg,.lg,.row-key .t,.row-key .s,
+  .row-v .u,.flag,.hint-txt,.util-lab,.util-help,.scale-foot,.ct-lab,.ct-tag,.ct-cum,
+  .gauge-v .u,.gauge-foot,.kv .k,.kv .v,.podstat,.pt.h,.sqlcode,.dbrow,.dbrow .car,
+  .dbrow-full .kv .k,.dbrow-full .kv .v,.pager-lab,.be.h,.kc-type,.kc-size,.kc-ttl,.kc-exp,
+  .split-side .s-lab,.split-side .s-sub,.split-mid .mul,.trade-note,.disc-tag,.disc-body p,
+  .key,.log-line .lv,.ident-line,.pcfg-intro,.pcfg-sub,.sl-f-lab,.numfld .unit,.chk-sub,
+  .logbar-count,.logbar-filter button,.log-empty,.log-ts,.log-lv,.log-car,.log-kv,.log-msg,
+  .mk-lab,.n-tag,.n-sub,.hc-tag,.hc-scope,.hc-stat-lab
+){font-size:11px!important}
+.sl-inspector :is(.text-\[8px\],.text-\[9px\],.text-\[10px\],.text-\[10\.5px\]){font-size:11px!important}

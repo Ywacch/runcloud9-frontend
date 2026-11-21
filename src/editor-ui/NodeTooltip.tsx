@@ -222,12 +222,12 @@ export function NodeTooltip({
   const p99Label = tooltipP99Ms != null ? fmtMs(tooltipP99Ms) : FMT_EMPTY
 
   const rpsClass = idleRps
-    ? 'text-zinc-400'
+    ? 'text-[var(--dt-color-text-muted)]'
     : health === 'warning'
-      ? 'text-amber-300'
+      ? 'text-[var(--dt-color-amber)]'
       : health === 'error'
-        ? 'text-red-300'
-        : 'text-cyan-300'
+        ? 'text-[var(--dt-color-red)]'
+        : 'text-[var(--dt-color-text)]'
 
   const clusterScope = grouped?.clusterScope === true && !cacheFocus
   const subtitle = cacheFocus
@@ -242,70 +242,43 @@ export function NodeTooltip({
 
   return (
     <div
-      className={`pointer-events-none w-[178px] rounded-xl border border-[var(--c9-border)] bg-[var(--c9-bg-surface)] px-2.5 py-2 text-[10px] text-[var(--c9-text)] shadow-xl backdrop-blur ${
+      className={`pointer-events-none min-w-[150px] rounded-[7px] bg-[var(--dt-color-surface-raised)] px-[11px] pt-2 pb-[9px] text-[12px] text-[var(--dt-color-text)] shadow-[0_10px_26px_rgba(0,0,0,0.5)] ${
         align === 'right' ? 'origin-top-left' : 'origin-top-right -translate-x-full'
       }`}
     >
-      <p className="truncate text-center text-[13px] font-semibold text-violet-300">
+      <p className="mb-0.5 block truncate text-[13px] font-bold text-white">
         {node.label}
       </p>
-      {subtitle ? (
-        <p className="mt-0.5 text-center text-[9px] leading-tight text-zinc-400">
-          {subtitle}
-        </p>
-      ) : null}
-      <div className="mt-1 border-t border-white/10 pt-1.5">
-        <div className="grid grid-cols-3 gap-2">
-          <div title={resourceHelp}>
-            <p className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
-              cpu
-              {clusterScope ? <span className="text-zinc-600"> avg</span> : null}
-            </p>
-            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-              {labels.cpu}
-            </p>
-            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-              <div
-                className="h-full rounded bg-violet-400 transition-[width] duration-150"
-                style={{ width: `${cpuPct}%` }}
-              />
-            </div>
-          </div>
-          <div title={memTitle}>
-            <p className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
-              {clusterScope ? 'mem' : 'memory'}
-              {clusterScope ? <span className="text-zinc-600"> avg</span> : null}
-            </p>
-            <p className="font-mono text-[12px] font-semibold leading-[1] text-zinc-100">
-              {memDisplay}
-            </p>
-            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-              <div
-                className="h-full rounded bg-sky-400 transition-[width] duration-150"
-                style={{ width: `${memPct}%` }}
-              />
-            </div>
-          </div>
-          <div>
-            <p className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
-              rps
-              {clusterScope ? <span className="text-zinc-600"> sum</span> : null}
-            </p>
-            <p className={`font-mono text-[16px] font-semibold leading-[1] ${rpsClass}`}>
-              {fmtRate(rps)}
-            </p>
-            <div className="mt-1 h-[2px] rounded bg-zinc-700/70">
-              <div className="h-full w-full rounded bg-cyan-400/85" />
-            </div>
-          </div>
-        </div>
-        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
-          <span className="whitespace-nowrap font-mono text-[10px] lowercase text-zinc-400">
-            p99
-            {clusterScope ? <span className="text-zinc-600"> max</span> : null}
-          </span>
-          <span className="font-mono text-[11px] text-zinc-200">{p99Label}</span>
-        </div>
+      <p className="mb-[5px] flex items-center gap-1.5 text-[12px] text-[var(--dt-color-text-muted)]">
+        <span
+          className={`size-[7px] shrink-0 rounded-full ${
+            health === 'error'
+              ? 'bg-[var(--dt-color-red)]'
+              : health === 'warning'
+                ? 'bg-[var(--dt-color-amber)]'
+                : 'bg-[#22c55e]'
+          }`}
+          aria-hidden
+        />
+        {subtitle ?? roleLabel}
+      </p>
+      <div className="grid grid-cols-[auto_auto] gap-x-3.5 gap-y-0.5">
+        <span className="text-[var(--dt-color-text-subtle)]" title={resourceHelp}>
+          CPU{clusterScope ? ' avg' : ''}
+        </span>
+        <span className="text-right font-bold tabular-nums">{labels.cpu}</span>
+        <span className="text-[var(--dt-color-text-subtle)]" title={memTitle}>
+          {clusterScope ? 'Mem avg' : 'Memory'}
+        </span>
+        <span className="text-right font-bold tabular-nums">{memDisplay}</span>
+        <span className="text-[var(--dt-color-text-subtle)]">
+          RPS{clusterScope ? ' sum' : ''}
+        </span>
+        <span className={`text-right font-bold tabular-nums ${rpsClass}`}>{fmtRate(rps)}</span>
+        <span className="text-[var(--dt-color-text-subtle)]">
+          P99{clusterScope ? ' max' : ''}
+        </span>
+        <span className="text-right font-bold tabular-nums">{p99Label}</span>
       </div>
     </div>
   )

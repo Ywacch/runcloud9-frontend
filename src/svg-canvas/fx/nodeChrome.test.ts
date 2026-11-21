@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   nodeChromeAnchors,
+  nodeLabelFill,
   replicaBadgeText,
+  REPLICA_BADGE_FILL,
   shouldShowProvisionedSublabel,
   statusDotColor,
 } from './nodeChrome'
@@ -53,6 +55,14 @@ describe('nodeChrome', () => {
         }),
       ),
     ).toBeNull()
+  })
+
+  it('colors warning names amber and error names red', () => {
+    expect(nodeLabelFill('warning')).toBe('#e0a64b')
+    expect(nodeLabelFill('error')).toBe('#e0405c')
+    expect(nodeLabelFill('healthy')).toBe('#ffffff')
+    expect(nodeLabelFill('idle')).toBe('#ffffff')
+    expect(REPLICA_BADGE_FILL).toBe('#7fcdb9')
   })
 
   it('maps status colors', () => {

@@ -72,6 +72,7 @@ import {
 } from '../lib/userTier'
 import { scaleLagErrorLabel } from '../lib/scaleLag'
 import { useAuthStore } from '../product/stores/authStore'
+import { DegradedNodesButton } from './DegradedNodesButton'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
 
 const INGRESS_HELP_LIVE =
@@ -82,7 +83,8 @@ const INGRESS_HELP_SIM =
 
 const CHIPS_KEY = 'runcloud9.liveKpiChipsOpen'
 
-const hudChromeBtn = 'sl-tb-btn'
+const hudChromeBtn =
+  'inline-flex h-[22px] items-center gap-1.5 rounded-[7px] border-0 bg-transparent px-1.5 font-[family-name:var(--dt-font-family)] text-[12px] font-medium tracking-normal text-[var(--dt-color-text-muted)] normal-case hover:bg-white/5 hover:text-white'
 
 function readChipsOpen(): boolean {
   try {
@@ -800,49 +802,56 @@ export function LiveSessionStrip() {
     <>
       <div className="relative z-30 shrink-0 overflow-visible">
 
-        <div className="sl-topbar min-w-0 overflow-visible" title={sessionTitle}>
-          <span className="sl-live">
+        <div
+          className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--dt-color-divider-inset)] bg-[rgba(22,20,32,0.86)] px-4 py-1.5 font-[family-name:var(--dt-font-family)] text-[12px] tracking-[0.15px] text-[var(--dt-color-text)]"
+          title={sessionTitle}
+        >
+          <span className="inline-flex items-center gap-1.5 font-medium text-white">
             <span
-              className={`dot ${pulseOk ? 'animate-pulse' : ''}`}
-              style={
-                health !== 'ok'
-                  ? { background: health === 'critical' ? 'var(--sl-red)' : 'var(--sl-amber)' }
-                  : undefined
-              }
+              className={`size-[7px] shrink-0 rounded-full ${pulseOk ? '' : ''} ${
+                health === 'critical'
+                  ? 'bg-[var(--dt-color-red)]'
+                  : health === 'ok'
+                    ? 'bg-[var(--dt-color-teal)]'
+                    : 'bg-[var(--dt-color-amber)]'
+              }`}
               title={statusLabel}
               aria-label={statusLabel}
             />
             {showLiveChrome ? 'Live' : 'Sim'}
           </span>
+          <DegradedNodesButton />
           {showLiveChrome ? (
-            <>
-              <span className="sl-tb-sep" aria-hidden />
-              <span className="sl-num clock">{formatSessionMmSs(remaining)}</span>
-            </>
+            <span className="font-[family-name:var(--dt-font-family-mono)] tabular-nums text-[var(--dt-color-text-muted)]">
+              {formatSessionMmSs(remaining)}
+            </span>
           ) : null}
-          <span className="sl-tb-sep" aria-hidden />
-          <span className="sl-tb-kv">
-            <span className="k">P99</span>
-            <b className={`sl-num ${healthTone}`}>
+          <span className="inline-flex items-baseline gap-1.5 text-[var(--dt-color-text-muted)]">
+            <span>P99</span>
+            <b className={`font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums ${healthTone}`}>
               {showWaiting ? '…' : fmtMs(p99Ms)}
             </b>
           </span>
-          <span className="sl-tb-kv">
-            <span className="k">Err</span>
-            <b className={`sl-num ${healthTone}`}>
+          <span className="inline-flex items-baseline gap-1.5 text-[var(--dt-color-text-muted)]">
+            <span>Err</span>
+            <b className={`font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums ${healthTone}`}>
               {showWaiting ? '…' : fmtPct(errPct)}
             </b>
           </span>
           {alertKpi ? (
-            <span className="sl-tb-kv">
-              <span className="k">{alertKpi.label}</span>
-              <b className="sl-num">{alertKpi.value}</b>
+            <span className="inline-flex items-baseline gap-1.5 text-[var(--dt-color-text-muted)]">
+              <span>{alertKpi.label}</span>
+              <b className="font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums text-white">
+                {alertKpi.value}
+              </b>
             </span>
           ) : null}
           {SHOW_SIMULATION_UI && mode === 'simulate' ? (
-            <span className="sl-tb-kv" title={INGRESS_HELP_SIM}>
-              <span className="k">In</span>
-              <b className="sl-num">{showWaiting ? '…' : fmtRate(throughput)}</b>
+            <span className="inline-flex items-baseline gap-1.5 text-[var(--dt-color-text-muted)]" title={INGRESS_HELP_SIM}>
+              <span>In</span>
+              <b className="font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums text-white">
+                {showWaiting ? '…' : fmtRate(throughput)}
+              </b>
             </span>
           ) : null}
           {mixSegments ? (
@@ -851,7 +860,7 @@ export function LiveSessionStrip() {
               onClick={allJourneys.length > 0 ? openJourneyOverview : undefined}
             />
           ) : null}
-          <span className="sl-tb-spacer" />
+          <span className="min-w-2 flex-1" />
           <div className="flex shrink-0 items-center gap-1.5">
             {showLoad ? (
               <button
@@ -942,7 +951,7 @@ export function LiveSessionStrip() {
                 type="button"
                 disabled={busy}
                 onClick={() => void onStopLoad()}
-                className="sl-tb-btn stop"
+                className="inline-flex h-[22px] items-center rounded-[7px] border-0 bg-transparent px-1.5 text-[12px] font-medium text-[#f07a8e] shadow-[inset_0_0_0_1px_rgba(240,122,142,0.45)] hover:bg-[rgba(240,122,142,0.1)] hover:text-[#ffb3bf] disabled:opacity-45"
               >
                 Stop
               </button>
@@ -951,14 +960,14 @@ export function LiveSessionStrip() {
         </div>
 
         {showLiveChrome ? (
-          <div className="sl-targets">
-            <span className="sl-ts">
-              <span className="k">Target</span>
-              <b className="sl-num">{targetRpsDisplay}</b>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-[var(--dt-color-divider-inset)] bg-[#15152a] px-4 py-1 font-[family-name:var(--dt-font-family)] text-[12px] text-[var(--dt-color-text-muted)]">
+            <span className="inline-flex items-baseline gap-1.5">
+              <span>Target</span>
+              <b className="font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums text-white">{targetRpsDisplay}</b>
             </span>
-            <span className="sl-ts">
-              <span className="k">Achieved</span>
-              <b className="sl-num">{achievedRpsDisplay}</b>
+            <span className="inline-flex items-baseline gap-1.5">
+              <span>Achieved</span>
+              <b className="font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums text-white">{achievedRpsDisplay}</b>
               {scaleLagLabel ? (
                 <span className="ml-2 text-[10px] font-normal text-amber-200/90">
                   {scaleLagLabel}
@@ -966,9 +975,9 @@ export function LiveSessionStrip() {
               ) : null}
             </span>
             {runningTotal > 0 ? (
-              <span className="sl-ts">
-                <span className="k">Total</span>
-                <b className="sl-num">{fmtInt(runningTotal)}</b>
+              <span className="inline-flex items-baseline gap-1.5">
+                <span>Total</span>
+                <b className="font-[family-name:var(--dt-font-family-mono)] font-medium tabular-nums text-white">{fmtInt(runningTotal)}</b>
               </span>
             ) : null}
           </div>

@@ -38,7 +38,9 @@ export const DEV_LIVE_STRIP_PREVIEW = {
   templateId: 'social-feed',
   p99Ms: 115,
   errPct: 0,
-  throughputRps: 1200,
+  // Achieved load stays at or under the offered target. 1,200 here used to
+  // paint an impossible served rate next to a 50 rps target.
+  throughputRps: 48,
   remainingSeconds: 8 * 60 + 19,
   targetRps: 50,
   totalRequests: 1398,

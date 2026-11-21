@@ -216,7 +216,7 @@ export function LiveMetricsDrawer() {
       className={`sl-inspector flex h-full shrink-0 flex-col ${LIVE_METRICS_DRAWER_CLASS}`}
       aria-label="Detailed metrics"
     >
-      <div className="sl-topbar items-start">
+      <div className="flex flex-wrap items-start gap-2 border-b border-[var(--dt-color-divider-inset)] bg-[#1b1b33] px-4 py-2 text-[12px] text-[var(--dt-color-text)]">
         <div className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1">
           <span>
             Target:{' '}

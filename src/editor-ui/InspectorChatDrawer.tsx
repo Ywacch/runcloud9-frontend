@@ -44,11 +44,11 @@ export function InspectorChatDrawer() {
       className={`sl-inspector flex h-full shrink-0 flex-col border-r border-[var(--c9-border)] ${INSPECTOR_CHAT_DRAWER_CLASS}`}
       aria-label="Session assistant"
     >
-      <div className="sl-topbar flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--dt-color-divider-inset)] bg-[#1b1b33] px-4 py-2 text-[12px]">
         <span className="text-xs font-semibold text-[var(--c9-text)]">Assistant</span>
         <button
           type="button"
-          className="sl-tb-btn text-[10px]"
+          className="rounded-[7px] border-0 bg-transparent px-1.5 text-[12px] text-[var(--dt-color-text-muted)] hover:bg-white/5 hover:text-white"
           aria-label="Close assistant"
           onClick={() => setOpen(false)}
         >
@@ -118,7 +118,7 @@ export function InspectorChatDrawer() {
             />
             <button
               type="submit"
-              className="sl-tb-btn w-full justify-center text-xs"
+              className="flex h-[30px] w-full items-center justify-center rounded-[7px] border-0 bg-[var(--dt-color-primary)] text-[12px] font-bold text-white hover:bg-[var(--dt-color-primary-hover)] disabled:opacity-45"
               disabled={!connected || sending || !draft.trim() || budget?.exhausted === true}
             >
               {sending ? 'Thinking…' : 'Send'}
