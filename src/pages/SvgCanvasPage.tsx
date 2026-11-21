@@ -23,9 +23,9 @@ import {
 import { CanvasHelpModal } from '../editor-ui/CanvasHelpModal'
 import { useDevDebugExtrasVisible } from '../lib/devCanvasTools'
 import {
-  devInspectorLivePreviewEnabled,
   getDevInspectorMode,
   setDevInspectorMode,
+  useDevInspectorMode,
 } from '../lib/devInspectorMode'
 import { useDevInstanceScopePreview } from '../lib/devInstanceScopePreview'
 import {
@@ -106,11 +106,10 @@ export default function SvgCanvasPage() {
     nodeCount,
     snapshotTemplateId,
   )
-  const devFixtureMetrics =
-    import.meta.env.DEV &&
-    devInspectorLivePreviewEnabled() &&
-    !runcloud9PickerChrome &&
-    !cvPopDesign
+  const devInspectorMode = useDevInspectorMode()
+  const devLiveInspector =
+    import.meta.env.DEV && devInspectorMode === 'live'
+  const devFixtureMetrics = devLiveInspector && !runcloud9PickerChrome
   useDevInstanceScopePreview(mode, nodes, devFixtureMetrics)
 
   const topology = useMemo(() => getTopologyFlags(nodes), [nodes])
@@ -150,11 +149,11 @@ export default function SvgCanvasPage() {
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
-    if (!runcloud9PickerChrome && !cvPopDesign) return
+    if (!runcloud9PickerChrome) return
     if (getDevInspectorMode() === 'live') {
       setDevInspectorMode('config')
     }
-  }, [runcloud9PickerChrome, cvPopDesign])
+  }, [runcloud9PickerChrome])
 
   const handleDesignStartWalkthrough = useCallback(
     (journeyId: string) => {
@@ -165,7 +164,7 @@ export default function SvgCanvasPage() {
   )
 
   return (
-    <div className="sl-chrome cv-chrome cv-dock flex h-screen w-screen overflow-hidden bg-[#1f1f32] text-[#ececf6]">
+    <div className="cv-chrome cv-app-frame cv-dock flex">
       <SessionSummary />
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -282,8 +281,11 @@ export default function SvgCanvasPage() {
       </div>
       {!walkthroughActive &&
       !runcloud9PickerChrome &&
-      !cvPopDesign &&
-      (mode === 'live' || mode === 'simulate' || Boolean(session.deploymentId)) ? (
+      (!cvPopDesign || devLiveInspector) &&
+      (mode === 'live' ||
+        mode === 'simulate' ||
+        Boolean(session.deploymentId) ||
+        devLiveInspector) ? (
         <InspectorPanel />
       ) : null}
     </div>

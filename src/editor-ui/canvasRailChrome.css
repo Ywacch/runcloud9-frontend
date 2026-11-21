@@ -29,7 +29,7 @@
   --dt-color-focus: #8fb4ff;
   --dt-color-primary: #3b7cf5;
   --dt-shadow-card-raised: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --dt-font-family-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --dt-font-family-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --cv-rail: 232px;
   font-family: var(--dt-font-family);
 }

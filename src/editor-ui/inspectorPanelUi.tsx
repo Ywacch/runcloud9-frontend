@@ -65,6 +65,13 @@ export function stacklabNodeKind(type: string): string {
   }
 }
 
+const DT_SEG =
+  'inline-flex! items-center! gap-0.5! rounded-[7px]! border! border-solid! border-[var(--dt-color-divider-inset)]! bg-transparent! p-0.5!'
+const DT_SEG_BTN =
+  'relative! h-6! min-w-0! rounded-[5px]! border-0! border-r-0! bg-transparent! px-2! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case! hover:bg-white/5! hover:text-[var(--dt-color-text-strong)]! focus-visible:outline! focus-visible:outline-2! focus-visible:outline-offset-1! focus-visible:outline-[var(--dt-color-focus)]! disabled:cursor-not-allowed! disabled:opacity-45!'
+const DT_SEG_ON =
+  'is-on bg-[var(--dt-color-surface-raised)]! text-[var(--dt-color-text-strong)]! after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0.5 after:h-0.5 after:rounded-sm after:bg-[var(--dt-color-primary)] after:content-[""]!'
+
 export function InspectorSegmentGroup({
   children,
   className = '',
@@ -88,7 +95,7 @@ export function InspectorSegmentGroup({
     )
   }
   return (
-    <div className={`sl-seg ${className}`} role="group" aria-label={ariaLabel}>
+    <div className={`sl-seg ${DT_SEG} ${className}`} role="group" aria-label={ariaLabel}>
       {children}
     </div>
   )
@@ -128,7 +135,7 @@ export function InspectorSegment({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`${active ? 'is-on' : ''} ${className}`}
+      className={`${DT_SEG_BTN} ${active ? DT_SEG_ON : ''} ${className}`}
     >
       {label}
     </button>
@@ -164,7 +171,7 @@ export function PanelViewControls({
           <div className="ctl">
             <span className="lab">scope</span>
             <div
-              className={`seg${scopeOptions.length < 2 ? ' dim' : ''}`}
+              className={`seg ${DT_SEG}${scopeOptions.length < 2 ? ' dim opacity-[0.38]!' : ''}`}
               role="group"
               aria-label="Metrics scope"
             >
@@ -172,7 +179,7 @@ export function PanelViewControls({
                 <button
                   key={option}
                   type="button"
-                  className={scopeValue === option ? 'is-on' : ''}
+                  className={`${DT_SEG_BTN} ${scopeValue === option ? DT_SEG_ON : ''}`}
                   disabled={scopeOptions.length < 2}
                   onClick={() => onScopeChange?.(option)}
                 >
@@ -185,17 +192,17 @@ export function PanelViewControls({
         {showTimeframe ? (
           <div className="ctl">
             <span className="lab">time</span>
-            <div className="seg" role="group" aria-label="Metrics timeframe">
+            <div className={`seg ${DT_SEG}`} role="group" aria-label="Metrics timeframe">
               <button
                 type="button"
-                className={view.timeframe === 'live' ? 'is-on' : ''}
+                className={`${DT_SEG_BTN} ${view.timeframe === 'live' ? DT_SEG_ON : ''}`}
                 onClick={() => onChange({ timeframe: 'live' })}
               >
                 Live
               </button>
               <button
                 type="button"
-                className={view.timeframe === 'session' ? 'is-on' : ''}
+                className={`${DT_SEG_BTN} ${view.timeframe === 'session' ? DT_SEG_ON : ''}`}
                 onClick={() => onChange({ timeframe: 'session' })}
               >
                 Session
@@ -207,16 +214,26 @@ export function PanelViewControls({
           <div className="ctl">
             <button
               type="button"
-              className={`flip ${view.showGraphs ? 'is-on' : ''}`}
+              className={`flip inline-flex! h-[22px]! items-center! gap-2! border-0! bg-transparent! p-0! text-[11px]! text-[var(--dt-color-text-muted)]! ${view.showGraphs ? 'is-on' : ''}`}
               aria-pressed={view.showGraphs}
               aria-label="Toggle graphs"
               title="Toggle graphs"
               onClick={() => onChange({ showGraphs: !view.showGraphs })}
             >
-              <span className="flip-track">
-                <span className="flip-knob" />
+              <span
+                className={`flip-track relative! block! h-3! w-[22px]! rounded-full! border-0! ${
+                  view.showGraphs ? 'bg-[rgba(127,205,185,0.55)]!' : 'bg-white/10!'
+                }`}
+              >
+                <span
+                  className={`flip-knob absolute! top-0.5! left-0.5! size-2! rounded-full! ${
+                    view.showGraphs ? 'translate-x-2.5! bg-white!' : 'bg-[#b9b9cc]!'
+                  }`}
+                />
               </span>
-              <span className="flip-lab">graphs {view.showGraphs ? 'on' : 'off'}</span>
+              <span className="flip-lab font-[family-name:var(--dt-font-family)]! text-[11px]! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case!">
+                graphs {view.showGraphs ? 'on' : 'off'}
+              </span>
             </button>
           </div>
         ) : null}
@@ -333,14 +350,18 @@ export function StatBlock({
   const showSpark =
     view?.showGraphs !== false && sparkData != null && sparkData.length >= 2
   return (
-    <div className="tile">
-      <div className="tile-lab flex items-center gap-1">
+    <div className="tile border-0! bg-transparent! p-0! before:content-none! after:content-none!">
+      <div className="tile-lab flex items-center justify-between gap-1 font-[family-name:var(--dt-font-family)]! text-[11px]! font-medium! tracking-normal! text-[#9d9db4]! normal-case!">
         {labelNode ?? label}
         {help ? <MetricHelpIcon title={help} /> : null}
       </div>
-      <div className={`tile-v num ${valueClassName}`.trim()}>
+      <div className={`tile-v num mt-1! font-[family-name:var(--dt-font-family)]! text-[22px]! font-semibold! leading-[1.1]! tracking-normal! text-white! ${valueClassName}`.trim()}>
         <span>{value}</span>
-        {unit ? <span className="u">{unit}</span> : null}
+        {unit ? (
+          <span className="u ml-0.5! font-[family-name:var(--dt-font-family)]! text-[11px]! font-normal! tracking-normal! text-[#9d9db4]! normal-case!">
+            {unit}
+          </span>
+        ) : null}
       </div>
       {showSpark ? <StacklabSparkline data={sparkData!} /> : null}
       {tileFoot}

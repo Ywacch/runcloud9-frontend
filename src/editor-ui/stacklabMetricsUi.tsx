@@ -77,16 +77,24 @@ export function StacklabSparkline({
   if (data.length < 2) return null
   const points = stacklabSparkPoints(data)
   return (
-    <svg className={className} viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden>
-      <line x1="0" y1="22" x2="100" y2="22" className="spark" />
-      <polyline points={points} />
+    <svg
+      className={`${className} mt-2! block! h-5! w-full! overflow-visible!`}
+      viewBox="0 0 100 24"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <line x1="0" y1="22" x2="100" y2="22" className="spark stroke-white/7! [stroke-width:1]" />
+      <polyline
+        points={points}
+        className="fill-none! stroke-[#6d9cf7]! opacity-90! [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1]"
+      />
     </svg>
   )
 }
 
 export function StacklabGraphsOffNote() {
   return (
-    <div className="graphs-off graph">
+    <div className="graphs-off graph border-0! bg-transparent! p-0! font-[family-name:var(--dt-font-family)]! text-[11px]! leading-normal! tracking-normal! text-[#9d9db4]! normal-case! opacity-80!">
       <b>GRAPHS OFF</b> — numbers only. Traces and markers resume when graphs come back on.
     </div>
   )
@@ -146,9 +154,9 @@ export function StacklabLatencyHistogram({
       </div>
       <div className="graph-box">
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
-          <path className="hist-fill" d={`${d} L${W} ${H - PB} L0 ${H - PB} Z`} />
-          <path className="hist-line" d={d} />
-          <line className="axis" x1="0" y1={H - PB} x2={W} y2={H - PB} />
+          <path className="hist-fill fill-[#4f8cff]/6!" d={`${d} L${W} ${H - PB} L0 ${H - PB} Z`} />
+          <path className="hist-line fill-none! stroke-[#6d9cf7]! [stroke-width:1]" d={d} />
+          <line className="axis stroke-white/7! [stroke-width:1]" x1="0" y1={H - PB} x2={W} y2={H - PB} />
           {markers.map(([pct, ms]) => {
             if (ms <= 0) return null
             const x = clamp((ms / xmax) * W, 4, W - 4)
@@ -208,13 +216,13 @@ export function StacklabLatencyLegend({
   ]
 
   return (
-    <div className="legend">
+    <div className="legend flex! flex-wrap! gap-x-4! gap-y-1! text-[12px]! font-semibold! text-[var(--dt-color-text)]!">
       {items.map(([pct, ms]) => {
         if (ms == null || ms <= 0) return null
         const on = pct === selectedQuantile
         const body = (
           <>
-            <span className="k" />
+            <span className="k inline-block! size-1.5! rounded-full! border-0! bg-[var(--dt-color-grid)]!" />
             {pct} <b>{fmtMs(ms)}</b>
             {on && pct === 'p99' ? (
               <span className="linkmark" style={{ color: 'var(--ink-3)' }}>
@@ -230,7 +238,7 @@ export function StacklabLatencyLegend({
             <button
               key={pct}
               type="button"
-              className={`lg${on ? ' is-on' : ''}`}
+              className={`lg inline-flex! items-center! gap-2.5! border-0! bg-transparent! p-0! font-[family-name:var(--dt-font-family)]! text-[12px]! font-semibold! tracking-normal! text-[var(--dt-color-text)]! normal-case!${on ? ' is-on' : ''}`}
               onClick={() => onSelectQuantile(pct)}
             >
               {body}
@@ -238,7 +246,7 @@ export function StacklabLatencyLegend({
           )
         }
         return (
-          <span key={pct} className={`lg${on ? ' is-on' : ''}`}>
+          <span key={pct} className={`lg inline-flex! items-center! gap-2.5! font-[family-name:var(--dt-font-family)]! text-[12px]! font-semibold! tracking-normal! text-[var(--dt-color-text)]! normal-case!${on ? ' is-on' : ''}`}>
             {body}
           </span>
         )

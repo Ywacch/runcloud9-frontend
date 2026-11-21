@@ -15,6 +15,22 @@
   --color-c9-900: #312e81;
 }
 
+@font-face {
+  font-family: 'Nunito Observe';
+  src: url('/fonts/nunito.woff') format('woff');
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-var.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --c9-bg: #08070c;
   --c9-bg-surface: #13111c;
@@ -45,6 +61,120 @@
   --c9-muted: var(--c9-text-muted);
   --c9-badge-bg: #eef2ff;
   --c9-badge-text: #4338ca;
+
+  /* Observe UI tokens (runcloud9 tokens.css). --c9-* above stays the product theme. */
+  --dt-font-family: 'Nunito Observe', 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --dt-font-family-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --dt-font-size-2xs: 11px;
+  --dt-font-size-xs: 12px;
+  --dt-font-size-sm: 13px;
+  --dt-font-size-md: 15px;
+  --dt-font-size-lg: 17px;
+  --dt-font-size-xl: 18px;
+  --dt-font-size-2xl: 24px;
+  --dt-font-size-3xl: 34px;
+  --dt-font-size-display: clamp(34px, 5.2vw, 64px);
+  --dt-font-weight-regular: 400;
+  --dt-font-weight-medium: 500;
+  --dt-font-weight-semibold: 600;
+  --dt-font-weight-bold: 700;
+  --dt-font-weight-black: 800;
+  --dt-letter-spacing: 0.15px;
+  --dt-line-height: 1.5;
+
+  --dt-color-backdrop-1: #0f55e3;
+  --dt-color-backdrop-2: #1a5de6;
+  --dt-color-backdrop-3: #2766e8;
+  --dt-color-backdrop-4: #326feb;
+  --dt-gradient-backdrop: linear-gradient(
+    170deg,
+    var(--dt-color-backdrop-1) 0%,
+    var(--dt-color-backdrop-2) 35%,
+    var(--dt-color-backdrop-3) 65%,
+    var(--dt-color-backdrop-4) 100%
+  );
+
+  --dt-color-page: #15152a;
+  --dt-color-app: #1f1f32;
+  --dt-color-rail: #232438;
+  --dt-color-surface: #2f2f4a;
+  --dt-color-surface-inset: #191931;
+  --dt-color-surface-raised: #3a3b56;
+  --dt-color-chip: #3c3e5c;
+  --dt-color-border: #4a4b66;
+  --dt-color-divider: #2c2c45;
+  --dt-color-divider-inset: #383951;
+  --dt-color-slab-1: #17172b;
+  --dt-color-slab-2: #0d0d1e;
+
+  --dt-color-text: #ececf6;
+  --dt-color-text-strong: #ffffff;
+  --dt-color-text-muted: #b9b9cc;
+  --dt-color-text-subtle: #a9aac0;
+  --dt-color-text-on-accent: #ffffff;
+
+  --dt-color-teal: #7fcdb9;
+  --dt-color-red: #e0405c;
+  --dt-color-blue: #4f8cff;
+  --dt-color-magenta: #d36be0;
+  --dt-color-amber: #f0a52a;
+  --dt-color-segment-off: #34354c;
+  --dt-color-grid: #6c6d86;
+  --dt-color-focus: #8fb4ff;
+  --dt-color-primary: #3b7cf5;
+  --dt-color-primary-hover: #5a92ff;
+
+  --dt-topology-bg: #13111c;
+  --dt-topology-floor: #1d1b28;
+  --dt-topology-grid: rgba(255, 255, 255, 0.075);
+  --dt-topology-grid-major: rgba(255, 255, 255, 0.15);
+  --dt-topology-edge: #77758a;
+  --dt-topology-slab-1: #2a2836;
+  --dt-topology-slab-2: #201e2a;
+  --dt-topology-lit: #7cc8ff;
+  --dt-topology-ring: #1f8f4c;
+  --dt-topology-ok: #22c55e;
+
+  --dt-color-series-info: #2e6be3;
+  --dt-color-series-warning: #dca230;
+  --dt-color-series-error: #d93a57;
+  --dt-color-series-none: #4c4d66;
+
+  --dt-radius-xs: 4px;
+  --dt-radius-sm: 7px;
+  --dt-radius-md: 10px;
+  --dt-radius-lg: 14px;
+  --dt-radius-xl: 18px;
+  --dt-radius-pill: 999px;
+
+  --dt-shadow-slab: 0 3px 0 var(--dt-color-slab-1), 0 5px 0 var(--dt-color-slab-2);
+  --dt-shadow-card:
+    var(--dt-shadow-slab),
+    0 50px 80px rgba(2, 3, 22, 0.8),
+    0 16px 30px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --dt-shadow-card-raised:
+    var(--dt-shadow-slab),
+    0 22px 44px rgba(2, 3, 22, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --dt-shadow-window: -20px 30px 70px rgba(4, 16, 70, 0.45);
+
+  --dt-space-1: 4px;
+  --dt-space-2: 8px;
+  --dt-space-3: 12px;
+  --dt-space-4: 16px;
+  --dt-space-5: 20px;
+  --dt-space-6: 24px;
+  --dt-space-8: 32px;
+  --dt-space-10: 40px;
+  --dt-space-12: 48px;
+  --dt-space-16: 64px;
+  --dt-space-24: 96px;
+
+  --dt-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dt-duration-fast: 150ms;
+  --dt-duration: 300ms;
+  --dt-duration-slow: 800ms;
 }
 
 .dark {
@@ -77,6 +207,44 @@
   --c9-muted: var(--c9-text-muted);
   --c9-badge-bg: rgba(79, 70, 229, 0.15);
   --c9-badge-text: #818cf8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dt-duration-fast: 0ms;
+    --dt-duration: 0ms;
+    --dt-duration-slow: 0ms;
+  }
+}
+
+.dt-theme-graphite {
+  --dt-color-app: #1b1d21;
+  --dt-color-rail: #22252a;
+  --dt-color-surface: #2b2e34;
+  --dt-color-surface-inset: #17191d;
+  --dt-color-surface-raised: #393d45;
+  --dt-color-chip: #3a3f48;
+  --dt-color-border: #4b505a;
+  --dt-color-divider-inset: #343841;
+  --dt-color-segment-off: #353941;
+  --dt-color-teal: #7fcdb9;
+  --dt-color-blue: #6aa5ff;
+  --dt-color-slab-1: #111214;
+  --dt-color-slab-2: #08090a;
+}
+
+/* Canvas window under the 64px app header. Two classes so this beats .sl-chrome. */
+.cv-chrome.cv-app-frame {
+  box-sizing: border-box;
+  width: 100%;
+  height: calc(100vh - 64px);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dt-color-page);
+  color: var(--dt-color-text);
+  font-family: var(--dt-font-family);
+  letter-spacing: var(--dt-letter-spacing);
+  line-height: var(--dt-line-height);
 }
 
 html,

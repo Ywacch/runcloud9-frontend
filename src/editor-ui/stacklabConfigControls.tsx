@@ -1,5 +1,23 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 
+/** dt-segmented track. `!` beats the unlayered StackLab rules on the same classes. */
+const SEG =
+  'seg inline-flex! items-center! gap-0.5! rounded-[7px]! border! border-solid! border-[var(--dt-color-divider-inset)]! bg-transparent! p-0.5!'
+const SEG_BTN =
+  'relative! h-6! min-w-0! flex-1! truncate! rounded-[5px]! border-0! border-r-0! bg-transparent! px-2! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case! shadow-none! hover:bg-white/5! hover:text-[var(--dt-color-text-strong)]! focus-visible:outline! focus-visible:outline-2! focus-visible:outline-offset-1! focus-visible:outline-[var(--dt-color-focus)]! disabled:cursor-not-allowed! disabled:opacity-45!'
+const SEG_ON =
+  'bg-[var(--dt-color-surface-raised)]! text-[var(--dt-color-text-strong)]! after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0.5 after:h-0.5 after:rounded-sm after:bg-[var(--dt-color-primary)] after:content-[""]!'
+const STEP_BTN =
+  'grid! size-[22px]! place-items-center! rounded! border-0! bg-transparent! p-0! font-[family-name:var(--dt-font-family)]! text-[13px]! leading-none! text-[var(--dt-color-text-muted)]! hover:bg-white/5! hover:text-[var(--dt-color-text-strong)]! disabled:cursor-default! disabled:bg-transparent! disabled:opacity-30!'
+const DD_TRIG =
+  'dd-trig relative! flex! h-6! w-full! items-center! justify-between! gap-2! border-0! border-b! border-solid! border-[var(--dt-color-divider-inset)]! bg-transparent! px-0! pr-[18px]! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tracking-normal! text-[var(--dt-color-text-strong)]! normal-case! hover:border-[var(--dt-color-text-muted)]! hover:bg-transparent! disabled:opacity-45!'
+const DD_MENU =
+  'dd-menu absolute! top-full! right-auto! left-0! z-20! mt-1! min-w-full! rounded-[7px]! border! border-white/10! bg-[var(--dt-color-surface-raised)]! p-0.5! shadow-[0_8px_20px_rgba(0,0,0,0.45)]!'
+const DD_OPT =
+  'dd-opt flex! h-6! w-full! items-center! gap-1.5! px-2! py-0! text-left! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tracking-normal! text-[var(--dt-color-text)]! normal-case! hover:bg-white/5! hover:text-[var(--dt-color-text-strong)]!'
+const CHEV =
+  'car pointer-events-none! absolute! top-2! right-1! size-[5px]! shrink-0! rotate-45! border-r-[1.5px]! border-b-[1.5px]! border-solid! border-[var(--dt-color-text-muted)]! text-[0px]!'
+
 export function PcfgField({
   label,
   htmlFor,
@@ -12,12 +30,19 @@ export function PcfgField({
   children: ReactNode
 }) {
   return (
-    <div className="pcfg-field">
-      <label className="lab pcfg-lab" htmlFor={htmlFor}>
+    <div className="pcfg-field grid! min-h-6! grid-cols-[auto_minmax(0,1fr)]! items-center! gap-x-3! border-0! bg-transparent! p-0!">
+      <label
+        className="lab pcfg-lab mb-0! block! whitespace-nowrap! font-[family-name:var(--dt-font-family)]! text-[12px]! font-normal! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case!"
+        htmlFor={htmlFor}
+      >
         {label}
       </label>
-      <div className="pcfg-ctl">{children}</div>
-      {sub ? <p className="pcfg-sub">{sub}</p> : null}
+      <div className="pcfg-ctl mb-0! flex! min-w-0! items-center! justify-end!">{children}</div>
+      {sub ? (
+        <p className="pcfg-sub col-span-2! mt-[3px]! truncate! font-[family-name:var(--dt-font-family)]! text-[11px]! leading-[1.35]! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case! opacity-85!">
+          {sub}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -42,8 +67,9 @@ export function PcfgNum({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="numfld">
+    <div className="numfld inline-flex! h-6! min-w-0! items-center! gap-1! border-0! border-b! border-solid! border-[var(--dt-color-divider-inset)]! bg-transparent! px-0!">
       <input
+        className="w-10! min-w-0! border-0! bg-transparent! p-0! text-right! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tabular-nums! text-[var(--dt-color-text-strong)]! outline-none!"
         id={id}
         type="text"
         inputMode="numeric"
@@ -66,7 +92,11 @@ export function PcfgNum({
           onChange(String(n))
         }}
       />
-      {unit ? <span className="unit">{unit}</span> : null}
+      {unit ? (
+        <span className="unit ml-0! font-[family-name:var(--dt-font-family)]! text-[11px]! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case!">
+          {unit}
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -87,18 +117,22 @@ export function PcfgStepper({
   onChange: (next: number) => void
 }) {
   return (
-    <div className="stepper">
+    <div className="stepper inline-flex! h-6! items-center! gap-0.5! border-0! bg-transparent!">
       <button
         type="button"
+        className={STEP_BTN}
         aria-label={`Decrease ${label}`}
         disabled={disabled || value <= min}
         onClick={() => onChange(Math.max(min, value - 1))}
       >
         −
       </button>
-      <span className="st-v">{value}</span>
+      <span className="st-v inline-flex! h-[22px]! min-w-[30px]! items-center! justify-center! border-0! border-b! border-solid! border-[var(--dt-color-divider-inset)]! bg-transparent! px-[3px]! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tabular-nums! text-[var(--dt-color-text-strong)]!">
+        {value}
+      </span>
       <button
         type="button"
+        className={STEP_BTN}
         aria-label={`Increase ${label}`}
         disabled={disabled || value >= max}
         onClick={() => onChange(Math.min(max, value + 1))}
@@ -142,7 +176,7 @@ export function PcfgDd({
     <div className="dd" id={id}>
       <button
         type="button"
-        className="dd-trig"
+        className={DD_TRIG}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={menuId}
@@ -151,17 +185,17 @@ export function PcfgDd({
           if (!disabled) setOpen((v) => !v)
         }}
       >
-        <span>{current?.label ?? value}</span>
-        <span className="car">▾</span>
+        <span className="min-w-0! truncate!">{current?.label ?? value}</span>
+        <span className={CHEV} aria-hidden />
       </button>
-      <div className={`dd-menu${open ? ' is-open' : ''}`} id={menuId} role="listbox">
+      <div className={`${DD_MENU}${open ? ' is-open' : ''}`} id={menuId} role="listbox">
         {options.map((o) => (
           <button
             key={o.value || 'default'}
             type="button"
             role="option"
             aria-selected={o.value === value}
-            className={`dd-opt${o.value === value ? ' is-on' : ''}`}
+            className={`${DD_OPT}${o.value === value ? ' is-on bg-white/10! text-[var(--dt-color-text-strong)]!' : ''}`}
             disabled={o.disabled || disabled}
             onClick={() => {
               if (o.disabled || disabled) return
@@ -169,7 +203,9 @@ export function PcfgDd({
               setOpen(false)
             }}
           >
-            <span className="chk">{o.value === value ? '▸' : ''}</span>
+            <span className="chk w-2! text-[10px]! text-[var(--dt-color-primary)]!">
+              {o.value === value ? '▸' : ''}
+            </span>
             {o.label}
           </button>
         ))}
@@ -251,7 +287,7 @@ export function PcfgProf({
     <div className="dd dd-prof" id={id}>
       <button
         type="button"
-        className="dd-trig"
+        className={DD_TRIG}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={menuId}
@@ -260,18 +296,22 @@ export function PcfgProf({
           if (!disabled) setOpen((v) => !v)
         }}
       >
-        <span className="dd-prof-l">{current?.label ?? value}</span>
-        <span className="dd-prof-meta">{current?.meta ?? ''}</span>
-        <span className="car">▾</span>
+        <span className="dd-prof-l min-w-0! truncate! font-[family-name:var(--dt-font-family)]! text-[12px]! text-[var(--dt-color-text-strong)]!">
+          {current?.label ?? value}
+        </span>
+        <span className="dd-prof-meta ml-auto! mr-2! truncate! font-[family-name:var(--dt-font-family-mono)]! text-[11px]! text-[var(--dt-color-text-muted)]!">
+          {current?.meta ?? ''}
+        </span>
+        <span className={CHEV} aria-hidden />
       </button>
-      <div className={`dd-menu${open ? ' is-open' : ''}`} id={menuId} role="listbox">
+      <div className={`${DD_MENU} min-w-[200px]!${open ? ' is-open' : ''}`} id={menuId} role="listbox">
         {options.map((o) => (
           <button
             key={o.value}
             type="button"
             role="option"
             aria-selected={o.value === value}
-            className={`dd-opt${o.value === value ? ' is-on' : ''}`}
+            className={`${DD_OPT}${o.value === value ? ' is-on bg-white/10! text-[var(--dt-color-text-strong)]!' : ''}`}
             disabled={disabled}
             onClick={() => {
               if (disabled) return
@@ -311,7 +351,7 @@ export function PcfgSeg({
   tight?: boolean
   onChange: (value: string) => void
 }) {
-  const segClass = ['seg', wrap ? 'wrap' : '', tight ? 'tight' : '']
+  const segClass = [SEG, wrap ? 'wrap w-full! flex-wrap!' : '', tight ? 'tight' : '']
     .filter(Boolean)
     .join(' ')
   return (
@@ -322,7 +362,7 @@ export function PcfgSeg({
           type="button"
           role="radio"
           aria-checked={o.value === value}
-          className={o.value === value ? 'is-on' : ''}
+          className={`${SEG_BTN}${o.value === value ? ` is-on ${SEG_ON}` : ''}`}
           disabled={disabled || o.disabled}
           onClick={() => {
             if (disabled || o.disabled) return

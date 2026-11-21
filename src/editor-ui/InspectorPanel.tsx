@@ -168,16 +168,27 @@ import {
 } from '../lib/variationTopologyLock'
 import { isVariationTopologyLocked } from '../lib/variationTopologyLock'
 
-const INSPECTOR_MIN_W = 400
-const INSPECTOR_MAX_W = 900
+const SB_MIN = 360
+const SB_NARROW = 420
+const SB_WIDE = 640
+const SB_MAX_F = 0.7
+const SB_CANVAS_MIN = 760
+const SB_BREAK = 600
+
+function sidebarMaxWidth(): number {
+  const cap = Math.min(
+    window.innerWidth * SB_MAX_F,
+    window.innerWidth - SB_CANVAS_MIN,
+  )
+  return Math.max(SB_MIN, Math.round(cap))
+}
 
 function clampInspectorWidth(px: number): number {
-  const cap = Math.min(INSPECTOR_MAX_W, Math.round(window.innerWidth * 0.55))
-  return Math.min(cap, Math.max(INSPECTOR_MIN_W, Math.round(px)))
+  return Math.max(SB_MIN, Math.min(sidebarMaxWidth(), Math.round(px)))
 }
 
 function defaultInspectorWidth(): number {
-  return clampInspectorWidth(INSPECTOR_MIN_W)
+  return clampInspectorWidth(SB_NARROW)
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -408,6 +419,7 @@ export function InspectorPanel() {
   const logTabCount = node ? stacklabLogCountForNode(node, allLogs) : 0
   const clientInert = node?.type === 'client'
   const [dockWidth, setDockWidth] = useState(defaultInspectorWidth)
+  const [resizing, setResizing] = useState(false)
   const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
 
   const prevInspectorNodeIdRef = useRef<string | null>(null)
@@ -474,6 +486,7 @@ export function InspectorPanel() {
     }
     const onUp = () => {
       resizeDragRef.current = null
+      setResizing(false)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -489,9 +502,15 @@ export function InspectorPanel() {
     selectNode(null)
   }
 
+  const wideLayout = dockWidth >= SB_BREAK
+  const snapWide = () => setDockWidth(clampInspectorWidth(SB_WIDE))
+  const snapNarrow = () => setDockWidth(clampInspectorWidth(SB_NARROW))
+
   return (
     <aside
-      className={`sl-inspector inspector${open ? '' : ' pointer-events-none'}`}
+      className={`sl-inspector inspector${open ? '' : ' pointer-events-none'}${resizing ? '' : ' sb-anim'}`}
+      data-sbw={wideLayout ? 'wide' : 'narrow'}
+      data-resizing={resizing ? 'true' : 'false'}
       style={
         open
           ? { width: dockWidth, flex: `0 0 ${dockWidth}px` }
@@ -504,10 +523,11 @@ export function InspectorPanel() {
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize inspector"
-          className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize hover:bg-[var(--c9-accent)]/40"
+          className="sb-handle"
           onPointerDown={(e) => {
             e.preventDefault()
             resizeDragRef.current = { startX: e.clientX, startW: dockWidth }
+            setResizing(true)
           }}
         />
       ) : null}
@@ -520,6 +540,38 @@ export function InspectorPanel() {
                 {import.meta.env.DEV && mode === 'design' ? (
                   <DevInspectorModeToggle compact />
                 ) : null}
+                <button
+                  type="button"
+                  className="sb-exp"
+                  aria-pressed={wideLayout}
+                  aria-label={wideLayout ? 'Narrow the inspector' : 'Widen the inspector'}
+                  title={wideLayout ? 'Narrow' : 'Widen'}
+                  onClick={wideLayout ? snapNarrow : snapWide}
+                >
+                  {wideLayout ? (
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+                      <path
+                        d="M9.5 4.5 13 8l-3.5 3.5M3 4.5 6.5 8 3 11.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+                      <path
+                        d="M6.5 4.5 3 8l3.5 3.5M13 4.5 9.5 8l3.5 3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => selectNode(null)}
@@ -677,7 +729,7 @@ export function InspectorPanel() {
                   ) : null}
                 </div>
               ) : null}
-              <div className="body">
+              <div className="body dx-cols">
                 {clientInert ? (
                   <section className="sec">
                     <p className="note">
@@ -807,7 +859,7 @@ export function InspectorPanel() {
             </>
           ) : (
             <>
-              <div className="body">
+              <div className="body dx-cols">
                 <section className="sec">
                   {engineerPreviewLocked ? <EngineerLockedInspectorNotice /> : null}
                   <div className="pcfg-stack">
