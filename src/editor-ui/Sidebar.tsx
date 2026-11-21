@@ -1096,7 +1096,7 @@ export function Sidebar() {
             onClick={handleTeardown}
               className="cv-deploy-btn danger w-full disabled:opacity-50"
           >
-            Teardown
+            Tear down
           </button>
         ) : simulate && SHOW_SIMULATION_UI ? (
           <>

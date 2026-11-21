@@ -1,3 +1,4 @@
+import type { HealthState } from '../../editor-core/domain/healthThresholds'
 import type { CanvasMode, CanvasNode } from '../../editor-core/stores/canvasStore'
 import { formatProvisionedShort, resolveProvisionedLimits } from '../../lib/resolveProvisionedLimits'
 import { getResourceProfilesCached } from '../../lib/resourceProfileStore'
@@ -14,6 +15,18 @@ export function provisionedSublabelForNode(node: CanvasNode): string | null {
   return formatProvisionedShort(
     resolveProvisionedLimits(node.type, node.config, catalog),
   )
+}
+
+/** Observe palette: warning names are amber, error names are red, replica count is teal. */
+export const NODE_LABEL_DEFAULT = '#ffffff'
+export const NODE_LABEL_WARN = '#e0a64b'
+export const NODE_LABEL_ERROR = '#e0405c'
+export const REPLICA_BADGE_FILL = '#7fcdb9'
+
+export function nodeLabelFill(health: HealthState): string {
+  if (health === 'warning') return NODE_LABEL_WARN
+  if (health === 'error') return NODE_LABEL_ERROR
+  return NODE_LABEL_DEFAULT
 }
 
 /** Match Pixi replica badge copy (`×N` / `+N read`). */
