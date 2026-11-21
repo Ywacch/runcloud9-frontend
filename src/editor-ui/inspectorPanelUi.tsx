@@ -35,7 +35,7 @@ export interface PanelViewState {
 
 /** Shared label style for inspector metric keys and section chrome. */
 export const INSPECTOR_LABEL_CLASS =
-  'font-mono text-[9px] font-medium uppercase tracking-[0.13em] text-[var(--c9-muted)]'
+  'font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--c9-muted)]'
 
 /** Config tab field stack (mock pcfg-field, indigo tokens). */
 export const CONFIG_FIELD_CLASS = 'sl-field w-full'
@@ -70,7 +70,7 @@ const DT_SEG =
 const DT_SEG_BTN =
   'relative! h-6! min-w-0! rounded-[5px]! border-0! border-r-0! bg-transparent! px-2! font-[family-name:var(--dt-font-family)]! text-[12px]! font-medium! tracking-normal! text-[var(--dt-color-text-muted)]! normal-case! hover:bg-white/5! hover:text-[var(--dt-color-text-strong)]! focus-visible:outline! focus-visible:outline-2! focus-visible:outline-offset-1! focus-visible:outline-[var(--dt-color-focus)]! disabled:cursor-not-allowed! disabled:opacity-45!'
 const DT_SEG_ON =
-  'is-on bg-[var(--dt-color-surface-raised)]! text-[var(--dt-color-text-strong)]! after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0.5 after:h-0.5 after:rounded-sm after:bg-[var(--dt-color-primary)] after:content-[""]!'
+  'is-on bg-[rgba(59,124,245,0.12)]! text-[var(--dt-color-text-strong)]! shadow-[inset_0_0_0_1px_var(--dt-color-primary)]!'
 
 export function InspectorSegmentGroup({
   children,
@@ -105,12 +105,14 @@ export function InspectorSegment({
   active,
   onClick,
   label,
+  title,
   className = '',
   variant = 'stacklab',
 }: {
   active: boolean
   onClick: () => void
   label: string
+  title?: string
   className?: string
   variant?: 'stacklab' | 'legacy'
 }) {
@@ -120,7 +122,8 @@ export function InspectorSegment({
         type="button"
         onClick={onClick}
         aria-pressed={active}
-        className={`rounded-none px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--c9-accent)] ${
+        title={title}
+        className={`rounded-none px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--c9-accent)] ${
           active
             ? 'bg-[var(--c9-bg-card)] text-[var(--c9-text)] shadow-[inset_0_1px_0_var(--c9-border-inset)]'
             : 'text-[var(--c9-muted)] hover:text-[var(--c9-text)]'
@@ -135,6 +138,7 @@ export function InspectorSegment({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      title={title}
       className={`${DT_SEG_BTN} ${active ? DT_SEG_ON : ''} ${className}`}
     >
       {label}

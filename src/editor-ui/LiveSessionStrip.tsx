@@ -72,6 +72,7 @@ import {
 } from '../lib/userTier'
 import { scaleLagErrorLabel } from '../lib/scaleLag'
 import { useAuthStore } from '../product/stores/authStore'
+import { DegradedNodesButton } from './DegradedNodesButton'
 import { RequestJourneyPanel } from './RequestJourneyPanel'
 
 const INGRESS_HELP_LIVE =
@@ -819,6 +820,7 @@ export function LiveSessionStrip() {
             />
             {showLiveChrome ? 'Live' : 'Sim'}
           </span>
+          <DegradedNodesButton />
           {showLiveChrome ? (
             <span className="font-[family-name:var(--dt-font-family-mono)] tabular-nums text-[var(--dt-color-text-muted)]">
               {formatSessionMmSs(remaining)}

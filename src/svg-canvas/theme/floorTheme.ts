@@ -1,6 +1,6 @@
 /**
  * Canvas-scoped floor appearance (independent of app `--c9-*` chrome tokens).
- * Dark matches the Pixi host (`#13111c`) and muted iso grid strokes.
+ * Dark matches the Observe page (`#15152a`). The Pixi fallback keeps its own host fill.
  */
 
 export type FloorThemeId = 'dark' | 'light'
@@ -19,7 +19,7 @@ export type FloorThemeTokens = {
 export const FLOOR_THEMES: Record<FloorThemeId, FloorThemeTokens> = {
   dark: {
     id: 'dark',
-    hostBg: '#13111c',
+    hostBg: '#15152a',
     floorFill: '#1c1a27',
     gridMinor: 'rgba(170,170,170,0.25)',
     gridMajor: 'rgba(170,170,170,0.45)',

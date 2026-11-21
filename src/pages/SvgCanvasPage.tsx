@@ -149,7 +149,14 @@ export default function SvgCanvasPage() {
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
+    if (new URLSearchParams(window.location.search).get('inspector') !== 'live') return
+    setDevInspectorMode('live')
+  }, [])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
     if (!runcloud9PickerChrome) return
+    if (new URLSearchParams(window.location.search).get('inspector') === 'live') return
     if (getDevInspectorMode() === 'live') {
       setDevInspectorMode('config')
     }

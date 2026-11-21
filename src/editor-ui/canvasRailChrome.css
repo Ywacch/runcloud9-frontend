@@ -11,6 +11,8 @@
 }
 
 .cv-chrome {
+  background: #15152a;
+  color: #e6e6ef;
   --dt-font-family: 'Nunito Observe', 'Nunito', system-ui, -apple-system,
     'Segoe UI', Roboto, sans-serif;
   --dt-font-size-2xs: 11px;
@@ -330,7 +332,15 @@
 }
 
 .cv-chrome .cv-deploy-btn.danger {
-  background: #e0405c;
+  color: #f07a8e;
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(240, 122, 142, 0.45);
+}
+
+.cv-chrome .cv-deploy-btn.danger:hover:not(:disabled) {
+  color: #ffb3bf;
+  background: rgba(240, 122, 142, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(240, 122, 142, 0.7);
 }
 
 /* lab tree */
@@ -1222,7 +1232,7 @@
 }
 
 .cv-chrome .cv-logs-flt {
-  font: 10.5px var(--dt-font-family-mono);
+  font: 11px var(--dt-font-family-mono);
   color: var(--dt-color-text);
   padding: 0 6px;
   border-left: 1px solid rgba(255, 255, 255, 0.07);

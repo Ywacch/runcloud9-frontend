@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { requestCanvasFit } from '../canvas/utils/canvasFitBridge'
 import {
   getAvailableCacheStrategies,
   isProxyCacheStrategy,
@@ -167,29 +168,15 @@ import {
   variationCacheStrategyMode,
 } from '../lib/variationTopologyLock'
 import { isVariationTopologyLocked } from '../lib/variationTopologyLock'
-
-const SB_MIN = 360
-const SB_NARROW = 420
-const SB_WIDE = 640
-const SB_MAX_F = 0.7
-const SB_CANVAS_MIN = 760
-const SB_BREAK = 600
-
-function sidebarMaxWidth(): number {
-  const cap = Math.min(
-    window.innerWidth * SB_MAX_F,
-    window.innerWidth - SB_CANVAS_MIN,
-  )
-  return Math.max(SB_MIN, Math.round(cap))
-}
-
-function clampInspectorWidth(px: number): number {
-  return Math.max(SB_MIN, Math.min(sidebarMaxWidth(), Math.round(px)))
-}
-
-function defaultInspectorWidth(): number {
-  return clampInspectorWidth(SB_NARROW)
-}
+import {
+  clampInspectorWidth,
+  INSPECTOR_DOCK,
+  inspectorIsWide,
+  inspectorLayout,
+  readInspectorWidthPref,
+  toggleInspectorWidth,
+  writeInspectorWidthPref,
+} from './inspectorDock'
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
@@ -405,10 +392,6 @@ export function InspectorPanel() {
     showInstanceTabs &&
     (liveTab === 'metrics' || liveTab === 'logs') &&
     (node?.type === 'database' || (node != null && usesPodReplicaScope(node)))
-  const showPodScopeToggle =
-    Boolean(node) &&
-    usesPodReplicaScope(node) &&
-    instanceTabs.some((tab) => tab.id !== 'cluster')
   const showLiveMetricsControls = liveTab === 'metrics' && node?.type !== 'client'
   const showLiveStickyChrome =
     showLiveInstanceTabs ||
@@ -418,9 +401,28 @@ export function InspectorPanel() {
   const allLogs = useLogStore((s) => s.logs)
   const logTabCount = node ? stacklabLogCountForNode(node, allLogs) : 0
   const clientInert = node?.type === 'client'
-  const [dockWidth, setDockWidth] = useState(defaultInspectorWidth)
+  const widthPrefRef = useRef(
+    readInspectorWidthPref(typeof localStorage !== 'undefined' ? localStorage : null),
+  )
+  const [dockWidth, setDockWidth] = useState(() =>
+    clampInspectorWidth(
+      widthPrefRef.current,
+      typeof window !== 'undefined' ? window.innerWidth : 1440,
+    ),
+  )
   const [resizing, setResizing] = useState(false)
   const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
+
+  const commitWidth = useCallback((requested: number, persist: boolean) => {
+    const windowWidth = window.innerWidth
+    if (persist) widthPrefRef.current = requested
+    const next = clampInspectorWidth(
+      persist ? requested : widthPrefRef.current,
+      windowWidth,
+    )
+    setDockWidth(next)
+    if (persist) writeInspectorWidthPref(localStorage, next)
+  }, [])
 
   const prevInspectorNodeIdRef = useRef<string | null>(null)
   useEffect(() => {
@@ -472,17 +474,23 @@ export function InspectorPanel() {
   }, [node, nodeMetrics])
 
   useEffect(() => {
-    const onResize = () => setDockWidth((w) => clampInspectorWidth(w))
+    const onResize = () =>
+      setDockWidth(clampInspectorWidth(widthPrefRef.current, window.innerWidth))
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+    requestCanvasFit()
+  }, [open, dockWidth])
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       const drag = resizeDragRef.current
       if (!drag) return
       const delta = drag.startX - e.clientX
-      setDockWidth(clampInspectorWidth(drag.startW + delta))
+      commitWidth(drag.startW + delta, true)
     }
     const onUp = () => {
       resizeDragRef.current = null
@@ -494,7 +502,7 @@ export function InspectorPanel() {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [])
+  }, [commitWidth])
 
   const onDelete = () => {
     if (!node || variationTopologyLocked) return
@@ -502,9 +510,10 @@ export function InspectorPanel() {
     selectNode(null)
   }
 
-  const wideLayout = dockWidth >= SB_BREAK
-  const snapWide = () => setDockWidth(clampInspectorWidth(SB_WIDE))
-  const snapNarrow = () => setDockWidth(clampInspectorWidth(SB_NARROW))
+  const wideLayout = inspectorLayout(dockWidth) === 'wide'
+  const expanded = inspectorIsWide(dockWidth, typeof window !== 'undefined' ? window.innerWidth : 1440)
+  const snapToggle = () =>
+    commitWidth(toggleInspectorWidth(dockWidth, window.innerWidth), true)
 
   return (
     <aside
@@ -523,49 +532,94 @@ export function InspectorPanel() {
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize inspector"
+          aria-valuenow={dockWidth}
+          aria-valuemin={INSPECTOR_DOCK.min}
+          aria-valuemax={clampInspectorWidth(INSPECTOR_DOCK.wide, typeof window !== 'undefined' ? window.innerWidth : 1440)}
+          tabIndex={0}
+          title="Drag to resize · double-click to expand or collapse"
           className="sb-handle"
           onPointerDown={(e) => {
+            if (e.button !== 0) return
             e.preventDefault()
             resizeDragRef.current = { startX: e.clientX, startW: dockWidth }
             setResizing(true)
           }}
-        />
+          onDoubleClick={() => snapToggle()}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') {
+              e.preventDefault()
+              commitWidth(dockWidth + INSPECTOR_DOCK.nudge, true)
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault()
+              commitWidth(dockWidth - INSPECTOR_DOCK.nudge, true)
+            } else if (e.key === 'Enter') {
+              e.preventDefault()
+              snapToggle()
+            }
+          }}
+        >
+          <span className="sb-grip" aria-hidden>
+            <i />
+            <i />
+            <i />
+          </span>
+        </div>
       ) : null}
       {open && node ? (
         <>
           <header className="ins-head">
             <div className="ins-head-top">
-              <span className="kind">{stacklabNodeKind(node.type)}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="ins-title">
+                {!inspectorLiveChrome &&
+                !engineerPreviewLocked &&
+                !variationTopologyLocked &&
+                !deploymentId ? (
+                  <>
+                    <label className="sr-only" htmlFor="runcloud9-inspector-label">
+                      Label
+                    </label>
+                    <input
+                      id="runcloud9-inspector-label"
+                      type="text"
+                      value={node.label}
+                      onChange={(e) => updateNodeLabel(node.id, e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <h1>{node.label}</h1>
+                )}
+                <span className="kind">{stacklabNodeKind(node.type)}</span>
+              </div>
+              <div className="sb-btns">
                 {import.meta.env.DEV && mode === 'design' ? (
                   <DevInspectorModeToggle compact />
                 ) : null}
                 <button
                   type="button"
                   className="sb-exp"
-                  aria-pressed={wideLayout}
-                  aria-label={wideLayout ? 'Narrow the inspector' : 'Widen the inspector'}
-                  title={wideLayout ? 'Narrow' : 'Widen'}
-                  onClick={wideLayout ? snapNarrow : snapWide}
+                  aria-pressed={expanded}
+                  aria-label={expanded ? 'Collapse inspector' : 'Expand inspector'}
+                  title={expanded ? 'Collapse' : 'Expand'}
+                  onClick={snapToggle}
                 >
-                  {wideLayout ? (
-                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+                  {expanded ? (
+                    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden>
                       <path
-                        d="M9.5 4.5 13 8l-3.5 3.5M3 4.5 6.5 8 3 11.5"
+                        d="M13.5 6.5h-4v-4M9.5 6.5l4.5-4.5M2.5 9.5h4v4M6.5 9.5 2 14"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="1.4"
+                        strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
                     </svg>
                   ) : (
-                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+                    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden>
                       <path
-                        d="M6.5 4.5 3 8l3.5 3.5M13 4.5 9.5 8l3.5 3.5"
+                        d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="1.4"
+                        strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
@@ -576,47 +630,21 @@ export function InspectorPanel() {
                   type="button"
                   onClick={() => selectNode(null)}
                   className="close"
-                  aria-label="Close inspector"
+                  aria-label="Close inspector (Esc)"
+                  title="Close (Esc)"
                 >
-                  <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden>
+                  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
                     <path
-                      d="M0.5 0.5 L8.5 8.5 M8.5 0.5 L0.5 8.5"
+                      d="M4 4l8 8M12 4l-8 8"
+                      fill="none"
                       stroke="currentColor"
-                      strokeWidth="1.2"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
                     />
                   </svg>
                 </button>
               </div>
             </div>
-            {!inspectorLiveChrome &&
-            !engineerPreviewLocked &&
-            !variationTopologyLocked &&
-            !deploymentId ? (
-              <>
-                <label className="sr-only" htmlFor="runcloud9-inspector-label">
-                  Label
-                </label>
-                <input
-                  id="runcloud9-inspector-label"
-                  type="text"
-                  value={node.label}
-                  onChange={(e) => updateNodeLabel(node.id, e.target.value)}
-                  style={{
-                    fontFamily: 'var(--disp)',
-                    fontSize: 19,
-                    fontWeight: 600,
-                    letterSpacing: '-0.015em',
-                    marginTop: 9,
-                    width: '100%',
-                    background: 'transparent',
-                    border: 0,
-                    color: 'var(--ink)',
-                  }}
-                />
-              </>
-            ) : (
-              <h1>{node.label}</h1>
-            )}
             {roleLabel ? <p className="role">{roleLabel}</p> : null}
             {inspectorLiveChrome && (provisionedBadge(node) || inspectorDeployment) ? (
               <div className="head-meta">
@@ -690,21 +718,6 @@ export function InspectorPanel() {
                     <PanelViewControls
                       view={metricsPanelView}
                       onChange={patchMetricsPanelView}
-                      showScope={showPodScopeToggle}
-                      scopeValue={
-                        !selectedInstanceId || selectedInstanceId === 'cluster'
-                          ? 'cluster'
-                          : 'instance'
-                      }
-                      scopeOptions={['cluster', 'instance']}
-                      onScopeChange={(scope) => {
-                        if (scope === 'cluster') {
-                          setSelectedInstanceId('cluster')
-                          return
-                        }
-                        const firstPod = instanceTabs.find((tab) => tab.id !== 'cluster')
-                        if (firstPod) setSelectedInstanceId(firstPod.id)
-                      }}
                       showTimeframe={panelViewVisibility.showTimeframe}
                       showGraphsToggle={panelViewVisibility.showGraphs}
                     />
